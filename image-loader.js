@@ -7,7 +7,7 @@
 // where a browser caches a 404 from the brief window during deploy when an
 // image is referenced in HTML but not yet uploaded — once we deploy again the
 // URL is new, the cached 404 doesn't apply, and the browser fetches fresh.
-const BASE_PATH = process.env.GITHUB_PAGES === "true" ? "/plonkgolf-website" : "";
+const BASE_PATH = process.env.GITHUB_PAGES === "true" ? "/nodice.bar" : "";
 const BUILD_HASH = process.env.NEXT_PUBLIC_BUILD_ID || "";
 
 export default function imageLoader({ src }) {
