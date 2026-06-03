@@ -1,0 +1,320 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+:root {
+  --font-display: "DM Serif Display", Georgia, serif;
+  --font-body: "DM Sans", system-ui, sans-serif;
+  --forest: #0E2A21;
+  --forest-deep: #081A14;
+  --forest-raised: #163A2E;
+  --forest-line: #2A4D3F;
+  --forest-light: #1F4A3B;
+  --plum: #1F1233;
+  --plum-deep: #110820;
+  --plum-raised: #2C1846;
+  --plum-line: #3F2266;
+  --lilac: #5A3F86;
+  --lilac-deep: #3E2A5C;
+  --lilac-raised: #6B4D9C;
+  --lilac-line: #7D5FB0;
+  /* Borough Market used to be ember/red. Aliased to lilac so every
+     existing .tint-ember*, .bed-borough etc. flows lilac instead — no
+     need to touch every page that references them. */
+  --ember: #5A3F86;
+  --ember-deep: #3E2A5C;
+  --ember-raised: #6B4D9C;
+  --ember-line: #7D5FB0;
+  --cream: #F2EBD9;
+  --cream-dim: #C7BFA9;
+  --pink: #ff3d8a;
+  --yellow: #E8C547;
+}
+
+html, body {
+  background: var(--forest);
+  color: var(--cream);
+  font-family: var(--font-body);
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+}
+
+html {
+  scroll-behavior: smooth;
+}
+
+::selection {
+  background: var(--yellow);
+  color: var(--forest-deep);
+}
+
+/* Reveal on scroll */
+.reveal {
+  opacity: 0;
+  transform: translateY(24px);
+  transition: opacity 0.9s ease, transform 0.9s ease;
+}
+.reveal.in {
+  opacity: 1;
+  transform: translateY(0);
+}
+
+/* Subtle grain on dark backgrounds */
+.grain {
+  position: relative;
+}
+.grain::after {
+  content: "";
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+  background-image: radial-gradient(rgba(255,255,255,0.04) 1px, transparent 1px);
+  background-size: 3px 3px;
+  mix-blend-mode: overlay;
+  opacity: 0.4;
+}
+
+/* Hide native scrollbar on horizontal strips */
+.no-scrollbar::-webkit-scrollbar { display: none; }
+.no-scrollbar { -ms-overflow-style: none; scrollbar-width: none; }
+
+/* Smooth marquee */
+@keyframes marquee {
+  from { transform: translateX(0); }
+  to { transform: translateX(-50%); }
+}
+.marquee {
+  animation: marquee 40s linear infinite;
+}
+
+/* ───────── Section gradient wash ─────────
+   Each section uses one of these classes to flow through the
+   forest → plum → ember → forest palette. Adjacent sections
+   share their edge colour for seamless transitions.
+*/
+/* "Solid" tints are kept subtly graded within their tonal family so
+   no section ever sits as one flat colour. */
+.tint-forest         { background: linear-gradient(180deg, var(--forest-light) 0%, var(--forest) 100%); }
+.tint-forest-deep    { background: linear-gradient(180deg, var(--forest) 0%, var(--forest-deep) 100%); }
+.tint-plum           { background: linear-gradient(180deg, var(--plum-raised) 0%, var(--plum) 100%); }
+.tint-plum-deep      { background: linear-gradient(180deg, var(--plum) 0%, var(--plum-deep) 100%); }
+.tint-ember          { background: linear-gradient(180deg, var(--lilac-raised) 0%, var(--lilac) 100%); }
+.tint-ember-deep     { background: linear-gradient(180deg, var(--lilac) 0%, var(--lilac-deep) 100%); }
+
+/* Every tint-X-to-Y starts at X (0%) and ends EXACTLY at Y (100%) so
+   adjacent sections that name the same colour at their boundary line
+   up pixel-perfect — no visible seams.                                */
+.tint-forest-to-plum     { background: linear-gradient(180deg, var(--forest) 0%, var(--plum) 100%); }
+.tint-plum-to-forest     { background: linear-gradient(180deg, var(--plum) 0%, var(--forest) 100%); }
+.tint-plum-to-ember      { background: linear-gradient(180deg, var(--plum) 0%, var(--ember) 100%); }
+.tint-ember-to-plum      { background: linear-gradient(180deg, var(--ember) 0%, var(--plum) 100%); }
+.tint-ember-to-forest    { background: linear-gradient(180deg, var(--ember) 0%, var(--forest) 100%); }
+.tint-forest-to-ember    { background: linear-gradient(180deg, var(--forest) 0%, var(--ember) 100%); }
+.tint-hero               { background: linear-gradient(180deg, var(--forest-deep) 0%, var(--forest) 100%); }
+
+/* 3-stop "deep dive" gradients — keep page identity within one tonal
+   half by easing into a deeper version of the same colour mid-section. */
+.tint-forest-to-plumDeep   { background: linear-gradient(180deg, var(--forest) 0%, var(--plum) 50%, var(--plum-deep) 100%); }
+.tint-plumDeep-to-plum     { background: linear-gradient(180deg, var(--plum-deep) 0%, var(--plum) 100%); }
+.tint-plum-to-forest-deep  { background: linear-gradient(180deg, var(--plum) 0%, var(--forest-deep) 100%); }
+
+.tint-forest-to-emberDeep  { background: linear-gradient(180deg, var(--forest) 0%, var(--plum) 50%, var(--lilac-deep) 100%); }
+.tint-emberDeep-to-ember   { background: linear-gradient(180deg, var(--ember-deep) 0%, var(--ember) 100%); }
+.tint-ember-to-forest-deep { background: linear-gradient(180deg, var(--ember) 0%, var(--forest-deep) 100%); }
+
+.tint-forest-to-forestDeep { background: linear-gradient(180deg, var(--forest) 0%, var(--forest-deep) 100%); }
+.tint-forestDeep-to-forest { background: linear-gradient(180deg, var(--forest-deep) 0%, var(--forest) 100%); }
+
+/* Island gradients: section opens AND closes in the same colour, dipping
+   into a second colour in the middle. Use these when an accent band
+   needs to be contained without bleeding into adjacent sections. */
+.tint-plum-island-ember {
+  background: linear-gradient(
+    180deg,
+    var(--plum) 0%,
+    var(--ember) 35%,
+    var(--ember) 65%,
+    var(--plum) 100%
+  );
+}
+.tint-ember-island-plum {
+  background: linear-gradient(
+    180deg,
+    var(--ember) 0%,
+    var(--plum) 35%,
+    var(--plum) 65%,
+    var(--ember) 100%
+  );
+}
+.tint-forest-island-plum {
+  background: linear-gradient(
+    180deg,
+    var(--forest) 0%,
+    var(--plum) 35%,
+    var(--plum) 65%,
+    var(--forest) 100%
+  );
+}
+.tint-forest-island-ember {
+  background: linear-gradient(
+    180deg,
+    var(--forest) 0%,
+    var(--ember) 35%,
+    var(--ember) 65%,
+    var(--forest) 100%
+  );
+}
+
+/* Long-scroll page beds (FAQs etc.) — one slow tonal pour for a whole
+   page. Each bed keeps its venue tonal identity (plum for Hackney,
+   ember for Borough, forest for everything else) but lands on the
+   same lilac wash at the bottom that .bed-booking uses, so the whole
+   site feels like one continuous palette as you scroll. */
+/* Unified page bed — every long-scroll page flows the same way:
+   lighter green at the top → forest → plum → lilac-deep → lilac.
+   Venue-specific identity is now expressed through accent colours
+   on cards/UI rather than splitting the page bed. */
+.bed-hackney,
+.bed-borough,
+.bed-info,
+.bed-page {
+  background: linear-gradient(
+    180deg,
+    var(--forest-light) 0%,
+    var(--forest) 18%,
+    var(--plum) 50%,
+    var(--lilac-deep) 80%,
+    var(--lilac) 100%
+  );
+}
+
+/* Booking-flow bed — same green→purple→lilac flow as the rest of the
+   site, just slightly tighter so the colour change feels deliberate
+   on short forms. min-height keeps the gradient filling the viewport
+   even when there's only a few lines of content. */
+.bed-booking {
+  background: linear-gradient(
+    180deg,
+    var(--forest-light) 0%,
+    var(--forest) 18%,
+    var(--plum) 50%,
+    var(--lilac-deep) 80%,
+    var(--lilac) 100%
+  );
+  min-height: 100vh;
+}
+
+/* Hero overlay — lets the image breathe in the middle, only darkens at
+   top (so nav stays legible) and bottom (so the section hands off to
+   the next colour band cleanly). */
+.hero-overlay {
+  background:
+    linear-gradient(
+      180deg,
+      rgba(8, 26, 20, 0.45) 0%,
+      rgba(8, 26, 20, 0.0) 20%,
+      rgba(8, 26, 20, 0.0) 55%,
+      rgba(8, 26, 20, 0.55) 85%,
+      var(--forest) 100%
+    );
+}
+
+/* Text shadow for hero headlines sitting over photography */
+.text-shadow-hero {
+  text-shadow:
+    0 2px 18px rgba(0, 0, 0, 0.55),
+    0 1px 3px rgba(0, 0, 0, 0.45);
+}
+
+/* Glowing accent blobs that sit behind big serif headlines for warmth */
+.glow-blob::before {
+  content: "";
+  position: absolute;
+  inset: -20% 10% auto 10%;
+  height: 60%;
+  background: radial-gradient(closest-side, rgba(232, 197, 71, 0.18), transparent 70%);
+  pointer-events: none;
+  filter: blur(40px);
+  z-index: 0;
+}
+.glow-blob-plum::before {
+  content: "";
+  position: absolute;
+  inset: -20% 10% auto 10%;
+  height: 70%;
+  background: radial-gradient(closest-side, rgba(118, 60, 200, 0.22), transparent 70%);
+  pointer-events: none;
+  filter: blur(60px);
+  z-index: 0;
+}
+.glow-blob-ember::before {
+  content: "";
+  position: absolute;
+  inset: -20% 10% auto 10%;
+  height: 70%;
+  background: radial-gradient(closest-side, rgba(232, 110, 60, 0.18), transparent 70%);
+  pointer-events: none;
+  filter: blur(60px);
+  z-index: 0;
+}
+
+/* Native checkboxes — browsers paint these themselves and ignore our
+   bg-color, so an unchecked checkbox appears as a bright white square
+   on the dark form. Stripping `appearance` lets us own the look. The
+   ::before pseudo-element draws a pink tick using clip-path so we get
+   a crisp shape without bundling an SVG. */
+input[type="checkbox"] {
+  appearance: none;
+  -webkit-appearance: none;
+  width: 1rem;
+  height: 1rem;
+  margin: 0;
+  border: 1px solid rgba(242, 235, 217, 0.3);
+  border-radius: 4px;
+  background-color: rgba(15, 23, 21, 0.6);
+  cursor: pointer;
+  display: inline-grid;
+  place-content: center;
+  vertical-align: middle;
+  flex-shrink: 0;
+}
+input[type="checkbox"]::before {
+  content: "";
+  width: 0.65rem;
+  height: 0.65rem;
+  background-color: #ff3d8a;
+  clip-path: polygon(14% 44%, 0 65%, 50% 100%, 100% 16%, 80% 0%, 43% 62%);
+  transform: scale(0);
+  transition: transform 80ms ease-in-out;
+}
+input[type="checkbox"]:checked {
+  border-color: rgba(255, 61, 138, 0.6);
+}
+input[type="checkbox"]:checked::before {
+  transform: scale(1);
+}
+input[type="checkbox"]:focus-visible {
+  outline: 2px solid rgba(255, 61, 138, 0.5);
+  outline-offset: 2px;
+}
+
+/* Chrome / Safari autofill — by default repaints the input white with
+   black text, overriding our dark form styles. The inset box-shadow
+   trick is the only way around it (Chrome refuses to honour bg-color
+   directly on :-webkit-autofill). Setting -webkit-text-fill-color
+   covers the text colour at the same time. */
+input:-webkit-autofill,
+input:-webkit-autofill:hover,
+input:-webkit-autofill:focus,
+input:-webkit-autofill:active,
+textarea:-webkit-autofill,
+textarea:-webkit-autofill:hover,
+textarea:-webkit-autofill:focus,
+select:-webkit-autofill,
+select:-webkit-autofill:hover,
+select:-webkit-autofill:focus {
+  -webkit-box-shadow: 0 0 0 1000px rgba(15, 23, 21, 0.85) inset !important;
+  -webkit-text-fill-color: #F2EBD9 !important;
+  caret-color: #F2EBD9;
+  transition: background-color 9999s ease-in-out 0s;
+}

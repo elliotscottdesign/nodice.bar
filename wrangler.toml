@@ -1,0 +1,17 @@
+# Cloudflare Workers config — tells `wrangler deploy` (run by Cloudflare's
+# Workers Build pipeline after `npm run build`) to ship the static site
+# Next.js produces in ./out as Workers Assets. No Worker code; this is a
+# pure static deploy, same shape as the GitHub Pages copy.
+#
+# Why this file is needed: Cloudflare's auto-detection tried to apply the
+# Next.js framework adapter, which doesn't fit because next.config.mjs sets
+# output:"export" (static export, not SSR). With this wrangler.toml in
+# place, wrangler skips auto-detection and just uploads the prebuilt
+# files.
+
+name = "plonkgolf-website"
+compatibility_date = "2025-01-15"
+
+[assets]
+directory = "./out"
+not_found_handling = "404-page"
