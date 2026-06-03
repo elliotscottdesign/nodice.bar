@@ -45,7 +45,14 @@ jobs:
       - name: Disable Jekyll on output (lets _next/ folder serve)
         run: touch out/.nojekyll
 
+      # `enablement: true` tells the action to switch GitHub Pages ON
+      # for this repo if it isn't already. Saves a manual click in
+      # Settings → Pages on first deploy of a fresh repo. Requires the
+      # repo to be public (free tier) or the org to have Pages on
+      # private repos enabled (Pro/Enterprise).
       - uses: actions/configure-pages@v5
+        with:
+          enablement: true
 
       - uses: actions/upload-pages-artifact@v3
         with:
