@@ -5,34 +5,66 @@
 :root {
   --font-display: "DM Serif Display", Georgia, serif;
   --font-body: "DM Sans", system-ui, sans-serif;
-  --forest: #0E2A21;
-  --forest-deep: #081A14;
-  --forest-raised: #163A2E;
-  --forest-line: #2A4D3F;
-  --forest-light: #1F4A3B;
-  --plum: #1F1233;
-  --plum-deep: #110820;
-  --plum-raised: #2C1846;
-  --plum-line: #3F2266;
-  --lilac: #5A3F86;
-  --lilac-deep: #3E2A5C;
-  --lilac-raised: #6B4D9C;
-  --lilac-line: #7D5FB0;
-  /* Borough Market used to be ember/red. Aliased to lilac so every
-     existing .tint-ember*, .bed-borough etc. flows lilac instead — no
-     need to touch every page that references them. */
-  --ember: #5A3F86;
-  --ember-deep: #3E2A5C;
-  --ember-raised: #6B4D9C;
-  --ember-line: #7D5FB0;
-  --cream: #F2EBD9;
+
+  /* ───────── No Dice brand reds ─────────
+     Sampled from the No Dice wordmark (cherry red). All other reds
+     across the site derive from these three anchors. */
+  --nodice-red:        #DA1B33;
+  --nodice-red-deep:   #8A0F22;
+  --nodice-red-darker: #4A0814;
+
+  /* ───────── Re-mapped tonal palette ─────────
+     The forked Plonk Golf code threads every gradient, bed, glow
+     and tint through these variable names (--forest*, --plum*,
+     --lilac*, --ember*). Rather than touch every component, we
+     re-point the variables themselves to red→black tonal stops.
+     Result: every existing class flows red→black automatically.
+
+     Top of the gradient stack = vivid red. Mid = deeper crimson.
+     Bottom = near-pure black with a faint red tint. */
+
+  /* TOP — was forest (green); now deep crimson. */
+  --forest:        #5A0A16;
+  --forest-deep:   #2B0610;
+  --forest-raised: #6E0E1C;
+  --forest-line:   #821224;
+  --forest-light:  #761024;
+
+  /* MID — was plum (purple); now red dropping toward black. */
+  --plum:        #240610;
+  --plum-deep:   #120308;
+  --plum-raised: #320A18;
+  --plum-line:   #441220;
+
+  /* BOTTOM — was lilac (light purple); now near-black with red tint. */
+  --lilac:        #050204;
+  --lilac-deep:   #020001;
+  --lilac-raised: #0F0408;
+  --lilac-line:   #1C0610;
+
+  /* Ember — kept as an alias of lilac so .tint-ember* and the
+     .bed-borough page flow the same red→black palette as the rest
+     of the site. (Plonk Golf had already aliased ember to lilac.) */
+  --ember:        #050204;
+  --ember-deep:   #020001;
+  --ember-raised: #0F0408;
+  --ember-line:   #1C0610;
+
+  --cream:     #F2EBD9;
   --cream-dim: #C7BFA9;
-  --pink: #ff3d8a;
+
+  /* Accent — Plonk's pink becomes No Dice red. Yellow stays as a
+     legible secondary highlight on dark reds. */
+  --pink:   #DA1B33;
   --yellow: #E8C547;
 }
 
 html, body {
-  background: var(--forest);
+  /* Pure black base. Pages that don't apply a .bed-* class fall back
+     to this; pages that DO apply a bed-* get the red→black wash on
+     top. The result: every page reads as "No Dice black with red
+     coming through" regardless of which layout it uses. */
+  background: #0a0a0a;
   color: var(--cream);
   font-family: var(--font-body);
   -webkit-font-smoothing: antialiased;
@@ -44,8 +76,8 @@ html {
 }
 
 ::selection {
-  background: var(--yellow);
-  color: var(--forest-deep);
+  background: var(--nodice-red);
+  color: var(--cream);
 }
 
 /* Reveal on scroll */
@@ -206,15 +238,16 @@ html {
 
 /* Hero overlay — lets the image breathe in the middle, only darkens at
    top (so nav stays legible) and bottom (so the section hands off to
-   the next colour band cleanly). */
+   the next colour band cleanly). Re-tinted to near-black for No Dice
+   — was forest-deep rgba(8,26,20) under the Plonk Golf theme. */
 .hero-overlay {
   background:
     linear-gradient(
       180deg,
-      rgba(8, 26, 20, 0.45) 0%,
-      rgba(8, 26, 20, 0.0) 20%,
-      rgba(8, 26, 20, 0.0) 55%,
-      rgba(8, 26, 20, 0.55) 85%,
+      rgba(0, 0, 0, 0.55) 0%,
+      rgba(0, 0, 0, 0.0) 20%,
+      rgba(0, 0, 0, 0.0) 55%,
+      rgba(0, 0, 0, 0.6) 85%,
       var(--forest) 100%
     );
 }
@@ -226,13 +259,16 @@ html {
     0 1px 3px rgba(0, 0, 0, 0.45);
 }
 
-/* Glowing accent blobs that sit behind big serif headlines for warmth */
+/* Glowing accent blobs that sit behind big serif headlines for warmth.
+   All three now tint No Dice red (was yellow / plum-purple / orange
+   under Plonk Golf). Three intensities so adjacent sections can read
+   as distinct without leaving the brand palette. */
 .glow-blob::before {
   content: "";
   position: absolute;
   inset: -20% 10% auto 10%;
   height: 60%;
-  background: radial-gradient(closest-side, rgba(232, 197, 71, 0.18), transparent 70%);
+  background: radial-gradient(closest-side, rgba(218, 27, 51, 0.22), transparent 70%);
   pointer-events: none;
   filter: blur(40px);
   z-index: 0;
@@ -242,7 +278,7 @@ html {
   position: absolute;
   inset: -20% 10% auto 10%;
   height: 70%;
-  background: radial-gradient(closest-side, rgba(118, 60, 200, 0.22), transparent 70%);
+  background: radial-gradient(closest-side, rgba(218, 27, 51, 0.28), transparent 70%);
   pointer-events: none;
   filter: blur(60px);
   z-index: 0;
@@ -252,7 +288,7 @@ html {
   position: absolute;
   inset: -20% 10% auto 10%;
   height: 70%;
-  background: radial-gradient(closest-side, rgba(232, 110, 60, 0.18), transparent 70%);
+  background: radial-gradient(closest-side, rgba(218, 27, 51, 0.34), transparent 70%);
   pointer-events: none;
   filter: blur(60px);
   z-index: 0;
@@ -282,19 +318,19 @@ input[type="checkbox"]::before {
   content: "";
   width: 0.65rem;
   height: 0.65rem;
-  background-color: #ff3d8a;
+  background-color: #DA1B33;
   clip-path: polygon(14% 44%, 0 65%, 50% 100%, 100% 16%, 80% 0%, 43% 62%);
   transform: scale(0);
   transition: transform 80ms ease-in-out;
 }
 input[type="checkbox"]:checked {
-  border-color: rgba(255, 61, 138, 0.6);
+  border-color: rgba(218, 27, 51, 0.6);
 }
 input[type="checkbox"]:checked::before {
   transform: scale(1);
 }
 input[type="checkbox"]:focus-visible {
-  outline: 2px solid rgba(255, 61, 138, 0.5);
+  outline: 2px solid rgba(218, 27, 51, 0.5);
   outline-offset: 2px;
 }
 
