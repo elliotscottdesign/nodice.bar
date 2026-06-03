@@ -210,28 +210,31 @@ html {
 .bed-borough,
 .bed-info,
 .bed-page {
+  /* Black-dominant wash: red kisses the top edge then collapses to
+     near-pure black within the first 20% of the page. Result: red
+     reads as an accent at the top of the scroll, not the dominant
+     colour of the whole page. */
   background: linear-gradient(
     180deg,
     var(--forest-light) 0%,
-    var(--forest) 18%,
-    var(--plum) 50%,
-    var(--lilac-deep) 80%,
-    var(--lilac) 100%
+    var(--forest-deep) 6%,
+    var(--plum-deep) 14%,
+    var(--lilac-deep) 22%,
+    var(--lilac-deep) 100%
   );
 }
 
-/* Booking-flow bed — same green→purple→lilac flow as the rest of the
-   site, just slightly tighter so the colour change feels deliberate
-   on short forms. min-height keeps the gradient filling the viewport
-   even when there's only a few lines of content. */
+/* Booking-flow bed — same black-dominant wash as the long-scroll
+   pages. min-height keeps the gradient filling the viewport even
+   when there's only a few lines of content. */
 .bed-booking {
   background: linear-gradient(
     180deg,
     var(--forest-light) 0%,
-    var(--forest) 18%,
-    var(--plum) 50%,
-    var(--lilac-deep) 80%,
-    var(--lilac) 100%
+    var(--forest-deep) 6%,
+    var(--plum-deep) 14%,
+    var(--lilac-deep) 22%,
+    var(--lilac-deep) 100%
   );
   min-height: 100vh;
 }
