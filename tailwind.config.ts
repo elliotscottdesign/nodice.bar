@@ -10,32 +10,35 @@ const config: Config = {
         // components keep compiling. The hex values are remapped to
         // the No Dice black ↔ deep-purple palette; see app/globals.css
         // for CSS-variable equivalents and the design rationale.
-        ink: "#0a0a0a",
+        ink: "#000000",
 
-        // TOP of the gradient stack — deep purple (#330033 anchor).
-        forest:        "#330033",
-        forestDeep:    "#1F001F",
-        forestRaised:  "#401040",
-        forestLine:    "#5A145A",
+        // Founder direction: ALL backgrounds pure black. Every tonal
+        // token (forest / plum / lilac / ember + all variants) is
+        // flattened to #000000 so `bg-forest`, `bg-plumRaised` etc.
+        // all paint the same black as the body. Borders that rely
+        // on these tokens (e.g. `border-forestLine`) become invisible
+        // — acceptable trade for the flat look. Bring colour back by
+        // restoring the previous hex values; see git history for the
+        // deep-purple variant.
+        forest:        "#000000",
+        forestDeep:    "#000000",
+        forestRaised:  "#000000",
+        forestLine:    "#000000",
 
-        // MID — purple dropping toward black.
-        plum:        "#1A001A",
-        plumDeep:    "#0A000A",
-        plumRaised:  "#220822",
-        plumLine:    "#2B0A2B",
+        plum:        "#000000",
+        plumDeep:    "#000000",
+        plumRaised:  "#000000",
+        plumLine:    "#000000",
 
-        // BOTTOM — near-black with a faint purple breath.
-        lilac:        "#050005",
-        lilacDeep:    "#020002",
-        lilacRaised:  "#0A020A",
-        lilacLine:    "#150515",
+        lilac:        "#000000",
+        lilacDeep:    "#000000",
+        lilacRaised:  "#000000",
+        lilacLine:    "#000000",
 
-        // Ember — aliased to lilac so any leftover .bg-ember etc.
-        // flows the same black ↔ purple palette as everything else.
-        ember:        "#050005",
-        emberDeep:    "#020002",
-        emberRaised:  "#0A020A",
-        emberLine:    "#150515",
+        ember:        "#000000",
+        emberDeep:    "#000000",
+        emberRaised:  "#000000",
+        emberLine:    "#000000",
 
         cream:    "#F2EBD9",
         creamDim: "#C7BFA9",

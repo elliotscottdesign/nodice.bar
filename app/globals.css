@@ -24,31 +24,32 @@
      Anchor: deep purple #330033 (founder-picked from the brand
      reference). Black dominates; purple kisses the top edge. */
 
-  /* TOP — was crimson; now the deep purple anchor. */
-  --forest:        #330033;
-  --forest-deep:   #1F001F;
-  --forest-raised: #401040;
-  --forest-line:   #5A145A;
-  --forest-light:  #401040;
+  /* Founder direction: ALL backgrounds pure black. Every tonal CSS
+     variable is flattened to #000000 so anywhere a component reaches
+     for var(--forest), var(--plumRaised) etc. it paints the same
+     black as the body. Restore the previous deep-purple values from
+     git history if you ever want colour back. */
 
-  /* MID — dropping from purple toward black. */
-  --plum:        #1A001A;
-  --plum-deep:   #0A000A;
-  --plum-raised: #220822;
-  --plum-line:   #2B0A2B;
+  --forest:        #000000;
+  --forest-deep:   #000000;
+  --forest-raised: #000000;
+  --forest-line:   #000000;
+  --forest-light:  #000000;
 
-  /* BOTTOM — pure-black with a faint purple breath. */
-  --lilac:        #050005;
-  --lilac-deep:   #020002;
-  --lilac-raised: #0A020A;
-  --lilac-line:   #150515;
+  --plum:        #000000;
+  --plum-deep:   #000000;
+  --plum-raised: #000000;
+  --plum-line:   #000000;
 
-  /* Ember — kept as an alias of lilac so .tint-ember* and the
-     .bed-borough page flow the same palette as the rest of the site. */
-  --ember:        #050005;
-  --ember-deep:   #020002;
-  --ember-raised: #0A020A;
-  --ember-line:   #150515;
+  --lilac:        #000000;
+  --lilac-deep:   #000000;
+  --lilac-raised: #000000;
+  --lilac-line:   #000000;
+
+  --ember:        #000000;
+  --ember-deep:   #000000;
+  --ember-raised: #000000;
+  --ember-line:   #000000;
 
   --cream:     #F2EBD9;
   --cream-dim: #C7BFA9;
