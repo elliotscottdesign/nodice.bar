@@ -1,7 +1,7 @@
 "use client";
 
 // =============================================================
-// Plonk Golf admin — live preview pane
+// No Dice admin — live preview pane
 // =============================================================
 // Renders the matching public page inside an iframe and forwards
 // the current draft values to it via postMessage so the editor

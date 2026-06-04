@@ -87,7 +87,7 @@ export default function CookieConsent() {
           <div className="grid gap-5 p-6 sm:grid-cols-[1fr_auto] sm:items-center sm:gap-8 sm:p-7">
             <div>
               <h2 id="cookies-title" className="font-display text-2xl">
-                Cookies on plonkgolf.co.uk
+                Cookies on nodice.bar
               </h2>
               <p className="mt-2 text-sm leading-relaxed text-cream/75">
                 We use cookies to make the site work, understand how it's used,
@@ -158,7 +158,7 @@ export default function CookieConsent() {
               />
               <ConsentRow
                 title="Marketing"
-                body="Lets us measure our ads on Meta, Google and TikTok, and show you more relevant Plonk content elsewhere on the web."
+                body="Lets us measure our ads on Meta, Google and TikTok, and show you more relevant No Dice content elsewhere on the web."
                 checked={marketing}
                 onChange={setMarketing}
               />

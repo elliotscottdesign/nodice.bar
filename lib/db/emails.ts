@@ -19,23 +19,23 @@ const DEFAULTS: Omit<DbEmailTemplate, "id">[] = [
   {
     key: "booking_confirmation",
     label: "Booking confirmation",
-    subject: "Your Plonk booking is confirmed",
+    subject: "Your No Dice booking is confirmed",
     body:
-      "Hey {{first_name}},\n\nYour Plonk booking is confirmed.\n\nWhen: {{slot_time}}\nWhere: {{venue_name}}\nParty: {{party_size}} people\nReference: {{reference}}\n\nShow this email at the bar when you arrive. See you on the greens!\n\n— The Plonk team",
+      "Hey {{first_name}},\n\nYour No Dice booking is confirmed.\n\nWhen: {{slot_time}}\nWhere: {{venue_name}}\nParty: {{party_size}} people\nReference: {{reference}}\n\nShow this email at the bar when you arrive. See you on the greens!\n\n— The No Dice team",
   },
   {
     key: "voucher_delivery",
     label: "Gift voucher delivery",
-    subject: "Your Plonk gift voucher",
+    subject: "Your No Dice gift voucher",
     body:
-      "Hi {{recipient_name}},\n\n{{sender_name}} has sent you a Plonk gift voucher worth £{{value}}.\n\nVoucher code: {{voucher_code}}\nExpires: {{expires_at}}\n\nRedeem it at plonkgolf.co.uk against any ticket at either venue.\n\n— The Plonk team",
+      "Hi {{recipient_name}},\n\n{{sender_name}} has sent you a No Dice gift voucher worth £{{value}}.\n\nVoucher code: {{voucher_code}}\nExpires: {{expires_at}}\n\nRedeem it at nodice.bar against any ticket at either venue.\n\n— The No Dice team",
   },
   {
     key: "refund_confirmation",
     label: "Refund confirmation",
-    subject: "Your Plonk refund has been processed",
+    subject: "Your No Dice refund has been processed",
     body:
-      "Hi {{first_name}},\n\nWe've processed a refund of £{{amount}} against your booking {{reference}}. It should land back on your card within 5–10 working days.\n\nIf you have any questions, just reply to this email.\n\n— The Plonk team",
+      "Hi {{first_name}},\n\nWe've processed a refund of £{{amount}} against your booking {{reference}}. It should land back on your card within 5–10 working days.\n\nIf you have any questions, just reply to this email.\n\n— The No Dice team",
   },
 ];
 

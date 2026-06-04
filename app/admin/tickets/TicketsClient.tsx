@@ -126,7 +126,7 @@ export default function TicketsClient() {
     <>
       <AdminPageHeader
         title="Tickets & Prices"
-        description="The ticket types customers can buy at checkout. Plonk is currently below the UK VAT threshold, so no VAT is charged — prices are the final amount the customer pays. Changes go live immediately on the public booking page."
+        description="The ticket types customers can buy at checkout. No Dice is currently below the UK VAT threshold, so no VAT is charged — prices are the final amount the customer pays. Changes go live immediately on the public booking page."
       />
 
       {err && (

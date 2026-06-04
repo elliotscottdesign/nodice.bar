@@ -26,7 +26,7 @@ const KNOWN_GALLERIES: { key: string; label: string; description: string }[] = [
   {
     key: "hero.home",
     label: "HERO slider — Home",
-    description: "Top-of-page slider on plonkgolf.co.uk/.",
+    description: "Top-of-page slider on nodice.bar/.",
   },
   {
     key: "hero.venue.hackney",
@@ -108,7 +108,7 @@ const KNOWN_GALLERIES: { key: string; label: string; description: string }[] = [
   {
     key: "about.gallery",
     label: "About page gallery",
-    description: "The decade-of-Plonking strip at the bottom of /about.",
+    description: "The decade-of-no-dice strip at the bottom of /about.",
   },
   {
     key: "venue.hackney.gallery",

@@ -52,9 +52,9 @@ export async function logout() {
 //
 // To add another login (e.g. a manager), create the Supabase user
 // in Authentication → Users, then add a line here:
-//   "manager": "manager@plonkgolf.co.uk",
+//   "manager": "manager@nodice.bar",
 const USERNAME_TO_EMAIL: Record<string, string> = {
-  admin: "admin@plonkgolf.co.uk",
+  admin: "admin@nodice.bar",
 };
 
 function resolveEmail(input: string): string {
@@ -96,7 +96,7 @@ function LoginForm() {
         onSubmit={submit}
         className="w-full max-w-sm rounded-2xl border border-cream/10 bg-ink/60 p-8"
       >
-        <h1 className="font-display text-2xl">Plonk Admin</h1>
+        <h1 className="font-display text-2xl">No Dice Admin</h1>
         <p className="mt-1 text-sm text-cream/60">
           Sign in to manage tickets, bookings and the rest.
         </p>

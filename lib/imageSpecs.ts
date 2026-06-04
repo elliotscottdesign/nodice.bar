@@ -1,5 +1,5 @@
 // =============================================================
-// Plonk Golf — image spec registry
+// No Dice — image spec registry
 // =============================================================
 // Single source of truth for the recommended dimensions, file size
 // and aspect ratio of every image that gets uploaded through the

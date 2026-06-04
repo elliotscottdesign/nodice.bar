@@ -6,14 +6,14 @@ export function generateStaticParams() {
 }
 
 const VENUE_NAMES: Record<string, string> = {
-  hackney: "Plonk Hackney",
-  borough: "Plonk Borough Market",
+  hackney: "No Dice",
+  borough: "No Dice",
 };
 
 export function generateMetadata({ params }: { params: { venue: string } }) {
   const name = VENUE_NAMES[params.venue];
   return {
-    title: name ? `Book ${name}` : "Book Plonk",
+    title: name ? `Book ${name}` : "Book No Dice",
     description: "Pick a date, time and party size.",
   };
 }

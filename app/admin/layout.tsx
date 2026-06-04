@@ -3,7 +3,7 @@ import AdminGate from "@/components/admin/AdminGate";
 import AdminSidebar from "@/components/admin/AdminSidebar";
 
 export const metadata: Metadata = {
-  title: "Plonk Admin",
+  title: "No Dice Admin",
   robots: { index: false, follow: false },
 };
 

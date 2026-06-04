@@ -2,7 +2,7 @@ import Link from "next/link";
 import AdminPageHeader from "@/components/admin/AdminPageHeader";
 import { AdminCard } from "@/components/admin/AdminCard";
 
-export const metadata = { title: "Site Content — Plonk Admin" };
+export const metadata = { title: "Site Content — No Dice Admin" };
 
 const PAGES: { label: string; href: string; description: string; group: string }[] = [
   {

@@ -1,7 +1,7 @@
 import AdminPageHeader from "@/components/admin/AdminPageHeader";
 import ContentEditor from "@/components/admin/ContentEditor";
 
-export const metadata = { title: "Vouchers content — Plonk Admin" };
+export const metadata = { title: "Vouchers content — No Dice Admin" };
 
 export default function VouchersContentPage() {
   return (

@@ -630,10 +630,10 @@ export default function BookingFlow({
                 <p className="mt-1.5 text-xs leading-relaxed text-cream/80">
                   For parties bigger than 12, email{" "}
                   <a
-                    href="mailto:info@plonkgolf.co.uk"
+                    href="mailto:info@nodice.bar"
                     className="underline-offset-4 hover:underline"
                   >
-                    info@plonkgolf.co.uk
+                    info@nodice.bar
                   </a>{" "}
                   and our bookings team will arrange it — we keep online
                   bookings to a 2-slot maximum so things don't get confusing

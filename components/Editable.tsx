@@ -1,7 +1,7 @@
 "use client";
 
 // =============================================================
-// Plonk Golf — in-place content editor
+// No Dice — in-place content editor
 // =============================================================
 // Wraps a piece of content on the public site so that, when an
 // admin toggles Edit mode on (via AdminBar), the element becomes

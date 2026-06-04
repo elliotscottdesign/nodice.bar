@@ -100,7 +100,7 @@ export default function BookingsClient() {
         {venues.map((v) => (
           <Filter
             key={v.id}
-            label={v.name.replace("Plonk ", "")}
+            label={v.name.replace("No Dice ", "")}
             active={venueFilter === v.id}
             onClick={() => setVenueFilter(v.id)}
           />
@@ -135,7 +135,7 @@ export default function BookingsClient() {
                 {filtered.map((b) => {
                   const slot = firstSlot(b);
                   const venueName =
-                    venues.find((v) => v.id === b.venue_id)?.name.replace("Plonk ", "") ?? "—";
+                    venues.find((v) => v.id === b.venue_id)?.name.replace("No Dice ", "") ?? "—";
                   return (
                     <tr key={b.id} className="border-b border-cream/5 last:border-b-0 hover:bg-cream/5">
                       <td className="px-5 py-3 font-mono text-xs">{b.reference}</td>

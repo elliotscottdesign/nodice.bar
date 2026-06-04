@@ -61,7 +61,7 @@ type Row = { title: string; items: { title: string; price: string; body?: string
 
 export default function SnackBarMenuPage() {
   const title = useContent("snackbar.title", "Snack Bar");
-  const eyebrow = useContent("snackbar.eyebrow", "Plonk Hackney · Eat");
+  const eyebrow = useContent("snackbar.eyebrow", "No Dice · Eat");
   const tagline = useContent(
     "snackbar.tagline",
     "BBQ meat & burgers, supplied by Smokoloko of Spitalfields.",
@@ -177,7 +177,7 @@ export default function SnackBarMenuPage() {
               href="/venue/hackney"
               className="inline-flex items-center text-sm font-semibold uppercase tracking-wider text-cream/80 transition hover:text-cream"
             >
-              ← Back to Plonk Hackney
+              ← Back to No Dice
             </Link>
           </div>
         </div>

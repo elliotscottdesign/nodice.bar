@@ -14,12 +14,12 @@ const SECTIONS: Section[] = [
     heading: "Booking basics",
     faqs: [
       {
-        q: "How do I book a round at Plonk?",
+        q: "How do I book a round at No Dice?",
         a: (
           <>
             Pick a venue at{" "}
             <Link href="/book" className="underline-offset-4 hover:underline">
-              plonkgolf.co.uk/book
+              nodice.bar/book
             </Link>
             , choose a date and time, set your party size and any add-ons, then
             pay with card, Apple Pay or Google Pay. Your booking confirmation
@@ -74,8 +74,8 @@ const SECTIONS: Section[] = [
           <>
             Online bookings cap at 12 across two consecutive slots — for
             anything bigger, please email{" "}
-            <a href="mailto:info@plonkgolf.co.uk" className="underline-offset-4 hover:underline">
-              info@plonkgolf.co.uk
+            <a href="mailto:info@nodice.bar" className="underline-offset-4 hover:underline">
+              info@nodice.bar
             </a>{" "}
             and our team will arrange it directly, or see our{" "}
             <Link href="/private-hire" className="underline-offset-4 hover:underline">
@@ -92,19 +92,19 @@ const SECTIONS: Section[] = [
     faqs: [
       {
         q: "Do prices include VAT?",
-        a: "No — Plonk is currently below the UK VAT registration threshold, so we don't charge VAT. The price you see is the price you pay; there are no added taxes or hidden fees.",
+        a: "No — No Dice is currently below the UK VAT registration threshold, so we don't charge VAT. The price you see is the price you pay; there are no added taxes or hidden fees.",
       },
       {
         q: "Is there a happy hour?",
-        a: "At Plonk Hackney, all golf tickets are £5 per person Tuesday to Friday before 5pm. Drink deals run at the bar Mon–Fri til 7pm.",
+        a: "At No Dice, all golf tickets are £5 per person Tuesday to Friday before 5pm. Drink deals run at the bar Mon–Fri til 7pm.",
       },
       {
-        q: "What's the Monday Plonk Hackney deal?",
-        a: "Buy one, get one free on tickets all day every Monday at Plonk Hackney — automatically applied as soon as you pick a Monday slot. No code needed.",
+        q: "What's the Monday No Dice deal?",
+        a: "Buy one, get one free on tickets all day every Monday at No Dice — automatically applied as soon as you pick a Monday slot. No code needed.",
       },
       {
         q: "What's the Tuesday Hackney bundle?",
-        a: "Every Tuesday at Plonk Hackney we offer the Drink, Golf & Game bundle for £12 per person — a round of golf, a house drink (cocktail / beer / soft) and 4 arcade tokens. Available on the booking page when you pick a Tuesday slot.",
+        a: "Every Tuesday at No Dice we offer the Drink, Golf & Game bundle for £12 per person — a round of golf, a house drink (cocktail / beer / soft) and 4 arcade tokens. Available on the booking page when you pick a Tuesday slot.",
       },
       {
         q: "Do you offer student or hospitality discounts?",
@@ -142,15 +142,15 @@ const SECTIONS: Section[] = [
       },
       {
         q: "How is payment taken?",
-        a: "Securely via Stripe. We accept all major credit and debit cards, Apple Pay, Google Pay and Link. Money goes straight to Plonk Golf — we don't store your card details ourselves.",
+        a: "Securely via Stripe. We accept all major credit and debit cards, Apple Pay, Google Pay and Link. Money goes straight to No Dice — we don't store your card details ourselves.",
       },
       {
         q: "Can I cancel or change my booking?",
         a: (
           <>
             Yes — email{" "}
-            <a href="mailto:info@plonkgolf.co.uk" className="underline-offset-4 hover:underline">
-              info@plonkgolf.co.uk
+            <a href="mailto:info@nodice.bar" className="underline-offset-4 hover:underline">
+              info@nodice.bar
             </a>{" "}
             with your booking reference and what you'd like to do. We'll move
             you to another available slot or process a refund.
@@ -189,8 +189,8 @@ const SECTIONS: Section[] = [
         a: (
           <>
             These are processed manually — email{" "}
-            <a href="mailto:info@plonkgolf.co.uk" className="underline-offset-4 hover:underline">
-              info@plonkgolf.co.uk
+            <a href="mailto:info@nodice.bar" className="underline-offset-4 hover:underline">
+              info@nodice.bar
             </a>{" "}
             with your voucher code and preferred date/time and we'll get you
             booked in.
@@ -220,7 +220,7 @@ const SECTIONS: Section[] = [
       },
       {
         q: "Can I bring my dog?",
-        a: "Well-behaved dogs are welcome in the beer garden at Plonk Hackney. Borough is indoors so dogs aren't allowed inside.",
+        a: "Well-behaved dogs are welcome in the beer garden at No Dice. Borough is indoors so dogs aren't allowed inside.",
       },
     ],
   },
@@ -228,21 +228,21 @@ const SECTIONS: Section[] = [
     heading: "Accessibility",
     faqs: [
       {
-        q: "Is Plonk Borough accessible?",
+        q: "Is No Dice accessible?",
         a: (
           <>
             Yes. There are step-free routes down to our courtyard. If you'd
             like the easiest route mapped out before you arrive, email{" "}
-            <a href="mailto:info@plonkgolf.co.uk" className="underline-offset-4 hover:underline">
-              info@plonkgolf.co.uk
+            <a href="mailto:info@nodice.bar" className="underline-offset-4 hover:underline">
+              info@nodice.bar
             </a>{" "}
             and we'll help.
           </>
         ),
       },
       {
-        q: "Is Plonk Hackney accessible?",
-        a: "The bar, beer garden and most of the course is on one level. Drop us a line at info@plonkgolf.co.uk ahead of your visit and we'll make sure everything's set up for you.",
+        q: "Is No Dice accessible?",
+        a: "The bar, beer garden and most of the course is on one level. Drop us a line at info@nodice.bar ahead of your visit and we'll make sure everything's set up for you.",
       },
     ],
   },
@@ -250,12 +250,12 @@ const SECTIONS: Section[] = [
     heading: "Find us",
     faqs: [
       {
-        q: "Where is Plonk Hackney?",
+        q: "Where is No Dice?",
         a: "Arch 407, Mentmore Terrace, London E8 3PP. Main entrance on Parkside. 2 mins from London Fields Overground, 5 mins from Broadway Market.",
       },
       {
-        q: "Where is Plonk Borough Market?",
-        a: "Arches B, C, D & E Montague Close, off Green Dragon Court, London SE1 9DA. Don't follow the postcode — search 'Plonk Borough' on Google Maps. The entrance is in a courtyard just below street level, next door to Boro Bistro.",
+        q: "Where is No Dice?",
+        a: "Arches B, C, D & E Montague Close, off Green Dragon Court, London SE1 9DA. Don't follow the postcode — search 'No Dice' on Google Maps. The entrance is in a courtyard just below street level, next door to Boro Bistro.",
       },
     ],
   },
@@ -265,7 +265,7 @@ export default function FAQsPage() {
   const title = useContent("faqs.title", "Booking FAQs");
   const intro = useContent(
     "faqs.intro",
-    "Everything you need to know about how Plonk bookings work — slots, splits, prices, refunds, and what happens on the day.",
+    "Everything you need to know about how No Dice bookings work — slots, splits, prices, refunds, and what happens on the day.",
   );
   const [dbFaqs, setDbFaqs] = useState<DbFaq[] | null>(null);
 
@@ -375,7 +375,7 @@ export default function FAQsPage() {
         <p className="mt-12 text-center text-sm text-cream/60">
           Got a question we haven't answered?{" "}
           <a
-            href="mailto:info@plonkgolf.co.uk"
+            href="mailto:info@nodice.bar"
             className="underline-offset-4 hover:text-cream hover:underline"
           >
             Email the team

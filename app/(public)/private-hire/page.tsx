@@ -11,7 +11,7 @@ import { Editable } from "@/components/Editable";
 const VENUES = [
   {
     slug: "hackney",
-    name: "Plonk Hackney",
+    name: "No Dice",
     location: "London Fields · Outdoor",
     capacity: "Up to 65 standing · 40 dining · 30 cabaret",
     minSpend: "From £1,000 minimum spend for 2 hours",
@@ -23,7 +23,7 @@ const VENUES = [
   },
   {
     slug: "borough-market",
-    name: "Plonk Borough Market",
+    name: "No Dice",
     location: "London Bridge · Indoor",
     capacity: "Up to 100 standing",
     minSpend: "From £1,000 minimum spend per hour",
@@ -56,13 +56,13 @@ export default function PrivateHirePage() {
     "privatehire.eyebrow",
     "Parties · Corporate · Christmas · Weddings",
   );
-  const title = useContent("privatehire.title", "Take Over Plonk");
+  const title = useContent("privatehire.title", "Take Over No Dice");
   const intro = useContent(
     "privatehire.intro",
     "Two London venues, one unforgettable party. Take over a course, an arch, or the whole place.",
   );
 
-  const reasonsEyebrow = useContent("privatehire.reasons.eyebrow", "Why hire Plonk");
+  const reasonsEyebrow = useContent("privatehire.reasons.eyebrow", "Why hire No Dice");
   const reasonsHeading = useContent(
     "privatehire.reasons.heading",
     "The kind of party people actually remember.",

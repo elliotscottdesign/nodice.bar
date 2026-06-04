@@ -9,7 +9,7 @@ import { Editable, DisplayImage } from "@/components/Editable";
 import ManageGalleryLink from "@/components/ManageGalleryLink";
 
 const BOROUGH_GALLERY_FALLBACK = [
-  { src: "/borough/course/Course_2.jpg", alt: "Plonk Borough course" },
+  { src: "/borough/course/Course_2.jpg", alt: "No Dice course" },
   { src: "/borough/course/Course_3.jpg", alt: "Borough London-themed course" },
   { src: "/borough/venue/Venue_1.jpg", alt: "Borough arches interior" },
   { src: "/borough/drinks/Cocktail_1.jpg", alt: "Borough cocktail" },
@@ -146,7 +146,7 @@ export default function BoroughMarketPage() {
   // Gallery
   const galleryHeading = useContent(
     "venue.borough.gallery_heading",
-    "Inside Plonk Borough",
+    "Inside No Dice",
   );
   const galleryIntro = useContent(
     "venue.borough.gallery_intro",
@@ -161,7 +161,7 @@ export default function BoroughMarketPage() {
   const findusHeading = useContent("venue.borough.findus.heading", "Find us");
   const findusCallout = useContent(
     "venue.borough.findus.callout",
-    "Don't follow the postcode. We're in the arches under Borough High Street, just off Green Dragon Court. Search \"Plonk Borough\" on Google Maps rather than the address.",
+    "Don't follow the postcode. We're in the arches under Borough High Street, just off Green Dragon Court. Search \"No Dice\" on Google Maps rather than the address.",
   );
   const findusAddress = useContent(
     "venue.borough.findus.address",
@@ -177,7 +177,7 @@ export default function BoroughMarketPage() {
   );
   const findusAccessBody = useContent(
     "venue.borough.findus.access_body",
-    "Plonk Borough is accessible — there are step-free ways down to our courtyard. If you need help finding the easiest route, get in touch before your visit at info@plonkgolf.co.uk.",
+    "No Dice is accessible — there are step-free ways down to our courtyard. If you need help finding the easiest route, get in touch before your visit at info@nodice.bar.",
   );
 
   const sliderImages = [

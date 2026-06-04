@@ -6,7 +6,7 @@ import { Editable } from "./Editable";
 
 const FALLBACK_SOCIALS = [
   "Instagram | https://www.instagram.com/plonkgolf/",
-  "Facebook | https://www.facebook.com/pages/PLONK-Golf/749762088452016",
+  "Facebook | https://www.facebook.com/pages/NO DICE-Golf/749762088452016",
   "Twitter | https://twitter.com/plonkgolf",
   "YouTube | https://www.youtube.com/channel/UCrMFq-Wzdk1ry81KTp0HPyw",
 ].join("\n");
@@ -41,12 +41,12 @@ function addressLines(s: string): { text: string; muted: boolean }[] {
 }
 
 export default function Footer() {
-  const brandTitle = useContent("footer.brand_title", "Plonk Golf");
+  const brandTitle = useContent("footer.brand_title", "No Dice");
   const brandTagline = useContent(
     "footer.brand_tagline",
     "London's Original Crazy Golf and Games Bars. Accept no imitators.",
   );
-  const brandEmail = useContent("footer.brand_email", "info@plonkgolf.co.uk");
+  const brandEmail = useContent("footer.brand_email", "info@nodice.bar");
 
   const hackneyHeading = useContent("footer.hackney_heading", "Hackney");
   const hackneyAddress = useContent(
@@ -65,7 +65,7 @@ export default function Footer() {
 
   const copyrightTemplate = useContent(
     "footer.copyright",
-    "© {{year}} Plonk Golf Ltd. All rights reserved.",
+    "© {{year}} No Dice Ltd. All rights reserved.",
   );
   const copyright = copyrightTemplate.replace(
     /\{\{\s*year\s*\}\}/gi,

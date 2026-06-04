@@ -38,22 +38,22 @@ export default function ContactPage() {
             Email
           </p>
           <a
-            href="mailto:info@plonkgolf.co.uk"
+            href="mailto:info@nodice.bar"
             className="mt-2 block font-display text-2xl text-cream hover:underline sm:text-3xl"
           >
-            info@plonkgolf.co.uk
+            info@nodice.bar
           </a>
         </div>
 
         <p className="mt-10 text-base leading-relaxed text-cream/80">
           We're always looking for new venues to work with — if you have a
-          space, an idea, or just want to chat about a Plonk course in your
+          space, an idea, or just want to chat about a No Dice course in your
           location, get in touch.
         </p>
 
         <div className="mt-10">
           <p className="text-xs font-bold uppercase tracking-widest text-plonkYellow">
-            Follow Plonk
+            Follow No Dice
           </p>
           <ul className="mt-3 flex flex-wrap gap-x-6 gap-y-2 text-sm">
             <li>
@@ -68,7 +68,7 @@ export default function ContactPage() {
             </li>
             <li>
               <a
-                href="https://www.facebook.com/pages/PLONK-Golf/749762088452016"
+                href="https://www.facebook.com/pages/NO DICE-Golf/749762088452016"
                 target="_blank"
                 rel="noopener noreferrer"
                 className="text-cream/80 hover:text-cream"

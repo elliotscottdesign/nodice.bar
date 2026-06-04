@@ -1,7 +1,7 @@
 "use client";
 
 // =============================================================
-// Plonk Golf admin — image positioner
+// No Dice admin — image positioner
 // =============================================================
 // Mini cropper/positioner. After the admin picks an image, this
 // screen lets them drag it around within the target slot's aspect

@@ -244,7 +244,7 @@ function SuccessInner() {
             href="/"
             className="rounded-full border border-cream/20 px-6 py-3 text-sm font-bold uppercase tracking-wider text-cream"
           >
-            Back to Plonk
+            Back to No Dice
           </Link>
           <Link
             href="/book"

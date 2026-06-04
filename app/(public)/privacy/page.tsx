@@ -22,10 +22,10 @@ export default function PrivacyPage() {
           <div dangerouslySetInnerHTML={{ __html: body }} />
         ) : (
           <p>
-            The full Plonk Golf privacy policy is being updated alongside the
+            The full No Dice privacy policy is being updated alongside the
             new booking system. In the meantime, any questions about how we
             handle your data can be sent to{" "}
-            <a href="mailto:info@plonkgolf.co.uk">info@plonkgolf.co.uk</a>.
+            <a href="mailto:info@nodice.bar">info@nodice.bar</a>.
           </p>
         )}
       </article>

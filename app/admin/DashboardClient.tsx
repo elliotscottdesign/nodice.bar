@@ -105,7 +105,7 @@ export default function DashboardClient() {
             <Tile
               label="Active venues"
               value={venues.length.toString()}
-              sub={venues.map((v) => v.name.replace("Plonk ", "")).join(" + ") || "—"}
+              sub={venues.map((v) => v.name.replace("No Dice ", "")).join(" + ") || "—"}
             />
           </div>
 
@@ -192,7 +192,7 @@ export default function DashboardClient() {
                           {iso ? `${fmtDate(iso)} · ${fmtTime(iso)}` : "—"}
                         </span>
                         <span className="col-span-2 text-xs text-plonkYellow">
-                          {venueLabel(b.venue_id).replace("Plonk ", "")}
+                          {venueLabel(b.venue_id).replace("No Dice ", "")}
                         </span>
                         <span className="col-span-4">{b.customer_name}</span>
                         <span className="col-span-1 text-xs text-cream/55">

@@ -82,7 +82,7 @@ export default function CalendarClient() {
   const venueBadge = (id: string) => {
     const v = venues.find((x) => x.id === id);
     if (!v) return "—";
-    return v.name.replace("Plonk ", "").slice(0, 3).toUpperCase();
+    return v.name.replace("No Dice ", "").slice(0, 3).toUpperCase();
   };
   const venueColour = (id: string) => {
     const v = venues.find((x) => x.id === id);

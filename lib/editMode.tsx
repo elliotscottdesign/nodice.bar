@@ -1,7 +1,7 @@
 "use client";
 
 // =============================================================
-// Plonk Golf — edit mode context
+// No Dice — edit mode context
 // =============================================================
 // A tiny global toggle that flips the public site into in-place
 // edit mode. Wraps the public layout; the AdminBar toggles it,

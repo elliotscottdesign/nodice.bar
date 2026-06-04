@@ -64,7 +64,7 @@ export default function RefundsClient() {
   }, [bookings, search]);
 
   function venueName(id: string) {
-    return venues.find((v) => v.id === id)?.name.replace("Plonk ", "") ?? "—";
+    return venues.find((v) => v.id === id)?.name.replace("No Dice ", "") ?? "—";
   }
 
   return (

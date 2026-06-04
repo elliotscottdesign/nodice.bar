@@ -1,7 +1,7 @@
 "use client";
 
 // =============================================================
-// Plonk Golf admin — media library picker
+// No Dice admin — media library picker
 // =============================================================
 // Full-screen modal showing every image known to the project:
 //   - Built-in images from public/ (read from media-manifest.json,

@@ -364,7 +364,7 @@ function CheckoutInner() {
                   className="mt-0.5 h-4 w-4 rounded border-cream/20 bg-ink/40"
                 />
                 <span>
-                  Email me about Plonk deals and events — no spam, unsub
+                  Email me about No Dice deals and events — no spam, unsub
                   anytime.
                 </span>
               </label>

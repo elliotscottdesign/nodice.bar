@@ -100,7 +100,7 @@ export default function NewsletterPopup() {
       return;
     }
     if (!optIn) {
-      setError("Tick the box to confirm you'd like Plonk emails.");
+      setError("Tick the box to confirm you'd like No Dice emails.");
       return;
     }
     setError(null);
@@ -220,7 +220,7 @@ export default function NewsletterPopup() {
                       </svg>
                     )}
                   </span>
-                  I'd like emails from Plonk Golf — news, offers and the odd
+                  I'd like emails from No Dice — news, offers and the odd
                   free round. Unsubscribe anytime.
                 </label>
 

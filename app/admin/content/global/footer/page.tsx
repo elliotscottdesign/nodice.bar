@@ -1,7 +1,7 @@
 import AdminPageHeader from "@/components/admin/AdminPageHeader";
 import ContentEditor from "@/components/admin/ContentEditor";
 
-export const metadata = { title: "Footer — Plonk Admin" };
+export const metadata = { title: "Footer — No Dice Admin" };
 
 export default function FooterContentPage() {
   return (

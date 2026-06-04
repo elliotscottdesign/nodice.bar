@@ -25,7 +25,7 @@ export default function HackneyPage() {
   const eyebrow = useContent("venue.hackney.eyebrow", "Outdoors & covered");
   const title = useContent(
     "venue.hackney.title",
-    "Plonk Hackney at No Dice Games Bar",
+    "No Dice at No Dice Games Bar",
   );
   const intro = useContent(
     "venue.hackney.intro",

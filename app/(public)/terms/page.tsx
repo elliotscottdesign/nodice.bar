@@ -22,10 +22,10 @@ export default function TermsPage() {
           <div dangerouslySetInnerHTML={{ __html: body }} />
         ) : (
           <p>
-            The full Plonk Golf terms &amp; conditions are being updated
+            The full No Dice terms &amp; conditions are being updated
             alongside the new booking system. For booking-specific questions
             in the meantime, please email{" "}
-            <a href="mailto:info@plonkgolf.co.uk">info@plonkgolf.co.uk</a>.
+            <a href="mailto:info@nodice.bar">info@nodice.bar</a>.
           </p>
         )}
       </article>

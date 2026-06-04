@@ -73,7 +73,7 @@ export default function EmailsClient() {
     <>
       <AdminPageHeader
         title="Email Templates"
-        description="Wording of the emails Plonk sends to customers. Tags like {{first_name}} or {{slot_time}} get filled in automatically."
+        description="Wording of the emails No Dice sends to customers. Tags like {{first_name}} or {{slot_time}} get filled in automatically."
       />
 
       {err && (

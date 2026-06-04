@@ -1,7 +1,7 @@
 "use client";
 
 // =============================================================
-// Plonk Golf admin — block editor for HTML body fields
+// No Dice admin — block editor for HTML body fields
 // =============================================================
 // Replaces the raw HTML textarea with a structured, draggable list
 // of blocks (Heading, Sub-heading, Paragraph, Image, Raw HTML).

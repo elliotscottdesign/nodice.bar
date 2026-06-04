@@ -1,6 +1,6 @@
 import EmailsClient from "./EmailsClient";
 
-export const metadata = { title: "Email Templates — Plonk Admin" };
+export const metadata = { title: "Email Templates — No Dice Admin" };
 
 export default function EmailsPage() {
   return <EmailsClient />;

@@ -1,7 +1,7 @@
 import AdminPageHeader from "@/components/admin/AdminPageHeader";
 import ContentEditor from "@/components/admin/ContentEditor";
 
-export const metadata = { title: "Home page content — Plonk Admin" };
+export const metadata = { title: "Home page content — No Dice Admin" };
 
 // Default copy on the public homepage, passed through to the editor so
 // each field shows its current value as placeholder/preview text even
@@ -24,7 +24,7 @@ export default function HomeContentPage() {
     <>
       <AdminPageHeader
         title="Home page"
-        description="Edit the copy and hero image visible on plonkgolf.co.uk."
+        description="Edit the copy and hero image visible on nodice.bar."
         action={
           <a
             href="/"

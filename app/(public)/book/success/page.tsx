@@ -1,7 +1,7 @@
 import SuccessClient from "./SuccessClient";
 
 export const metadata = {
-  title: "Booking confirmed — Plonk Golf",
+  title: "Booking confirmed — No Dice",
 };
 
 export default function SuccessPage() {

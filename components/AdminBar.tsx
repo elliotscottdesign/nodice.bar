@@ -1,7 +1,7 @@
 "use client";
 
 // =============================================================
-// Plonk Golf — floating admin bar
+// No Dice — floating admin bar
 // =============================================================
 // Appears at the bottom of any public page ONLY when a Supabase
 // user is logged in. Gives the admin a one-click jump from the

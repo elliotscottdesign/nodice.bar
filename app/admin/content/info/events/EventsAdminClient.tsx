@@ -329,7 +329,7 @@ function EventModal({
               list="venue-names"
               value={draft.venue}
               onChange={(e) => setDraft({ ...draft, venue: e.target.value })}
-              placeholder="Plonk Hackney at No Dice Bar"
+              placeholder="No Dice at No Dice Bar"
               className="mt-1.5 w-full rounded-lg border border-cream/15 bg-ink/40 px-3 py-2 text-sm text-cream placeholder:text-cream/30 focus:border-plonkPink focus:outline-none"
             />
             <datalist id="venue-names">

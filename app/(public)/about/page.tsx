@@ -28,19 +28,19 @@ const DEFAULTS = {
   body_image1: "/hackney/course/Course_3.jpg",
   body_image2: "/borough/course/Course_4.jpg",
   body_para1:
-    "Plonk Crazy Golf was founded by a troop of set designers from the film industry who banded together for a common cause — using their skills to create the greatest crazy golf courses imaginable and plonking them down around the Capital.\n\nIn 2014 we opened our first course in Haggerston, London, built from 100% up-cycled materials rescued from the streets of Hackney. Since that initial success, we've been creating ever more ambitious courses across the UK and Europe.",
-  body_heading2: "Totally unique, totally Plonk",
+    "No Dice Crazy Golf was founded by a troop of set designers from the film industry who banded together for a common cause — using their skills to create the greatest crazy golf courses imaginable and plonking them down around the Capital.\n\nIn 2014 we opened our first course in Haggerston, London, built from 100% up-cycled materials rescued from the streets of Hackney. Since that initial success, we've been creating ever more ambitious courses across the UK and Europe.",
+  body_heading2: "Totally unique, totally No Dice",
   body_para2:
     "Totally unique and customisable, we work closely with award-winning venues, bars, pubs, and museums to create one-of-a-kind golf-stacle courses tailored to each venue. Outdoors you can find us working with major tourist attractions such as ZSL London Zoo and The Horniman Museum and Gardens, bringing our signature nine-hole courses to award-winning venues. Indoors, we're creating hyper-coloured UV adventures.",
   body_heading3: "Design · Build · Install · Manage",
   body_para3:
-    "We design, build, install and manage all of our golf courses ourselves, meaning no two are alike. Each Plonk course offers a completely new experience tailored to match the venue. Big or small, themed or branded, our in-house design team always have their pencils sharpened, ready to design the perfect Plonk course.\n\nSo come on down and join us in one of our putting paradises for a plonking good time!",
-  gallery_heading: "A decade of Plonking",
+    "We design, build, install and manage all of our golf courses ourselves, meaning no two are alike. Each No Dice course offers a completely new experience tailored to match the venue. Big or small, themed or branded, our in-house design team always have their pencils sharpened, ready to design the perfect No Dice course.\n\nSo come on down and join us in one of our putting paradises for a plonking good time!",
+  gallery_heading: "A decade of No Dice",
   gallery_intro: "Highlights from courses past and present.",
 };
 
 export default function AboutPage() {
-  const title = useContent("about.title", "All About Plonk Golf");
+  const title = useContent("about.title", "All About No Dice");
   const intro = useContent("about.intro", DEFAULTS.intro);
   const heroImage = useImage("about.hero_image", DEFAULTS.hero_image);
   const optionalBody = useContent("about.body", "");
@@ -62,7 +62,7 @@ export default function AboutPage() {
   return (
     <main>
       <PageHero
-        eyebrow="About Plonk"
+        eyebrow="About No Dice"
         title={title}
         intro={intro}
         image={heroImage}

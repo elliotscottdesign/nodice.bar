@@ -147,7 +147,7 @@ export default function HomePage() {
           detailHref="/venue/hackney"
           eyebrow="Outdoor · 9 holes · beer garden"
           image="/hackney/course/Course_1.jpg"
-          imageAlt="Plonk Hackney crazy golf"
+          imageAlt="No Dice crazy golf"
           imageKey="home.venues.hackney_image"
           blurb={hackneyBlurb}
           blurbKey="home.venues.hackney"
@@ -165,7 +165,7 @@ export default function HomePage() {
           detailHref="/venue/borough-market"
           eyebrow="Indoor · 9 holes · under London Bridge"
           image="/borough/course/Course_2.jpg"
-          imageAlt="Plonk Borough Market crazy golf"
+          imageAlt="No Dice crazy golf"
           imageKey="home.venues.borough_image"
           blurb={boroughBlurb}
           blurbKey="home.venues.borough"
@@ -185,7 +185,7 @@ export default function HomePage() {
         <div className="relative mx-auto max-w-6xl">
           <Reveal>
             <p className="text-center text-xs font-bold uppercase tracking-eyebrow text-plonkYellow">
-              <Editable k="home.features.eyebrow">{useContent("home.features.eyebrow", "Inside every Plonk")}</Editable>
+              <Editable k="home.features.eyebrow">{useContent("home.features.eyebrow", "Inside every No Dice")}</Editable>
             </p>
             <h2 className="mt-6 text-center font-display text-4xl sm:text-5xl">
               <Editable k="home.features.heading">{useContent("home.features.heading", "More than mini golf.")}</Editable>
@@ -225,7 +225,7 @@ export default function HomePage() {
           />
           <CtaCard
             eyebrow="The easy gift"
-            title="Plonk gift vouchers"
+            title="No Dice gift vouchers"
             blurb="A round, a meal, a cocktail flight, or all three. Delivered to inbox, redeemable at either venue."
             href="/vouchers"
             image="/borough/drinks/Cocktail_1.jpg"

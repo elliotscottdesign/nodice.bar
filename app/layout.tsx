@@ -4,9 +4,9 @@ import CookieConsent from "@/components/CookieConsent";
 import NewsletterPopup from "@/components/NewsletterPopup";
 
 export const metadata: Metadata = {
-  title: "Plonk Golf — Crazy Golf Creations Across the Capital",
+  title: "No Dice — Crazy Golf Creations Across the Capital",
   description:
-    "Plonk Crazy Golf — two original 9-hole courses in London. Hackney and Borough Market. Cocktails, food, arcade and games.",
+    "No Dice Crazy Golf — two original 9-hole courses in London. Hackney and Borough Market. Cocktails, food, arcade and games.",
 };
 
 export default function RootLayout({

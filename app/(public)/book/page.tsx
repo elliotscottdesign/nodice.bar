@@ -3,14 +3,14 @@ import Link from "next/link";
 import type { Metadata } from "next";
 
 export const metadata: Metadata = {
-  title: "Book Plonk Golf",
-  description: "Book a tee time at Plonk Hackney or Plonk Borough Market.",
+  title: "Book No Dice",
+  description: "Book a tee time at No Dice or No Dice.",
 };
 
 const VENUES = [
   {
     id: "hackney",
-    name: "Plonk Hackney",
+    name: "No Dice",
     tagline: "Outdoor · 9 holes · London Fields",
     image: "/hackney/course/Course_1.jpg",
     blurb:
@@ -19,7 +19,7 @@ const VENUES = [
   },
   {
     id: "borough",
-    name: "Plonk Borough Market",
+    name: "No Dice",
     tagline: "Indoor · 9 holes · London Bridge",
     image: "/borough/course/Course_1.jpg",
     blurb:
@@ -33,7 +33,7 @@ export default function BookingPickerPage() {
     <main className="bed-booking px-6 py-16">
       <div className="mx-auto max-w-5xl text-center">
         <p className="text-xs font-bold uppercase tracking-[0.3em] text-plonkYellow">
-          Book Plonk
+          Book No Dice
         </p>
         <h1 className="mt-3 font-display text-4xl sm:text-5xl">
           Which venue would you like?
@@ -68,7 +68,7 @@ export default function BookingPickerPage() {
               <h2 className="mt-1 font-display text-3xl">{v.name}</h2>
               <p className="mt-2 text-sm text-cream/80">{v.blurb}</p>
               <span className="mt-4 inline-block rounded-full bg-plonkPink px-6 py-2 text-sm font-bold uppercase tracking-wider text-white">
-                Book {v.name.replace("Plonk ", "")}
+                Book {v.name.replace("No Dice ", "")}
               </span>
             </div>
           </Link>

@@ -38,8 +38,8 @@ function parseNav(s: string): { label: string; href: string }[] {
 export default function Header() {
   const [open, setOpen] = useState(false);
 
-  const logoImage = useImage("header.logo_image", "/images/plonk-logo.png");
-  const logoAlt = useContent("header.logo_alt", "Plonk Golf");
+  const logoImage = useImage("header.logo_image", "/nodice-wordmark.png");
+  const logoAlt = useContent("header.logo_alt", "No Dice");
   const navRaw = useContent("header.nav", FALLBACK_NAV);
   const ctaLabel = useContent("header.cta_label", "Book Now");
   const ctaHref = useContent("header.cta_href", "/book");

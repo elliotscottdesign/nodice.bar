@@ -23,7 +23,7 @@ export default function VouchersPage() {
   const ctaLabel = useContent("vouchers.cta_label", "Buy a Voucher");
   const ctaNote = useContent(
     "vouchers.cta_note",
-    "Vouchers shop coming with the new booking system — meanwhile, email info@plonkgolf.co.uk to arrange one.",
+    "Vouchers shop coming with the new booking system — meanwhile, email info@nodice.bar to arrange one.",
   );
 
   const perks: { title: string; body: string }[] = [

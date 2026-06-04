@@ -7,8 +7,8 @@ import CalendarPopup from "./CalendarPopup";
 import { localIso } from "@/lib/dateIso";
 
 const VENUES = [
-  { id: "hackney", label: "Plonk Hackney" },
-  { id: "borough", label: "Plonk Borough Market" },
+  { id: "hackney", label: "No Dice" },
+  { id: "borough", label: "No Dice" },
 ] as const;
 
 function todayIso(): string {
@@ -66,7 +66,7 @@ export default function HeroBookingWidget() {
           label="Where"
           value={
             venue
-              ? VENUES.find((v) => v.id === venue)?.label.replace("Plonk ", "")
+              ? VENUES.find((v) => v.id === venue)?.label.replace("No Dice ", "")
               : "Choose venue"
           }
           placeholder={!venue}

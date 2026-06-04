@@ -6,55 +6,56 @@
   --font-display: "DM Serif Display", Georgia, serif;
   --font-body: "DM Sans", system-ui, sans-serif;
 
-  /* ───────── No Dice brand reds ─────────
-     Sampled from the No Dice wordmark (cherry red). All other reds
-     across the site derive from these three anchors. */
+  /* ───────── No Dice brand accents ─────────
+     The dice icon + CTAs are the red wordmark cherry; backgrounds
+     are kept dark and purple (see palette below) so the red logo
+     and buttons pop without competing with a red bed. */
   --nodice-red:        #DA1B33;
   --nodice-red-deep:   #8A0F22;
   --nodice-red-darker: #4A0814;
 
   /* ───────── Re-mapped tonal palette ─────────
-     The forked Plonk Golf code threads every gradient, bed, glow
-     and tint through these variable names (--forest*, --plum*,
-     --lilac*, --ember*). Rather than touch every component, we
-     re-point the variables themselves to red→black tonal stops.
-     Result: every existing class flows red→black automatically.
+     The forked codebase threads every gradient, bed, glow and tint
+     through these variable names (--forest*, --plum*, --lilac*,
+     --ember*). Rather than touch every component, the variable
+     values are repointed to a black ↔ deep-purple stack so every
+     existing class flows on the new palette automatically.
 
-     Top of the gradient stack = vivid red. Mid = deeper crimson.
-     Bottom = near-pure black with a faint red tint. */
+     Anchor: deep purple #330033 (founder-picked from the brand
+     reference). Black dominates; purple kisses the top edge. */
 
-  /* TOP — was forest (green); now deep crimson. */
-  --forest:        #5A0A16;
-  --forest-deep:   #2B0610;
-  --forest-raised: #6E0E1C;
-  --forest-line:   #821224;
-  --forest-light:  #761024;
+  /* TOP — was crimson; now the deep purple anchor. */
+  --forest:        #330033;
+  --forest-deep:   #1F001F;
+  --forest-raised: #401040;
+  --forest-line:   #5A145A;
+  --forest-light:  #401040;
 
-  /* MID — was plum (purple); now red dropping toward black. */
-  --plum:        #240610;
-  --plum-deep:   #120308;
-  --plum-raised: #320A18;
-  --plum-line:   #441220;
+  /* MID — dropping from purple toward black. */
+  --plum:        #1A001A;
+  --plum-deep:   #0A000A;
+  --plum-raised: #220822;
+  --plum-line:   #2B0A2B;
 
-  /* BOTTOM — was lilac (light purple); now near-black with red tint. */
-  --lilac:        #050204;
-  --lilac-deep:   #020001;
-  --lilac-raised: #0F0408;
-  --lilac-line:   #1C0610;
+  /* BOTTOM — pure-black with a faint purple breath. */
+  --lilac:        #050005;
+  --lilac-deep:   #020002;
+  --lilac-raised: #0A020A;
+  --lilac-line:   #150515;
 
   /* Ember — kept as an alias of lilac so .tint-ember* and the
-     .bed-borough page flow the same red→black palette as the rest
-     of the site. (Plonk Golf had already aliased ember to lilac.) */
-  --ember:        #050204;
-  --ember-deep:   #020001;
-  --ember-raised: #0F0408;
-  --ember-line:   #1C0610;
+     .bed-borough page flow the same palette as the rest of the site. */
+  --ember:        #050005;
+  --ember-deep:   #020002;
+  --ember-raised: #0A020A;
+  --ember-line:   #150515;
 
   --cream:     #F2EBD9;
   --cream-dim: #C7BFA9;
 
-  /* Accent — Plonk's pink becomes No Dice red. Yellow stays as a
-     legible secondary highlight on dark reds. */
+  /* Accent — the legacy --pink token stays mapped to No Dice red so
+     buttons and CTAs match the red dice/wordmark. Yellow stays as a
+     legible secondary highlight against dark purple. */
   --pink:   #DA1B33;
   --yellow: #E8C547;
 }
@@ -263,15 +264,15 @@ html {
 }
 
 /* Glowing accent blobs that sit behind big serif headlines for warmth.
-   All three now tint No Dice red (was yellow / plum-purple / orange
-   under Plonk Golf). Three intensities so adjacent sections can read
-   as distinct without leaving the brand palette. */
+   Now tint deep purple to match the bed palette (#330033 anchor).
+   Three intensities so adjacent sections can read as distinct without
+   leaving the brand palette. */
 .glow-blob::before {
   content: "";
   position: absolute;
   inset: -20% 10% auto 10%;
   height: 60%;
-  background: radial-gradient(closest-side, rgba(218, 27, 51, 0.22), transparent 70%);
+  background: radial-gradient(closest-side, rgba(120, 30, 140, 0.22), transparent 70%);
   pointer-events: none;
   filter: blur(40px);
   z-index: 0;
@@ -281,7 +282,7 @@ html {
   position: absolute;
   inset: -20% 10% auto 10%;
   height: 70%;
-  background: radial-gradient(closest-side, rgba(218, 27, 51, 0.28), transparent 70%);
+  background: radial-gradient(closest-side, rgba(120, 30, 140, 0.30), transparent 70%);
   pointer-events: none;
   filter: blur(60px);
   z-index: 0;
@@ -291,7 +292,7 @@ html {
   position: absolute;
   inset: -20% 10% auto 10%;
   height: 70%;
-  background: radial-gradient(closest-side, rgba(218, 27, 51, 0.34), transparent 70%);
+  background: radial-gradient(closest-side, rgba(120, 30, 140, 0.36), transparent 70%);
   pointer-events: none;
   filter: blur(60px);
   z-index: 0;

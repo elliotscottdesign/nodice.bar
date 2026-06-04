@@ -1,6 +1,6 @@
 import CustomersClient from "./CustomersClient";
 
-export const metadata = { title: "Customers — Plonk Admin" };
+export const metadata = { title: "Customers — No Dice Admin" };
 
 export default function CustomersPage() {
   return <CustomersClient />;

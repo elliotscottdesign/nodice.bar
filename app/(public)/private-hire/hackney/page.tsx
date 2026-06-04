@@ -45,10 +45,10 @@ function cateringRows(s: string): { yes: string[]; no: string[] } {
 
 const DEFAULTS = {
   hero_image: "/hackney/garden/Garden_1.jpg",
-  eyebrow: "Private hire · Plonk Hackney",
-  title: "Take Over Plonk Hackney",
+  eyebrow: "Private hire · No Dice",
+  title: "Take Over No Dice",
   intro: "Our nine-hole Polynesian course, beer garden, pool, arcade and tiki bar — all yours.",
-  popular_heading: "Plonk Hackney is popular for",
+  popular_heading: "No Dice is popular for",
   popular_list:
     "Birthday party\nChristmas party\nCorporate event\nOutdoor space\nParkside location\nUnusual space",
   about_heading: "About this venue",
@@ -235,7 +235,7 @@ export default function HackneyPrivateHirePage() {
         </div>
       </section>
 
-      <BigEmailCta subject="Private Hire Enquiry — Plonk Hackney" />
+      <BigEmailCta subject="Private Hire Enquiry — No Dice" />
     </main>
   );
 }

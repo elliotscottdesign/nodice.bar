@@ -16,15 +16,15 @@ function lines(s: string): string[] {
 
 const DEFAULTS = {
   hero_image: "/borough/course/Course_4.jpg",
-  eyebrow: "Private hire · Plonk Borough Market",
-  title: "Take Over Plonk Borough",
+  eyebrow: "Private hire · No Dice",
+  title: "Take Over No Dice",
   intro: "Four railway arches under London Bridge — yours for the night.",
-  popular_heading: "Plonk Borough is popular for",
+  popular_heading: "No Dice is popular for",
   popular_list:
     "Birthday party\nChristmas party\nCorporate event\nUnusual space",
   about_heading: "About this venue",
   about_body:
-    "Plonk at Borough Market is a celebration of all things London. A crew of London's best muralists and street artists have created a 360° gallery on the walls, ceiling and floor of the arches underneath London Bridge. This festival of street art wraps a nine-hole golf course that showcases the city's most famous monuments, sights and traditions — and some of our best ever obstacles.\n\nWith a full-service cocktail bar and a packed arcade — shooters, fighters, button-bashers, air hockey, ping pong, foosball and pinball — there's something here for every kind of guest. We can accommodate up to 100 people for private hires.",
+    "No Dice at Borough Market is a celebration of all things London. A crew of London's best muralists and street artists have created a 360° gallery on the walls, ceiling and floor of the arches underneath London Bridge. This festival of street art wraps a nine-hole golf course that showcases the city's most famous monuments, sights and traditions — and some of our best ever obstacles.\n\nWith a full-service cocktail bar and a packed arcade — shooters, fighters, button-bashers, air hockey, ping pong, foosball and pinball — there's something here for every kind of guest. We can accommodate up to 100 people for private hires.",
   capacity:
     "Standing: 100\n— Perfect for smaller takeovers — and ideal to combine with a meal out in the market afterwards.",
   features:
@@ -206,7 +206,7 @@ export default function BoroughPrivateHirePage() {
         </div>
       </section>
 
-      <BigEmailCta subject="Private Hire Enquiry — Plonk Borough Market" />
+      <BigEmailCta subject="Private Hire Enquiry — No Dice" />
     </main>
   );
 }

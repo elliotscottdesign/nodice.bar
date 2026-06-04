@@ -25,10 +25,10 @@ export default function BigEmailCta({
         </Reveal>
         <Reveal delay={120}>
           <a
-            href={`mailto:info@plonkgolf.co.uk?subject=${subjectParam}`}
+            href={`mailto:info@nodice.bar?subject=${subjectParam}`}
             className="mt-10 block break-all font-display text-3xl text-plonkYellow underline decoration-plonkYellow/40 decoration-2 underline-offset-8 transition hover:text-cream hover:decoration-cream sm:text-5xl md:text-6xl"
           >
-            info@plonkgolf.co.uk
+            info@nodice.bar
           </a>
         </Reveal>
         <Reveal delay={240}>

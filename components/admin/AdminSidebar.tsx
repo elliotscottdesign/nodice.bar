@@ -56,7 +56,7 @@ export default function AdminSidebar() {
     <aside className="hidden w-60 shrink-0 border-r border-cream/10 bg-ink/80 md:flex md:flex-col">
       <div className="border-b border-cream/10 p-5">
         <Link href="/admin" className="font-display text-xl">
-          Plonk Admin
+          No Dice Admin
         </Link>
         <p className="mt-1 text-xs text-cream/50">Preview / pre-backend</p>
       </div>

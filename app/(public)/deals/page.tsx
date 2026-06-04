@@ -39,7 +39,7 @@ const FALLBACK_DEALS: DbSiteDeal[] = [
 
 export default function DealsPage() {
   const eyebrow = useContent("deals.eyebrow", "Save on midweek");
-  const title = useContent("deals.title", "Plonk Deals");
+  const title = useContent("deals.title", "No Dice Deals");
   const intro = useContent(
     "deals.intro",
     "Off-peak deals on games, drinks and food across our venues. Some offers vary by site and opening times — you're always in for a treat.",

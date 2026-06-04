@@ -15,7 +15,7 @@ import {
 const FALLBACK_EVENTS: DbSiteEvent[] = [
   {
     id: "fb-h-1",
-    venue: "Plonk Hackney at No Dice Bar",
+    venue: "No Dice at No Dice Bar",
     day: "Every Saturday",
     title: "Boozy Ballzy Brunch",
     body: "Join us for the ultimate bottomless brunch experience. Epic games, unlimited drinks, delicious food, and endless fun.",
@@ -26,7 +26,7 @@ const FALLBACK_EVENTS: DbSiteEvent[] = [
   },
   {
     id: "fb-h-2",
-    venue: "Plonk Hackney at No Dice Bar",
+    venue: "No Dice at No Dice Bar",
     day: "1st Tuesday of the month",
     title: "Queer Pool Social",
     body: "Ladies and Queer Pool Social — pool games, prizes, more pool, more prizes. Free entry, just come along.",
@@ -37,7 +37,7 @@ const FALLBACK_EVENTS: DbSiteEvent[] = [
   },
   {
     id: "fb-b-1",
-    venue: "Plonk Borough",
+    venue: "No Dice",
     day: "3rd Wednesday of the month",
     title: "Shoreditch Doubles Pool Tournament",
     body: "Riotous doubles night under London Bridge. Over £200 in prizes — only 8 slots, always sells out.",
@@ -50,15 +50,15 @@ const FALLBACK_EVENTS: DbSiteEvent[] = [
 
 export default function EventsPage() {
   const eyebrow = useContent("events.eyebrow", "What's on");
-  const title = useContent("events.title", "Plonk Events");
+  const title = useContent("events.title", "No Dice Events");
   const intro = useContent(
     "events.intro",
-    "Events run by our partner venues — Plonk Hackney at No Dice Bar, and Plonk Borough.",
+    "Events run by our partner venues — No Dice at No Dice Bar, and No Dice.",
   );
   const heroImage = useImage("events.hero_image", "/hackney/games/Games_4.jpg");
   const footerNote = useContent(
     "events.footer_note",
-    "Bookable events will appear in the new booking system as it rolls out. Meanwhile, email info@plonkgolf.co.uk to reserve a slot.",
+    "Bookable events will appear in the new booking system as it rolls out. Meanwhile, email info@nodice.bar to reserve a slot.",
   );
 
   const [rows, setRows] = useState<DbSiteEvent[] | null>(null);
