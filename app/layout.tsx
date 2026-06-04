@@ -24,13 +24,13 @@ export default function RootLayout({
         <meta httpEquiv="Expires" content="0" />
         <link rel="preconnect" href="https://fonts.googleapis.com" />
         <link rel="preconnect" href="https://fonts.gstatic.com" crossOrigin="" />
-        {/* Lacquer — single weight (400) display face used for both
-            headings and body type across the site. Heavier
-            font-weight requests (font-semibold, font-bold etc.)
-            will fall back to Lacquer 400 since the family ships
-            only one cut — accepted trade for the distinctive look. */}
+        {/* Bebas Neue (display) + Inter (body) — the dive-bar / band-
+            flyer pairing. Bebas is single-weight all-caps condensed;
+            it carries every heading and brand moment. Inter handles
+            body copy, nav, forms, admin — anywhere readability matters
+            more than personality. */}
         <link
-          href="https://fonts.googleapis.com/css2?family=Lacquer&display=swap"
+          href="https://fonts.googleapis.com/css2?family=Bebas+Neue&family=Inter:wght@400;500;600;700&display=swap"
           rel="stylesheet"
         />
       </head>

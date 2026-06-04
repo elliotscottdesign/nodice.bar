@@ -3,13 +3,12 @@
 @tailwind utilities;
 
 :root {
-  /* Lacquer is the single typeface across the whole site —
-     headings AND body. It only ships one weight (400) so heavier
-     font-weight Tailwind utilities will fall back to that cut,
-     which is the intended look. Generic fallbacks kept so the
-     page still has a readable face while the webfont loads. */
-  --font-display: "Lacquer", "Impact", system-ui, sans-serif;
-  --font-body:    "Lacquer", system-ui, sans-serif;
+  /* Bebas Neue for headings and brand moments (single weight,
+     condensed all-caps poster face). Inter for body copy, nav,
+     forms, admin — anywhere readability has to lead. Generic
+     fallbacks kept so the page stays readable while webfonts load. */
+  --font-display: "Bebas Neue", "Impact", system-ui, sans-serif;
+  --font-body:    "Inter", system-ui, -apple-system, sans-serif;
 
   /* ───────── No Dice brand accents ─────────
      The dice icon + CTAs are the red wordmark cherry; backgrounds
