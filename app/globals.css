@@ -61,11 +61,25 @@
 }
 
 html, body {
-  /* Pure black base. Pages that don't apply a .bed-* class fall back
-     to this; pages that DO apply a bed-* get the red→black wash on
-     top. The result: every page reads as "No Dice black with red
-     coming through" regardless of which layout it uses. */
-  background: #0a0a0a;
+  /* Global page wash: black at top → deep purple in the middle →
+     black at bottom. Applied to the body itself (not a per-layout
+     .bed-* class) so EVERY page on the site — public, admin, error
+     screens, the lot — flows on the same palette. */
+  background:
+    linear-gradient(
+      180deg,
+      #000000 0%,
+      #000000 10%,
+      #330033 50%,
+      #000000 90%,
+      #000000 100%
+    );
+  /* `fixed` anchors the gradient to the viewport, so a long-scroll
+     page (FAQs, booking) still reads black/purple/black on every
+     screenful instead of fading out into solid black by the time
+     the user scrolls past the first viewport. */
+  background-attachment: fixed;
+  min-height: 100vh;
   color: var(--cream);
   font-family: var(--font-body);
   -webkit-font-smoothing: antialiased;
@@ -207,36 +221,21 @@ html {
    lighter green at the top → forest → plum → lilac-deep → lilac.
    Venue-specific identity is now expressed through accent colours
    on cards/UI rather than splitting the page bed. */
+/* Bed classes are neutralised — the body itself now paints the
+   black → purple → black wash (see html/body rule above), so any
+   per-layout .bed-* wrapper must stay transparent so the body
+   gradient shines through unobstructed. The classes are kept (not
+   deleted) so existing JSX references like className="bed-page"
+   keep compiling without churn. */
 .bed-hackney,
 .bed-borough,
 .bed-info,
 .bed-page {
-  /* Black-dominant wash: red kisses the top edge then collapses to
-     near-pure black within the first 20% of the page. Result: red
-     reads as an accent at the top of the scroll, not the dominant
-     colour of the whole page. */
-  background: linear-gradient(
-    180deg,
-    var(--forest-light) 0%,
-    var(--forest-deep) 6%,
-    var(--plum-deep) 14%,
-    var(--lilac-deep) 22%,
-    var(--lilac-deep) 100%
-  );
+  background: transparent;
 }
 
-/* Booking-flow bed — same black-dominant wash as the long-scroll
-   pages. min-height keeps the gradient filling the viewport even
-   when there's only a few lines of content. */
 .bed-booking {
-  background: linear-gradient(
-    180deg,
-    var(--forest-light) 0%,
-    var(--forest-deep) 6%,
-    var(--plum-deep) 14%,
-    var(--lilac-deep) 22%,
-    var(--lilac-deep) 100%
-  );
+  background: transparent;
   min-height: 100vh;
 }
 
