@@ -61,24 +61,11 @@
 }
 
 html, body {
-  /* Global page wash: black at top → deep purple in the middle →
-     black at bottom. Applied to the body itself (not a per-layout
-     .bed-* class) so EVERY page on the site — public, admin, error
-     screens, the lot — flows on the same palette. */
-  background:
-    linear-gradient(
-      180deg,
-      #000000 0%,
-      #000000 10%,
-      #330033 50%,
-      #000000 90%,
-      #000000 100%
-    );
-  /* `fixed` anchors the gradient to the viewport, so a long-scroll
-     page (FAQs, booking) still reads black/purple/black on every
-     screenful instead of fading out into solid black by the time
-     the user scrolls past the first viewport. */
-  background-attachment: fixed;
+  /* Solid black across every page on the site — public, admin,
+     error screens, all of it. No gradients, no tints. The .bed-*
+     classes further down are kept as `background: transparent` so
+     any existing wrapper divs let this black through unobstructed. */
+  background: #000000;
   min-height: 100vh;
   color: var(--cream);
   font-family: var(--font-body);
@@ -239,20 +226,61 @@ html {
   min-height: 100vh;
 }
 
-/* Hero overlay — lets the image breathe in the middle, only darkens at
-   top (so nav stays legible) and bottom (so the section hands off to
-   the next colour band cleanly). Re-tinted to near-black for No Dice
-   — was forest-deep rgba(8,26,20) under the Plonk Golf theme. */
+/* ───────── Solid-black override ─────────
+   Founder direction: no gradients anywhere, every background pure
+   black. Rather than rewrite every .tint-*, glow-blob and overlay
+   rule above, this single block strips them all at higher specificity.
+   The original class definitions are kept intact so any future
+   "bring the colour back" pivot is a one-line revert. */
+
+.tint-forest,
+.tint-forest-deep,
+.tint-plum,
+.tint-plum-deep,
+.tint-ember,
+.tint-ember-deep,
+.tint-forest-to-plum,
+.tint-plum-to-forest,
+.tint-plum-to-ember,
+.tint-ember-to-plum,
+.tint-ember-to-forest,
+.tint-forest-to-ember,
+.tint-hero,
+.tint-forest-to-plumDeep,
+.tint-plumDeep-to-plum,
+.tint-plum-to-forest-deep,
+.tint-forest-to-emberDeep,
+.tint-emberDeep-to-ember,
+.tint-ember-to-forest-deep,
+.tint-forest-to-forestDeep,
+.tint-forestDeep-to-forest,
+.tint-plum-island-ember,
+.tint-ember-island-plum,
+.tint-forest-island-plum,
+.tint-forest-island-ember {
+  background: transparent;
+}
+
+/* Hero overlay — kept only as a subtle vignette so nav stays legible
+   over photography. No gradient handoff to a coloured band any more. */
 .hero-overlay {
   background:
     linear-gradient(
       180deg,
       rgba(0, 0, 0, 0.55) 0%,
       rgba(0, 0, 0, 0.0) 20%,
-      rgba(0, 0, 0, 0.0) 55%,
-      rgba(0, 0, 0, 0.6) 85%,
-      var(--forest) 100%
+      rgba(0, 0, 0, 0.0) 80%,
+      rgba(0, 0, 0, 0.55) 100%
     );
+}
+
+/* Glow blobs were the radial purple/red halos behind headlines.
+   Hidden via the pseudo-element switch so no glow paints over the
+   solid black bed. */
+.glow-blob::before,
+.glow-blob-plum::before,
+.glow-blob-ember::before {
+  display: none;
 }
 
 /* Text shadow for hero headlines sitting over photography */
