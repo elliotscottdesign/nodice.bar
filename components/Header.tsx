@@ -9,17 +9,13 @@ import { Editable } from "./Editable";
 // Header nav fallback — overridable from the CMS via header.nav.
 // Labels are rendered uppercase by Tailwind (see the JSX below) so
 // the title-case source still ships as BAR / POOL / DEALS / EVENTS
-// / PLONK / BOOKINGS on the page.
-// Hrefs: /deals, /events and /book all exist; /bar, /pool and /plonk
-// are placeholders pending dedicated pages — currently route to "#"
-// so they don't 404. Swap each "#" for the real path as the pages
-// land (or override per-deploy from the admin → Header content).
+// / PLONK / BOOKINGS on the page. All six destinations now exist.
 const FALLBACK_NAV = [
-  "Bar | #",
-  "Pool | #",
+  "Bar | /bar",
+  "Pool | /pool",
   "Deals | /deals",
   "Events | /events",
-  "Plonk | #",
+  "Plonk | /plonk",
   "Bookings | /book",
 ].join("\n");
 

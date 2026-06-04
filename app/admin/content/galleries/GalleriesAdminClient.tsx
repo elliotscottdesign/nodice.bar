@@ -59,6 +59,16 @@ const KNOWN_GALLERIES: { key: string; label: string; description: string }[] = [
     description: "Top-of-page slider on /deals.",
   },
   {
+    key: "hero.bar",
+    label: "HERO slider — Bar",
+    description: "Top-of-page slider on /bar. Portrait shots work best.",
+  },
+  {
+    key: "hero.pool",
+    label: "HERO slider — Pool",
+    description: "Top-of-page slider on /pool. Portrait shots of the tables.",
+  },
+  {
     key: "hero.vouchers",
     label: "HERO slider — Vouchers",
     description: "Top-of-page slider on /vouchers.",
@@ -124,6 +134,18 @@ const KNOWN_GALLERIES: { key: string; label: string; description: string }[] = [
     key: "hackney.events",
     label: "Hackney — Events posters",
     description: '"Events at No Dice" poster grid on /venue/hackney.',
+  },
+  {
+    key: "bar.drinks_slider",
+    label: "Bar — Drinks slider",
+    description:
+      "Portrait drink shots that cycle below the menu CTA on /bar.",
+  },
+  {
+    key: "deals.grid",
+    label: "Deals — 4×2 poster grid",
+    description:
+      "Upload 7–10 portrait poster images for the deals grid on /deals. First 10 render in order.",
   },
 ];
 

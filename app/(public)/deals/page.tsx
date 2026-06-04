@@ -1,72 +1,47 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import Image from "next/image";
 import PageHero from "@/components/PageHero";
-import { useContent, useImage } from "@/lib/content";
-import { Editable } from "@/components/Editable";
-import { loadDeals, type DbSiteDeal } from "@/lib/db/deals";
+import { useContent, useGallery } from "@/lib/content";
 
-// Fallback used when the site_deals table is empty.
-const FALLBACK_DEALS: DbSiteDeal[] = [
-  {
-    id: "fb-1",
-    day: "Mondays — All day",
-    title: "2-for-1 on Games",
-    venue: "Hackney",
-    body: "2-for-1 on arcade tokens, games, pool and golf. For online sales, buy one round of golf or tokens for two players.",
-    sort_order: 1,
-    active: true,
-  },
-  {
-    id: "fb-2",
-    day: "Tuesdays — All day",
-    title: "Game & Drink — £10",
-    venue: "Hackney",
-    body: "A round of golf, three arcade tokens and a house drink — all for £10.",
-    sort_order: 2,
-    active: true,
-  },
-  {
-    id: "fb-3",
-    day: "Always on",
-    title: "10% Off — Students & Hospitality Workers",
-    venue: null,
-    body: "Use across different items at different venues. Cannot be used in conjunction with other offers or with food from Taco Mates at Hackney.",
-    sort_order: 3,
-    active: true,
-  },
+// /deals — image-led page per founder brief. A 4×2 (cols × rows) grid
+// on tablet+, collapses to 2×4 on mobile portrait. Each tile is
+// portrait aspect (3:4) so phones read the page as a vertical stack
+// of paired posters.
+//
+// CMS surface:
+//   • text       — useContent("deals.eyebrow"|"deals.title"|"deals.intro")
+//   • hero img   — gallery key "hero.deals"  (slider above the grid)
+//   • grid imgs  — gallery key "deals.grid"  (upload 7–10 portrait
+//                   poster images; first 10 render in order)
+//
+// The page renders WHATEVER images are uploaded to deals.grid — no
+// captions, no text overlays, just the images as a clean grid. If
+// the founder wants text on each tile, render the words into the
+// poster image itself (Canva / Photoshop / Figma).
+
+const FALLBACK_HERO = ["/images/PLONK-COCKTAILS_215298_L_web.jpg"];
+
+const FALLBACK_GRID: { src: string; alt: string | null }[] = [
+  { src: "/images/PLONK-COCKTAILS_215298_L_web.jpg", alt: null },
+  { src: "/images/Margarita.jpg", alt: null },
+  { src: "/images/PLONK-COCKTAILS_215335_SQ.jpg", alt: null },
+  { src: "/images/PLONK-HACKNEY-NOV-220190_web.jpg", alt: null },
+  { src: "/images/PLONK-HACKNEY-NOV-220217_Web.jpg", alt: null },
+  { src: "/images/PLONK_AT_HOME_1.jpg", alt: null },
+  { src: "/images/PLONK_LF_AW_OCt_20_web.jpg", alt: null },
+  { src: "/images/Plonk_Hackeny_1976_web.jpg", alt: null },
 ];
 
 export default function DealsPage() {
-  const eyebrow = useContent("deals.eyebrow", "Save on midweek");
-  const title = useContent("deals.title", "No Dice Deals");
+  const eyebrow = useContent("deals.eyebrow", "What's on this month");
+  const title = useContent("deals.title", "Deals");
   const intro = useContent(
     "deals.intro",
-    "Off-peak deals on games, drinks and food across our venues. Some offers vary by site and opening times — you're always in for a treat.",
+    "Off-peak deals on drinks, food and games. New posters added every month — tap an image for the small print.",
   );
-  const heroImage = useImage("deals.hero_image", "/hackney/drinks/Drinks_3.jpg");
-  const ctaHeading = useContent(
-    "deals.cta_heading",
-    "Looking for tournaments, brunches, chess & jazz, ping pong nights?",
-  );
-  const ctaLabel = useContent("deals.cta_link_label", "See what's on →");
-  const ctaHref = useContent("deals.cta_link_href", "/events");
 
-  const [rows, setRows] = useState<DbSiteDeal[] | null>(null);
-  useEffect(() => {
-    let cancelled = false;
-    loadDeals()
-      .then((d) => {
-        if (!cancelled) setRows(d);
-      })
-      .catch(() => {
-        if (!cancelled) setRows([]);
-      });
-    return () => {
-      cancelled = true;
-    };
-  }, []);
-  const deals = rows && rows.length > 0 ? rows : FALLBACK_DEALS;
+  const images = useGallery("deals.grid", FALLBACK_GRID);
 
   return (
     <main>
@@ -74,51 +49,34 @@ export default function DealsPage() {
         eyebrow={eyebrow}
         title={title}
         intro={intro}
-        image={heroImage}
+        image={FALLBACK_HERO}
         eyebrowKey="deals.eyebrow"
         titleKey="deals.title"
         introKey="deals.intro"
-        imageKey="deals.hero_image"
         sliderKey="hero.deals"
       />
 
-      <section>
-        <div className="mx-auto max-w-5xl px-6 py-20">
-          <div className="grid gap-6 md:grid-cols-2">
-            {deals.map((d) => (
-              <article
-                key={d.id}
-                className="rounded-2xl border border-plumLine/60 p-6"
+      <section className="px-6 py-16">
+        <div className="mx-auto max-w-6xl">
+          {/* 4 cols × 2 rows on tablet+ (sm); 2 cols × 4 rows on mobile.
+              Up to 10 tiles render — extra uploads are silently dropped
+              so the layout stays clean. */}
+          <div className="grid grid-cols-2 gap-3 sm:grid-cols-4 sm:gap-4">
+            {images.slice(0, 10).map((img, i) => (
+              <div
+                key={`${img.src}-${i}`}
+                className="relative aspect-[3/4] overflow-hidden rounded-xl"
               >
-                <p className="text-xs font-bold uppercase tracking-widest text-plonkYellow">
-                  {d.day}
-                  {d.venue ? ` · ${d.venue}` : ""}
-                </p>
-                <h3 className="mt-2 font-display text-xl">{d.title}</h3>
-                <p className="mt-3 whitespace-pre-line text-sm leading-relaxed text-cream/75">
-                  {d.body}
-                </p>
-              </article>
+                <Image
+                  src={img.src}
+                  alt={img.alt ?? ""}
+                  fill
+                  sizes="(min-width: 640px) 25vw, 50vw"
+                  className="object-cover transition duration-500 hover:scale-105"
+                />
+              </div>
             ))}
           </div>
-
-          {(ctaHeading || ctaLabel) && (
-            <div className="mt-16 rounded-2xl border border-plumLine/60 p-8 text-center">
-              {ctaHeading && (
-                <p className="text-base text-cream/80">
-                  <Editable k="deals.cta_heading">{ctaHeading}</Editable>
-                </p>
-              )}
-              {ctaLabel && ctaHref && (
-                <a
-                  href={ctaHref}
-                  className="mt-3 inline-block text-sm font-semibold uppercase tracking-wider text-plonkYellow hover:underline"
-                >
-                  <Editable k="deals.cta_link_label">{ctaLabel}</Editable>
-                </a>
-              )}
-            </div>
-          )}
         </div>
       </section>
     </main>
