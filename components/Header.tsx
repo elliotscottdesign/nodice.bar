@@ -6,14 +6,21 @@ import { useState } from "react";
 import { useContent, useImage } from "@/lib/content";
 import { Editable } from "./Editable";
 
+// Header nav fallback — overridable from the CMS via header.nav.
+// Labels are rendered uppercase by Tailwind (see the JSX below) so
+// the title-case source still ships as BAR / POOL / DEALS / EVENTS
+// / PLONK / BOOKINGS on the page.
+// Hrefs: /deals, /events and /book all exist; /bar, /pool and /plonk
+// are placeholders pending dedicated pages — currently route to "#"
+// so they don't 404. Swap each "#" for the real path as the pages
+// land (or override per-deploy from the admin → Header content).
 const FALLBACK_NAV = [
-  "Hackney | /venue/hackney",
-  "Borough | /venue/borough-market",
-  "Private hire | /private-hire",
-  "Vouchers | /vouchers",
-  "FAQs | /faqs",
-  "About | /about",
-  "Contact | /contact",
+  "Bar | #",
+  "Pool | #",
+  "Deals | /deals",
+  "Events | /events",
+  "Plonk | #",
+  "Bookings | /book",
 ].join("\n");
 
 // Parse a "Label | href" textarea into an array of nav items. Lines
