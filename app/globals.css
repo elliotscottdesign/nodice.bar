@@ -3,8 +3,13 @@
 @tailwind utilities;
 
 :root {
-  --font-display: "DM Serif Display", Georgia, serif;
-  --font-body: "DM Sans", system-ui, sans-serif;
+  /* Lacquer is the single typeface across the whole site —
+     headings AND body. It only ships one weight (400) so heavier
+     font-weight Tailwind utilities will fall back to that cut,
+     which is the intended look. Generic fallbacks kept so the
+     page still has a readable face while the webfont loads. */
+  --font-display: "Lacquer", "Impact", system-ui, sans-serif;
+  --font-body:    "Lacquer", system-ui, sans-serif;
 
   /* ───────── No Dice brand accents ─────────
      The dice icon + CTAs are the red wordmark cherry; backgrounds

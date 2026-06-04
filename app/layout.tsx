@@ -24,8 +24,13 @@ export default function RootLayout({
         <meta httpEquiv="Expires" content="0" />
         <link rel="preconnect" href="https://fonts.googleapis.com" />
         <link rel="preconnect" href="https://fonts.gstatic.com" crossOrigin="" />
+        {/* Lacquer — single weight (400) display face used for both
+            headings and body type across the site. Heavier
+            font-weight requests (font-semibold, font-bold etc.)
+            will fall back to Lacquer 400 since the family ships
+            only one cut — accepted trade for the distinctive look. */}
         <link
-          href="https://fonts.googleapis.com/css2?family=DM+Sans:wght@400;500;700&family=DM+Serif+Display:ital@0;1&display=swap"
+          href="https://fonts.googleapis.com/css2?family=Lacquer&display=swap"
           rel="stylesheet"
         />
       </head>
