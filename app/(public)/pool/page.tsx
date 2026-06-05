@@ -2,6 +2,7 @@
 
 import Link from "next/link";
 import PageHero from "@/components/PageHero";
+import ManageGalleryLink from "@/components/ManageGalleryLink";
 import { useContent } from "@/lib/content";
 
 // /pool — slider-led page. Hero IS the slider; below it sits a single
@@ -46,6 +47,11 @@ export default function PoolPage() {
         >
           {ctaLabel}
         </Link>
+        {/* Admin-only jump button — hidden when not in edit mode. */}
+        <ManageGalleryLink
+          galleryKey="hero.pool"
+          label="Manage hero images / order"
+        />
       </section>
     </main>
   );

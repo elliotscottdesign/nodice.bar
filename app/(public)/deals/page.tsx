@@ -2,6 +2,7 @@
 
 import Image from "next/image";
 import PageHero from "@/components/PageHero";
+import ManageGalleryLink from "@/components/ManageGalleryLink";
 import { useContent, useGallery } from "@/lib/content";
 
 // /deals — image-led page per founder brief. A 4×2 (cols × rows) grid
@@ -77,6 +78,15 @@ export default function DealsPage() {
               </div>
             ))}
           </div>
+          {/* Admin-only jump buttons — hidden when not in edit mode. */}
+          <ManageGalleryLink
+            galleryKey="deals.grid"
+            label="Manage deals grid / order"
+          />
+          <ManageGalleryLink
+            galleryKey="hero.deals"
+            label="Manage hero images / order"
+          />
         </div>
       </section>
     </main>

@@ -4,6 +4,7 @@ import Image from "next/image";
 import Link from "next/link";
 import PageHero from "@/components/PageHero";
 import HeroSlider from "@/components/HeroSlider";
+import ManageGalleryLink from "@/components/ManageGalleryLink";
 import { useContent, useGallery } from "@/lib/content";
 
 // /bar — single purpose: lead to the menu, then show portrait drink
@@ -78,12 +79,26 @@ export default function BarPage() {
       {/* DRINKS SLIDER — portrait. Sits BELOW the menu lead per brief.
           aspect-[3/4] is gentle-portrait (magazine ratio); swap to
           aspect-[9/16] if a tighter "Instagram story" crop is wanted. */}
-      <section className="px-6 pb-24">
+      <section className="px-6 pb-12">
         <div className="mx-auto max-w-sm">
           <div className="relative aspect-[3/4] overflow-hidden rounded-2xl">
             <HeroSlider images={sliderImages.map((i) => ({ src: i.src }))} />
           </div>
         </div>
+        {/* Admin-only jump button — hidden when not in edit mode. */}
+        <ManageGalleryLink
+          galleryKey="bar.drinks_slider"
+          label="Manage drinks slider images / order"
+        />
+      </section>
+
+      {/* Hero slider images live on a separate gallery — surface a jump
+          button here too so admins can manage both from this page. */}
+      <section className="px-6 pb-24">
+        <ManageGalleryLink
+          galleryKey="hero.bar"
+          label="Manage hero images / order"
+        />
       </section>
     </main>
   );

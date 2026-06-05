@@ -18,12 +18,6 @@ const PAGES: { label: string; href: string; description: string; group: string }
     description: "Title, intro, body copy, hero image for /venue/hackney.",
   },
   {
-    group: "Marketing",
-    label: "Borough Market venue page",
-    href: "/admin/content/venue/borough",
-    description: "Title, intro, body copy, hero image for /venue/borough-market.",
-  },
-  {
     group: "Private hire",
     label: "Private hire — overview",
     href: "/admin/content/private-hire",
@@ -35,11 +29,38 @@ const PAGES: { label: string; href: string; description: string; group: string }
     href: "/admin/content/private-hire/hackney",
     description: "Headline + body for /private-hire/hackney.",
   },
+
+  // ──────────────────────────────────────────────────────────────
+  // New nav-bar pages (BAR / POOL / DEALS / EVENTS / PLONK / BOOK)
+  // Each row matches a page_content `page` value seeded in the DB.
+  // ──────────────────────────────────────────────────────────────
   {
-    group: "Private hire",
-    label: "Private hire — Borough Market",
-    href: "/admin/content/private-hire/borough",
-    description: "Headline + body for /private-hire/borough-market.",
+    group: "Nav pages",
+    label: "Bar",
+    href: "/admin/content/info/bar",
+    description:
+      "Hero, menu CTA and drinks slider on /bar. Hero + drinks slider images live under Galleries.",
+  },
+  {
+    group: "Nav pages",
+    label: "Pool",
+    href: "/admin/content/info/pool",
+    description:
+      "Hero and 'book a table' CTA on /pool. Hero slider images live under Galleries.",
+  },
+  {
+    group: "Nav pages",
+    label: "Plonk (contact)",
+    href: "/admin/content/info/plonk",
+    description:
+      "Contact details — email, phone, address, hours, Instagram — shown on /plonk.",
+  },
+  {
+    group: "Nav pages",
+    label: "Book Now landing",
+    href: "/admin/content/info/book",
+    description:
+      "Hero copy and the four category cards (Tables / Pool / Parties / Golf) on /book.",
   },
   {
     group: "Info pages",
@@ -117,7 +138,7 @@ const PAGES: { label: string; href: string; description: string; group: string }
   },
 ];
 
-const GROUPS = ["Marketing", "Private hire", "Info pages", "Media", "Site-wide"];
+const GROUPS = ["Marketing", "Nav pages", "Private hire", "Info pages", "Media", "Site-wide"];
 
 export default function ContentLandingPage() {
   return (

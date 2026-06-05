@@ -1,88 +1,97 @@
+"use client";
+
 import Image from "next/image";
 import Link from "next/link";
-import type { Metadata } from "next";
+import { useContent, useImage } from "@/lib/content";
 
-export const metadata: Metadata = {
-  title: "Book — No Dice",
-  description:
-    "Book a table, a pool table, a private hire or a Plonk Golf tee time.",
-};
-
-// /book — the bookings landing. Four cards per founder brief: tables,
-// pool, party inquiries, golf. Each routes into the appropriate
-// existing flow:
-//   • Tables / Pool   → /book/hackney (the existing booking flow)
-//   • Party inquiries → /private-hire (existing page with form)
-//   • Golf            → plonkgolf.co.uk (external, the sister brand)
+// /book — the bookings landing. Four cards (Tables / Pool / Parties /
+// Golf) per founder brief. Now CMS-driven: every label, blurb, image
+// and link is editable from /admin/content/info/book.
 //
-// Server component (no "use client") — content is static so it ships
-// in the static export with no client JS for the landing itself.
+// Hardcoded fallbacks below mirror the seeded values so the page
+// renders immediately even on a fresh DB. The useContent hook returns
+// the DB value when present and the fallback otherwise.
 
-const CATEGORIES: {
-  id: string;
-  name: string;
-  tagline: string;
-  image: string;
-  blurb: string;
-  href: string;
-  external?: boolean;
-}[] = [
+const FALLBACK_CARDS = [
   {
     id: "tables",
     name: "Tables",
     tagline: "Dinner · Drinks · Groups",
+    blurb: "Reserve a table for dinner, drinks or a group of friends. Hackney only.",
     image: "/images/PLONK-COCKTAILS_215335_SQ.jpg",
-    blurb:
-      "Reserve a table for dinner, drinks or a group of friends. Hackney only.",
     href: "/book/hackney",
   },
   {
     id: "pool",
     name: "Pool Tables",
     tagline: "American 7ft · Hourly",
-    image: "/images/PAH-V2-1-1.jpg",
     blurb: "Book a pool table for an hour or for the whole evening.",
+    image: "/images/PAH-V2-1-1.jpg",
     href: "/book/hackney",
   },
   {
     id: "parties",
     name: "Party Inquiries",
     tagline: "Private hire · Groups of 10+",
+    blurb: "Birthdays, leaving dos, brand activations — whole-venue or arch-end hires.",
     image: "/images/MPL_294A9392_Web.jpg",
-    blurb:
-      "Birthdays, leaving dos, brand activations — whole-venue or arch-end hires.",
     href: "/private-hire",
   },
   {
     id: "golf",
     name: "Golf",
     tagline: "Plonk Golf · Sister brand",
+    blurb: "Crazy golf at our sister venue, Plonk Golf — Hackney and Borough.",
     image: "/images/PLNK-HTDG-044_Large.jpg",
-    blurb:
-      "Crazy golf at our sister venue, Plonk Golf — Hackney and Borough.",
     href: "https://www.plonkgolf.co.uk/",
-    external: true,
   },
-];
+] as const;
+
+// External links open in a new tab. We classify any href starting with
+// http(s) as external so the admin can rewire the Golf card to an
+// internal page later without code changes.
+function isExternal(href: string): boolean {
+  return /^https?:\/\//i.test(href);
+}
 
 export default function BookPage() {
+  const heroEyebrow = useContent("book.hero_eyebrow", "Bookings");
+  const heroTitle = useContent("book.hero_title", "Book Now");
+  const heroIntro = useContent(
+    "book.hero_intro",
+    "Pick your booking — table, pool, party or golf.",
+  );
+
+  // Per-card hooks. Each card's five fields (name/tagline/blurb/image/
+  // href) read from page_content. To add a fifth card later, add a new
+  // entry to FALLBACK_CARDS, seed the matching rows in page_content,
+  // and bump the prefix in the loop below.
+  const cards = FALLBACK_CARDS.map((c) => ({
+    id: c.id,
+    name: useContent(`book.${c.id}.name`, c.name),
+    tagline: useContent(`book.${c.id}.tagline`, c.tagline),
+    blurb: useContent(`book.${c.id}.blurb`, c.blurb),
+    image: useImage(`book.${c.id}.image`, c.image),
+    href: useContent(`book.${c.id}.href`, c.href),
+  }));
+
   return (
     <main>
       <section className="px-6 pt-16 pb-8 text-center">
         <div className="mb-4 text-xs font-bold uppercase tracking-[0.3em] text-plonkPink">
-          Bookings
+          {heroEyebrow}
         </div>
         <h1 className="font-display text-5xl uppercase tracking-wider sm:text-6xl">
-          Book Now
+          {heroTitle}
         </h1>
         <p className="mx-auto mt-4 max-w-xl text-base text-cream/75">
-          Pick your booking — table, pool, party or golf.
+          {heroIntro}
         </p>
       </section>
 
       <section className="px-6 pb-24">
         <div className="mx-auto grid max-w-5xl gap-4 sm:grid-cols-2">
-          {CATEGORIES.map((c) => {
+          {cards.map((c) => {
             const inner = (
               <>
                 <div className="relative aspect-[3/2] w-full overflow-hidden">
@@ -92,6 +101,7 @@ export default function BookPage() {
                     fill
                     sizes="(min-width: 640px) 50vw, 100vw"
                     className="object-cover transition duration-500 group-hover:scale-105"
+                    unoptimized={c.image.startsWith("http")}
                   />
                 </div>
                 <div className="p-6">
@@ -107,7 +117,7 @@ export default function BookPage() {
             );
             const className =
               "group block overflow-hidden rounded-2xl border border-cream/10 transition hover:border-cream/30";
-            return c.external ? (
+            return isExternal(c.href) ? (
               <a
                 key={c.id}
                 href={c.href}
