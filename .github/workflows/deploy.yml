@@ -33,6 +33,11 @@ jobs:
           # Per-deploy hash appended to every image URL by image-loader.js,
           # so browsers can't cache a stale 404 across deploys.
           NEXT_PUBLIC_BUILD_ID: ${{ github.sha }}
+          # GitHub Pages serves this site under /nodice.bar/ so any client-
+          # side fetch() (media manifest, JSON config, etc.) has to prepend
+          # the prefix. next.config.mjs sets `basePath` for Next routing,
+          # but raw fetches read this env var instead.
+          NEXT_PUBLIC_BASE_PATH: "/nodice.bar"
           # Supabase — anon public key is designed to be embedded in
           # browser code; safe to keep inline. The real protection is the
           # Row-Level Security policies on the database, not this key.

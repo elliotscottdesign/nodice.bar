@@ -66,9 +66,17 @@ export default function MediaPicker({
   useEffect(() => {
     let cancelled = false;
 
+    // Static export on GitHub Pages serves assets under /nodice.bar/.
+    // Next.js auto-prefixes <Image src> via the basePath config but
+    // NOT raw fetch() calls — we have to prepend the prefix ourselves.
+    // NEXT_PUBLIC_BASE_PATH is set in .github/workflows/deploy.yml so
+    // the bundle bakes the prefix in at build time. Empty string in
+    // local dev (no prefix needed).
+    const basePath = process.env.NEXT_PUBLIC_BASE_PATH || "";
+
     (async () => {
       try {
-        const res = await fetch(`/media-manifest.json?t=${Date.now()}`);
+        const res = await fetch(`${basePath}/media-manifest.json?t=${Date.now()}`);
         if (!res.ok) throw new Error(`Manifest fetch failed: ${res.status}`);
         const json = (await res.json()) as Manifest;
         if (cancelled) return;
