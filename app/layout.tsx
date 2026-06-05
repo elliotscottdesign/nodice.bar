@@ -4,9 +4,9 @@ import CookieConsent from "@/components/CookieConsent";
 import NewsletterPopup from "@/components/NewsletterPopup";
 
 export const metadata: Metadata = {
-  title: "No Dice — Crazy Golf Creations Across the Capital",
+  title: "No Dice — London Fields, Hackney",
   description:
-    "No Dice Crazy Golf — two original 9-hole courses in London. Hackney and Borough Market. Cocktails, food, arcade and games.",
+    "No Dice — a neighbourhood bar in the railway arches off London Fields. Pool, arcade, kitchen residencies, big screens for sport.",
 };
 
 export default function RootLayout({

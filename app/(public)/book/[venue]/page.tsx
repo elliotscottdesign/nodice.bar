@@ -1,13 +1,15 @@
 import { Suspense } from "react";
 import CatalogueLoader from "./CatalogueLoader";
 
+// Single-venue site — borough removed from static params so /book/borough
+// no longer renders as a static page. Restore the second entry to bring
+// Borough back.
 export function generateStaticParams() {
-  return [{ venue: "hackney" }, { venue: "borough" }];
+  return [{ venue: "hackney" }];
 }
 
 const VENUE_NAMES: Record<string, string> = {
   hackney: "No Dice",
-  borough: "No Dice",
 };
 
 export function generateMetadata({ params }: { params: { venue: string } }) {

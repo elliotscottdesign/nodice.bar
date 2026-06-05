@@ -26,12 +26,12 @@ const FEATURES = [
   {
     image: "/hackney/pool/Pool_2.jpg",
     title: "Pool",
-    body: "American 7ft pool tables in Hackney, brand-new British 7ft tables in Borough. £5 for 30 minutes. Over-16s only.",
+    body: "American 7ft pool tables. £5 for 30 minutes. Over-16s only.",
   },
   {
     image: "/hackney/games/Games_8.jpg",
     title: "Board games",
-    body: "A wall of board games at Hackney. Borrow whatever you fancy from the bar and settle the score between rounds.",
+    body: "A wall of board games. Borrow whatever you fancy from the bar and settle the score between rounds.",
   },
   {
     image: "/hackney/games/Games_2.jpg",
@@ -44,21 +44,17 @@ export default function HomePage() {
   // Every useContent / useImage call passes the current hardcoded value as
   // its fallback, so the page renders identically when nothing's been edited
   // in the admin. Saved values override the fallback on hydration.
-  const heroImage = useImage("home.hero.image", "/borough/course/Course_1.jpg");
-  const heroEyebrow = useContent("home.hero.eyebrow", "Hackney · Borough Market");
-  const heroLine1 = useContent("home.hero.headline_1", "Crazy Golf Creations");
-  const heroLine2 = useContent("home.hero.headline_2", "Across the Capital");
+  const heroImage = useImage("home.hero.image", "/hackney/course/Course_1.jpg");
+  const heroEyebrow = useContent("home.hero.eyebrow", "London Fields · Hackney");
+  const heroLine1 = useContent("home.hero.headline_1", "No Dice");
+  const heroLine2 = useContent("home.hero.headline_2", "Hackney");
   const heroSubcopy = useContent(
     "home.hero.subcopy",
-    "Two original courses. Two iconic London arches. One unforgettable round — with cocktails, food and games to match.",
+    "A neighbourhood bar in the railway arches off London Fields. Pool, board games, arcade, residents on the decks, every big match on the screens.",
   );
   const hackneyBlurb = useContent(
     "home.venues.hackney",
-    "A short walk from Broadway Market overlooking London Fields. Our Polynesian-themed outdoor course, with a beer garden, taco kitchen, pool, retro arcade and craft cocktail bar.",
-  );
-  const boroughBlurb = useContent(
-    "home.venues.borough",
-    "Tucked into four railway arches under London Bridge. A London-themed indoor course threading past the city's monuments, surrounded by murals from London's best spray-can talent.",
+    "A short walk from Broadway Market overlooking London Fields. Our home in the arches — beer garden, kitchen residencies, pool tables, retro arcade and craft cocktail bar.",
   );
   const f1Title = useContent("home.feature1.title", FEATURES[0].title);
   const f1Body = useContent("home.feature1.body", FEATURES[0].body);
@@ -143,39 +139,21 @@ export default function HomePage() {
         <div className="glow-blob-plum pointer-events-none absolute inset-x-0 top-0 h-[40vh]" />
         <VenueSpotlight
           name="Hackney"
-          bookHref="/book/hackney"
+          bookHref="/book"
           detailHref="/venue/hackney"
-          eyebrow="Outdoor · 9 holes · beer garden"
+          eyebrow="London Fields · 407 Mentmore Terrace"
           image="/hackney/course/Course_1.jpg"
-          imageAlt="No Dice crazy golf"
+          imageAlt="No Dice Hackney"
           imageKey="home.venues.hackney_image"
           blurb={hackneyBlurb}
           blurbKey="home.venues.hackney"
           features={[
-            "9-hole Polynesian course",
-            "Outdoor beer garden",
-            "Taco kitchen",
             "Pool & arcade",
+            "Beer garden",
+            "Kitchen residencies",
+            "Big screens for sport",
           ]}
           align="left"
-        />
-        <VenueSpotlight
-          name="Borough Market"
-          bookHref="/book/borough"
-          detailHref="/venue/borough-market"
-          eyebrow="Indoor · 9 holes · under London Bridge"
-          image="/borough/course/Course_2.jpg"
-          imageAlt="No Dice crazy golf"
-          imageKey="home.venues.borough_image"
-          blurb={boroughBlurb}
-          blurbKey="home.venues.borough"
-          features={[
-            "9-hole London-themed course",
-            "4 covered arches",
-            "Stone-baked pizza",
-            "Ping pong & pinball",
-          ]}
-          align="right"
         />
       </section>
 
@@ -226,9 +204,9 @@ export default function HomePage() {
           <CtaCard
             eyebrow="The easy gift"
             title="No Dice gift vouchers"
-            blurb="A round, a meal, a cocktail flight, or all three. Delivered to inbox, redeemable at either venue."
+            blurb="A drink, a meal, a cocktail flight, or all three. Delivered to inbox, redeemable at the bar."
             href="/vouchers"
-            image="/borough/drinks/Cocktail_1.jpg"
+            image="/hackney/drinks/Drinks_3.jpg"
           />
         </div>
       </section>

@@ -34,11 +34,6 @@ const KNOWN_GALLERIES: { key: string; label: string; description: string }[] = [
     description: "Top-of-page slider on /venue/hackney.",
   },
   {
-    key: "hero.venue.borough",
-    label: "HERO slider — Borough Market",
-    description: "Top-of-page slider on /venue/borough-market.",
-  },
-  {
     key: "hero.about",
     label: "HERO slider — About",
     description: "Top-of-page slider on /about.",
@@ -98,11 +93,6 @@ const KNOWN_GALLERIES: { key: string; label: string; description: string }[] = [
     label: "HERO slider — Private hire (Hackney)",
     description: "Top-of-page slider on /private-hire/hackney.",
   },
-  {
-    key: "hero.privatehire.borough",
-    label: "HERO slider — Private hire (Borough)",
-    description: "Top-of-page slider on /private-hire/borough-market.",
-  },
 
   // ----- Inline content galleries -----
   {
@@ -124,11 +114,6 @@ const KNOWN_GALLERIES: { key: string; label: string; description: string }[] = [
     key: "venue.hackney.gallery",
     label: "Hackney page gallery",
     description: "Photo strip on /venue/hackney.",
-  },
-  {
-    key: "venue.borough.gallery",
-    label: "Borough page gallery",
-    description: "Photo strip on /venue/borough-market.",
   },
   {
     key: "hackney.events",

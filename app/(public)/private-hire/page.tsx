@@ -8,30 +8,21 @@ import BigEmailCta from "@/components/BigEmailCta";
 import { useContent, useImage } from "@/lib/content";
 import { Editable } from "@/components/Editable";
 
+// Single-venue site — only Hackney listed. To bring Borough back, restore
+// the entry from git history and re-add the matching public + admin
+// routes under /private-hire/borough-market.
 const VENUES = [
   {
     slug: "hackney",
     name: "No Dice",
-    location: "London Fields · Outdoor",
+    location: "London Fields · Hackney",
     capacity: "Up to 65 standing · 40 dining · 30 cabaret",
     minSpend: "From £1,000 minimum spend for 2 hours",
     blurb:
-      "A full nine-hole Polynesian course, beer garden, two pool tables, retro arcade and a tiki cocktail bar. Outdoor space with a parkside location.",
+      "A neighbourhood bar in the railway arches off London Fields. Pool tables, retro arcade, rotating kitchen residencies, full cocktail bar.",
     image: "/hackney/venue/Interior_5.jpg",
     href: "/private-hire/hackney",
     tags: ["Birthday", "Christmas party", "Corporate event", "Outdoor space"],
-  },
-  {
-    slug: "borough-market",
-    name: "No Dice",
-    location: "London Bridge · Indoor",
-    capacity: "Up to 100 standing",
-    minSpend: "From £1,000 minimum spend per hour",
-    blurb:
-      "Four railway arches under London Bridge. London-themed 9-hole course, full-service cocktail bar, packed arcade, and 360° street-art murals.",
-    image: "/borough/course/Course_1.jpg",
-    href: "/private-hire/borough-market",
-    tags: ["Birthday", "Christmas party", "Corporate event", "Unusual space"],
   },
 ];
 
@@ -46,12 +37,12 @@ const REASONS_FALLBACK = [
   },
   {
     title: "Full bar & kitchen",
-    body: "Signature cocktails, craft on draught, wine, mocktails. Snack Bar burgers at Hackney, sharing platters at Borough.",
+    body: "Signature cocktails, craft on draught, wine, mocktails, and rotating food residencies from London's best up-and-coming kitchens.",
   },
 ];
 
 export default function PrivateHirePage() {
-  const heroImage = useImage("privatehire.hero_image", "/borough/course/Course_3.jpg");
+  const heroImage = useImage("privatehire.hero_image", "/hackney/venue/Interior_5.jpg");
   const eyebrow = useContent(
     "privatehire.eyebrow",
     "Parties · Corporate · Christmas · Weddings",
@@ -59,7 +50,7 @@ export default function PrivateHirePage() {
   const title = useContent("privatehire.title", "Take Over No Dice");
   const intro = useContent(
     "privatehire.intro",
-    "Two London venues, one unforgettable party. Take over a course, an arch, or the whole place.",
+    "London Fields' newest bar — yours for the night. Take over an arch or the whole place.",
   );
 
   const reasonsEyebrow = useContent("privatehire.reasons.eyebrow", "Why hire No Dice");

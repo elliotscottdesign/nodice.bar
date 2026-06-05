@@ -6,9 +6,11 @@ import { useRouter } from "next/navigation";
 import CalendarPopup from "./CalendarPopup";
 import { localIso } from "@/lib/dateIso";
 
+// Single-venue site — Borough entry removed. If a second venue is added
+// later, push another `{ id, label }` here and the widget's dropdown
+// will surface it automatically.
 const VENUES = [
   { id: "hackney", label: "No Dice" },
-  { id: "borough", label: "No Dice" },
 ] as const;
 
 function todayIso(): string {
