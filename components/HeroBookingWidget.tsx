@@ -6,12 +6,30 @@ import { useRouter } from "next/navigation";
 import CalendarPopup from "./CalendarPopup";
 import { localIso } from "@/lib/dateIso";
 
-// Single-venue site — Borough entry removed. If a second venue is added
-// later, push another `{ id, label }` here and the widget's dropdown
-// will surface it automatically.
-const VENUES = [
-  { id: "hackney", label: "No Dice" },
-] as const;
+// HeroBookingWidget — the single floating front door for every kind
+// of reservation No Dice takes. User picks WHAT (Pool / Table /
+// World Cup / Golf), WHEN, and WHO (party size), then we route to
+// the matching flow with date + size as query params. Visually
+// retains the Plonk Golf "search bar" shape so it slots into the
+// homepage hero unchanged.
+//
+// Item-routing table:
+//   pool       /book/pool   — 30-min slots on the hour, pool tables
+//   table      /book/table  — 15-min granularity, restaurant tables
+//   worldcup   /world-cup   — match-anchored reservations
+//   golf       (external)   — Plonk Golf's own booking site
+type ItemId = "pool" | "table" | "worldcup" | "golf";
+
+const ITEMS: { id: ItemId; label: string; description: string }[] = [
+  { id: "pool",     label: "Pool table",   description: "30 min slots · on the hour" },
+  { id: "table",    label: "Table",        description: "Drinks · dinner · groups" },
+  { id: "worldcup", label: "World Cup",    description: "Reserve a spot for a match" },
+  { id: "golf",     label: "Golf",         description: "Plonk Golf — Hackney" },
+];
+
+// Plonk Golf is on its own domain — opening it in a new tab keeps the
+// user's No Dice session intact.
+const GOLF_EXTERNAL_URL = "https://www.plonkgolf.co.uk/";
 
 function todayIso(): string {
   return localIso(new Date());
@@ -38,59 +56,74 @@ function prettyDate(iso: string): string {
 
 export default function HeroBookingWidget() {
   const router = useRouter();
-  const [venue, setVenue] = useState<"" | "hackney" | "borough">("");
+  const [item, setItem] = useState<"" | ItemId>("");
   const [date, setDate] = useState<string>("");
   const [size, setSize] = useState<number>(0);
 
-  const [openField, setOpenField] = useState<null | "venue" | "size">(null);
+  const [openField, setOpenField] = useState<null | "item" | "size">(null);
   const [calendarOpen, setCalendarOpen] = useState(false);
 
   // Refs to the trigger buttons so the portaled dropdown can position
   // itself flush under whichever one was clicked.
-  const venueBtnRef = useRef<HTMLButtonElement | null>(null);
+  const itemBtnRef = useRef<HTMLButtonElement | null>(null);
   const sizeBtnRef = useRef<HTMLButtonElement | null>(null);
 
   function search() {
-    const v = venue || "hackney";
+    // Default to "table" if nothing picked — most common booking type
+    // for a bar, and the table flow accepts walk-up sizes anyway.
+    const chosen: ItemId = item || "table";
+
+    // Golf is external — open Plonk Golf and bail; query params are
+    // dropped because their booking system has its own date picker.
+    if (chosen === "golf") {
+      window.open(GOLF_EXTERNAL_URL, "_blank", "noopener,noreferrer");
+      return;
+    }
+
+    // Build the query string. World Cup uses date only (no party-size
+    // checkout flow yet); pool and table take both.
     const params = new URLSearchParams();
     if (date) params.set("date", date);
-    if (size > 0) params.set("size", String(size));
+    if (size > 0 && chosen !== "worldcup") params.set("size", String(size));
     const qs = params.toString();
-    router.push(`/book/${v}${qs ? `?${qs}` : ""}`);
+
+    const path = chosen === "worldcup" ? "/world-cup" : `/book/${chosen}`;
+    router.push(`${path}${qs ? `?${qs}` : ""}`);
   }
+
+  const itemLabel =
+    item ? ITEMS.find((i) => i.id === item)?.label : "What to book";
 
   return (
     <>
       <div className="relative mx-auto hidden w-full max-w-3xl rounded-full bg-cream/95 p-1.5 shadow-2xl md:flex">
-        {/* Where */}
+        {/* What */}
         <Field
-          ref={venueBtnRef}
-          label="Where"
-          value={
-            venue
-              ? VENUES.find((v) => v.id === venue)?.label.replace("No Dice ", "")
-              : "Choose venue"
-          }
-          placeholder={!venue}
-          active={openField === "venue"}
-          onClick={() => setOpenField(openField === "venue" ? null : "venue")}
+          ref={itemBtnRef}
+          label="What"
+          value={itemLabel}
+          placeholder={!item}
+          active={openField === "item"}
+          onClick={() => setOpenField(openField === "item" ? null : "item")}
         />
-        {openField === "venue" && (
+        {openField === "item" && (
           <DropdownPanel
-            anchorRef={venueBtnRef}
+            anchorRef={itemBtnRef}
             align="left"
+            width={272}
             onClose={() => setOpenField(null)}
           >
-            {VENUES.map((v) => (
+            {ITEMS.map((i) => (
               <button
-                key={v.id}
+                key={i.id}
                 onClick={() => {
-                  setVenue(v.id);
+                  setItem(i.id);
                   setOpenField(null);
                 }}
-                className="block w-full rounded-md px-3 py-2.5 text-left text-sm text-ink hover:bg-ink/5"
+                className="block w-full rounded-md px-3 py-2.5 text-left hover:bg-ink/5"
               >
-                {v.label}
+                <p className="text-sm font-semibold text-ink">{i.label}</p>
+                <p className="text-[11px] text-ink/55">{i.description}</p>
               </button>
             ))}
           </DropdownPanel>
@@ -109,11 +142,11 @@ export default function HeroBookingWidget() {
 
         <Divider />
 
-        {/* Who */}
+        {/* Who — generic "guests" works across pool, table, world cup */}
         <Field
           ref={sizeBtnRef}
           label="Who"
-          value={size > 0 ? `${size} ${size === 1 ? "golfer" : "golfers"}` : "Party size"}
+          value={size > 0 ? `${size} ${size === 1 ? "guest" : "guests"}` : "Party size"}
           placeholder={size === 0}
           active={openField === "size"}
           onClick={() => setOpenField(openField === "size" ? null : "size")}
@@ -124,7 +157,7 @@ export default function HeroBookingWidget() {
             align="center"
             onClose={() => setOpenField(null)}
           >
-            {[1, 2, 3, 4, 5, 6].map((n) => (
+            {[1, 2, 3, 4, 5, 6, 7, 8, 10, 12].map((n) => (
               <button
                 key={n}
                 onClick={() => {
@@ -133,7 +166,7 @@ export default function HeroBookingWidget() {
                 }}
                 className="block w-full rounded-md px-3 py-2.5 text-left text-sm text-ink hover:bg-ink/5"
               >
-                {n} {n === 1 ? "golfer" : "golfers"}
+                {n} {n === 1 ? "guest" : "guests"}
               </button>
             ))}
           </DropdownPanel>
@@ -214,13 +247,15 @@ function DropdownPanel({
   onClose,
   anchorRef,
   align = "left",
+  width = 224,
 }: {
   children: React.ReactNode;
   onClose: () => void;
   anchorRef: React.RefObject<HTMLButtonElement | null>;
   align?: "left" | "center";
+  width?: number;
 }) {
-  const PANEL_WIDTH = 224; // matches w-56
+  const PANEL_WIDTH = width;
   const [mounted, setMounted] = useState(false);
   const [coords, setCoords] = useState<{ top: number; left: number } | null>(null);
 
@@ -247,7 +282,7 @@ function DropdownPanel({
       window.removeEventListener("resize", update);
       window.removeEventListener("scroll", update, true);
     };
-  }, [anchorRef, align]);
+  }, [anchorRef, align, PANEL_WIDTH]);
 
   if (!mounted || !coords) return null;
 

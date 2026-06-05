@@ -6,7 +6,8 @@ import { logout } from "./AdminGate";
 
 const NAV: { label: string; href: string; group?: string }[] = [
   { label: "Dashboard", href: "/admin", group: "Overview" },
-  { label: "Bookings", href: "/admin/bookings", group: "Overview" },
+  { label: "Bookings (golf)", href: "/admin/bookings", group: "Overview" },
+  { label: "Reservations (pool + table)", href: "/admin/bar-reservations", group: "Overview" },
   { label: "Calendar", href: "/admin/bookings/calendar", group: "Overview" },
   { label: "Customers", href: "/admin/customers", group: "Overview" },
 
