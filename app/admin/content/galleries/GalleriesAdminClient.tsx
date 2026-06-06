@@ -184,6 +184,11 @@ export default function GalleriesAdminClient() {
   const [err, setErr] = useState("");
   const [busy, setBusy] = useState(false);
   const [uploading, setUploading] = useState(false);
+  // Drag-and-drop reorder state. `dragId` is the card currently being
+  // dragged; `overId` is the card it's hovering over (the future
+  // insertion point). Both clear on drop / drag-end.
+  const [dragId, setDragId] = useState<string | null>(null);
+  const [overId, setOverId] = useState<string | null>(null);
 
   async function reload() {
     setLoading(true);
@@ -226,19 +231,47 @@ export default function GalleriesAdminClient() {
     }
   }
 
-  async function handleMove(g: DbGalleryImage, direction: -1 | 1) {
+  // Reorder by dragging `draggedId` to land in `targetId`'s slot. We
+  // renumber EVERY image in the gallery from 1..N based on the new
+  // visual order — that's more robust than the old pairwise-swap
+  // approach (which silently misbehaved when two images shared the
+  // same sort_order, e.g. after old deletes / uploads). Optimistic UI:
+  // we update local state first so the card snaps into place, then
+  // persist; if the server write fails we reload to re-sync.
+  async function handleReorder(draggedId: string, targetId: string) {
+    if (draggedId === targetId) return;
     const list = images;
-    const idx = list.findIndex((x) => x.id === g.id);
-    if (idx < 0) return;
-    const swapWith = list[idx + direction];
-    if (!swapWith) return;
+    const fromIdx = list.findIndex((x) => x.id === draggedId);
+    const toIdx = list.findIndex((x) => x.id === targetId);
+    if (fromIdx < 0 || toIdx < 0) return;
+
+    const reordered = [...list];
+    const [moved] = reordered.splice(fromIdx, 1);
+    reordered.splice(toIdx, 0, moved);
+
+    // Optimistic update: rewrite sort_order on the local copies so
+    // `images` (derived) re-sorts immediately.
+    setAll((prev) =>
+      prev.map((row) => {
+        const newIdx = reordered.findIndex((x) => x.id === row.id);
+        return newIdx >= 0 ? { ...row, sort_order: newIdx + 1 } : row;
+      }),
+    );
+
     setBusy(true);
     try {
-      await updateGalleryImage(g.id, { sort_order: swapWith.sort_order });
-      await updateGalleryImage(swapWith.id, { sort_order: g.sort_order });
-      await reload();
+      // Only persist rows whose sort_order actually changed.
+      await Promise.all(
+        reordered
+          .map((row, idx) => ({ row, idx }))
+          .filter(({ row, idx }) => row.sort_order !== idx + 1)
+          .map(({ row, idx }) =>
+            updateGalleryImage(row.id, { sort_order: idx + 1 }),
+          ),
+      );
     } catch (e) {
       setErr(describe(e, "Reorder failed"));
+      await reload();
     } finally {
       setBusy(false);
     }
@@ -347,55 +380,83 @@ export default function GalleriesAdminClient() {
                 images.
               </p>
             ) : (
-              <ul className="grid gap-3 px-5 py-5 sm:grid-cols-2 lg:grid-cols-3">
-                {images.map((g, idx) => (
-                  <li key={g.id} className="rounded-xl border border-cream/10 bg-ink/40 p-3">
-                    {/* eslint-disable-next-line @next/next/no-img-element */}
-                    <img
-                      src={g.src}
-                      alt={g.alt ?? ""}
-                      className={`${getImageSpec(activeKey).aspectClass} w-full rounded-lg object-cover`}
-                    />
-                    <input
-                      type="text"
-                      defaultValue={g.alt ?? ""}
-                      onBlur={(e) =>
-                        e.target.value !== (g.alt ?? "") &&
-                        handleSaveAlt(g, e.target.value)
-                      }
-                      placeholder="Alt text"
-                      className="mt-2 w-full rounded-md border border-cream/15 bg-ink/40 px-2 py-1 text-xs text-cream placeholder:text-cream/30 focus:border-plonkPink focus:outline-none"
-                    />
-                    <div className="mt-2 flex items-center justify-between text-xs">
-                      <div className="flex gap-1">
-                        <button
-                          onClick={() => handleMove(g, -1)}
-                          disabled={busy || idx === 0}
-                          className="rounded border border-cream/15 px-2 py-1 text-cream/70 disabled:opacity-30"
-                          title="Move up"
-                        >
-                          ↑
-                        </button>
-                        <button
-                          onClick={() => handleMove(g, 1)}
-                          disabled={busy || idx === images.length - 1}
-                          className="rounded border border-cream/15 px-2 py-1 text-cream/70 disabled:opacity-30"
-                          title="Move down"
-                        >
-                          ↓
-                        </button>
-                      </div>
-                      <button
-                        onClick={() => handleDelete(g)}
-                        disabled={busy}
-                        className="text-xs font-semibold uppercase tracking-wider text-red-400/80 hover:underline"
+              <>
+                <p className="px-5 pt-1 text-[11px] uppercase tracking-widest text-cream/40">
+                  Drag any card to reorder · drop on the slot you want
+                </p>
+                <ul className="grid gap-3 px-5 py-5 sm:grid-cols-2 lg:grid-cols-3">
+                  {images.map((g) => {
+                    const isDragging = dragId === g.id;
+                    const isOver = overId === g.id && dragId && dragId !== g.id;
+                    return (
+                      <li
+                        key={g.id}
+                        draggable
+                        onDragStart={(e) => {
+                          setDragId(g.id);
+                          e.dataTransfer.effectAllowed = "move";
+                          // Some browsers refuse to start the drag without
+                          // a data payload — the value itself is unused.
+                          e.dataTransfer.setData("text/plain", g.id);
+                        }}
+                        onDragOver={(e) => {
+                          // preventDefault is what allows the drop. Without
+                          // it, the browser shows a "no entry" cursor.
+                          e.preventDefault();
+                          if (dragId && dragId !== g.id) setOverId(g.id);
+                        }}
+                        onDragLeave={() => {
+                          if (overId === g.id) setOverId(null);
+                        }}
+                        onDrop={(e) => {
+                          e.preventDefault();
+                          if (dragId) handleReorder(dragId, g.id);
+                          setDragId(null);
+                          setOverId(null);
+                        }}
+                        onDragEnd={() => {
+                          setDragId(null);
+                          setOverId(null);
+                        }}
+                        className={`cursor-grab rounded-xl border bg-ink/40 p-3 transition active:cursor-grabbing ${
+                          isDragging
+                            ? "border-cream/10 opacity-40"
+                            : isOver
+                              ? "border-plonkPink ring-2 ring-plonkPink/40"
+                              : "border-cream/10 hover:border-cream/25"
+                        }`}
                       >
-                        Remove
-                      </button>
-                    </div>
-                  </li>
-                ))}
-              </ul>
+                        {/* eslint-disable-next-line @next/next/no-img-element */}
+                        <img
+                          src={g.src}
+                          alt={g.alt ?? ""}
+                          draggable={false}
+                          className={`${getImageSpec(activeKey).aspectClass} pointer-events-none w-full rounded-lg object-cover`}
+                        />
+                        <input
+                          type="text"
+                          defaultValue={g.alt ?? ""}
+                          onBlur={(e) =>
+                            e.target.value !== (g.alt ?? "") &&
+                            handleSaveAlt(g, e.target.value)
+                          }
+                          placeholder="Alt text"
+                          className="mt-2 w-full rounded-md border border-cream/15 bg-ink/40 px-2 py-1 text-xs text-cream placeholder:text-cream/30 focus:border-plonkPink focus:outline-none"
+                        />
+                        <div className="mt-2 flex items-center justify-end text-xs">
+                          <button
+                            onClick={() => handleDelete(g)}
+                            disabled={busy}
+                            className="text-xs font-semibold uppercase tracking-wider text-red-400/80 hover:underline"
+                          >
+                            Remove
+                          </button>
+                        </div>
+                      </li>
+                    );
+                  })}
+                </ul>
+              </>
             )}
           </AdminCard>
         </div>
