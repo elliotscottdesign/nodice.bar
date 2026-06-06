@@ -3,19 +3,16 @@
 import { useRef, useState, type UIEvent } from "react";
 import Image from "next/image";
 import PageHero from "@/components/PageHero";
-import HeroSlider from "@/components/HeroSlider";
 import ManageGalleryLink from "@/components/ManageGalleryLink";
 import { useContent, useGallery } from "@/lib/content";
 
-// /bar — single purpose: show the menu as a swipeable page slider,
-// then show portrait drink photos below.
+// /bar — single purpose: show the menu as a swipeable page slider.
 //
 // CMS surface (everything below is editable from /admin):
 //   • text       — useContent("bar.eyebrow"|"bar.title"|"bar.intro")
 //   • hero img   — gallery key "hero.bar"           (upload 2+ for a slider)
 //   • menu pages — gallery key "bar.menu_pages"     (the menu itself,
 //                                                    one image per page)
-//   • drinks     — gallery key "bar.drinks_slider"  (portrait shots)
 //
 // Fallback images point at existing public/images/* shots so the page
 // is never empty before the founder has uploaded anything.
@@ -33,12 +30,6 @@ const FALLBACK_MENU_PAGES: { src: string; alt: string | null }[] = [
   { src: "/images/Margarita.jpg",                     alt: "Menu — page 3" },
 ];
 
-const FALLBACK_DRINKS: { src: string; alt: string | null }[] = [
-  { src: "/images/Margarita.jpg", alt: null },
-  { src: "/images/PLONK-COCKTAILS_215298_L_web.jpg", alt: null },
-  { src: "/images/PLONK-COCKTAILS_215335_SQ.jpg", alt: null },
-];
-
 export default function BarPage() {
   const eyebrow = useContent("bar.eyebrow", "Drinks · Cocktails · Pints");
   const title = useContent("bar.title", "The Bar");
@@ -48,7 +39,6 @@ export default function BarPage() {
   );
 
   const menuPages = useGallery("bar.menu_pages", FALLBACK_MENU_PAGES);
-  const sliderImages = useGallery("bar.drinks_slider", FALLBACK_DRINKS);
 
   return (
     <main>
@@ -74,23 +64,8 @@ export default function BarPage() {
         />
       </section>
 
-      {/* DRINKS SLIDER — portrait. Sits BELOW the menu per brief.
-          Cross-fading hero slider component, max-w-sm so it reads as
-          a focal "look at this drink" beat rather than a banner. */}
-      <section className="px-6 pb-12">
-        <div className="mx-auto max-w-sm">
-          <div className="relative aspect-[3/4] overflow-hidden rounded-2xl">
-            <HeroSlider images={sliderImages.map((i) => ({ src: i.src }))} />
-          </div>
-        </div>
-        <ManageGalleryLink
-          galleryKey="bar.drinks_slider"
-          label="Manage drinks slider images / order"
-        />
-      </section>
-
       {/* Hero slider images live on a separate gallery — surface a jump
-          button here too so admins can manage both from this page. */}
+          button here so admins can manage them without leaving the page. */}
       <section className="px-6 pb-24">
         <ManageGalleryLink
           galleryKey="hero.bar"
