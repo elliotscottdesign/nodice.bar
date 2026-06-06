@@ -2,7 +2,6 @@
 
 import Link from "next/link";
 import { useEffect } from "react";
-import { useRouter } from "next/navigation";
 
 // Tiny client-side redirect to the /book landing. Used by the three
 // legacy Plonk-Golf surfaces (`/book/hackney`, `/book/checkout`,
@@ -18,15 +17,23 @@ import { useRouter } from "next/navigation";
 //   - <meta http-equiv="refresh"> in case JS is disabled / blocked
 //   - Visible fallback Link in case both fail
 export default function RedirectToBook() {
-  const router = useRouter();
+  // basePath isn't applied to plain HTML attributes like meta-refresh
+  // URLs — Next.js only auto-prefixes its own Link / router. Prepend
+  // it explicitly so GitHub Pages (which serves us under /nodice.bar/)
+  // doesn't 404 the no-JS fallback path. We also use
+  // window.location.replace() instead of router.replace() because the
+  // static export's router can race with the meta-refresh and the
+  // race outcome differs by browser; a hard navigation is bulletproof
+  // and produces no Back-button entry (same as router.replace()).
+  const basePath = process.env.NEXT_PUBLIC_BASE_PATH || "";
 
   useEffect(() => {
-    router.replace("/book");
-  }, [router]);
+    window.location.replace(`${basePath}/book`);
+  }, [basePath]);
 
   return (
     <main className="flex min-h-[60vh] flex-col items-center justify-center px-6 py-20 text-center">
-      <meta httpEquiv="refresh" content="0; url=/book" />
+      <meta httpEquiv="refresh" content={`0; url=${basePath}/book`} />
       <h1 className="font-display text-3xl uppercase tracking-wider">
         This page has moved
       </h1>
