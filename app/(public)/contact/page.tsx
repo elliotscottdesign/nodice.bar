@@ -76,26 +76,7 @@ export default function ContactPage() {
                 Facebook
               </a>
             </li>
-            <li>
-              <a
-                href="https://twitter.com/plonkgolf"
-                target="_blank"
-                rel="noopener noreferrer"
-                className="text-cream/80 hover:text-cream"
-              >
-                Twitter
-              </a>
-            </li>
-            <li>
-              <a
-                href="https://www.youtube.com/channel/UCrMFq-Wzdk1ry81KTp0HPyw"
-                target="_blank"
-                rel="noopener noreferrer"
-                className="text-cream/80 hover:text-cream"
-              >
-                YouTube
-              </a>
-            </li>
+            {/* Twitter + YouTube links removed per founder direction. */}
           </ul>
         </div>
       </div>

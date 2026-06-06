@@ -4,11 +4,11 @@ import Link from "next/link";
 import { useContent } from "@/lib/content";
 import { Editable } from "./Editable";
 
+// Twitter + YouTube removed per founder direction. Instagram + Facebook
+// stay; URLs are editable from /admin/content/global/footer.
 const FALLBACK_SOCIALS = [
-  "Instagram | https://www.instagram.com/plonkgolf/",
+  "Instagram | https://www.instagram.com/nodice.bar/",
   "Facebook | https://www.facebook.com/pages/NO DICE-Golf/749762088452016",
-  "Twitter | https://twitter.com/plonkgolf",
-  "YouTube | https://www.youtube.com/channel/UCrMFq-Wzdk1ry81KTp0HPyw",
 ].join("\n");
 
 function parseLinks(s: string): { label: string; href: string }[] {
