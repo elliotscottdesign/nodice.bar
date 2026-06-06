@@ -15,12 +15,13 @@ import PageHero from "@/components/PageHero";
 
 const WEEKDAYS = ["Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun"];
 
-// Build [-6, +12] months around today so the scroller has plenty
-// of past + future to navigate.
+// Show only the current month + next 3 — per founder direction,
+// the scroller stays focused on "what's coming up" rather than
+// inviting customers to browse historical events.
 function buildMonthRange(): { year: number; month: number }[] {
   const now = new Date();
   const out: { year: number; month: number }[] = [];
-  for (let i = -6; i <= 12; i++) {
+  for (let i = 0; i <= 3; i++) {
     const d = new Date(now.getFullYear(), now.getMonth() + i, 1);
     out.push({ year: d.getFullYear(), month: d.getMonth() });
   }
