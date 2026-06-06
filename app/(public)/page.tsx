@@ -1,7 +1,9 @@
 "use client";
 
+import { createElement } from "react";
 import Image from "next/image";
 import Link from "next/link";
+import Script from "next/script";
 import Reveal from "@/components/Reveal";
 import HeroBookingWidget from "@/components/HeroBookingWidget";
 import { useContent, useImage, useGallery } from "@/lib/content";
@@ -231,67 +233,48 @@ export default function HomePage() {
   );
 }
 
-// Pulled out so it can use useGallery without conflicting with the
-// homepage's other hooks. Square aspect tiles in a 3-col grid (2 on
-// mobile) for the classic Instagram look. Captions become hover
-// titles; absent caption = link still works.
+// Live Instagram feed rendered by Behold.so. The widget pulls posts
+// auto-synced from @nodice.bar (managed at behold.so) and renders
+// its own grid + click-through to each post. We supply the eyebrow,
+// heading and the "Follow" CTA around it.
+//
+// To swap providers (or feeds) in future: change the feed-id below.
+// The Behold loader script lives at https://w.behold.so/widget.js
+// and is loaded via Next.js's <Script> for proper hydration order.
 function InstagramStrip() {
   const INSTAGRAM_URL = "https://www.instagram.com/nodice.bar/";
-  const FALLBACK: { src: string; alt: string | null }[] = [
-    { src: "/hackney/drinks/Drinks_3.jpg",  alt: null },
-    { src: "/hackney/pool/Pool_1.jpg",       alt: null },
-    { src: "/hackney/venue/Interior_5.jpg",  alt: null },
-    { src: "/images/PLONK-COCKTAILS_215298_L_web.jpg", alt: null },
-    { src: "/images/Margarita.jpg",          alt: null },
-    { src: "/hackney/games/Games_2.jpg",     alt: null },
-  ];
-
-  const tiles = useGallery("home.instagram", FALLBACK).slice(0, 9);
+  const BEHOLD_FEED_ID = "Ri14ASLlH0Y21Si7xE2v";
 
   return (
     <section className="relative overflow-hidden px-6 py-24">
       <div className="mx-auto max-w-6xl">
         <div className="mb-10 text-center">
           <p className="text-xs font-bold uppercase tracking-eyebrow text-plonkYellow">
-            <Editable k="home.instagram.eyebrow">{useContent("home.instagram.eyebrow", "@nodice.bar")}</Editable>
+            <Editable k="home.instagram.eyebrow">
+              {useContent("home.instagram.eyebrow", "@nodice.bar")}
+            </Editable>
           </p>
           <h2 className="mt-5 font-display text-4xl leading-tight sm:text-5xl md:text-6xl">
-            <Editable k="home.instagram.heading">{useContent("home.instagram.heading", "Follow along.")}</Editable>
+            <Editable k="home.instagram.heading">
+              {useContent("home.instagram.heading", "Follow along.")}
+            </Editable>
           </h2>
         </div>
 
-        <div className="grid grid-cols-2 gap-2 sm:grid-cols-3 sm:gap-3">
-          {tiles.map((t, i) => (
-            <a
-              key={`${t.src}-${i}`}
-              href={INSTAGRAM_URL}
-              target="_blank"
-              rel="noopener noreferrer"
-              className="group relative block aspect-square overflow-hidden rounded-md bg-ink"
-              title={t.alt ?? "View on Instagram"}
-            >
-              <Image
-                src={t.src}
-                alt={t.alt ?? ""}
-                fill
-                sizes="(min-width: 640px) 33vw, 50vw"
-                className="object-cover transition duration-500 group-hover:scale-105"
-              />
-              {/* Hover overlay — Instagram glyph + caption (if any).
-                  Hidden on touch (group-hover only fires on real hover). */}
-              <div className="absolute inset-0 flex items-end bg-gradient-to-t from-black/70 via-black/0 to-black/0 opacity-0 transition-opacity duration-300 group-hover:opacity-100">
-                <div className="flex w-full items-center gap-2 p-3 text-xs text-cream">
-                  <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden>
-                    <rect x="2" y="2" width="20" height="20" rx="5" />
-                    <path d="M16 11.37A4 4 0 1 1 12.63 8 4 4 0 0 1 16 11.37z" />
-                    <line x1="17.5" y1="6.5" x2="17.51" y2="6.5" />
-                  </svg>
-                  <span className="truncate">{t.alt ?? "View on Instagram"}</span>
-                </div>
-              </div>
-            </a>
-          ))}
-        </div>
+        {/* Behold's widget loader — Next.js handles ordering so the
+            <behold-widget> custom element below upgrades correctly
+            after hydration. `afterInteractive` waits until the page
+            is responsive so we don't block first paint. */}
+        <Script
+          src="https://w.behold.so/widget.js"
+          type="module"
+          strategy="afterInteractive"
+        />
+        {/* createElement avoids the TS "unknown JSX element" warning
+            that a literal <behold-widget> tag would throw. The widget
+            renders its own grid + click-through; styling is themed at
+            behold.so (sign in to recolour to match the site). */}
+        {createElement("behold-widget", { "feed-id": BEHOLD_FEED_ID })}
 
         <div className="mt-10 text-center">
           <a
@@ -308,13 +291,6 @@ function InstagramStrip() {
             Follow @nodice.bar
           </a>
         </div>
-
-        {/* Admin-only jump button — hidden when not in edit mode.
-            Goes straight to the gallery editor for this strip. */}
-        <ManageGalleryLink
-          galleryKey="home.instagram"
-          label="Manage Instagram grid images / order"
-        />
       </div>
     </section>
   );
