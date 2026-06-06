@@ -154,17 +154,29 @@ export default function MediaPicker({
   async function handleUpload(file: File) {
     setUploading(true);
     setErr("");
+    // Explicit logging at each step so future failures show up in
+    // the console even if React unmounts the picker mid-flow.
+    console.log("[MediaPicker] upload start", {
+      name: file.name,
+      type: file.type,
+      sizeKB: Math.round(file.size / 1024),
+    });
     try {
       const { public_url, filename } = await uploadImage(file);
+      console.log("[MediaPicker] upload OK", { public_url });
       // Prepend so the new one shows up first in the grid.
       setUploads((prev) => [
         { path: public_url, filename, folder: "Uploads", source: "upload" },
         ...prev,
       ]);
-      // Take the admin to the positioner (or save directly if no
-      // aspect was supplied).
-      handlePick(public_url);
+      // Fresh uploads SKIP the positioner step — loading a multi-
+      // megapixel image into <ImagePositioner>'s canvas was crashing
+      // the React tree on large posters (4500×3859 PNGs etc.), which
+      // also tore down the parent calendar modal. Call onPick directly
+      // with the URL string; the consumer stores whatever it needs.
+      onPick(public_url);
     } catch (e) {
+      console.error("[MediaPicker] upload failed", e);
       setErr(
         e instanceof Error ? `Upload failed: ${e.message}` : "Upload failed.",
       );
