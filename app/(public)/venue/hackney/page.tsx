@@ -229,20 +229,38 @@ export default function HackneyPage() {
                 multiple rows on every viewport so every poster is always
                 visible without scrolling. */}
             <div className="mt-10 grid grid-cols-2 gap-4 sm:grid-cols-3 lg:grid-cols-4">
-              {eventsPosters.map((p, i) => (
-                <article
-                  key={`${p.src}-${i}`}
-                  className="overflow-hidden rounded-2xl border border-cream/10 bg-black/20"
-                >
-                  {/* eslint-disable-next-line @next/next/no-img-element */}
-                  <img
-                    src={p.src}
-                    alt={p.alt ?? ""}
-                    className="block aspect-[5/7] w-full object-cover"
-                    loading="lazy"
-                  />
-                </article>
-              ))}
+              {eventsPosters.map((p, i) => {
+                // GitHub Pages serves this site under /nodice.bar/. Raw
+                // <img src> doesn't auto-prepend basePath like next/image
+                // does. Prepend it ourselves for root-relative paths so
+                // the fallback posters resolve. Uploads come back as
+                // absolute Supabase URLs and pass through unchanged.
+                const base = process.env.NEXT_PUBLIC_BASE_PATH || "";
+                const src =
+                  p.src && p.src.startsWith("/") ? `${base}${p.src}` : p.src;
+                return (
+                  <article
+                    key={`${p.src}-${i}`}
+                    className="overflow-hidden rounded-2xl border border-cream/10 bg-black/20"
+                  >
+                    {/* eslint-disable-next-line @next/next/no-img-element */}
+                    <img
+                      src={src}
+                      alt={p.alt ?? ""}
+                      className="block aspect-[5/7] w-full object-cover"
+                      loading="lazy"
+                    />
+                    {/* Caption strip — the per-image caption set in the
+                        Galleries admin renders here as the event title.
+                        Empty captions hide cleanly. */}
+                    {p.alt && (
+                      <p className="px-4 py-3 text-xs font-bold uppercase tracking-wider text-cream/85">
+                        {p.alt}
+                      </p>
+                    )}
+                  </article>
+                );
+              })}
             </div>
 
             {/* In-page admin shortcut — only visible when admin Edit
