@@ -138,22 +138,31 @@ export default function HomePage() {
       <section id="venues" className="tint-plum relative overflow-hidden">
         <div className="glow-blob-plum pointer-events-none absolute inset-x-0 top-0 h-[40vh]" />
         <VenueSpotlight
+          // Fallbacks — render when no admin override exists
           name="Hackney"
-          bookHref="/book"
-          detailHref="/venue/hackney"
           eyebrow="London Fields · 407 Mentmore Terrace"
-          image="/hackney/course/Course_1.jpg"
-          imageAlt="No Dice Hackney"
-          imageKey="home.venues.hackney_image"
           blurb={hackneyBlurb}
-          blurbKey="home.venues.hackney"
           features={[
             "Pool & arcade",
             "Beer garden",
             "Kitchen residencies",
             "Big screens for sport",
           ]}
+          bookLabel="Book Hackney"
+          detailLabel="Venue details →"
+          bookHref="/book"
+          detailHref="/venue/hackney"
+          image="/hackney/course/Course_1.jpg"
+          imageAlt="No Dice Hackney"
           align="left"
+          // CMS keys — every text surface editable from admin
+          nameKey="home.venues.hackney_name"
+          eyebrowKey="home.venues.hackney_eyebrow"
+          blurbKey="home.venues.hackney"
+          featuresKey="home.venues.hackney_features"
+          bookLabelKey="home.venues.hackney_book_label"
+          detailLabelKey="home.venues.hackney_detail_label"
+          imageKey="home.venues.hackney_image"
         />
       </section>
 
@@ -297,32 +306,70 @@ function PressMarquee({
   );
 }
 
+// Every visible string here is now CMS-driven via the *Key props.
+// The hardcoded `name`/`eyebrow`/`features`/etc. props become FALLBACKS
+// — they render when no DB row is set, and the admin can override
+// each one by editing the matching page_content row.
+//
+// Features are stored as a single multiline string in the CMS, one
+// bullet per line, parsed on render (matches the Header nav pattern).
 function VenueSpotlight({
+  // Display fallbacks (used when no DB value is set)
   name,
+  eyebrow,
+  blurb,
+  features,
   bookHref,
   detailHref,
-  eyebrow,
+  bookLabel,
+  detailLabel,
+  // Static
   image,
   imageAlt,
-  imageKey,
-  blurb,
-  blurbKey,
-  features,
   align,
+  // CMS keys — every editable surface gets a key
+  nameKey,
+  eyebrowKey,
+  blurbKey,
+  featuresKey,
+  bookLabelKey,
+  detailLabelKey,
+  imageKey,
 }: {
   name: string;
+  eyebrow: string;
+  blurb: string;
+  features: string[];
   bookHref: string;
   detailHref: string;
-  eyebrow: string;
+  bookLabel: string;
+  detailLabel: string;
   image: string;
   imageAlt: string;
-  imageKey: string;
-  blurb: string;
-  blurbKey: string;
-  features: string[];
   align: "left" | "right";
+  nameKey: string;
+  eyebrowKey: string;
+  blurbKey: string;
+  featuresKey: string;
+  bookLabelKey: string;
+  detailLabelKey: string;
+  imageKey: string;
 }) {
   const imageFirst = align === "left";
+
+  // Pull live values from the CMS (fallbacks shown until something
+  // is saved). features key holds a single newline-separated string.
+  const liveEyebrow     = useContent(eyebrowKey, eyebrow);
+  const liveName        = useContent(nameKey, name);
+  const liveFeaturesRaw = useContent(featuresKey, features.join("\n"));
+  const liveBookLabel   = useContent(bookLabelKey, bookLabel);
+  const liveDetailLabel = useContent(detailLabelKey, detailLabel);
+
+  const liveFeatures = liveFeaturesRaw
+    .split(/\r?\n/)
+    .map((s) => s.trim())
+    .filter(Boolean);
+
   return (
     <div className="relative px-6 py-20 md:py-32">
       <div
@@ -337,36 +384,44 @@ function VenueSpotlight({
         <Reveal delay={120}>
           <div>
             <p className="text-xs font-bold uppercase tracking-eyebrow text-plonkYellow">
-              {eyebrow}
+              <Editable k={eyebrowKey}>{liveEyebrow}</Editable>
             </p>
             <h3 className="mt-4 font-display text-5xl leading-tight sm:text-6xl">
-              {name}
+              <Editable k={nameKey}>{liveName}</Editable>
             </h3>
             <p className="mt-6 text-base leading-relaxed text-cream/75 sm:text-lg">
               <Editable k={blurbKey} multiline>{blurb}</Editable>
             </p>
 
-            <ul className="mt-8 grid grid-cols-2 gap-x-4 gap-y-3 text-sm text-cream/80">
-              {features.map((f) => (
-                <li key={f} className="flex items-center gap-2">
-                  <span className="h-1.5 w-1.5 rounded-full bg-plonkYellow" />
-                  {f}
-                </li>
-              ))}
-            </ul>
+            {/* The whole bullet list is one editable multiline field —
+                each line in the textarea becomes a bullet. Edit icon
+                sits on the kicker line so the click target is clear. */}
+            <div className="mt-8 relative">
+              <ul className="grid grid-cols-2 gap-x-4 gap-y-3 text-sm text-cream/80">
+                {liveFeatures.map((f, i) => (
+                  <li key={`${f}-${i}`} className="flex items-center gap-2">
+                    <span className="h-1.5 w-1.5 rounded-full bg-plonkYellow" />
+                    {f}
+                  </li>
+                ))}
+              </ul>
+              {/* Hidden Editable overlay — click anywhere on the list
+                  in admin Edit mode and you get the multiline editor. */}
+              <Editable k={featuresKey} multiline>{liveFeaturesRaw}</Editable>
+            </div>
 
             <div className="mt-10 flex flex-wrap gap-4">
               <Link
                 href={bookHref}
                 className="inline-block rounded-full bg-plonkPink px-8 py-3 text-sm font-bold uppercase tracking-wider text-white transition hover:bg-plonkPink/90"
               >
-                Book {name}
+                <Editable k={bookLabelKey}>{liveBookLabel}</Editable>
               </Link>
               <Link
                 href={detailHref}
                 className="inline-flex items-center text-sm font-semibold uppercase tracking-wider text-cream/80 transition hover:text-cream"
               >
-                Venue details →
+                <Editable k={detailLabelKey}>{liveDetailLabel}</Editable>
               </Link>
             </div>
           </div>
