@@ -157,7 +157,16 @@ export default function CalendarEventModal({
   return createPortal(
     <div
       className="fixed inset-0 z-[100] flex items-center justify-center bg-black/80 p-4"
-      onClick={onClose}
+      // Backdrop-click closes the modal, but ONLY when the click
+      // target is the backdrop itself. Without this guard, clicks
+      // on descendants (including the MediaPicker's thumbnails — it
+      // portals to body but its React events still bubble up to this
+      // node) tore the modal down mid-pick, so the chosen image never
+      // landed in the form. Same guard the MediaPicker uses on its own
+      // backdrop.
+      onClick={(e) => {
+        if (e.target === e.currentTarget) onClose();
+      }}
     >
       <div
         onClick={(e) => e.stopPropagation()}
