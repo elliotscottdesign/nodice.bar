@@ -64,14 +64,10 @@ export default function BarPage() {
         />
       </section>
 
-      {/* Hero slider images live on a separate gallery — surface a jump
-          button here so admins can manage them without leaving the page. */}
-      <section className="px-6 pb-24">
-        <ManageGalleryLink
-          galleryKey="hero.bar"
-          label="Manage hero images / order"
-        />
-      </section>
+      {/* No duplicate "manage hero images" button here — PageHero
+          already mounts one above the hero slider for the same
+          hero.bar gallery key. Keeping just the menu pages button
+          (rendered inside the menu section above). */}
     </main>
   );
 }
