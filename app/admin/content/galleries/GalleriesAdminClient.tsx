@@ -106,6 +106,12 @@ const KNOWN_GALLERIES: { key: string; label: string; description: string }[] = [
     description: 'The "As featured in" marquee strip on the homepage.',
   },
   {
+    key: "home.instagram",
+    label: "Homepage — Instagram grid",
+    description:
+      "Curated grid at the bottom of the homepage. Upload 6–9 square photos that best represent the venue. Each tile links to the No Dice Instagram profile.",
+  },
+  {
     key: "about.gallery",
     label: "About page gallery",
     description: "The decade-of-no-dice strip at the bottom of /about.",
