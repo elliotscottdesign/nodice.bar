@@ -214,25 +214,9 @@ export default function HomePage() {
           component below is left in the file (unused) in case the
           "As featured in" strip is wanted back later. */}
 
-      {/* ───────────── PRIVATE HIRE + VOUCHERS (ember → forest) ───────────── */}
-      <section className="px-6 py-28">
-        <div className="mx-auto grid max-w-6xl gap-6 md:grid-cols-2">
-          <CtaCard
-            eyebrow="Bring your people"
-            title="Private hire & events"
-            blurb="Birthdays, work parties, hen dos, weddings. Take over a course, an arch, or the whole venue."
-            href="/private-hire"
-            image="/hackney/venue/Interior_5.jpg"
-          />
-          <CtaCard
-            eyebrow="The easy gift"
-            title="No Dice gift vouchers"
-            blurb="A drink, a meal, a cocktail flight, or all three. Delivered to inbox, redeemable at the bar."
-            href="/vouchers"
-            image="/hackney/drinks/Drinks_3.jpg"
-          />
-        </div>
-      </section>
+      {/* PRIVATE HIRE + VOUCHERS cards removed per founder direction —
+          CtaCard component below is left in the file (unused) in case
+          the two cards are wanted back later. */}
 
       {/* ───────────── INSTAGRAM GRID ─────────────
           Curated Instagram-style grid. Pulls images from the
