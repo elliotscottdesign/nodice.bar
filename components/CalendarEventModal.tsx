@@ -33,6 +33,7 @@ export type CalendarEventModalProps = {
 
 type Draft = {
   event_date: string;
+  start_time: string;     // "" = no time set
   title: string;
   body: string;
   image_url: string;
@@ -47,6 +48,7 @@ function draftFromEvent(
   if (!ev) {
     return {
       event_date: defaultDate ?? "",
+      start_time: "",
       title: "",
       body: "",
       image_url: "",
@@ -54,8 +56,11 @@ function draftFromEvent(
       active: true,
     };
   }
+  // DB returns time as "HH:MM:SS"; <input type="time"> expects "HH:MM".
+  // Trim seconds so the field round-trips cleanly.
   return {
     event_date: ev.event_date,
+    start_time: ev.start_time ? ev.start_time.slice(0, 5) : "",
     title: ev.title,
     body: ev.body ?? "",
     image_url: ev.image_url,
@@ -110,6 +115,9 @@ export default function CalendarEventModal({
     setErr("");
     const payload: NewCalendarEvent = {
       event_date: draft.event_date,
+      // Empty time field = null in DB ("no time set"). Anything else
+      // round-trips as HH:MM, which Postgres' time type accepts.
+      start_time: draft.start_time ? draft.start_time : null,
       title: draft.title.trim(),
       body: draft.body.trim() || null,
       image_url: draft.image_url,
@@ -184,7 +192,18 @@ export default function CalendarEventModal({
             />
           </Field>
 
-          <Field label="Active">
+          <Field label="Start time (optional)">
+            <input
+              type="time"
+              value={draft.start_time}
+              onChange={(e) =>
+                setDraft({ ...draft, start_time: e.target.value })
+              }
+              className={inputClass}
+            />
+          </Field>
+
+          <Field label="Active" className="sm:col-span-2">
             <label className="flex items-center gap-2 py-2 text-sm text-cream/85">
               <input
                 type="checkbox"

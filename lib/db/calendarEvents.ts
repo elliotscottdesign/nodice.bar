@@ -8,6 +8,7 @@ import { supabase } from "@/lib/supabase";
 export type DbCalendarEvent = {
   id: string;
   event_date: string;     // YYYY-MM-DD
+  start_time: string | null;  // HH:MM[:SS], optional
   title: string;
   body: string | null;
   image_url: string;      // public URL or empty

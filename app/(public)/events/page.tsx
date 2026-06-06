@@ -66,6 +66,18 @@ function todayParts() {
   return { year: d.getFullYear(), month: d.getMonth(), day: d.getDate() };
 }
 
+// "19:30:00" -> "7:30pm". Handles both HH:MM and HH:MM:SS as Postgres
+// `time` can come back either way depending on the driver.
+function formatTime(hhmm: string): string {
+  const [hStr, mStr] = hhmm.split(":");
+  const h = parseInt(hStr, 10);
+  const m = parseInt(mStr, 10);
+  if (isNaN(h)) return hhmm;
+  const ampm = h >= 12 ? "pm" : "am";
+  const h12 = h % 12 === 0 ? 12 : h % 12;
+  return `${h12}${m === 0 ? "" : `:${String(m).padStart(2, "0")}`}${ampm}`;
+}
+
 export default function EventsPage() {
   const eyebrow = useContent("events.eyebrow", "What's on");
   const title = useContent("events.title", "Events");
@@ -198,16 +210,17 @@ export default function EventsPage() {
         </div>
       </section>
 
-      {/* CALENDAR GRID — 7 cols always, day-of-week header row, then
-          cells. Empty cells are muted. Cells with events show the
-          artwork (4:5) + title + body + link. */}
+      {/* CALENDAR GRID — 1 col on mobile (each day full-width, scroll
+          vertically), 7 cols Mon-Sun on tablet+. The weekday header row
+          and padding cells are hidden on mobile because they only make
+          sense in the 7-col grid layout. */}
       <section className="px-3 pb-24 sm:px-6">
         <div className="mx-auto max-w-7xl">
-          <div className="grid grid-cols-7 gap-1 sm:gap-2">
+          <div className="grid grid-cols-1 gap-3 sm:grid-cols-7 sm:gap-2">
             {WEEKDAYS.map((w) => (
               <div
                 key={w}
-                className="px-1 pb-2 text-center text-[10px] font-bold uppercase tracking-[0.22em] text-cream/55 sm:text-xs"
+                className="hidden px-1 pb-2 text-center text-[10px] font-bold uppercase tracking-[0.22em] text-cream/55 sm:block sm:text-xs"
               >
                 {w}
               </div>
@@ -215,8 +228,10 @@ export default function EventsPage() {
 
             {grid.map((day, i) => {
               if (day === null) {
-                // Padding cell.
-                return <div key={`pad-${i}`} className="min-h-[60px] sm:min-h-[110px]" />;
+                // Padding cell — only renders on desktop where it
+                // matters for grid alignment. Hidden on mobile single-
+                // column where it would just create empty gaps.
+                return <div key={`pad-${i}`} className="hidden min-h-[110px] sm:block" />;
               }
               const isToday =
                 day === today.day &&
@@ -363,11 +378,16 @@ function DayEventCard({
           </span>
         )}
       </div>
-      {/* Title + body */}
+      {/* Title + time + body */}
       <div className="px-1.5 py-1.5 sm:px-2 sm:py-2">
         <p className="line-clamp-2 text-[10px] font-bold uppercase tracking-wider text-cream sm:text-[11px]">
           {ev.title}
         </p>
+        {ev.start_time && (
+          <p className="mt-1 text-[9px] font-bold uppercase tracking-[0.18em] text-plonkPink sm:text-[10px]">
+            {formatTime(ev.start_time)}
+          </p>
+        )}
         {ev.body && (
           <p className="mt-1 line-clamp-2 text-[9px] leading-snug text-cream/65 sm:text-[10px]">
             {ev.body}
