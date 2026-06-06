@@ -518,20 +518,26 @@ export function DisplayImage({
         } ${className ?? ""}`}
         style={{ aspectRatio: aspect }}
       >
-        {/* eslint-disable-next-line @next/next/no-img-element */}
-        <img
-          src={display.src}
-          alt={alt ?? ""}
-          draggable={false}
-          style={{
-            width: "100%",
-            height: "100%",
-            objectFit: display.fit,
-            objectPosition: `${display.x}% ${display.y}%`,
-            transform: display.zoom !== 1 ? `scale(${display.zoom})` : undefined,
-            transformOrigin: `${display.x}% ${display.y}%`,
-          }}
-        />
+        {/* Skip rendering when there's no src — otherwise the browser
+            shows a broken-image icon. The Plonk-era purge nulled out
+            most hardcoded fallbacks; pages stay clean-black until the
+            founder uploads a real photo via admin Edit mode. */}
+        {display.src && (
+          // eslint-disable-next-line @next/next/no-img-element
+          <img
+            src={display.src}
+            alt={alt ?? ""}
+            draggable={false}
+            style={{
+              width: "100%",
+              height: "100%",
+              objectFit: display.fit,
+              objectPosition: `${display.x}% ${display.y}%`,
+              transform: display.zoom !== 1 ? `scale(${display.zoom})` : undefined,
+              transformOrigin: `${display.x}% ${display.y}%`,
+            }}
+          />
+        )}
       </div>
     </EditableImage>
   );
