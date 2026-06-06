@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useRef, useState } from "react";
+import { useRef, useState } from "react";
 import Image from "next/image";
 import PageHero from "@/components/PageHero";
 import HeroSlider from "@/components/HeroSlider";
@@ -115,21 +115,13 @@ function MenuSlider({
   const scrollRef = useRef<HTMLDivElement | null>(null);
   const [activeIdx, setActiveIdx] = useState(0);
 
-  // Track which page is closest to the scroll position. Throttled by
-  // the browser's native scroll-event coalescing — no rAF needed.
-  // Arrow-function handler captures `el` cleanly; explicit `undefined`
-  // return on the bail-out keeps strict-mode TS happy.
-  useEffect(() => {
-    const el = scrollRef.current;
-    if (!el) return undefined;
-    const handler = () => {
-      setActiveIdx(Math.round(el.scrollLeft / el.clientWidth));
-    };
-    el.addEventListener("scroll", handler, { passive: true });
-    return () => {
-      el.removeEventListener("scroll", handler);
-    };
-  }, []);
+  // Inline scroll handler — React wires this up as a normal listener,
+  // no useEffect / addEventListener / cleanup needed. Recalc the active
+  // page on every scroll event (cheap: one rounding op).
+  function onScroll(e: React.UIEvent<HTMLDivElement>) {
+    const el = e.currentTarget;
+    setActiveIdx(Math.round(el.scrollLeft / el.clientWidth));
+  }
 
   function jumpTo(idx: number) {
     const el = scrollRef.current;
@@ -145,6 +137,7 @@ function MenuSlider({
         {/* Scrollable strip — one page per snap point. */}
         <div
           ref={scrollRef}
+          onScroll={onScroll}
           className="no-scrollbar flex snap-x snap-mandatory overflow-x-auto scroll-smooth"
         >
           {pages.map((p, i) => (
