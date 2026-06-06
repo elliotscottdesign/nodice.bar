@@ -220,7 +220,7 @@ function PoolBookingPageInner() {
             disabled={submitting}
             className="w-full rounded-full bg-plonkPink py-4 text-sm font-bold uppercase tracking-widest text-white shadow-lg shadow-plonkPink/20 transition hover:bg-plonkPink/90 disabled:opacity-50"
           >
-            {submitting ? "Sending…" : "Reserve the table"}
+            {submitting ? "Sending…" : "Reserve the pool table"}
           </button>
 
           <p className="text-center text-xs text-cream/55">
