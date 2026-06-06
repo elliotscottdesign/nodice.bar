@@ -16,7 +16,7 @@ const FALLBACK_NAV = [
   "Deals | /deals",
   "Events | /events",
   "Plonk | /plonk",
-  "Bookings | /book",
+  "Parties | /book",
 ].join("\n");
 
 // Parse a "Label | href" textarea into an array of nav items. Lines
