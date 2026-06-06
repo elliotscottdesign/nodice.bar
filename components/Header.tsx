@@ -14,7 +14,7 @@ const FALLBACK_NAV = [
   "Bar | /bar",
   "Pool | /pool",
   "Deals | /deals",
-  "Events | /events",
+  "DJs & Events | /events",
   "Plonk | /plonk",
   "Parties | /book",
 ].join("\n");
