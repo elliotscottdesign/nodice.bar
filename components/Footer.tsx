@@ -74,26 +74,12 @@ export default function Footer() {
 
   return (
     <footer className="bg-forestDeep">
-      <div className="mx-auto grid max-w-6xl gap-12 px-6 py-16 md:grid-cols-3">
-        <div>
-          <h3 className="font-display text-2xl">
-            <Editable k="footer.brand_title">{brandTitle}</Editable>
-          </h3>
-          <p className="mt-3 whitespace-pre-line text-sm leading-relaxed text-cream/70">
-            <Editable k="footer.brand_tagline" multiline>{brandTagline}</Editable>
-          </p>
-          {brandEmail && (
-            <p className="mt-4 text-sm text-cream/70">
-              <a
-                href={`mailto:${brandEmail}`}
-                className="underline-offset-4 hover:text-cream hover:underline"
-              >
-                <Editable k="footer.brand_email">{brandEmail}</Editable>
-              </a>
-            </p>
-          )}
-        </div>
-
+      {/* Brand block (NO DICE title + tagline + email) removed per
+          founder direction. Grid drops from 3 → 2 cols: Hackney
+          address + Socials. The brand_title / brand_tagline /
+          brand_email content keys still exist in the DB (harmless,
+          just unused) in case the column is wanted back later. */}
+      <div className="mx-auto grid max-w-6xl gap-12 px-6 py-16 md:grid-cols-2">
         <div>
           <h4 className="text-xs font-bold uppercase tracking-eyebrow text-plonkYellow">
             <Editable k="footer.hackney_heading">{hackneyHeading}</Editable>
