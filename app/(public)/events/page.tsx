@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useState } from "react";
 import {
   loadCalendarEventsInRange,
   type DbCalendarEvent,
@@ -8,6 +8,8 @@ import {
 import { useContent, useImage } from "@/lib/content";
 import { Editable } from "@/components/Editable";
 import PageHero from "@/components/PageHero";
+import { useEditMode } from "@/lib/editMode";
+import CalendarEventModal from "@/components/CalendarEventModal";
 
 // /events — monthly calendar grid. Mon-Sun, 7 cols. Days with events
 // show the artwork (4:5) + title + optional body + optional link.
@@ -83,7 +85,43 @@ export default function EventsPage() {
   const [events, setEvents] = useState<DbCalendarEvent[]>([]);
   const [loading, setLoading] = useState(false);
 
-  // Load events for whichever month is currently active.
+  // Inline-edit state — only relevant when the founder has flipped
+  // the admin Edit-mode toggle on the floating AdminBar.
+  const editing = useEditMode();
+  const [modalEvent, setModalEvent] = useState<DbCalendarEvent | null>(null);
+  const [modalDate, setModalDate] = useState<string | null>(null);
+  const modalOpen = modalEvent !== null || modalDate !== null;
+
+  function openAdd(dateIso: string) {
+    setModalEvent(null);
+    setModalDate(dateIso);
+  }
+  function openEdit(ev: DbCalendarEvent) {
+    setModalDate(null);
+    setModalEvent(ev);
+  }
+  function closeModal() {
+    setModalEvent(null);
+    setModalDate(null);
+  }
+
+  // Load events for whichever month is currently active. Extracted
+  // into a callback so the post-save handler can re-fetch without
+  // duplicating logic.
+  const reload = useCallback(async () => {
+    setLoading(true);
+    const from = isoFor(active.year, active.month, 1);
+    const lastDay = new Date(active.year, active.month + 1, 0).getDate();
+    const to = isoFor(active.year, active.month, lastDay);
+    try {
+      setEvents(await loadCalendarEventsInRange(from, to));
+    } catch {
+      setEvents([]);
+    } finally {
+      setLoading(false);
+    }
+  }, [active.year, active.month]);
+
   useEffect(() => {
     let cancelled = false;
     setLoading(true);
@@ -185,12 +223,14 @@ export default function EventsPage() {
                 active.year === today.year &&
                 active.month === today.month;
               const dayEvents = byDay[day] ?? [];
+              const dayIso = isoFor(active.year, active.month, day);
+
               return (
                 <article
                   key={`d-${day}`}
-                  className={`relative flex flex-col overflow-hidden rounded-md border bg-ink/40 sm:rounded-xl ${
+                  className={`group relative flex flex-col overflow-hidden rounded-md border bg-ink/40 sm:rounded-xl ${
                     isToday ? "border-plonkPink" : "border-cream/10"
-                  }`}
+                  } ${editing ? "ring-1 ring-cream/10" : ""}`}
                 >
                   {/* Day number badge — top-left corner, always visible. */}
                   <div
@@ -201,14 +241,46 @@ export default function EventsPage() {
                     {day}
                   </div>
 
+                  {/* In-cell "+ Add event" overlay button — visible only
+                      in admin Edit mode, sits in the top-right corner so
+                      it doesn't fight the day-number badge. */}
+                  {editing && (
+                    <button
+                      type="button"
+                      onClick={() => openAdd(dayIso)}
+                      title="Add event to this day"
+                      className="absolute right-1 top-1 z-20 rounded-full bg-plonkPink px-2 py-0.5 text-[10px] font-bold uppercase tracking-wider text-white opacity-90 transition hover:opacity-100 sm:right-2 sm:top-2"
+                    >
+                      + Add
+                    </button>
+                  )}
+
                   {/* Stack of events for this day. */}
                   <div className="flex flex-1 flex-col gap-1">
                     {dayEvents.length === 0 ? (
                       // Empty 4:5 placeholder so the grid keeps its rhythm
-                      // even when nothing's scheduled.
-                      <div className="aspect-[4/5] w-full" />
+                      // even when nothing's scheduled. In edit mode the
+                      // whole cell becomes clickable so the founder can
+                      // hit anywhere to add an event.
+                      editing ? (
+                        <button
+                          type="button"
+                          onClick={() => openAdd(dayIso)}
+                          className="aspect-[4/5] w-full cursor-pointer bg-transparent transition hover:bg-cream/5"
+                          aria-label="Add event to this day"
+                        />
+                      ) : (
+                        <div className="aspect-[4/5] w-full" />
+                      )
                     ) : (
-                      dayEvents.map((ev) => <DayEventCard key={ev.id} ev={ev} />)
+                      dayEvents.map((ev) => (
+                        <DayEventCard
+                          key={ev.id}
+                          ev={ev}
+                          editing={editing}
+                          onEdit={() => openEdit(ev)}
+                        />
+                      ))
                     )}
                   </div>
                 </article>
@@ -229,13 +301,39 @@ export default function EventsPage() {
           )}
         </div>
       </section>
+
+      {/* Inline create/edit modal — only mounted when something is
+          open. Save / delete refresh the month's events. */}
+      {modalOpen && (
+        <CalendarEventModal
+          event={modalEvent}
+          defaultDate={modalDate ?? undefined}
+          onClose={closeModal}
+          onSaved={async () => {
+            closeModal();
+            await reload();
+          }}
+        />
+      )}
     </main>
   );
 }
 
 // Single event card inside a day cell. Image is 4:5 per brief.
 // Title + optional body + optional link sit beneath the image.
-function DayEventCard({ ev }: { ev: DbCalendarEvent }) {
+//
+// In admin Edit mode (`editing=true`), the whole card becomes a
+// button that calls onEdit instead of opening the public link. A
+// small pencil pill in the top-right hints at the click target.
+function DayEventCard({
+  ev,
+  editing,
+  onEdit,
+}: {
+  ev: DbCalendarEvent;
+  editing: boolean;
+  onEdit: () => void;
+}) {
   const base = process.env.NEXT_PUBLIC_BASE_PATH || "";
   const src =
     ev.image_url && ev.image_url.startsWith("/")
@@ -259,6 +357,11 @@ function DayEventCard({ ev }: { ev: DbCalendarEvent }) {
             no artwork
           </div>
         )}
+        {editing && (
+          <span className="absolute right-1 top-1 z-10 rounded-full bg-cream/90 px-1.5 py-0.5 text-[9px] font-bold uppercase tracking-wider text-ink">
+            Edit
+          </span>
+        )}
       </div>
       {/* Title + body */}
       <div className="px-1.5 py-1.5 sm:px-2 sm:py-2">
@@ -273,6 +376,20 @@ function DayEventCard({ ev }: { ev: DbCalendarEvent }) {
       </div>
     </div>
   );
+
+  // Edit mode wins over the public link — clicking always opens the
+  // editor instead of navigating away.
+  if (editing) {
+    return (
+      <button
+        type="button"
+        onClick={onEdit}
+        className="flex-1 cursor-pointer overflow-hidden text-left transition hover:opacity-90"
+      >
+        {inner}
+      </button>
+    );
+  }
 
   return ev.link_url ? (
     <a
