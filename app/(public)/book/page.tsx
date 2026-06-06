@@ -19,7 +19,9 @@ const FALLBACK_CARDS = [
     tagline: "Dinner · Drinks · Groups",
     blurb: "Reserve a table for dinner, drinks or a group of friends. Hackney only.",
     image: "",
-    href: "/book/hackney",
+    // Tables go to the bar-table reservation flow, NOT the legacy
+    // /book/hackney golf-only catalogue inherited from the fork.
+    href: "/book/table",
   },
   {
     id: "pool",
@@ -27,7 +29,7 @@ const FALLBACK_CARDS = [
     tagline: "American 7ft · Hourly",
     blurb: "Book a pool table for an hour or for the whole evening.",
     image: "",
-    href: "/book/hackney",
+    href: "/book/pool",
   },
   {
     id: "parties",
@@ -94,15 +96,20 @@ export default function BookPage() {
           {cards.map((c) => {
             const inner = (
               <>
-                <div className="relative aspect-[3/2] w-full overflow-hidden">
-                  <Image
-                    src={c.image}
-                    alt={c.name}
-                    fill
-                    sizes="(min-width: 640px) 50vw, 100vw"
-                    className="object-cover transition duration-500 group-hover:scale-105"
-                    unoptimized={c.image.startsWith("http")}
-                  />
+                <div className="relative aspect-[3/2] w-full overflow-hidden bg-ink/40">
+                  {/* Skip <Image> when src is empty — Next/Image with an
+                      empty string renders the broken-icon glyph. Founder
+                      can upload card art via admin → Book Now landing. */}
+                  {c.image ? (
+                    <Image
+                      src={c.image}
+                      alt={c.name}
+                      fill
+                      sizes="(min-width: 640px) 50vw, 100vw"
+                      className="object-cover transition duration-500 group-hover:scale-105"
+                      unoptimized={c.image.startsWith("http")}
+                    />
+                  ) : null}
                 </div>
                 <div className="p-6">
                   <div className="text-[10px] font-bold uppercase tracking-[0.28em] text-plonkPink">
