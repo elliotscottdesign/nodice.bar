@@ -59,10 +59,20 @@ export default function DealsPage() {
 
       <section className="px-6 py-16">
         <div className="mx-auto max-w-6xl">
+          {/* Admin-only jump button ABOVE the grid so it's discoverable.
+              Hidden when not in edit mode. The PageHero above this
+              section already renders a separate button for the HERO
+              slider, so this one is labelled explicitly for the GRID
+              to avoid confusion. */}
+          <ManageGalleryLink
+            galleryKey="deals.grid"
+            label="Upload / edit / reorder DEALS GRID images"
+          />
+
           {/* 4 cols × 2 rows on tablet+ (sm); 2 cols × 4 rows on mobile.
               Up to 10 tiles render — extra uploads are silently dropped
               so the layout stays clean. */}
-          <div className="grid grid-cols-2 gap-3 sm:grid-cols-4 sm:gap-4">
+          <div className="mt-6 grid grid-cols-2 gap-3 sm:grid-cols-4 sm:gap-4">
             {images.slice(0, 10).map((img, i) => (
               <div
                 key={`${img.src}-${i}`}
@@ -78,15 +88,6 @@ export default function DealsPage() {
               </div>
             ))}
           </div>
-          {/* Admin-only jump buttons — hidden when not in edit mode. */}
-          <ManageGalleryLink
-            galleryKey="deals.grid"
-            label="Manage deals grid / order"
-          />
-          <ManageGalleryLink
-            galleryKey="hero.deals"
-            label="Manage hero images / order"
-          />
         </div>
       </section>
     </main>
