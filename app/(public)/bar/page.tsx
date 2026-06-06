@@ -1,6 +1,6 @@
 "use client";
 
-import { useRef, useState } from "react";
+import { useRef, useState, type UIEvent } from "react";
 import Image from "next/image";
 import PageHero from "@/components/PageHero";
 import HeroSlider from "@/components/HeroSlider";
@@ -118,7 +118,7 @@ function MenuSlider({
   // Inline scroll handler — React wires this up as a normal listener,
   // no useEffect / addEventListener / cleanup needed. Recalc the active
   // page on every scroll event (cheap: one rounding op).
-  function onScroll(e: React.UIEvent<HTMLDivElement>) {
+  function onScroll(e: UIEvent<HTMLDivElement>) {
     const el = e.currentTarget;
     setActiveIdx(Math.round(el.scrollLeft / el.clientWidth));
   }
