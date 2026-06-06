@@ -46,7 +46,13 @@ export default function HomePage() {
   // Every useContent / useImage call passes the current hardcoded value as
   // its fallback, so the page renders identically when nothing's been edited
   // in the admin. Saved values override the fallback on hydration.
-  const heroImage = useImage("home.hero.image", "/hackney/course/Course_1.jpg");
+  // No hardcoded fallback — the Plonk Golf "shark + volcano course"
+  // photo used to live here and kept resurrecting itself whenever the
+  // CMS row was empty. Empty fallback + conditional render below means
+  // the hero is solid black until the founder uploads a real photo via
+  // admin → Site Content → Home page → "Hero image" (or the click-to-
+  // edit overlay on the live page in admin Edit mode).
+  const heroImage = useImage("home.hero.image", "");
   const heroEyebrow = useContent("home.hero.eyebrow", "London Fields · Hackney");
   const heroLine1 = useContent("home.hero.headline_1", "No Dice");
   const heroLine2 = useContent("home.hero.headline_2", "Hackney");
@@ -82,15 +88,21 @@ export default function HomePage() {
             The desktop booking widget floats over this image, near the top
             just below the sticky header. */}
         <div className="relative w-full bg-forest aspect-[3/2] max-h-[80vh] min-h-[360px] overflow-hidden">
-          <Image
-            src={heroImage}
-            alt=""
-            fill
-            priority
-            className="object-cover"
-            sizes="100vw"
-            unoptimized={heroImage.startsWith("http")}
-          />
+          {/* Only render the Image when an actual src exists — empty
+              string would error next/image. With no image, the parent
+              div's bg-forest (now black) shows through, which is
+              exactly what we want until an upload exists. */}
+          {heroImage && (
+            <Image
+              src={heroImage}
+              alt=""
+              fill
+              priority
+              className="object-cover"
+              sizes="100vw"
+              unoptimized={heroImage.startsWith("http")}
+            />
+          )}
           <div className="pointer-events-none absolute inset-x-0 top-0 h-24 bg-gradient-to-b from-forestDeep/55 to-transparent" />
 
           {/* Booking widget — desktop only, floats over the image just below
