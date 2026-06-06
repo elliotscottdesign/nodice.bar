@@ -31,6 +31,18 @@ type Manifest = {
   images: Array<{ path: string; filename: string; folder: string }>;
 };
 
+// GitHub Pages serves this site under /nodice.bar/. <Image> auto-
+// prefixes via Next.js basePath, but raw <img src=…> tags don't —
+// we prepend the prefix ourselves for any root-relative path. Skip
+// absolute URLs (Supabase storage) and data:/blob: URIs.
+function withBasePath(p: string): string {
+  if (!p) return p;
+  if (/^(https?:|data:|blob:)/i.test(p)) return p;
+  const base = process.env.NEXT_PUBLIC_BASE_PATH || "";
+  if (!base) return p;
+  return p.startsWith("/") ? `${base}${p}` : p;
+}
+
 export default function MediaPicker({
   onPick,
   onClose,
@@ -255,7 +267,7 @@ export default function MediaPicker({
         {staged && (
           <div className="flex-1 overflow-y-auto">
             <ImagePositioner
-              src={staged}
+              src={withBasePath(staged)}
               aspect={effectiveAspect}
               initial={initial}
               onCancel={() => setStaged(null)}
@@ -340,7 +352,7 @@ export default function MediaPicker({
               >
                 {/* eslint-disable-next-line @next/next/no-img-element */}
                 <img
-                  src={img.path}
+                  src={withBasePath(img.path)}
                   alt=""
                   loading="lazy"
                   className="aspect-square w-full object-cover transition group-hover:opacity-90"
