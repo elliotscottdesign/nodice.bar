@@ -57,7 +57,11 @@ export default function LivePreview({ path, drafts }: LivePreviewProps) {
     }
   }, [drafts, ready]);
 
-  const src = `${path}${path.includes("?") ? "&" : "?"}preview=1`;
+  // Static export on GitHub Pages serves the site under /nodice.bar/,
+  // so the iframe needs the basePath prepended or it 404s. Same env
+  // var as MediaPicker uses; set in .github/workflows/deploy.yml.
+  const basePath = process.env.NEXT_PUBLIC_BASE_PATH || "";
+  const src = `${basePath}${path}${path.includes("?") ? "&" : "?"}preview=1`;
 
   if (collapsed) {
     return (
@@ -85,7 +89,7 @@ export default function LivePreview({ path, drafts }: LivePreviewProps) {
         </div>
         <div className="flex items-center gap-2">
           <a
-            href={path}
+            href={`${basePath}${path}`}
             target="_blank"
             rel="noopener noreferrer"
             className="rounded-full border border-cream/15 px-3 py-1 text-[10px] font-bold uppercase tracking-wider text-cream/85 hover:bg-cream/5"
