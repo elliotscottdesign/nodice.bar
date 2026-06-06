@@ -110,7 +110,9 @@ export default function BarPage() {
 function MenuSlider({
   pages,
 }: {
-  pages: { src: string; alt: string | null }[];
+  // alt is optional to match the useGallery return shape — uploads
+  // without a caption come back as undefined, not null.
+  pages: { src: string; alt?: string | null }[];
 }) {
   const scrollRef = useRef<HTMLDivElement | null>(null);
   const [activeIdx, setActiveIdx] = useState(0);
