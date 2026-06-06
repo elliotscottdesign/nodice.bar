@@ -96,7 +96,7 @@ export default function HeroBookingWidget() {
 
   return (
     <>
-      <div className="relative mx-auto hidden w-full max-w-3xl rounded-full bg-cream/95 p-1.5 shadow-2xl md:flex">
+      <div className="relative mx-auto hidden w-full max-w-3xl rounded-full bg-black/90 p-1.5 shadow-2xl md:flex">
         {/* What */}
         <Field
           ref={itemBtnRef}
@@ -120,10 +120,10 @@ export default function HeroBookingWidget() {
                   setItem(i.id);
                   setOpenField(null);
                 }}
-                className="block w-full rounded-md px-3 py-2.5 text-left hover:bg-ink/5"
+                className="block w-full rounded-md px-3 py-2.5 text-left hover:bg-cream/10"
               >
-                <p className="text-sm font-semibold text-ink">{i.label}</p>
-                <p className="text-[11px] text-ink/55">{i.description}</p>
+                <p className="text-sm font-semibold text-cream">{i.label}</p>
+                <p className="text-[11px] text-cream/55">{i.description}</p>
               </button>
             ))}
           </DropdownPanel>
@@ -164,7 +164,7 @@ export default function HeroBookingWidget() {
                   setSize(n);
                   setOpenField(null);
                 }}
-                className="block w-full rounded-md px-3 py-2.5 text-left text-sm text-ink hover:bg-ink/5"
+                className="block w-full rounded-md px-3 py-2.5 text-left text-sm text-cream hover:bg-cream/10"
               >
                 {n} {n === 1 ? "guest" : "guests"}
               </button>
@@ -218,13 +218,13 @@ const Field = forwardRef<HTMLButtonElement, FieldProps>(function Field(
       type="button"
       onClick={onClick}
       className={`group flex-1 rounded-full px-5 py-2.5 text-left transition ${
-        active ? "bg-cream" : "hover:bg-cream"
+        active ? "bg-cream/10" : "hover:bg-cream/10"
       }`}
     >
-      <p className="text-[11px] font-bold uppercase tracking-widest text-ink">{label}</p>
+      <p className="text-[11px] font-bold uppercase tracking-widest text-cream">{label}</p>
       <p
         className={`mt-0.5 text-sm font-medium ${
-          placeholder ? "text-ink/55" : "text-ink"
+          placeholder ? "text-cream/55" : "text-cream"
         }`}
       >
         {value}
@@ -234,7 +234,7 @@ const Field = forwardRef<HTMLButtonElement, FieldProps>(function Field(
 });
 
 function Divider() {
-  return <div className="my-2 w-px bg-ink/15" aria-hidden />;
+  return <div className="my-2 w-px bg-cream/15" aria-hidden />;
 }
 
 // Rendered into document.body via portal so the panel can never be clipped
@@ -296,7 +296,7 @@ function DropdownPanel({
       />
       <div
         style={{ top: coords.top, left: coords.left, width: PANEL_WIDTH }}
-        className="absolute z-[70] rounded-xl border border-ink/10 bg-cream p-2 shadow-xl"
+        className="absolute z-[70] rounded-xl border border-cream/15 bg-black p-2 shadow-xl"
       >
         {children}
       </div>
