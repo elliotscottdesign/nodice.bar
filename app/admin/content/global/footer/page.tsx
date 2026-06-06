@@ -11,7 +11,7 @@ export default function FooterContentPage() {
         description="The dark band at the bottom of every page — brand, venue addresses, socials, copyright. Address lines that start with an em dash (—) render as muted small print."
         action={
           <a
-            href="/"
+            href={`${process.env.NEXT_PUBLIC_BASE_PATH || ""}/`}
             target="_blank"
             rel="noopener noreferrer"
             className="rounded-full border border-cream/15 px-4 py-1.5 text-xs font-bold uppercase tracking-wider text-cream/85 hover:bg-cream/5"

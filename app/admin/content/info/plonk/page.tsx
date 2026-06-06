@@ -14,7 +14,7 @@ export default function PlonkContentPage() {
         description="Edit the contact details shown on /plonk. Leave the phone field blank to hide the phone card entirely."
         action={
           <a
-            href="/plonk"
+            href={`${process.env.NEXT_PUBLIC_BASE_PATH || ""}/plonk`}
             target="_blank"
             rel="noopener noreferrer"
             className="rounded-full border border-cream/15 px-4 py-1.5 text-xs font-bold uppercase tracking-wider text-cream/85 hover:bg-cream/5"

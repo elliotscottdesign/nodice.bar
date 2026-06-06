@@ -11,7 +11,7 @@ export default function TermsContentPage() {
         description="Edit the copy on /terms."
         action={
           <a
-            href="/terms"
+            href={`${process.env.NEXT_PUBLIC_BASE_PATH || ""}/terms`}
             target="_blank"
             rel="noopener noreferrer"
             className="rounded-full border border-cream/15 px-4 py-1.5 text-xs font-bold uppercase tracking-wider text-cream/85 hover:bg-cream/5"

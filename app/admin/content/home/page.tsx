@@ -27,7 +27,7 @@ export default function HomeContentPage() {
         description="Edit the copy and hero image visible on nodice.bar."
         action={
           <a
-            href="/"
+            href={`${process.env.NEXT_PUBLIC_BASE_PATH || ""}/`}
             target="_blank"
             rel="noopener noreferrer"
             className="rounded-full border border-cream/15 px-4 py-1.5 text-xs font-bold uppercase tracking-wider text-cream/85 hover:bg-cream/5"

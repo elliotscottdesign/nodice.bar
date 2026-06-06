@@ -11,7 +11,7 @@ export default function HeaderContentPage() {
         description="The sticky bar that sits on every page of the public site — logo, nav links, and the Book Now button. Nav links are 'Label | /path' one per line."
         action={
           <a
-            href="/"
+            href={`${process.env.NEXT_PUBLIC_BASE_PATH || ""}/`}
             target="_blank"
             rel="noopener noreferrer"
             className="rounded-full border border-cream/15 px-4 py-1.5 text-xs font-bold uppercase tracking-wider text-cream/85 hover:bg-cream/5"
