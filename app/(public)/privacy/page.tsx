@@ -11,7 +11,7 @@ export default function PrivacyPage() {
       <PageHero
         eyebrow="Legal"
         title={title}
-        image="/hackney/garden/Garden_3.jpg"
+        image=""
         eyebrowKey="privacy.eyebrow"
         titleKey="privacy.title"
         imageKey="privacy.hero_image"

@@ -18,16 +18,16 @@ import { useContent, useGallery } from "@/lib/content";
 // is never empty before the founder has uploaded anything.
 
 const FALLBACK_HERO = [
-  "/images/PLONK-COCKTAILS_215298_L_web.jpg",
+  "",
 ];
 
 // Three placeholder pages so the slider has something to render before
 // the founder uploads the real menu artwork. Swap by uploading to the
 // bar.menu_pages gallery — that wins automatically.
 const FALLBACK_MENU_PAGES: { src: string; alt: string | null }[] = [
-  { src: "/images/PLONK-COCKTAILS_215298_L_web.jpg", alt: "Menu — page 1" },
-  { src: "/images/PLONK-COCKTAILS_215335_SQ.jpg",    alt: "Menu — page 2" },
-  { src: "/images/Margarita.jpg",                     alt: "Menu — page 3" },
+  { src: "", alt: "Menu — page 1" },
+  { src: "",    alt: "Menu — page 2" },
+  { src: "",                     alt: "Menu — page 3" },
 ];
 
 export default function BarPage() {

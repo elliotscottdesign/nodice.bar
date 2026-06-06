@@ -85,7 +85,7 @@ export default function EventsPage() {
     "events.intro",
     "Every poster on our calendar — gigs, tournaments, residencies, pop-ups, parties.",
   );
-  const heroImage = useImage("events.hero_image", "/hackney/games/Games_4.jpg");
+  const heroImage = useImage("events.hero_image", "");
 
   const months = useMemo(buildMonthRange, []);
   const today = useMemo(todayParts, []);

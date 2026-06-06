@@ -15,7 +15,7 @@ import { useContent } from "@/lib/content";
 //   • hero img   — gallery key "hero.pool"  (upload 2+ portrait shots
 //                   of the pool tables for an auto-cycling slider)
 
-const FALLBACK_HERO = ["/images/PAH-V2-1-1.jpg"];
+const FALLBACK_HERO = [""];
 
 export default function PoolPage() {
   const eyebrow = useContent("pool.eyebrow", "American 7ft · Hackney");

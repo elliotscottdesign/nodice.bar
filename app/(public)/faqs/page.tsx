@@ -296,7 +296,7 @@ export default function FAQsPage() {
         eyebrow="Help & info"
         title={title}
         intro={intro}
-        image="/hackney/games/Games_2.jpg"
+        image=""
         eyebrowKey="faqs.eyebrow"
         titleKey="faqs.title"
         introKey="faqs.intro"

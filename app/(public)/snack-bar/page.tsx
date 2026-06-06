@@ -111,7 +111,7 @@ export default function SnackBarMenuPage() {
       <header className="relative isolate flex min-h-[40vh] flex-col items-center justify-center px-6 pt-24 pb-16 text-center">
         <div className="absolute inset-0 -z-10">
           <Image
-            src="/hackney/snack_bar/Snack_bar_1.jpg"
+            src=""
             alt=""
             fill
             priority

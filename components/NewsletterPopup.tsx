@@ -152,7 +152,7 @@ export default function NewsletterPopup() {
         {/* image */}
         <div className="relative hidden aspect-[4/5] md:block">
           <Image
-            src="/hackney/garden/Garden_1.jpg"
+            src=""
             alt=""
             fill
             sizes="(min-width: 768px) 50vw, 100vw"

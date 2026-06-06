@@ -145,7 +145,7 @@ export function useContent(key: string, fallback: string): string {
 
 // ---------------------------------------------------------------
 // Image values can be stored two ways:
-//   - Plain URL string         "/hackney/course/Course_3.jpg"
+//   - Plain URL string         ""
 //   - JSON for crop/position   '{"src":"/foo.jpg","fit":"cover","x":50,"y":40,"zoom":1.2}'
 // Either way, useImage() returns just the URL so old callers keep
 // working. useImageDisplay() returns the full record (url + CSS

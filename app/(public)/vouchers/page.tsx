@@ -14,7 +14,7 @@ export default function VouchersPage() {
   );
   const heroImage = useImage(
     "vouchers.hero_image",
-    "/borough/drinks/Cocktail_1.jpg",
+    "",
   );
   const body = useContent(
     "vouchers.body",

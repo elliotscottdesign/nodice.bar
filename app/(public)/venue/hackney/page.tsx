@@ -9,15 +9,15 @@ import ManageGalleryLink from "@/components/ManageGalleryLink";
 
 // Default event posters used when the hackney.events gallery is empty.
 const EVENT_POSTERS_FALLBACK = [
-  { src: "/hackney/events/Happy_Hour.jpg", alt: "Happy Hour at No Dice" },
-  { src: "/hackney/events/No_Dice_Mondays.jpg", alt: "No Dice Mondays" },
-  { src: "/hackney/events/Burger_Deal.jpg", alt: "Burger deal at Snack Bar" },
-  { src: "/hackney/events/Fun_of_the_Fair.jpg", alt: "Fun of the Fair" },
-  { src: "/hackney/events/Cue.jpg", alt: "Cue — pool night" },
-  { src: "/hackney/events/Martini_Fries.jpg", alt: "Martini & Fries" },
-  { src: "/hackney/events/Rolling_Bones.jpg", alt: "Rolling Bones" },
-  { src: "/hackney/events/Fun_Club.jpg", alt: "Fun Club" },
-  { src: "/hackney/events/Pingers.jpg", alt: "Pingers — ping pong night" },
+  { src: "", alt: "Happy Hour at No Dice" },
+  { src: "", alt: "No Dice Mondays" },
+  { src: "", alt: "Burger deal at Snack Bar" },
+  { src: "", alt: "Fun of the Fair" },
+  { src: "", alt: "Cue — pool night" },
+  { src: "", alt: "Martini & Fries" },
+  { src: "", alt: "Rolling Bones" },
+  { src: "", alt: "Fun Club" },
+  { src: "", alt: "Pingers — ping pong night" },
 ];
 
 export default function HackneyPage() {
@@ -125,14 +125,14 @@ export default function HackneyPage() {
   );
 
   const sliderImages = [
-    "/hackney/course/Course_1.jpg",
-    "/hackney/garden/Garden_1.jpg",
-    "/hackney/course/Course_3.jpg",
-    "/hackney/pool/Pool_1.jpg",
-    "/hackney/drinks/Drinks_3.jpg",
-    "/hackney/games/Games_2.jpg",
-    "/hackney/venue/Interior_2.jpg",
-    "/hackney/course/Course_5.jpg",
+    "",
+    "",
+    "",
+    "",
+    "",
+    "",
+    "",
+    "",
   ];
 
   return (
@@ -182,7 +182,7 @@ export default function HackneyPage() {
           <Reveal delay={120}>
             <DisplayImage
               k="venue.hackney.body_image"
-              fallback="/hackney/course/Course_3.jpg"
+              fallback=""
               aspect="4/5"
               alt="Polynesian course detail"
               rounded
@@ -203,12 +203,12 @@ export default function HackneyPage() {
             </h2>
           </Reveal>
           <div className="mt-14 grid gap-6 md:grid-cols-2 lg:grid-cols-3">
-            <FeatureCard kImage="venue.hackney.feature1.image" fallbackImage="/hackney/pool/Pool_2.jpg" kTitle="venue.hackney.feature1.title" kBody="venue.hackney.feature1.body" title={f1Title} body={f1Body} />
-            <FeatureCard kImage="venue.hackney.feature2.image" fallbackImage="/hackney/games/Games_2.jpg" kTitle="venue.hackney.feature2.title" kBody="venue.hackney.feature2.body" title={f2Title} body={f2Body} />
-            <FeatureCard kImage="venue.hackney.feature3.image" fallbackImage="/hackney/drinks/Drinks_3.jpg" kTitle="venue.hackney.feature3.title" kBody="venue.hackney.feature3.body" title={f3Title} body={f3Body} />
-            <FeatureCard kImage="venue.hackney.feature4.image" fallbackImage="/hackney/garden/Garden_2.jpg" kTitle="venue.hackney.feature4.title" kBody="venue.hackney.feature4.body" title={f4Title} body={f4Body} />
-            <FeatureCard kImage="venue.hackney.feature5.image" fallbackImage="/hackney/snack_bar/Snack_bar_1.jpg" kTitle="venue.hackney.feature5.title" kBody="venue.hackney.feature5.body" title={f5Title} body={f5Body} href="/snack-bar" hrefLabel="See the menu" />
-            <FeatureCard kImage="venue.hackney.feature6.image" fallbackImage="/hackney/games/Games_6.jpg" kTitle="venue.hackney.feature6.title" kBody="venue.hackney.feature6.body" title={f6Title} body={f6Body} />
+            <FeatureCard kImage="venue.hackney.feature1.image" fallbackImage="" kTitle="venue.hackney.feature1.title" kBody="venue.hackney.feature1.body" title={f1Title} body={f1Body} />
+            <FeatureCard kImage="venue.hackney.feature2.image" fallbackImage="" kTitle="venue.hackney.feature2.title" kBody="venue.hackney.feature2.body" title={f2Title} body={f2Body} />
+            <FeatureCard kImage="venue.hackney.feature3.image" fallbackImage="" kTitle="venue.hackney.feature3.title" kBody="venue.hackney.feature3.body" title={f3Title} body={f3Body} />
+            <FeatureCard kImage="venue.hackney.feature4.image" fallbackImage="" kTitle="venue.hackney.feature4.title" kBody="venue.hackney.feature4.body" title={f4Title} body={f4Body} />
+            <FeatureCard kImage="venue.hackney.feature5.image" fallbackImage="" kTitle="venue.hackney.feature5.title" kBody="venue.hackney.feature5.body" title={f5Title} body={f5Body} href="/snack-bar" hrefLabel="See the menu" />
+            <FeatureCard kImage="venue.hackney.feature6.image" fallbackImage="" kTitle="venue.hackney.feature6.title" kBody="venue.hackney.feature6.body" title={f6Title} body={f6Body} />
           </div>
         </div>
       </section>

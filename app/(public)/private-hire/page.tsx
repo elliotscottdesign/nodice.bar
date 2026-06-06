@@ -20,7 +20,7 @@ const VENUES = [
     minSpend: "From £1,000 minimum spend for 2 hours",
     blurb:
       "A neighbourhood bar in the railway arches off London Fields. Pool tables, retro arcade, rotating kitchen residencies, full cocktail bar.",
-    image: "/hackney/venue/Interior_5.jpg",
+    image: "",
     href: "/private-hire/hackney",
     tags: ["Birthday", "Christmas party", "Corporate event", "Outdoor space"],
   },
@@ -42,7 +42,7 @@ const REASONS_FALLBACK = [
 ];
 
 export default function PrivateHirePage() {
-  const heroImage = useImage("privatehire.hero_image", "/hackney/venue/Interior_5.jpg");
+  const heroImage = useImage("privatehire.hero_image", "");
   const eyebrow = useContent(
     "privatehire.eyebrow",
     "Parties · Corporate · Christmas · Weddings",

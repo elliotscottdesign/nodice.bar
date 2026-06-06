@@ -484,7 +484,7 @@ function EditableImagePicker({
 //
 //   <DisplayImage
 //     k="venue.hackney.body_image"
-//     fallback="/hackney/course/Course_3.jpg"
+//     fallback=""
 //     aspect="4/5"
 //     alt="Polynesian course detail"
 //     rounded

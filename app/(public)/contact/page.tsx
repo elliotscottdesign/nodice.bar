@@ -11,7 +11,7 @@ export default function ContactPage() {
       <PageHero
         eyebrow="Get in touch"
         title={title}
-        image="/hackney/venue/Interior_2.jpg"
+        image=""
         eyebrowKey="contact.eyebrow"
         titleKey="contact.title"
         imageKey="contact.hero_image"

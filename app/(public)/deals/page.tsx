@@ -21,17 +21,17 @@ import { useContent, useGallery } from "@/lib/content";
 // the founder wants text on each tile, render the words into the
 // poster image itself (Canva / Photoshop / Figma).
 
-const FALLBACK_HERO = ["/images/PLONK-COCKTAILS_215298_L_web.jpg"];
+const FALLBACK_HERO = [""];
 
 const FALLBACK_GRID: { src: string; alt: string | null }[] = [
-  { src: "/images/PLONK-COCKTAILS_215298_L_web.jpg", alt: null },
-  { src: "/images/Margarita.jpg", alt: null },
-  { src: "/images/PLONK-COCKTAILS_215335_SQ.jpg", alt: null },
-  { src: "/images/PLONK-HACKNEY-NOV-220190_web.jpg", alt: null },
-  { src: "/images/PLONK-HACKNEY-NOV-220217_Web.jpg", alt: null },
-  { src: "/images/PLONK_AT_HOME_1.jpg", alt: null },
-  { src: "/images/PLONK_LF_AW_OCt_20_web.jpg", alt: null },
-  { src: "/images/Plonk_Hackeny_1976_web.jpg", alt: null },
+  { src: "", alt: null },
+  { src: "", alt: null },
+  { src: "", alt: null },
+  { src: "", alt: null },
+  { src: "", alt: null },
+  { src: "", alt: null },
+  { src: "", alt: null },
+  { src: "", alt: null },
 ];
 
 export default function DealsPage() {

@@ -42,18 +42,19 @@ export default function PageHero({
   // Gallery-managed slider images. useGallery returns the fallback
   // when the DB has no rows, so calling it with the static fallback
   // is safe even before the gallery has been seeded.
-  const fallbackArray = Array.isArray(image)
-    ? image.map((src) => ({ src, alt: null as string | null }))
-    : [{ src: image as string, alt: null }];
-  const sliderImages = useGallery(sliderKey ?? "__hero_slider_none__", fallbackArray);
+  // Empty strings filtered out — Plonk-era fallback paths got nulled
+  // during the rebrand; an "" src would crash next/image. With nothing
+  // valid left, the hero falls back to solid black (parent bg-forest).
+  const fallbackArray = (Array.isArray(image) ? image : [image as string])
+    .filter((s): s is string => !!s)
+    .map((src) => ({ src, alt: null as string | null }));
+  const sliderImages = useGallery(
+    sliderKey ?? "__hero_slider_none__",
+    fallbackArray,
+  ).filter((s) => !!s.src);
 
   const useSlider = sliderImages.length > 1;
-  const singleSrc =
-    sliderImages.length === 1
-      ? sliderImages[0].src
-      : Array.isArray(image)
-        ? image[0]
-        : (image as string);
+  const singleSrc = sliderImages.length >= 1 ? sliderImages[0].src : "";
 
   return (
     <section className="relative isolate flex flex-col">
@@ -70,7 +71,7 @@ export default function PageHero({
             aspect="3/2"
             className="h-full"
           />
-        ) : (
+        ) : singleSrc ? (
           <Image
             src={singleSrc}
             alt=""
@@ -79,7 +80,7 @@ export default function PageHero({
             className="object-cover"
             sizes="100vw"
           />
-        )}
+        ) : null}
         {/* Subtle top shade so the sticky nav stays legible over light photos */}
         <div className="pointer-events-none absolute inset-x-0 top-0 h-24 bg-gradient-to-b from-forestDeep/55 to-transparent" />
       </div>

@@ -21,22 +21,22 @@ const PRESS = [
 
 const FEATURES = [
   {
-    image: "/hackney/drinks/Drinks_3.jpg",
+    image: "",
     title: "Bar",
     body: "Draught beers, craft cans, speciality ciders, house and classic cocktails, natural wines and a wide range of soft drinks.",
   },
   {
-    image: "/hackney/pool/Pool_2.jpg",
+    image: "",
     title: "Pool",
     body: "American 7ft pool tables. £5 for 30 minutes. Over-16s only.",
   },
   {
-    image: "/hackney/games/Games_8.jpg",
+    image: "",
     title: "Board games",
     body: "A wall of board games. Borrow whatever you fancy from the bar and settle the score between rounds.",
   },
   {
-    image: "/hackney/games/Games_2.jpg",
+    image: "",
     title: "Arcade",
     body: "Pinball machines, retro multi-game cabinets, shoot-'em-ups, foosball and skee-ball. Buy tokens at the bar.",
   },
@@ -166,7 +166,7 @@ export default function HomePage() {
           detailLabel="Venue details →"
           bookHref="/book"
           detailHref="/venue/hackney"
-          image="/hackney/course/Course_1.jpg"
+          image=""
           imageAlt="No Dice Hackney"
           align="left"
           // CMS keys — every text surface editable from admin

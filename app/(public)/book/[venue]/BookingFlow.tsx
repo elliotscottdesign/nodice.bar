@@ -361,7 +361,7 @@ export default function BookingFlow({
       <header className="relative isolate border-b border-cream/10 px-6 py-12">
         <div className="absolute inset-0 -z-10">
           <Image
-            src={venue.id === "hackney" ? "/hackney/course/Course_1.jpg" : "/borough/course/Course_1.jpg"}
+            src={venue.id === "hackney" ? "" : ""}
             alt=""
             fill
             priority

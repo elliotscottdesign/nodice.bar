@@ -44,7 +44,7 @@ function cateringRows(s: string): { yes: string[]; no: string[] } {
 }
 
 const DEFAULTS = {
-  hero_image: "/hackney/garden/Garden_1.jpg",
+  hero_image: "",
   eyebrow: "Private hire · No Dice",
   title: "Take Over No Dice",
   intro: "Our nine-hole Polynesian course, beer garden, pool, arcade and tiki bar — all yours.",

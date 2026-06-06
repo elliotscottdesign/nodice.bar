@@ -7,26 +7,26 @@ import { Editable, DisplayImage } from "@/components/Editable";
 import ManageGalleryLink from "@/components/ManageGalleryLink";
 
 const ABOUT_GALLERY_FALLBACK = [
-  { src: "/hackney/course/Course_1.jpg", alt: "Hackney Polynesian course" },
-  { src: "/borough/course/Course_1.jpg", alt: "Borough course" },
-  { src: "/hackney/garden/Garden_1.jpg", alt: "Hackney beer garden" },
-  { src: "/borough/venue/Venue_1.jpg", alt: "Borough arch interior" },
-  { src: "/hackney/course/Course_5.jpg", alt: "Hackney course detail" },
-  { src: "/borough/course/Course_3.jpg", alt: "Borough London-themed course" },
-  { src: "/hackney/pool/Pool_1.jpg", alt: "Hackney pool tables" },
-  { src: "/borough/games/Games_1.jpg", alt: "Borough arcade" },
-  { src: "/hackney/games/Games_2.jpg", alt: "Hackney arcade" },
-  { src: "/borough/drinks/Cocktail_1.jpg", alt: "Borough cocktail" },
-  { src: "/hackney/drinks/Drinks_3.jpg", alt: "Hackney drinks" },
-  { src: "/borough/course/Course_5.jpg", alt: "Borough course" },
+  { src: "", alt: "Hackney Polynesian course" },
+  { src: "", alt: "Borough course" },
+  { src: "", alt: "Hackney beer garden" },
+  { src: "", alt: "Borough arch interior" },
+  { src: "", alt: "Hackney course detail" },
+  { src: "", alt: "Borough London-themed course" },
+  { src: "", alt: "Hackney pool tables" },
+  { src: "", alt: "Borough arcade" },
+  { src: "", alt: "Hackney arcade" },
+  { src: "", alt: "Borough cocktail" },
+  { src: "", alt: "Hackney drinks" },
+  { src: "", alt: "Borough course" },
 ];
 
 const DEFAULTS = {
-  hero_image: "/hackney/garden/Garden_2.jpg",
+  hero_image: "",
   intro:
     "Founded by a troop of set designers from the film industry, banded together to create the greatest crazy golf courses imaginable and plonk them down around the Capital.",
-  body_image1: "/hackney/course/Course_3.jpg",
-  body_image2: "/borough/course/Course_4.jpg",
+  body_image1: "",
+  body_image2: "",
   body_para1:
     "No Dice Crazy Golf was founded by a troop of set designers from the film industry who banded together for a common cause — using their skills to create the greatest crazy golf courses imaginable and plonking them down around the Capital.\n\nIn 2014 we opened our first course in Haggerston, London, built from 100% up-cycled materials rescued from the streets of Hackney. Since that initial success, we've been creating ever more ambitious courses across the UK and Europe.",
   body_heading2: "Totally unique, totally No Dice",

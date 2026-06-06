@@ -7,7 +7,7 @@ export const metadata = { title: "Home page content — No Dice Admin" };
 // each field shows its current value as placeholder/preview text even
 // before anyone's saved an override.
 const FALLBACKS: Record<string, string> = {
-  "home.hero.image": "/borough/course/Course_1.jpg",
+  "home.hero.image": "",
   "home.hero.eyebrow": "Hackney · Borough Market",
   "home.hero.headline_1": "Crazy Golf Creations",
   "home.hero.headline_2": "Across the Capital",

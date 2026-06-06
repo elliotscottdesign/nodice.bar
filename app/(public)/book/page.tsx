@@ -18,7 +18,7 @@ const FALLBACK_CARDS = [
     name: "Tables",
     tagline: "Dinner · Drinks · Groups",
     blurb: "Reserve a table for dinner, drinks or a group of friends. Hackney only.",
-    image: "/images/PLONK-COCKTAILS_215335_SQ.jpg",
+    image: "",
     href: "/book/hackney",
   },
   {
@@ -26,7 +26,7 @@ const FALLBACK_CARDS = [
     name: "Pool Tables",
     tagline: "American 7ft · Hourly",
     blurb: "Book a pool table for an hour or for the whole evening.",
-    image: "/images/PAH-V2-1-1.jpg",
+    image: "",
     href: "/book/hackney",
   },
   {
@@ -34,7 +34,7 @@ const FALLBACK_CARDS = [
     name: "Party Inquiries",
     tagline: "Private hire · Groups of 10+",
     blurb: "Birthdays, leaving dos, brand activations — whole-venue or arch-end hires.",
-    image: "/images/MPL_294A9392_Web.jpg",
+    image: "",
     href: "/private-hire",
   },
   {
@@ -42,7 +42,7 @@ const FALLBACK_CARDS = [
     name: "Golf",
     tagline: "Plonk Golf · Sister brand",
     blurb: "Crazy golf at our sister venue, Plonk Golf — Hackney and Borough.",
-    image: "/images/PLNK-HTDG-044_Large.jpg",
+    image: "",
     href: "https://www.plonkgolf.co.uk/",
   },
 ] as const;

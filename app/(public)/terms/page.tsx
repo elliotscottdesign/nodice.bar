@@ -11,7 +11,7 @@ export default function TermsPage() {
       <PageHero
         eyebrow="Legal"
         title={title}
-        image="/hackney/course/Course_3.jpg"
+        image=""
         eyebrowKey="terms.eyebrow"
         titleKey="terms.title"
         imageKey="terms.hero_image"
