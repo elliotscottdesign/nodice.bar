@@ -196,9 +196,9 @@ export default function HomePage() {
         </div>
       </section>
 
-      {/* ───────────── PRESS MARQUEE (ember) ───────────── */}
-      <PressMarquee fallback={PRESS} />
-
+      {/* PRESS MARQUEE removed per founder direction — the PressMarquee
+          component below is left in the file (unused) in case the
+          "As featured in" strip is wanted back later. */}
 
       {/* ───────────── PRIVATE HIRE + VOUCHERS (ember → forest) ───────────── */}
       <section className="px-6 py-28">
