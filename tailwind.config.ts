@@ -48,7 +48,12 @@ const config: Config = {
         // ref becomes a brand-aligned button/CTA against the dark
         // purple bed without renaming the token.
         plonkPink:   "#DA1B33",
-        plonkYellow: "#E8C547",
+        // plonkYellow used to be golden (#E8C547) — repointed to the
+        // No Dice brand red so every legacy `text-plonkYellow` eyebrow /
+        // kicker / italic accent across the site flips to red in one
+        // shot. Same hex as plonkPink: the visual distinction between
+        // "yellow accents" and "pink CTAs" is now gone by design.
+        plonkYellow: "#DA1B33",
         plonkTeal:   "#1ec8b8",
 
         // Explicit No Dice tokens — use for new UI to avoid relying

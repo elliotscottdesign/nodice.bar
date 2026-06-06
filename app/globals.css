@@ -62,7 +62,9 @@
      buttons and CTAs match the red dice/wordmark. Yellow stays as a
      legible secondary highlight against dark purple. */
   --pink:   #DA1B33;
-  --yellow: #E8C547;
+  /* Was golden (#E8C547) — repointed to brand red so every legacy
+     var(--yellow) ref (eyebrows, italic accents) flips at once. */
+  --yellow: #DA1B33;
 }
 
 html, body {
