@@ -127,10 +127,16 @@ const KNOWN_GALLERIES: { key: string; label: string; description: string }[] = [
     description: '"Events at No Dice" poster grid on /venue/hackney.',
   },
   {
+    key: "bar.menu_pages",
+    label: "Bar — Menu pages",
+    description:
+      "The menu itself, one image per page. Upload 3 (or more) portrait scans/exports of the menu — they appear as a swipeable slider at the top of /bar. First upload = page 1.",
+  },
+  {
     key: "bar.drinks_slider",
     label: "Bar — Drinks slider",
     description:
-      "Portrait drink shots that cycle below the menu CTA on /bar.",
+      "Portrait drink shots that cycle below the menu on /bar.",
   },
   {
     key: "deals.grid",
