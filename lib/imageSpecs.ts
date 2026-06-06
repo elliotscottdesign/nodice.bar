@@ -117,6 +117,20 @@ const FULL_BLEED_SPEC: ImageSpec = {
   maxKb: 300,
 };
 
+// Instagram Story / Reels-shaped portrait. Used for poster galleries
+// (Deals grid, Deals hero) where the founder uploads the same
+// 1080×1920 artwork they post to socials, so admin and live both
+// show the full canvas with no cropping.
+const STORY_SPEC: ImageSpec = {
+  label: "Instagram Story poster",
+  orientation: "portrait",
+  aspectLabel: "9:16",
+  aspectClass: "aspect-[9/16]",
+  width: 1080,
+  height: 1920,
+  maxKb: 350,
+};
+
 // ---------- Explicit registry ----------
 // Every image location on the site that the admin can edit should
 // appear in this map. Keys match page_content.key for single images,
@@ -160,7 +174,10 @@ const EXPLICIT_SPECS: Record<string, ImageSpec> = {
   "hero.about": HERO_SPEC,
   "hero.contact": HERO_SPEC,
   "hero.events": HERO_SPEC,
-  "hero.deals": HERO_SPEC,
+  // hero.deals is a poster slider (Insta-Story shaped artwork), not
+  // a landscape page hero — register STORY_SPEC so admin + caption +
+  // public site all respect 9:16.
+  "hero.deals": STORY_SPEC,
   "hero.vouchers": HERO_SPEC,
   "hero.faqs": HERO_SPEC,
   "hero.terms": HERO_SPEC,
@@ -186,6 +203,9 @@ const EXPLICIT_SPECS: Record<string, ImageSpec> = {
   "venue.hackney.gallery": SQUARE_SPEC,
   "venue.borough.gallery": SQUARE_SPEC,
   "hackney.events": POSTER_SPEC,
+  // Deals grid renders the same Insta-Story posters as the hero slider,
+  // so they share STORY_SPEC and the public grid is 9:16 too.
+  "deals.grid": STORY_SPEC,
 };
 
 // ---------- Pattern-based fallback ----------

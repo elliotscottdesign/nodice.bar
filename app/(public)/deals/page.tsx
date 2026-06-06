@@ -76,7 +76,7 @@ export default function DealsPage() {
             {images.slice(0, 10).map((img, i) => (
               <div
                 key={`${img.src}-${i}`}
-                className="relative aspect-[3/4] overflow-hidden rounded-xl"
+                className="relative aspect-[9/16] overflow-hidden rounded-xl"
               >
                 <Image
                   src={img.src}
