@@ -1,6 +1,6 @@
 "use client";
 
-import { useMemo, useState } from "react";
+import { Suspense, useMemo, useState } from "react";
 import { useSearchParams } from "next/navigation";
 import { createBarReservation } from "@/lib/db/barReservations";
 
@@ -33,7 +33,19 @@ function todayIso(): string {
   return `${y}-${m}-${day}`;
 }
 
+// Next.js 14 static export refuses to build any page that calls
+// useSearchParams() outside a <Suspense> boundary. The actual page
+// content moves into PoolBookingPageInner; the default export wraps
+// it so the build passes.
 export default function PoolBookingPage() {
+  return (
+    <Suspense fallback={null}>
+      <PoolBookingPageInner />
+    </Suspense>
+  );
+}
+
+function PoolBookingPageInner() {
   const params = useSearchParams();
   const slots = useMemo(generatePoolSlots, []);
 
