@@ -191,7 +191,14 @@ export default function MediaPicker({
   const effectiveAspect = aspect ?? "1/1";
 
   function handlePick(path: string) {
-    setStaged(path);
+    // Bypass the ImagePositioner entirely. Loading multi-megapixel
+    // poster PNGs (e.g. 4500x3859) into the positioner's canvas
+    // crashed the React tree on large files, which also tore down the
+    // parent modal (calendar event editor). The founder uploads art at
+    // the aspect ratio they want; object-cover on the consumer side
+    // handles any minor mismatch without needing a crop step.
+    console.log("[MediaPicker] pick", { path });
+    onPick(path);
   }
 
   function onFileChosen(e: React.ChangeEvent<HTMLInputElement>) {
