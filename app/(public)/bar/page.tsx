@@ -117,16 +117,18 @@ function MenuSlider({
 
   // Track which page is closest to the scroll position. Throttled by
   // the browser's native scroll-event coalescing — no rAF needed.
+  // Arrow-function handler captures `el` cleanly; explicit `undefined`
+  // return on the bail-out keeps strict-mode TS happy.
   useEffect(() => {
     const el = scrollRef.current;
-    if (!el) return;
-    function onScroll() {
-      if (!el) return;
-      const idx = Math.round(el.scrollLeft / el.clientWidth);
-      setActiveIdx(idx);
-    }
-    el.addEventListener("scroll", onScroll, { passive: true });
-    return () => el.removeEventListener("scroll", onScroll);
+    if (!el) return undefined;
+    const handler = () => {
+      setActiveIdx(Math.round(el.scrollLeft / el.clientWidth));
+    };
+    el.addEventListener("scroll", handler, { passive: true });
+    return () => {
+      el.removeEventListener("scroll", handler);
+    };
   }, []);
 
   function jumpTo(idx: number) {
