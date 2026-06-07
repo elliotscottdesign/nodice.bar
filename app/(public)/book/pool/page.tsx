@@ -53,7 +53,6 @@ function PoolBookingPageInner() {
   const [partySize, setPartySize] = useState<number>(
     Math.max(1, Math.min(8, parseInt(params.get("size") || "2", 10) || 2)),
   );
-  const [resourceCount, setResourceCount] = useState(1);
   const [time, setTime] = useState<string>("");
   const [name, setName] = useState("");
   const [email, setEmail] = useState("");
@@ -78,7 +77,9 @@ function PoolBookingPageInner() {
         start_time: time,
         duration_minutes: SLOT_MINUTES,
         party_size: partySize,
-        resource_count: resourceCount,
+        // Always 1 — the "Tables wanted" picker was removed; staff
+        // allocate tables based on party size at the venue.
+        resource_count: 1,
         name: name.trim(),
         email: email.trim(),
         phone: phone.trim() || null,
@@ -161,14 +162,9 @@ function PoolBookingPageInner() {
             </div>
           </FormSection>
 
-          <div className="grid gap-6 sm:grid-cols-2">
-            <FormSection label="Party size">
-              <NumberPicker value={partySize} min={1} max={8} onChange={setPartySize} />
-            </FormSection>
-            <FormSection label="Tables wanted">
-              <NumberPicker value={resourceCount} min={1} max={6} onChange={setResourceCount} />
-            </FormSection>
-          </div>
+          <FormSection label="Party size">
+            <NumberPicker value={partySize} min={1} max={8} onChange={setPartySize} />
+          </FormSection>
 
           <div className="grid gap-6 sm:grid-cols-2">
             <FormSection label="Name">
