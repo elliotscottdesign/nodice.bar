@@ -45,6 +45,14 @@ jobs:
           # (this file AND .env.local on the founder's laptop).
           NEXT_PUBLIC_SUPABASE_URL: "https://rntcujcpsozvuxvmlejv.supabase.co"
           NEXT_PUBLIC_SUPABASE_ANON_KEY: "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InJudGN1amNwc296dnV4dm1sZWp2Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODA0Nzk0MDIsImV4cCI6MjA5NjA1NTQwMn0.cUMy2GWme7quwDKns_sXq8OY-9SqWaIuZqhYSz3ZwrY"
+          # Stripe — publishable key is designed to be embedded in the
+          # browser; safe to keep inline. The secret key NEVER goes here
+          # — it lives only in Supabase Edge Function env vars (set via
+          # Supabase Dashboard → Project Settings → Edge Functions →
+          # Manage secrets → STRIPE_SECRET_KEY).
+          # Currently a TEST key (pk_test_...). When going live, swap
+          # for the pk_live_... key from the same Stripe dashboard.
+          NEXT_PUBLIC_STRIPE_PUBLISHABLE_KEY: "pk_test_51TfSU0IPCjv16fbxJh47defd1wleAimvRhEtYogYZQ3GDLTIDp56jAOzW1IbOHv0VPmBRjFnpz95UVU4C1mzB9Yv00JrEu4Tao"
         run: npm run build
 
       - name: Disable Jekyll on output (lets _next/ folder serve)
