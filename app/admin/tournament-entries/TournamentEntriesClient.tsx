@@ -60,7 +60,12 @@ export default function TournamentEntriesClient() {
   const [err, setErr] = useState("");
   const [busy, setBusy] = useState(false);
   const [filterTournamentId, setFilterTournamentId] = useState<string>("all");
-  const [filterStatus, setFilterStatus] = useState<"paid" | "all">("paid");
+  // Defaults to "all" so the founder sees pending entries (which are
+  // the ones that need action — chasing payment, refunds, mistakes)
+  // as well as paid ones, instead of having to flip a filter on every
+  // visit. Use the dropdown to narrow to "Paid only" when copying
+  // team names into the tournament app.
+  const [filterStatus, setFilterStatus] = useState<"paid" | "all">("all");
   const [copied, setCopied] = useState(false);
 
   async function reload() {
