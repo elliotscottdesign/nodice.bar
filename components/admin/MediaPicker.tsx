@@ -305,7 +305,7 @@ export default function MediaPicker({
         {/* Toolbar: upload + search + filter */}
         <div className="flex flex-col gap-3 border-b border-cream/10 px-5 py-4 sm:flex-row sm:items-center">
           <label
-            className={`flex cursor-pointer items-center justify-center gap-2 rounded-full bg-plonkPink px-5 py-2.5 text-xs font-bold uppercase tracking-wider text-white transition hover:bg-plonkPink/90 ${
+            className={`flex cursor-pointer items-center justify-center gap-2 rounded-full bg-plonkTeal px-5 py-2.5 text-xs font-bold uppercase tracking-wider text-white transition hover:bg-plonkTeal/90 ${
               uploading ? "pointer-events-none opacity-60" : ""
             }`}
             title="Upload a new image — appears here and gets selected automatically."
@@ -324,12 +324,12 @@ export default function MediaPicker({
             value={query}
             onChange={(e) => setQuery(e.target.value)}
             placeholder="Search by filename or folder…"
-            className="flex-1 rounded-lg border border-cream/15 bg-ink/40 px-3 py-2 text-sm text-cream placeholder:text-cream/40 focus:border-plonkPink focus:outline-none"
+            className="flex-1 rounded-lg border border-cream/15 bg-ink/40 px-3 py-2 text-sm text-cream placeholder:text-cream/40 focus:border-plonkTeal focus:outline-none"
           />
           <select
             value={activeFolder}
             onChange={(e) => setActiveFolder(e.target.value)}
-            className="rounded-lg border border-cream/15 bg-ink/40 px-3 py-2 text-sm text-cream focus:border-plonkPink focus:outline-none"
+            className="rounded-lg border border-cream/15 bg-ink/40 px-3 py-2 text-sm text-cream focus:border-plonkTeal focus:outline-none"
           >
             <option value="all">All folders</option>
             {folders.map((f) => (
@@ -342,7 +342,7 @@ export default function MediaPicker({
 
         {/* Drop hint when dragging a file over */}
         {dragOver && (
-          <div className="pointer-events-none absolute inset-4 z-10 flex items-center justify-center rounded-2xl border-2 border-dashed border-plonkPink bg-plonkPink/10 text-base font-bold uppercase tracking-wider text-plonkPink">
+          <div className="pointer-events-none absolute inset-4 z-10 flex items-center justify-center rounded-2xl border-2 border-dashed border-plonkTeal bg-plonkTeal/10 text-base font-bold uppercase tracking-wider text-plonkTeal">
             Drop image to upload
           </div>
         )}
@@ -366,7 +366,7 @@ export default function MediaPicker({
                 key={img.path}
                 type="button"
                 onClick={() => handlePick(img.path)}
-                className="group relative flex flex-col overflow-hidden rounded-lg border border-cream/10 bg-ink/40 text-left transition hover:border-plonkPink hover:shadow-lg"
+                className="group relative flex flex-col overflow-hidden rounded-lg border border-cream/10 bg-ink/40 text-left transition hover:border-plonkTeal hover:shadow-lg"
                 title={img.path}
               >
                 {/* eslint-disable-next-line @next/next/no-img-element */}

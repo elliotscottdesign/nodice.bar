@@ -139,10 +139,10 @@ export default function AdminBar() {
     <div
       role="region"
       aria-label="Admin tools"
-      className="fixed inset-x-0 bottom-0 z-[60] flex flex-wrap items-center justify-between gap-3 border-t border-plonkYellow/25 bg-ink/95 px-4 py-2.5 text-xs text-cream/85 shadow-[0_-8px_24px_rgba(0,0,0,0.4)] backdrop-blur"
+      className="fixed inset-x-0 bottom-0 z-[60] flex flex-wrap items-center justify-between gap-3 border-t border-plonkTeal/25 bg-ink/95 px-4 py-2.5 text-xs text-cream/85 shadow-[0_-8px_24px_rgba(0,0,0,0.4)] backdrop-blur"
     >
       <div className="flex flex-wrap items-center gap-3">
-        <span className="rounded-full bg-plonkYellow px-2 py-0.5 text-[10px] font-bold uppercase tracking-widest text-ink">
+        <span className="rounded-full bg-plonkTeal px-2 py-0.5 text-[10px] font-bold uppercase tracking-widest text-ink">
           Admin
         </span>
         <span className="hidden sm:inline text-cream/65">
@@ -157,7 +157,7 @@ export default function AdminBar() {
           className={`rounded-full px-4 py-1.5 text-[11px] font-bold uppercase tracking-wider transition ${
             editing
               ? "bg-plonkTeal text-ink hover:brightness-110"
-              : "bg-plonkYellow text-ink hover:brightness-110"
+              : "bg-plonkTeal text-ink hover:brightness-110"
           }`}
           title="Toggle in-place editing — click any text or image on the page to edit it"
         >
@@ -165,7 +165,7 @@ export default function AdminBar() {
         </button>
         <Link
           href={target.href}
-          className="rounded-full bg-plonkPink px-4 py-1.5 text-[11px] font-bold uppercase tracking-wider text-white transition hover:bg-plonkPink/90"
+          className="rounded-full bg-plonkTeal px-4 py-1.5 text-[11px] font-bold uppercase tracking-wider text-white transition hover:bg-plonkTeal/90"
         >
           Open editor → {target.label}
         </Link>

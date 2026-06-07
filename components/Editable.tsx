@@ -131,7 +131,7 @@ export function Editable({
           (e.target as HTMLElement).blur();
         }
       }}
-      className={`relative cursor-text rounded outline outline-1 outline-dashed outline-transparent transition hover:outline-plonkYellow/60 focus:outline-plonkYellow focus:bg-plonkYellow/5 ${
+      className={`relative cursor-text rounded outline outline-1 outline-dashed outline-transparent transition hover:outline-plonkTeal/60 focus:outline-plonkTeal focus:bg-plonkTeal/5 ${
         saved ? "outline-plonkTeal" : ""
       } ${saving ? "opacity-70" : ""}`}
       title={`Edit ${k}`}
@@ -239,7 +239,7 @@ export function EditableImage({
         e.stopPropagation();
         setMode("chooser");
       }}
-      className={`group relative block cursor-pointer rounded outline outline-2 outline-dashed outline-plonkYellow/40 transition hover:outline-plonkYellow ${
+      className={`group relative block cursor-pointer rounded outline outline-2 outline-dashed outline-plonkTeal/40 transition hover:outline-plonkTeal ${
         saving ? "opacity-70" : ""
       }`}
       title={`Edit ${k}`}
@@ -324,9 +324,9 @@ function EditChooserModal({
             type="button"
             onClick={onReposition}
             disabled={!canReposition}
-            className="block w-full rounded-xl border border-cream/15 bg-ink/40 px-4 py-4 text-left text-sm transition hover:border-plonkYellow hover:bg-plonkYellow/5 disabled:cursor-not-allowed disabled:opacity-40"
+            className="block w-full rounded-xl border border-cream/15 bg-ink/40 px-4 py-4 text-left text-sm transition hover:border-plonkTeal hover:bg-plonkTeal/5 disabled:cursor-not-allowed disabled:opacity-40"
           >
-            <span className="block text-xs font-bold uppercase tracking-wider text-plonkYellow">
+            <span className="block text-xs font-bold uppercase tracking-wider text-plonkTeal">
               Reposition this image
             </span>
             <span className="mt-1 block text-cream/75">
@@ -336,9 +336,9 @@ function EditChooserModal({
           <button
             type="button"
             onClick={onReplace}
-            className="block w-full rounded-xl border border-cream/15 bg-ink/40 px-4 py-4 text-left text-sm transition hover:border-plonkPink hover:bg-plonkPink/5"
+            className="block w-full rounded-xl border border-cream/15 bg-ink/40 px-4 py-4 text-left text-sm transition hover:border-plonkTeal hover:bg-plonkTeal/5"
           >
-            <span className="block text-xs font-bold uppercase tracking-wider text-plonkPink">
+            <span className="block text-xs font-bold uppercase tracking-wider text-plonkTeal">
               Replace with a different image
             </span>
             <span className="mt-1 block text-cream/75">

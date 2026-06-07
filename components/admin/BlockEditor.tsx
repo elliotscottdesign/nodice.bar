@@ -250,7 +250,7 @@ function BlockCard({
     <div
       className={`rounded-xl border bg-ink/40 transition ${
         dragOver
-          ? "border-plonkPink shadow-[0_0_0_2px_rgba(255,61,138,0.25)]"
+          ? "border-plonkTeal shadow-[0_0_0_2px_rgba(255,61,138,0.25)]"
           : "border-cream/10"
       }`}
       onDragOver={(e) => {
@@ -293,7 +293,7 @@ function BlockCard({
           <select
             value={block.kind}
             onChange={(e) => onChangeKind(e.target.value as BlockKind)}
-            className="rounded border border-cream/15 bg-ink/40 px-2 py-1 text-[11px] uppercase tracking-wider text-cream/85 focus:border-plonkPink focus:outline-none"
+            className="rounded border border-cream/15 bg-ink/40 px-2 py-1 text-[11px] uppercase tracking-wider text-cream/85 focus:border-plonkTeal focus:outline-none"
           >
             <option value="h2">Heading</option>
             <option value="h3">Sub-heading</option>
@@ -344,7 +344,7 @@ function BlockCard({
             placeholder={
               block.kind === "h2" ? "Section heading" : "Sub-heading"
             }
-            className={`w-full rounded-lg border border-cream/15 bg-ink/40 px-3 py-2 leading-tight text-cream placeholder:text-cream/30 focus:border-plonkPink focus:outline-none ${
+            className={`w-full rounded-lg border border-cream/15 bg-ink/40 px-3 py-2 leading-tight text-cream placeholder:text-cream/30 focus:border-plonkTeal focus:outline-none ${
               block.kind === "h2"
                 ? "font-display text-3xl sm:text-4xl"
                 : "font-display text-xl sm:text-2xl"
@@ -356,7 +356,7 @@ function BlockCard({
             onChange={(e) => onUpdate({ value: e.target.value })}
             placeholder="Paragraph text. Basic inline HTML allowed (links, em, strong)."
             rows={3}
-            className="w-full rounded-lg border border-cream/15 bg-ink/40 px-3 py-2 text-base leading-relaxed text-cream placeholder:text-cream/30 focus:border-plonkPink focus:outline-none"
+            className="w-full rounded-lg border border-cream/15 bg-ink/40 px-3 py-2 text-base leading-relaxed text-cream placeholder:text-cream/30 focus:border-plonkTeal focus:outline-none"
           />
         ) : block.kind === "img" ? (
           <div className="space-y-2">
@@ -374,7 +374,7 @@ function BlockCard({
                 value={block.value}
                 onChange={(e) => onUpdate({ value: e.target.value })}
                 placeholder="Image URL or pick from library"
-                className="min-w-[200px] flex-1 rounded-lg border border-cream/15 bg-ink/40 px-3 py-2 text-xs text-cream/85 placeholder:text-cream/30 focus:border-plonkPink focus:outline-none"
+                className="min-w-[200px] flex-1 rounded-lg border border-cream/15 bg-ink/40 px-3 py-2 text-xs text-cream/85 placeholder:text-cream/30 focus:border-plonkTeal focus:outline-none"
               />
               <button
                 type="button"
@@ -389,7 +389,7 @@ function BlockCard({
               value={block.alt ?? ""}
               onChange={(e) => onUpdate({ alt: e.target.value })}
               placeholder="Alt text (describe the image for screen readers)"
-              className="w-full rounded-lg border border-cream/15 bg-ink/40 px-3 py-2 text-xs text-cream/85 placeholder:text-cream/30 focus:border-plonkPink focus:outline-none"
+              className="w-full rounded-lg border border-cream/15 bg-ink/40 px-3 py-2 text-xs text-cream/85 placeholder:text-cream/30 focus:border-plonkTeal focus:outline-none"
             />
             {pickerOpen && (
               <MediaPicker
@@ -413,7 +413,7 @@ function BlockCard({
             onChange={(e) => onUpdate({ value: e.target.value })}
             placeholder="Raw HTML"
             rows={4}
-            className="w-full rounded-lg border border-cream/15 bg-ink/40 px-3 py-2 font-mono text-xs leading-relaxed text-cream placeholder:text-cream/30 focus:border-plonkPink focus:outline-none"
+            className="w-full rounded-lg border border-cream/15 bg-ink/40 px-3 py-2 font-mono text-xs leading-relaxed text-cream placeholder:text-cream/30 focus:border-plonkTeal focus:outline-none"
           />
         )}
       </div>

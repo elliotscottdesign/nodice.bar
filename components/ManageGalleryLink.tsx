@@ -37,7 +37,7 @@ export default function ManageGalleryLink({
       href={`/admin/content/galleries/?gallery=${encodeURIComponent(galleryKey)}`}
       target="_blank"
       rel="noopener noreferrer"
-      className="pointer-events-auto absolute bottom-4 right-4 z-20 inline-flex items-center gap-2 rounded-full bg-plonkPink/95 px-4 py-2 text-[11px] font-bold uppercase tracking-wider text-white shadow-lg shadow-plonkPink/30 backdrop-blur-sm hover:bg-plonkPink"
+      className="pointer-events-auto absolute bottom-4 right-4 z-20 inline-flex items-center gap-2 rounded-full bg-plonkTeal/95 px-4 py-2 text-[11px] font-bold uppercase tracking-wider text-white shadow-lg shadow-plonkTeal/30 backdrop-blur-sm hover:bg-plonkTeal"
     >
       <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" aria-hidden>
         <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4" strokeLinecap="round" />

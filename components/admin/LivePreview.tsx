@@ -82,7 +82,7 @@ export default function LivePreview({ path, drafts }: LivePreviewProps) {
     >
       <div className="flex items-center justify-between border-b border-cream/10 px-4 py-2.5">
         <div className="min-w-0">
-          <p className="text-[10px] font-bold uppercase tracking-widest text-plonkYellow">
+          <p className="text-[10px] font-bold uppercase tracking-widest text-plonkTeal">
             Live preview
           </p>
           <p className="truncate text-xs text-cream/55">{path}</p>

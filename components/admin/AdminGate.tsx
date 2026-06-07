@@ -101,7 +101,7 @@ function LoginForm() {
           Sign in to manage tickets, bookings and the rest.
         </p>
 
-        <label className="mt-6 block text-xs font-bold uppercase tracking-widest text-plonkYellow">
+        <label className="mt-6 block text-xs font-bold uppercase tracking-widest text-plonkTeal">
           Username
         </label>
         <input
@@ -111,10 +111,10 @@ function LoginForm() {
           autoFocus
           autoComplete="username"
           placeholder="ADMIN"
-          className="mt-2 w-full rounded-lg border border-cream/15 bg-ink/40 px-4 py-3 text-sm text-cream placeholder:text-cream/30 outline-none focus:border-plonkPink"
+          className="mt-2 w-full rounded-lg border border-cream/15 bg-ink/40 px-4 py-3 text-sm text-cream placeholder:text-cream/30 outline-none focus:border-plonkTeal"
         />
 
-        <label className="mt-4 block text-xs font-bold uppercase tracking-widest text-plonkYellow">
+        <label className="mt-4 block text-xs font-bold uppercase tracking-widest text-plonkTeal">
           Password
         </label>
         <input
@@ -122,7 +122,7 @@ function LoginForm() {
           value={pw}
           onChange={(e) => setPw(e.target.value)}
           autoComplete="current-password"
-          className="mt-2 w-full rounded-lg border border-cream/15 bg-ink/40 px-4 py-3 text-sm text-cream outline-none focus:border-plonkPink"
+          className="mt-2 w-full rounded-lg border border-cream/15 bg-ink/40 px-4 py-3 text-sm text-cream outline-none focus:border-plonkTeal"
         />
 
         {err && <p className="mt-3 text-sm text-red-400">{err}</p>}
@@ -130,7 +130,7 @@ function LoginForm() {
         <button
           type="submit"
           disabled={busy || !username || !pw}
-          className="mt-6 w-full rounded-full bg-plonkPink py-3 text-sm font-bold uppercase tracking-wider text-white transition hover:bg-plonkPink/90 disabled:cursor-not-allowed disabled:opacity-40"
+          className="mt-6 w-full rounded-full bg-plonkTeal py-3 text-sm font-bold uppercase tracking-wider text-white transition hover:bg-plonkTeal/90 disabled:cursor-not-allowed disabled:opacity-40"
         >
           {busy ? "Signing in…" : "Sign in"}
         </button>

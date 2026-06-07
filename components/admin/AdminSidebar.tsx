@@ -80,7 +80,7 @@ export default function AdminSidebar() {
                       href={n.href}
                       className={`block rounded-md px-3 py-1.5 transition ${
                         isActive(n.href)
-                          ? "bg-plonkPink/15 text-cream"
+                          ? "bg-plonkTeal/15 text-cream"
                           : "text-cream/70 hover:bg-cream/5 hover:text-cream"
                       }`}
                     >

@@ -87,7 +87,7 @@ export default function ImagePositioner({
   return (
     <div className="space-y-4 px-5 py-4">
       <div>
-        <p className="text-[10px] font-bold uppercase tracking-widest text-plonkYellow">
+        <p className="text-[10px] font-bold uppercase tracking-widest text-plonkTeal">
           Position image in slot
         </p>
         <p className="mt-1 text-xs text-cream/55">
@@ -138,7 +138,7 @@ export default function ImagePositioner({
             step={0.05}
             value={zoom}
             onChange={(e) => setZoom(parseFloat(e.target.value))}
-            className="mt-2 block w-full accent-plonkPink"
+            className="mt-2 block w-full accent-plonkTeal"
           />
         </label>
 
@@ -153,7 +153,7 @@ export default function ImagePositioner({
             step={1}
             value={x}
             onChange={(e) => setX(parseFloat(e.target.value))}
-            className="mt-2 block w-full accent-plonkPink"
+            className="mt-2 block w-full accent-plonkTeal"
           />
         </label>
 
@@ -168,7 +168,7 @@ export default function ImagePositioner({
             step={1}
             value={y}
             onChange={(e) => setY(parseFloat(e.target.value))}
-            className="mt-2 block w-full accent-plonkPink"
+            className="mt-2 block w-full accent-plonkTeal"
           />
         </label>
       </div>
@@ -183,7 +183,7 @@ export default function ImagePositioner({
             onClick={() => setFit("cover")}
             className={`rounded-full px-3 py-1.5 text-[11px] font-bold uppercase tracking-wider transition ${
               fit === "cover"
-                ? "bg-plonkYellow text-ink"
+                ? "bg-plonkTeal text-ink"
                 : "border border-cream/15 text-cream/75 hover:bg-cream/5"
             }`}
             title="Fill the box — image will be cropped if needed"
@@ -195,7 +195,7 @@ export default function ImagePositioner({
             onClick={() => setFit("contain")}
             className={`rounded-full px-3 py-1.5 text-[11px] font-bold uppercase tracking-wider transition ${
               fit === "contain"
-                ? "bg-plonkYellow text-ink"
+                ? "bg-plonkTeal text-ink"
                 : "border border-cream/15 text-cream/75 hover:bg-cream/5"
             }`}
             title="Show the whole image — may letterbox"
@@ -221,7 +221,7 @@ export default function ImagePositioner({
           <button
             type="button"
             onClick={() => onSave({ src, fit, x, y, zoom })}
-            className="rounded-full bg-plonkPink px-5 py-2 text-xs font-bold uppercase tracking-wider text-white hover:bg-plonkPink/90"
+            className="rounded-full bg-plonkTeal px-5 py-2 text-xs font-bold uppercase tracking-wider text-white hover:bg-plonkTeal/90"
           >
             Save image
           </button>

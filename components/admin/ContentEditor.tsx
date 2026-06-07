@@ -146,7 +146,7 @@ export default function ContentEditor({
           <button
             onClick={save}
             disabled={!isDirty() || saving}
-            className="rounded-full bg-plonkPink px-6 py-2 text-xs font-bold uppercase tracking-wider text-white hover:bg-plonkPink/90 disabled:opacity-40"
+            className="rounded-full bg-plonkTeal px-6 py-2 text-xs font-bold uppercase tracking-wider text-white hover:bg-plonkTeal/90 disabled:opacity-40"
           >
             {saving ? "Saving…" : "Save changes"}
           </button>
@@ -206,7 +206,7 @@ function FieldEditor({
 function liveTypography(contentKey: string, kind: FieldKind): string {
   const k = contentKey.toLowerCase();
   if (k.includes("eyebrow")) {
-    return "font-bold uppercase tracking-widest text-xs text-plonkYellow";
+    return "font-bold uppercase tracking-widest text-xs text-plonkTeal";
   }
   if (k.includes("headline") || k.includes("title")) {
     return "font-display text-3xl leading-tight text-cream sm:text-4xl";
@@ -261,7 +261,7 @@ function KindInput({
         onChange={(e) => onChange(e.target.value)}
         placeholder={placeholder}
         rows={5}
-        className={`w-full rounded-lg border border-cream/15 bg-ink/40 px-4 py-3 placeholder:text-cream/30 focus:border-plonkPink focus:outline-none ${typoClass}`}
+        className={`w-full rounded-lg border border-cream/15 bg-ink/40 px-4 py-3 placeholder:text-cream/30 focus:border-plonkTeal focus:outline-none ${typoClass}`}
       />
     );
   }
@@ -271,7 +271,7 @@ function KindInput({
       value={value}
       onChange={(e) => onChange(e.target.value)}
       placeholder={placeholder}
-      className={`w-full rounded-lg border border-cream/15 bg-ink/40 px-4 py-2.5 placeholder:text-cream/30 focus:border-plonkPink focus:outline-none ${typoClass}`}
+      className={`w-full rounded-lg border border-cream/15 bg-ink/40 px-4 py-2.5 placeholder:text-cream/30 focus:border-plonkTeal focus:outline-none ${typoClass}`}
     />
   );
 }
@@ -359,7 +359,7 @@ function ImageInput({
         value={value}
         onChange={(e) => onChange(e.target.value)}
         placeholder="…or paste a direct image URL"
-        className="w-full rounded-lg border border-cream/15 bg-ink/40 px-3 py-2 text-xs text-cream/85 placeholder:text-cream/30 focus:border-plonkPink focus:outline-none"
+        className="w-full rounded-lg border border-cream/15 bg-ink/40 px-3 py-2 text-xs text-cream/85 placeholder:text-cream/30 focus:border-plonkTeal focus:outline-none"
       />
       {err && (
         <p className="text-xs text-red-300">{err}</p>
@@ -393,7 +393,7 @@ export function SpecCaption({ spec }: { spec: ReturnType<typeof getImageSpec> })
     <div
       className={`rounded-lg border px-3 py-2 text-xs ${
         spec.inferred
-          ? "border-plonkYellow/30 bg-plonkYellow/5 text-plonkYellow"
+          ? "border-plonkTeal/30 bg-plonkTeal/5 text-plonkTeal"
           : "border-cream/15 bg-ink/30 text-cream/70"
       }`}
     >
