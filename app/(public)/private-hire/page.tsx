@@ -1,83 +1,124 @@
 "use client";
 
-import Image from "next/image";
-import Link from "next/link";
 import PageHero from "@/components/PageHero";
 import Reveal from "@/components/Reveal";
 import BigEmailCta from "@/components/BigEmailCta";
 import { useContent, useImage } from "@/lib/content";
 import { Editable } from "@/components/Editable";
 
-// Single-venue site — only Hackney listed. To bring Borough back, restore
-// the entry from git history and re-add the matching public + admin
-// routes under /private-hire/borough-market.
-const VENUES = [
-  {
-    slug: "hackney",
-    name: "No Dice",
-    location: "London Fields · Hackney",
-    capacity: "Up to 65 standing · 40 dining · 30 cabaret",
-    minSpend: "From £1,000 minimum spend for 2 hours",
-    blurb:
-      "A neighbourhood bar in the railway arches off London Fields. Pool tables, retro arcade, rotating kitchen residencies, full cocktail bar.",
-    image: "",
-    href: "/private-hire/hackney",
-    tags: ["Birthday", "Christmas party", "Corporate event", "Outdoor space"],
-  },
-];
+// =============================================================
+// /private-hire — single-venue private hire page
+// =============================================================
+// Single-venue site → the previous /private-hire (overview) +
+// /private-hire/hackney (Hackney fact sheet) split has been folded
+// into ONE page that lives here. /private-hire/hackney now redirects
+// to /private-hire.
+//
+// CMS keys remain on the `privatehire.hackney.*` namespace so any
+// edits the founder has already made are preserved without a
+// migration. New keys for this page should use the same prefix.
+// =============================================================
 
-const REASONS_FALLBACK = [
-  {
-    title: "Bring your people",
-    body: "Birthdays, hen dos, work socials, Christmas parties, weddings — we'll host them all and they'll remember it for the right reasons.",
-  },
-  {
-    title: "Built-in entertainment",
-    body: "A 9-hole course, arcade, pool, ping pong, board games — your guests entertain themselves. No icebreakers required.",
-  },
-  {
-    title: "Full bar & kitchen",
-    body: "Signature cocktails, craft on draught, wine, mocktails, and rotating food residencies from London's best up-and-coming kitchens.",
-  },
-];
+function lines(s: string): string[] {
+  return s
+    .split(/\r?\n/)
+    .map((l) => l.trim())
+    .filter(Boolean);
+}
+
+function pairs(s: string): { label: string; value: string }[] {
+  return lines(s).map((line) => {
+    const idx = line.indexOf(":");
+    if (idx < 0) return { label: line, value: "" };
+    return {
+      label: line.slice(0, idx).trim(),
+      value: line.slice(idx + 1).trim(),
+    };
+  });
+}
+
+// Catering rows prefixed with "no:" / "n:" render as the "we don't
+// do this" strikethrough column. Anything else is a tick.
+function cateringRows(s: string): { yes: string[]; no: string[] } {
+  const yes: string[] = [];
+  const no: string[] = [];
+  for (const line of lines(s)) {
+    if (/^no:\s*/i.test(line)) no.push(line.replace(/^no:\s*/i, ""));
+    else if (/^n:\s*/i.test(line)) no.push(line.replace(/^n:\s*/i, ""));
+    else yes.push(line);
+  }
+  return { yes, no };
+}
+
+const DEFAULTS = {
+  hero_image: "",
+  eyebrow: "Private hire · No Dice",
+  title: "Take Over No Dice",
+  intro:
+    "London Fields' newest bar — yours for the night. Two arches of pool, drinks and snacks for parties of up to 65.",
+  popular_heading: "No Dice is popular for",
+  popular_list:
+    "Birthday party\nChristmas party\nCorporate event\nOutdoor space\nParkside location\nUnusual space",
+  about_heading: "About this venue",
+  about_body:
+    "We're a neighbourhood bar in the railway arches off London Fields, ready to host your party or event. You bring the people, and we'll provide them with a fantastic selection of drinks from our cocktail bar alongside Snack Bar burgers from the kitchen.\n\nThe venue features two pool tables, a full bar with craft beer + cocktails, plenty of room for groups and the option to take over either an arch-end or the whole place. We can accommodate up to 65 people for private hires.",
+  capacity:
+    "Standing: 65\nDining: 40\nCabaret: 30",
+  features:
+    "Two pool tables\nFull cocktail bar\nCraft beer on draught\nSnack Bar kitchen\nNatural light\nWi-Fi\nStorage space\nStep-free access",
+  catering:
+    "In-house catering\nApproved caterers only\nWe provide alcohol\nKitchen facilities available\nHalal available\nKosher available\nComplimentary water\nExtensive vegan menu\nExtensive gluten-free menu\nBuyout fee for external catering\nno: External catering (general)\nno: BYOB alcohol\nno: Complimentary tea & coffee",
+  licences:
+    "Alcohol licence until 23:00. Later licenses can be applied for with notice.",
+  welcomes:
+    "Games competitions / tournaments\nVIP events\nPrivate parties\nOwn music equipment / DJ",
+  house_rules: "No outside catering. No BYOB. Background music only.",
+};
 
 export default function PrivateHirePage() {
-  const heroImage = useImage("privatehire.hero_image", "");
-  const eyebrow = useContent(
-    "privatehire.eyebrow",
-    "Parties · Corporate · Christmas · Weddings",
+  const heroImage = useImage(
+    "privatehire.hackney.hero_image",
+    DEFAULTS.hero_image,
   );
-  const title = useContent("privatehire.title", "Take Over No Dice");
-  const intro = useContent(
-    "privatehire.intro",
-    "London Fields' newest bar — yours for the night. Take over an arch or the whole place.",
+  const eyebrow = useContent("privatehire.hackney.eyebrow", DEFAULTS.eyebrow);
+  const title = useContent("privatehire.hackney.title", DEFAULTS.title);
+  const intro = useContent("privatehire.hackney.intro", DEFAULTS.intro);
+
+  const popularHeading = useContent(
+    "privatehire.hackney.popular_heading",
+    DEFAULTS.popular_heading,
+  );
+  const popularList = lines(
+    useContent("privatehire.hackney.popular_list", DEFAULTS.popular_list),
+  );
+  const aboutHeading = useContent(
+    "privatehire.hackney.about_heading",
+    DEFAULTS.about_heading,
+  );
+  const aboutBody = useContent(
+    "privatehire.hackney.about_body",
+    DEFAULTS.about_body,
   );
 
-  const reasonsEyebrow = useContent("privatehire.reasons.eyebrow", "Why hire No Dice");
-  const reasonsHeading = useContent(
-    "privatehire.reasons.heading",
-    "The kind of party people actually remember.",
+  const capacities = pairs(
+    useContent("privatehire.hackney.capacity", DEFAULTS.capacity),
   );
-  const r1Title = useContent("privatehire.reason1.title", REASONS_FALLBACK[0].title);
-  const r1Body = useContent("privatehire.reason1.body", REASONS_FALLBACK[0].body);
-  const r2Title = useContent("privatehire.reason2.title", REASONS_FALLBACK[1].title);
-  const r2Body = useContent("privatehire.reason2.body", REASONS_FALLBACK[1].body);
-  const r3Title = useContent("privatehire.reason3.title", REASONS_FALLBACK[2].title);
-  const r3Body = useContent("privatehire.reason3.body", REASONS_FALLBACK[2].body);
-  const reasons = [
-    { title: r1Title, body: r1Body },
-    { title: r2Title, body: r2Body },
-    { title: r3Title, body: r3Body },
-  ];
-
-  const venuesEyebrow = useContent("privatehire.venues.eyebrow", "Pick a venue");
-  const venuesHeading = useContent(
-    "privatehire.venues.heading",
-    "Two takeover-ready venues.",
+  const features = lines(
+    useContent("privatehire.hackney.features", DEFAULTS.features),
   );
-  const venuesIntro = useContent(
-    "privatehire.venues.intro",
-    "Tap a venue for the full fact sheet — capacities, catering, licences, room features, the lot.",
+  const { yes: cateringYes, no: cateringNo } = cateringRows(
+    useContent("privatehire.hackney.catering", DEFAULTS.catering),
+  );
+  const licences = useContent(
+    "privatehire.hackney.licences",
+    DEFAULTS.licences,
+  );
+  const welcomes = lines(
+    useContent("privatehire.hackney.welcomes", DEFAULTS.welcomes),
+  );
+  const houseRules = useContent(
+    "privatehire.hackney.house_rules",
+    DEFAULTS.house_rules,
   );
 
   return (
@@ -87,123 +128,210 @@ export default function PrivateHirePage() {
         title={title}
         intro={intro}
         image={heroImage}
-        eyebrowKey="privatehire.eyebrow"
-        titleKey="privatehire.title"
-        introKey="privatehire.intro"
-        imageKey="privatehire.hero_image"
-        sliderKey="hero.privatehire"
+        eyebrowKey="privatehire.hackney.eyebrow"
+        titleKey="privatehire.hackney.title"
+        introKey="privatehire.hackney.intro"
+        imageKey="privatehire.hackney.hero_image"
+        sliderKey="hero.privatehire.hackney"
       />
 
-      {/* Reasons (forest → ember) */}
+      {/* Popular for + about */}
       <section className="tint-forest-to-plumDeep px-6 py-24">
-        <div className="mx-auto max-w-6xl">
+        <div className="mx-auto max-w-4xl">
           <Reveal>
-            <p className="text-center text-xs font-bold uppercase tracking-eyebrow text-plonkYellow">
-              <Editable k="privatehire.reasons.eyebrow">{reasonsEyebrow}</Editable>
+            <p className="text-xs font-bold uppercase tracking-eyebrow text-plonkTeal">
+              <Editable k="privatehire.hackney.popular_heading">
+                {popularHeading}
+              </Editable>
             </p>
-            <h2 className="mt-6 text-center font-display text-4xl sm:text-5xl">
-              <Editable k="privatehire.reasons.heading">{reasonsHeading}</Editable>
-            </h2>
+            <div className="mt-4 flex flex-wrap gap-2">
+              {popularList.map((t) => (
+                <span
+                  key={t}
+                  className="rounded-full border border-plumLine/80 bg-plumDeep/60 px-4 py-1.5 text-sm text-cream/90"
+                >
+                  {t}
+                </span>
+              ))}
+            </div>
           </Reveal>
-          <div className="mt-14 grid gap-6 md:grid-cols-3">
-            {reasons.map((r, i) => (
-              <Reveal key={i} delay={i * 100}>
-                <div className="h-full rounded-2xl border border-plumLine/60 p-7">
+
+          <Reveal delay={120}>
+            <h2 className="mt-12 font-display text-3xl leading-tight sm:text-4xl">
+              <Editable k="privatehire.hackney.about_heading">
+                {aboutHeading}
+              </Editable>
+            </h2>
+            <div className="mt-6 text-base leading-relaxed text-cream/85 sm:text-lg">
+              <p className="whitespace-pre-line">
+                <Editable k="privatehire.hackney.about_body" multiline>
+                  {aboutBody}
+                </Editable>
+              </p>
+            </div>
+          </Reveal>
+        </div>
+      </section>
+
+      {/* Fact sheet */}
+      <section className="tint-plumDeep-to-plum px-6 py-24">
+        <div className="mx-auto max-w-6xl space-y-12">
+          <FactPanel title="Capacity">
+            <div className="grid gap-4 sm:grid-cols-3">
+              {capacities.map((c) => (
+                <div
+                  key={c.label}
+                  className="rounded-2xl border border-plumLine/80 bg-plumDeep/60 p-6 text-center"
+                >
                   <p className="text-xs font-bold uppercase tracking-eyebrow text-plonkYellow">
-                    0{i + 1}
+                    {c.label}
                   </p>
-                  <h3 className="mt-3 font-display text-2xl">
-                    <Editable k={`privatehire.reason${i + 1}.title`}>{r.title}</Editable>
-                  </h3>
-                  <p className="mt-3 whitespace-pre-line text-sm leading-relaxed text-cream/75">
-                    <Editable k={`privatehire.reason${i + 1}.body`} multiline>{r.body}</Editable>
+                  <p className="mt-3 font-display text-5xl text-cream">
+                    {c.value}
                   </p>
                 </div>
-              </Reveal>
-            ))}
-          </div>
-        </div>
-      </section>
+              ))}
+            </div>
+          </FactPanel>
 
-      {/* Choose a venue (ember) */}
-      <section className="tint-plumDeep-to-plum px-6 py-24">
-        <div className="mx-auto max-w-6xl">
-          <Reveal>
-            <p className="text-center text-xs font-bold uppercase tracking-eyebrow text-plonkYellow">
-              <Editable k="privatehire.venues.eyebrow">{venuesEyebrow}</Editable>
-            </p>
-            <h2 className="mt-6 text-center font-display text-4xl sm:text-5xl">
-              <Editable k="privatehire.venues.heading">{venuesHeading}</Editable>
-            </h2>
-            <p className="mx-auto mt-6 whitespace-pre-line max-w-2xl text-center text-base leading-relaxed text-cream/75">
-              <Editable k="privatehire.venues.intro" multiline>{venuesIntro}</Editable>
-            </p>
-          </Reveal>
-
-          <div className="mt-14 grid gap-6 md:grid-cols-2">
-            {VENUES.map((v, i) => (
-              <Reveal key={v.slug} delay={i * 100}>
-                <Link
-                  href={v.href}
-                  className="group block h-full overflow-hidden rounded-3xl border border-plumLine/60 transition hover:border-plonkYellow/60"
+          <FactPanel title="Room features">
+            <ul className="grid gap-x-6 gap-y-3 sm:grid-cols-2 lg:grid-cols-3">
+              {features.map((f) => (
+                <li
+                  key={f}
+                  className="flex items-center gap-3 text-sm text-cream/90"
                 >
-                  <div className="relative aspect-[4/3] overflow-hidden">
-                    <Image
-                      src={v.image}
-                      alt={v.name}
-                      fill
-                      sizes="(min-width: 768px) 50vw, 100vw"
-                      className="object-cover transition duration-700 group-hover:scale-105"
-                    />
-                  </div>
-                  <div className="p-7 sm:p-8">
-                    <p className="text-xs font-bold uppercase tracking-eyebrow text-plonkYellow">
-                      {v.location}
-                    </p>
-                    <h3 className="mt-2 font-display text-3xl">{v.name}</h3>
-                    <p className="mt-4 text-sm leading-relaxed text-cream/80">
-                      {v.blurb}
-                    </p>
+                  <Check />
+                  {f}
+                </li>
+              ))}
+            </ul>
+          </FactPanel>
 
-                    <dl className="mt-6 space-y-2 text-sm">
-                      <div className="flex gap-3">
-                        <dt className="w-20 shrink-0 uppercase tracking-wider text-cream/50">
-                          Capacity
-                        </dt>
-                        <dd className="text-cream/90">{v.capacity}</dd>
-                      </div>
-                      <div className="flex gap-3">
-                        <dt className="w-20 shrink-0 uppercase tracking-wider text-cream/50">
-                          Spend
-                        </dt>
-                        <dd className="text-cream/90">{v.minSpend}</dd>
-                      </div>
-                    </dl>
+          <FactPanel title="Catering">
+            <div className="grid gap-x-10 gap-y-3 md:grid-cols-2">
+              <ul className="space-y-3">
+                {cateringYes.map((c) => (
+                  <li
+                    key={c}
+                    className="flex items-start gap-3 text-sm text-cream/90"
+                  >
+                    <Check />
+                    {c}
+                  </li>
+                ))}
+              </ul>
+              <ul className="space-y-3">
+                {cateringNo.map((c) => (
+                  <li
+                    key={c}
+                    className="flex items-start gap-3 text-sm text-cream/60"
+                  >
+                    <Cross />
+                    {c}
+                  </li>
+                ))}
+              </ul>
+            </div>
+          </FactPanel>
 
-                    <div className="mt-5 flex flex-wrap gap-2">
-                      {v.tags.map((t) => (
-                        <span
-                          key={t}
-                          className="rounded-full border border-plumLine/80 bg-plumDeep/60 px-3 py-1 text-xs text-cream/80"
-                        >
-                          {t}
-                        </span>
-                      ))}
-                    </div>
+          <FactPanel title="Licences">
+            <p className="whitespace-pre-line text-sm leading-relaxed text-cream/85 sm:text-base">
+              <Editable k="privatehire.hackney.licences" multiline>
+                {licences}
+              </Editable>
+            </p>
+          </FactPanel>
 
-                    <span className="mt-6 inline-flex items-center text-sm font-bold uppercase tracking-wider text-plonkYellow transition group-hover:text-cream">
-                      Full fact sheet →
-                    </span>
-                  </div>
-                </Link>
-              </Reveal>
-            ))}
-          </div>
+          <FactPanel title="Venue welcomes">
+            <ul className="grid gap-x-6 gap-y-3 sm:grid-cols-2">
+              {welcomes.map((w) => (
+                <li
+                  key={w}
+                  className="flex items-center gap-3 text-sm text-cream/90"
+                >
+                  <Check />
+                  {w}
+                </li>
+              ))}
+            </ul>
+          </FactPanel>
+
+          <FactPanel title="House rules">
+            <p className="whitespace-pre-line text-sm leading-relaxed text-cream/85 sm:text-base">
+              <Editable k="privatehire.hackney.house_rules" multiline>
+                {houseRules}
+              </Editable>
+            </p>
+          </FactPanel>
         </div>
       </section>
 
-      {/* Big email CTA (ember → forest) */}
-      <BigEmailCta />
+      <BigEmailCta subject="Private Hire Enquiry — No Dice" />
     </main>
+  );
+}
+
+function FactPanel({
+  title,
+  children,
+}: {
+  title: string;
+  children: React.ReactNode;
+}) {
+  return (
+    <Reveal>
+      <div className="rounded-3xl border border-plumLine/60 p-7 sm:p-9">
+        <h3 className="font-display text-2xl text-plonkYellow sm:text-3xl">
+          {title}
+        </h3>
+        <div className="mt-6">{children}</div>
+      </div>
+    </Reveal>
+  );
+}
+
+function Check() {
+  return (
+    <span
+      aria-hidden
+      className="mt-0.5 inline-flex h-5 w-5 shrink-0 items-center justify-center rounded-full bg-plonkYellow/15 text-plonkYellow"
+    >
+      <svg
+        width="12"
+        height="12"
+        viewBox="0 0 24 24"
+        fill="none"
+        stroke="currentColor"
+        strokeWidth="3"
+        strokeLinecap="round"
+        strokeLinejoin="round"
+      >
+        <polyline points="20 6 9 17 4 12" />
+      </svg>
+    </span>
+  );
+}
+
+function Cross() {
+  return (
+    <span
+      aria-hidden
+      className="mt-0.5 inline-flex h-5 w-5 shrink-0 items-center justify-center rounded-full bg-cream/10 text-cream/50"
+    >
+      <svg
+        width="12"
+        height="12"
+        viewBox="0 0 24 24"
+        fill="none"
+        stroke="currentColor"
+        strokeWidth="3"
+        strokeLinecap="round"
+        strokeLinejoin="round"
+      >
+        <line x1="18" y1="6" x2="6" y2="18" />
+        <line x1="6" y1="6" x2="18" y2="18" />
+      </svg>
+    </span>
   );
 }

@@ -7,8 +7,8 @@ export default function PrivateHireContentPage() {
   return (
     <>
       <AdminPageHeader
-        title="Private hire — overview"
-        description="Edit the copy on /private-hire."
+        title="Private hire"
+        description="Edit the copy on /private-hire — venue intro, capacity, features, catering, licences, house rules."
         action={
           <a
             href={`${process.env.NEXT_PUBLIC_BASE_PATH || ""}/private-hire`}
@@ -20,7 +20,11 @@ export default function PrivateHireContentPage() {
           </a>
         }
       />
-      <ContentEditor page="privatehire" previewPath="/private-hire" />
+      {/* Single-venue site — the page is now /private-hire and it
+          reads the privatehire.hackney.* keys (kept namespaced under
+          .hackney so the founder's existing CMS edits carry over
+          without a data migration). */}
+      <ContentEditor page="privatehire.hackney" previewPath="/private-hire" />
     </>
   );
 }
