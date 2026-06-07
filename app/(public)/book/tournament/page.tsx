@@ -1,6 +1,7 @@
 "use client";
 
 import { Suspense, useEffect, useMemo, useState } from "react";
+import { useSearchParams } from "next/navigation";
 import {
   createTournamentEntry,
   loadOpenTournaments,
@@ -55,11 +56,19 @@ export default function TournamentBookingPage() {
 }
 
 function TournamentBookingPageInner() {
+  // /pool's tournament schedule links here as
+  // /book/tournament?tournament=<uuid> — read that param so the right
+  // date is preselected when the form loads. If the param's missing
+  // or doesn't match an open tournament, we fall back to the normal
+  // "auto-select the only one / show picker" behavior below.
+  const params = useSearchParams();
+  const preselectId = params.get("tournament") ?? "";
+
   const [tournaments, setTournaments] = useState<DbTournament[]>([]);
   const [loadingList, setLoadingList] = useState(true);
   const [listError, setListError] = useState("");
 
-  const [tournamentId, setTournamentId] = useState<string>("");
+  const [tournamentId, setTournamentId] = useState<string>(preselectId);
   const [teamName, setTeamName] = useState("");
   const [captainName, setCaptainName] = useState("");
   const [captainEmail, setCaptainEmail] = useState("");
@@ -76,8 +85,14 @@ function TournamentBookingPageInner() {
       .then((t) => {
         if (cancelled) return;
         setTournaments(t);
-        // Auto-select if there's exactly one — saves a click.
-        if (t.length === 1) setTournamentId(t[0].id);
+        // If the URL preselected one, keep it (validating it's a real
+        // open tournament). Otherwise auto-select if there's exactly
+        // one. Otherwise let the customer pick from the list below.
+        if (preselectId && t.some((x) => x.id === preselectId)) {
+          setTournamentId(preselectId);
+        } else if (t.length === 1) {
+          setTournamentId(t[0].id);
+        }
       })
       .catch((e) => {
         if (cancelled) return;

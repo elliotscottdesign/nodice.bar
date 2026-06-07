@@ -22,6 +22,8 @@ export type TournamentEntryStatus =
   | "refunded"
   | "cancelled";
 
+export type TournamentType = "singles" | "doubles" | "special";
+
 export type DbTournament = {
   id: string;
   name: string;
@@ -31,6 +33,7 @@ export type DbTournament = {
   max_teams: number;
   entry_fee_pence: number;
   registration_open: boolean;
+  tournament_type: TournamentType;
   created_at: string;
   updated_at: string;
 };

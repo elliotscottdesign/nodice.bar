@@ -3,6 +3,7 @@
 import Link from "next/link";
 import PageHero from "@/components/PageHero";
 import ManageGalleryLink from "@/components/ManageGalleryLink";
+import TournamentSchedule from "@/components/TournamentSchedule";
 import { useContent } from "@/lib/content";
 
 // /pool — slider-led page. Hero IS the slider; below it sits a single
@@ -53,6 +54,12 @@ export default function PoolPage() {
           label="Manage hero images / order"
         />
       </section>
+
+      {/* Tournament sign-up section. Dropdown for Doubles / Singles,
+          list of upcoming Wednesdays for the selected type, each one
+          links to the paid sign-up form. Lives below the core pool
+          info per the founder's brief. */}
+      <TournamentSchedule />
     </main>
   );
 }
