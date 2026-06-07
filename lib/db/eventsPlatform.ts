@@ -23,6 +23,7 @@ export type EventCategory =
   | "drink_special"
   | "arcade"
   | "golf"
+  | "world_cup"
   | "other";
 
 export type RecurrenceType = "none" | "weekly" | "fortnightly" | "monthly";
@@ -137,6 +138,24 @@ export async function loadEventsForPoolSchedule(): Promise<DbEvent[]> {
     .eq("show_on_pool_schedule", true)
     .gte("event_date", today)
     .order("event_date", { ascending: true });
+  if (error) throw error;
+  return (data ?? []) as DbEvent[];
+}
+
+// All upcoming events of a given category. Used by /world-cup
+// (category='world_cup') and any future category-led schedule
+// pages.
+export async function loadUpcomingEventsByCategory(
+  category: EventCategory,
+): Promise<DbEvent[]> {
+  const today = new Date().toISOString().slice(0, 10);
+  const { data, error } = await supabase()
+    .from("events")
+    .select("*")
+    .eq("category", category)
+    .gte("event_date", today)
+    .order("event_date", { ascending: true })
+    .order("start_time", { ascending: true });
   if (error) throw error;
   return (data ?? []) as DbEvent[];
 }
@@ -336,5 +355,6 @@ export const CATEGORY_LABEL: Record<EventCategory, string> = {
   drink_special: "Drink special",
   arcade: "Arcade",
   golf: "Golf",
+  world_cup: "World Cup — Match",
   other: "Other",
 };

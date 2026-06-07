@@ -13,6 +13,7 @@ import { Editable } from "./Editable";
 const FALLBACK_NAV = [
   "Bar | /bar",
   "Pool | /pool",
+  "World Cup | /world-cup",
   "Deals | /deals",
   "DJs & Events | /events",
   // Plonk is the sister brand (crazy golf) — opens the standalone

@@ -65,6 +65,7 @@ const CATEGORY_OPTIONS: EventCategory[] = [
   "drink_special",
   "arcade",
   "golf",
+  "world_cup",
   "other",
 ];
 
