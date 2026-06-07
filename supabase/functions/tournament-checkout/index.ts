@@ -166,11 +166,22 @@ Deno.serve(async (req) => {
     );
   }
 
-  // Create the Checkout session.
+  // Create the Checkout session in EMBEDDED mode.
+  //
+  // ui_mode: 'embedded'           — returns a client_secret instead
+  //                                 of a hosted page URL; the frontend
+  //                                 mounts the iframe in-page.
+  // redirect_on_completion: 'never' — after successful payment, Stripe
+  //                                  fires the onComplete callback in
+  //                                  the frontend rather than
+  //                                  navigating away. We show an inline
+  //                                  confirmation right there.
   let session: Stripe.Checkout.Session;
   try {
     session = await stripe.checkout.sessions.create({
       mode: "payment",
+      ui_mode: "embedded",
+      redirect_on_completion: "never",
       payment_method_types: ["card"],
       customer_email: entry.captain_email,
       line_items: [
@@ -191,8 +202,6 @@ Deno.serve(async (req) => {
         tournament_id: tournament.id,
         team_name: entry.team_name,
       },
-      success_url: `${PUBLIC_SITE_URL}/book/tournament/success/?session_id={CHECKOUT_SESSION_ID}`,
-      cancel_url: `${PUBLIC_SITE_URL}/book/tournament/cancelled/`,
     });
   } catch (e) {
     const msg = e instanceof Error ? e.message : String(e);
@@ -202,16 +211,15 @@ Deno.serve(async (req) => {
     );
   }
 
-  if (!session.url) {
+  if (!session.client_secret) {
     return jsonResponse(
-      { error: "Stripe returned no checkout URL" },
+      { error: "Stripe returned no client_secret" },
       { status: 502 },
     );
   }
 
   // Stamp the session id back onto the entry so the webhook can
-  // find it. (If this update fails we still let the redirect
-  // happen — the webhook is the safety net.)
+  // find it on checkout.session.completed.
   const { error: stampErr } = await db
     .from("tournament_entries")
     .update({ stripe_session_id: session.id })
@@ -222,5 +230,5 @@ Deno.serve(async (req) => {
     );
   }
 
-  return jsonResponse({ url: session.url });
+  return jsonResponse({ client_secret: session.client_secret });
 });

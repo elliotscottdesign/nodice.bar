@@ -37,7 +37,9 @@ const FALLBACK_CARDS = [
     tagline: "Team entry · Pay in advance",
     blurb: "Register your team for the next No Dice pool tournament. Spots reserved on payment.",
     image: "",
-    href: "/book/tournament",
+    // Tournament sign-up lives inline on /pool now — link straight
+    // to the schedule section instead of the retired standalone form.
+    href: "/pool#tournaments",
   },
   {
     id: "parties",

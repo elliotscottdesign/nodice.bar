@@ -1,25 +1,32 @@
 "use client";
 
 import { useEffect, useMemo, useState } from "react";
-import Link from "next/link";
 import {
   loadOpenTournaments,
   type DbTournament,
   type TournamentType,
 } from "@/lib/db/tournaments";
+import InlineTournamentBooking from "./InlineTournamentBooking";
 
 // =============================================================
 // TournamentSchedule
 // =============================================================
 // Public-facing picker that lives at the bottom of /pool. Customers
 // flip between Doubles and Singles (and the rare Special), then
-// pick an upcoming date — clicking sends them to the team sign-up
-// form at /book/tournament with the right tournament pre-selected.
+// pick an upcoming date — clicking expands an inline form + Stripe
+// Embedded Checkout in that row. NO page navigation. The whole
+// journey (pick date → fill team details → pay → confirmation) lives
+// inside this section.
 //
-// Data: reads every `registration_open=true` tournament from the
-// DB (the public RLS policy on `tournaments` filters out closed
-// ones). We filter by type + future-date client-side so the page
-// is fully cacheable.
+// State:
+//   • `all`         — every open tournament from the DB
+//   • `type`        — currently active pill (doubles / singles / special)
+//   • `expandedId`  — which row (if any) is currently open. Only one
+//                     at a time, so clicking a different row closes
+//                     the current.
+//
+// Non-bookable rows (the two SEASON FINALs) show an "Invitation only"
+// badge instead of an expandable Sign Up.
 // =============================================================
 
 const TYPE_LABELS: Record<TournamentType, string> = {
@@ -58,6 +65,7 @@ export default function TournamentSchedule() {
   const [loading, setLoading] = useState(true);
   const [err, setErr] = useState("");
   const [type, setType] = useState<TournamentType>("doubles");
+  const [expandedId, setExpandedId] = useState<string | null>(null);
 
   useEffect(() => {
     let cancelled = false;
@@ -81,30 +89,24 @@ export default function TournamentSchedule() {
   }, []);
 
   // Which types actually have open events? Hide the "Special" pill
-  // entirely if there are none in the schedule — keeps the dropdown
-  // honest instead of advertising an empty section.
+  // entirely if there are none in the schedule.
   const availableTypes = useMemo<TournamentType[]>(() => {
     const set = new Set<TournamentType>();
     const today = new Date().toISOString().slice(0, 10);
     for (const t of all) {
       if (t.event_date >= today) set.add(t.tournament_type);
     }
-    // Keep a stable visual order even when the set is partial.
     return (["doubles", "singles", "special"] as TournamentType[]).filter((t) =>
       set.has(t),
     );
   }, [all]);
 
-  // If our default ("doubles") isn't in the available list, fall
-  // back to the first one that is. Runs once when availableTypes
-  // arrives — otherwise the picker would point at an empty list.
   useEffect(() => {
     if (availableTypes.length > 0 && !availableTypes.includes(type)) {
       setType(availableTypes[0]);
     }
   }, [availableTypes, type]);
 
-  // Upcoming events of the selected type, sorted earliest first.
   const events = useMemo(() => {
     const today = new Date().toISOString().slice(0, 10);
     return all
@@ -112,8 +114,16 @@ export default function TournamentSchedule() {
       .sort((a, b) => a.event_date.localeCompare(b.event_date));
   }, [all, type]);
 
+  // When the customer flips between Doubles ↔ Singles tabs, collapse
+  // any open row — keeping it open across tabs would let them submit
+  // a doubles entry while looking at singles, which is confusing.
+  function setActiveType(next: TournamentType) {
+    setType(next);
+    setExpandedId(null);
+  }
+
   return (
-    <section className="bg-ink/40 px-6 py-20">
+    <section id="tournaments" className="bg-ink/40 px-6 py-20 scroll-mt-24">
       <div className="mx-auto max-w-3xl">
         <div className="mb-3 text-center text-xs font-bold uppercase tracking-[0.3em] text-plonkPink">
           Tournaments
@@ -123,11 +133,10 @@ export default function TournamentSchedule() {
         </h2>
         <p className="mx-auto mt-4 max-w-xl text-center text-base text-cream/75">
           Pool tournaments run every Wednesday at No Dice — doubles and
-          singles alternate weekly. Pick a format and a date, pay in advance to
-          hold your spot.
+          singles alternate weekly. Pick a format and a date, pay in advance
+          to hold your spot.
         </p>
 
-        {/* Type picker */}
         {availableTypes.length > 1 && (
           <div className="mt-10 flex flex-wrap justify-center gap-2">
             {availableTypes.map((t) => {
@@ -136,7 +145,7 @@ export default function TournamentSchedule() {
                 <button
                   key={t}
                   type="button"
-                  onClick={() => setType(t)}
+                  onClick={() => setActiveType(t)}
                   className={`rounded-full border px-5 py-2.5 text-xs font-bold uppercase tracking-widest transition ${
                     active
                       ? "border-plonkPink bg-plonkPink text-white shadow-lg shadow-plonkPink/20"
@@ -154,7 +163,6 @@ export default function TournamentSchedule() {
           {TYPE_TAGLINES[type]}
         </p>
 
-        {/* List of dates */}
         <div className="mx-auto mt-10 max-w-2xl">
           {loading && (
             <p className="text-center text-sm text-cream/55">Loading…</p>
@@ -171,47 +179,61 @@ export default function TournamentSchedule() {
 
           <ul className="space-y-3">
             {events.map((t) => {
-              // GRAND FINAL and any future "invitation only" specials
-              // show in the schedule but aren't clickable — render as
-              // a div instead of a Link so there's no false affordance.
-              const meta =
-                formatTime(t.start_time) +
-                (t.bookable
-                  ? ` · ${formatFee(t.entry_fee_pence)} entry · up to ${t.max_teams} teams`
-                  : t.description
-                    ? ` · ${t.description}`
-                    : "");
+              const isExpanded = expandedId === t.id;
               return (
                 <li key={t.id}>
                   {t.bookable ? (
-                    <Link
-                      href={`/book/tournament?tournament=${t.id}`}
-                      className="group flex items-center justify-between gap-4 rounded-xl border border-cream/10 bg-ink/40 px-5 py-4 transition hover:border-plonkPink/60 hover:bg-plonkPink/10"
-                    >
-                      <div className="min-w-0 flex-1">
-                        <div className="text-base font-bold text-cream">
-                          {formatDate(t.event_date)}
+                    <>
+                      {/* Row button — clicking toggles inline expansion */}
+                      <button
+                        type="button"
+                        onClick={() =>
+                          setExpandedId(isExpanded ? null : t.id)
+                        }
+                        className={`group flex w-full items-center justify-between gap-4 rounded-xl border px-5 py-4 text-left transition ${
+                          isExpanded
+                            ? "border-plonkPink bg-plonkPink/10"
+                            : "border-cream/10 bg-ink/40 hover:border-plonkPink/60 hover:bg-plonkPink/10"
+                        }`}
+                      >
+                        <div className="min-w-0 flex-1">
+                          <div className="text-base font-bold text-cream">
+                            {formatDate(t.event_date)}
+                          </div>
+                          <div className="mt-0.5 text-xs uppercase tracking-widest text-cream/55">
+                            {formatTime(t.start_time)} ·{" "}
+                            {formatFee(t.entry_fee_pence)} entry · up to{" "}
+                            {t.max_teams} teams
+                          </div>
                         </div>
-                        <div className="mt-0.5 text-xs uppercase tracking-widest text-cream/55">
-                          {meta}
-                        </div>
-                      </div>
-                      <span className="shrink-0 rounded-full bg-plonkPink px-4 py-2 text-[11px] font-bold uppercase tracking-widest text-white opacity-90 transition group-hover:opacity-100">
-                        Sign up →
-                      </span>
-                    </Link>
+                        <span
+                          className={`shrink-0 rounded-full px-4 py-2 text-[11px] font-bold uppercase tracking-widest transition ${
+                            isExpanded
+                              ? "bg-cream/10 text-cream"
+                              : "bg-plonkPink text-white opacity-90 group-hover:opacity-100"
+                          }`}
+                        >
+                          {isExpanded ? "Close" : "Sign up →"}
+                        </span>
+                      </button>
+
+                      {/* Inline form + Stripe Embedded Checkout */}
+                      {isExpanded && (
+                        <InlineTournamentBooking
+                          tournament={t}
+                          onClose={() => setExpandedId(null)}
+                        />
+                      )}
+                    </>
                   ) : (
-                    // Non-bookable rows (e.g. the two Grand Finals)
-                    // — the event name carries the meaning, so we
-                    // show it as the title and push date / time /
-                    // description into the subtitle.
                     <div className="flex items-center justify-between gap-4 rounded-xl border border-plonkYellow/30 bg-plonkYellow/5 px-5 py-4">
                       <div className="min-w-0 flex-1">
                         <div className="text-base font-bold text-cream">
                           {t.name}
                         </div>
                         <div className="mt-0.5 text-xs uppercase tracking-widest text-cream/55">
-                          {formatDate(t.event_date)} · {formatTime(t.start_time)}
+                          {formatDate(t.event_date)} ·{" "}
+                          {formatTime(t.start_time)}
                           {t.description ? ` · ${t.description}` : ""}
                         </div>
                       </div>
