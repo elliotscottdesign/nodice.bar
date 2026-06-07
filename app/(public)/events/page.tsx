@@ -217,15 +217,23 @@ export default function EventsPage() {
           sense in the 7-col grid layout. */}
       <section className="px-3 pb-24 sm:px-6">
         <div className="mx-auto max-w-7xl">
+          {/* Sticky weekday header — sits above whichever week you're
+              looking at as the month scrolls. Hidden on mobile where
+              the grid is one column (the day-of-week label moves into
+              each card instead — see below). */}
+          <div className="sticky top-0 z-20 hidden -mx-1 bg-ink/95 px-1 py-3 backdrop-blur sm:block">
+            <div className="grid grid-cols-7 gap-2">
+              {WEEKDAYS.map((w) => (
+                <div
+                  key={w}
+                  className="text-center text-xs font-bold uppercase tracking-[0.22em] text-cream/55"
+                >
+                  {w}
+                </div>
+              ))}
+            </div>
+          </div>
           <div className="grid grid-cols-1 gap-3 sm:grid-cols-7 sm:gap-2">
-            {WEEKDAYS.map((w) => (
-              <div
-                key={w}
-                className="hidden px-1 pb-2 text-center text-[10px] font-bold uppercase tracking-[0.22em] text-cream/55 sm:block sm:text-xs"
-              >
-                {w}
-              </div>
-            ))}
 
             {grid.map((day, i) => {
               if (day === null) {
@@ -255,6 +263,14 @@ export default function EventsPage() {
                     }`}
                   >
                     {day}
+                  </div>
+
+                  {/* Weekday label INSIDE the cell — only shown on
+                      mobile (single-column layout), where the sticky
+                      header above is hidden. On desktop the column
+                      header carries this, so we hide this label there. */}
+                  <div className="border-b border-cream/5 bg-ink/30 px-3 py-1.5 text-[10px] font-bold uppercase tracking-[0.22em] text-cream/60 sm:hidden">
+                    {WEEKDAYS[new Date(dayIso + "T00:00:00").getDay() === 0 ? 6 : new Date(dayIso + "T00:00:00").getDay() - 1]}
                   </div>
 
                   {/* In-cell "+ Add event" overlay button — visible only
