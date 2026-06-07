@@ -57,6 +57,14 @@ const FALLBACK_CARDS = [
     image: "",
     href: "https://www.plonkgolf.co.uk/",
   },
+  {
+    id: "contact",
+    name: "Get in touch",
+    tagline: "Anything else · We're here",
+    blurb: "Question, special request, or something we don't have a card for? Drop us a line.",
+    image: "",
+    href: "/contact",
+  },
 ] as const;
 
 // External links open in a new tab. We classify any href starting with

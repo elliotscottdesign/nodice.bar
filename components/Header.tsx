@@ -20,6 +20,7 @@ const FALLBACK_NAV = [
   // URLs and adds target="_blank" + rel automatically.
   "Plonk | https://www.plonkgolf.co.uk/",
   "Parties | /private-hire",
+  "Contact | /contact",
 ].join("\n");
 
 // Parse a "Label | href" textarea into an array of nav items. Lines
