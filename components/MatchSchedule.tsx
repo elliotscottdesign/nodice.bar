@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import Link from "next/link";
 import {
   loadUpcomingEventsByCategory,
@@ -66,6 +66,39 @@ export default function MatchSchedule() {
   const [loading, setLoading] = useState(true);
   const [err, setErr] = useState("");
   const [expandedId, setExpandedId] = useState<string | null>(null);
+
+  // ---- Roller-deck scroll arrows ----
+  // Wire up left/right arrow buttons that programmatically scroll the
+  // rail. We track whether we're already at the start/end of the scroll
+  // range so the arrows fade out instead of clicking dead, and so first-
+  // time visitors get an obvious affordance that the rail is scrollable.
+  const railRef = useRef<HTMLDivElement | null>(null);
+  const [canLeft, setCanLeft] = useState(false);
+  const [canRight, setCanRight] = useState(false);
+
+  function refreshArrows() {
+    const el = railRef.current;
+    if (!el) return;
+    // 1px tolerance for sub-pixel scroll rounding errors in Safari.
+    setCanLeft(el.scrollLeft > 1);
+    setCanRight(el.scrollLeft + el.clientWidth < el.scrollWidth - 1);
+  }
+  // Recompute whenever the rail mounts, when matches change (which
+  // changes scrollWidth), and on window resize.
+  useEffect(() => {
+    refreshArrows();
+    window.addEventListener("resize", refreshArrows);
+    return () => window.removeEventListener("resize", refreshArrows);
+  }, [matches.length]);
+
+  function scrollByCard(direction: -1 | 1) {
+    const el = railRef.current;
+    if (!el) return;
+    // Card width (~240–260px) + gap (12px) — scroll by roughly one card
+    // so each click feels like flipping a page.
+    const step = Math.max(240, Math.round(el.clientWidth * 0.6));
+    el.scrollBy({ left: direction * step, behavior: "smooth" });
+  }
 
   const eyebrow = useContent("worldcup.schedule.eyebrow", "Match schedule");
   const title = useContent(
@@ -150,7 +183,61 @@ export default function MatchSchedule() {
                 className="pointer-events-none absolute right-0 top-0 z-10 h-full w-8 bg-gradient-to-l from-ink to-transparent sm:w-12"
               />
 
+              {/* Left / right arrow buttons. Fade out at the ends of
+                  the scroll range. Hidden from screen readers since
+                  the rail itself is keyboard / swipe accessible. */}
+              <button
+                type="button"
+                aria-label="Scroll matches left"
+                onClick={() => scrollByCard(-1)}
+                className={`absolute left-2 top-1/2 z-20 -translate-y-1/2 rounded-full border border-cream/20 bg-ink/80 p-3 text-cream shadow-xl backdrop-blur transition hover:bg-plonkPink hover:text-white sm:left-3 ${
+                  canLeft
+                    ? "opacity-100"
+                    : "pointer-events-none opacity-0"
+                }`}
+              >
+                <svg
+                  width="18"
+                  height="18"
+                  viewBox="0 0 24 24"
+                  fill="none"
+                  stroke="currentColor"
+                  strokeWidth="2.5"
+                  strokeLinecap="round"
+                  strokeLinejoin="round"
+                  aria-hidden
+                >
+                  <polyline points="15 18 9 12 15 6" />
+                </svg>
+              </button>
+              <button
+                type="button"
+                aria-label="Scroll matches right"
+                onClick={() => scrollByCard(1)}
+                className={`absolute right-2 top-1/2 z-20 -translate-y-1/2 rounded-full border border-cream/20 bg-ink/80 p-3 text-cream shadow-xl backdrop-blur transition hover:bg-plonkPink hover:text-white sm:right-3 ${
+                  canRight
+                    ? "opacity-100"
+                    : "pointer-events-none opacity-0"
+                }`}
+              >
+                <svg
+                  width="18"
+                  height="18"
+                  viewBox="0 0 24 24"
+                  fill="none"
+                  stroke="currentColor"
+                  strokeWidth="2.5"
+                  strokeLinecap="round"
+                  strokeLinejoin="round"
+                  aria-hidden
+                >
+                  <polyline points="9 18 15 12 9 6" />
+                </svg>
+              </button>
+
               <div
+                ref={railRef}
+                onScroll={refreshArrows}
                 className="hide-scrollbar flex snap-x snap-mandatory gap-3 overflow-x-auto px-6 pb-2 pt-1"
                 style={{
                   scrollPaddingLeft: "24px",
