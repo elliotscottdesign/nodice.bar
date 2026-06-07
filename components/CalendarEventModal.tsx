@@ -3,6 +3,7 @@
 import { useEffect, useState } from "react";
 import { createPortal } from "react-dom";
 import MediaPicker from "@/components/admin/MediaPicker";
+import DatePickerInput from "@/components/admin/DatePickerInput";
 import {
   createCalendarEvent,
   updateCalendarEvent,
@@ -192,12 +193,10 @@ export default function CalendarEventModal({
 
         <form onSubmit={save} className="grid gap-4 p-5 sm:grid-cols-2">
           <Field label="Date">
-            <input
-              type="date"
-              required
+            <DatePickerInput
               value={draft.event_date}
-              onChange={(e) => setDraft({ ...draft, event_date: e.target.value })}
-              className={inputClass}
+              onChange={(iso) => setDraft({ ...draft, event_date: iso })}
+              placeholder="Pick a date"
             />
           </Field>
 
