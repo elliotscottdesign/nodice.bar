@@ -1,6 +1,7 @@
 "use client";
 
-import { useEffect, useMemo, useRef, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
+import RollerDeck from "./RollerDeck";
 import {
   loadOpenTournaments,
   type DbTournament,
@@ -76,24 +77,8 @@ export default function TournamentSchedule() {
   const [type, setType] = useState<TournamentType>("doubles");
   const [expandedId, setExpandedId] = useState<string | null>(null);
 
-  // ---- Roller-deck scroll arrows ----
-  // Same pattern as MatchSchedule on /world-cup. Recomputed on rail
-  // scroll + window resize so the arrows fade in/out correctly.
-  const railRef = useRef<HTMLDivElement | null>(null);
-  const [canLeft, setCanLeft] = useState(false);
-  const [canRight, setCanRight] = useState(false);
-  function refreshArrows() {
-    const el = railRef.current;
-    if (!el) return;
-    setCanLeft(el.scrollLeft > 1);
-    setCanRight(el.scrollLeft + el.clientWidth < el.scrollWidth - 1);
-  }
-  function scrollByCard(direction: -1 | 1) {
-    const el = railRef.current;
-    if (!el) return;
-    const step = Math.max(240, Math.round(el.clientWidth * 0.6));
-    el.scrollBy({ left: direction * step, behavior: "smooth" });
-  }
+  // Scroll-arrow behaviour, snap rail, edge-fades and hidden
+  // scrollbar all come from the shared <RollerDeck> wrapper below.
 
   // Editable copy. Founder can change all of these from
   // /admin/content/pool — the keys are namespaced under
@@ -171,14 +156,6 @@ export default function TournamentSchedule() {
       .sort((a, b) => a.event_date.localeCompare(b.event_date));
   }, [all, type]);
 
-  // Recompute scroll arrows when the rail's contents change (Doubles ↔
-  // Singles tab, fresh load) or when the viewport resizes.
-  useEffect(() => {
-    refreshArrows();
-    window.addEventListener("resize", refreshArrows);
-    return () => window.removeEventListener("resize", refreshArrows);
-  }, [events.length]);
-
   // When the customer flips between Doubles ↔ Singles tabs, collapse
   // any open row — keeping it open across tabs would let them submit
   // a doubles entry while looking at singles, which is confusing.
@@ -251,54 +228,8 @@ export default function TournamentSchedule() {
               tidy and avoids reflow on touch devices).
               ========================================================= */}
           {events.length > 0 && (
-            <div className="relative -mx-6 sm:mx-0">
-              {/* Edge-fade gradients so customers see content extends
-                  past the visible viewport. Pointer-events: none so
-                  they don't intercept taps. */}
-              <div
-                aria-hidden
-                className="pointer-events-none absolute left-0 top-0 z-10 h-full w-8 bg-gradient-to-r from-ink to-transparent sm:w-12"
-              />
-              <div
-                aria-hidden
-                className="pointer-events-none absolute right-0 top-0 z-10 h-full w-8 bg-gradient-to-l from-ink to-transparent sm:w-12"
-              />
-
-              <button
-                type="button"
-                aria-label="Scroll tournaments left"
-                onClick={() => scrollByCard(-1)}
-                className={`absolute left-2 top-1/2 z-20 -translate-y-1/2 rounded-full border border-cream/20 bg-ink/80 p-3 text-cream shadow-xl backdrop-blur transition hover:bg-plonkPink hover:text-white sm:left-3 ${
-                  canLeft ? "opacity-100" : "pointer-events-none opacity-0"
-                }`}
-              >
-                <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" aria-hidden>
-                  <polyline points="15 18 9 12 15 6" />
-                </svg>
-              </button>
-              <button
-                type="button"
-                aria-label="Scroll tournaments right"
-                onClick={() => scrollByCard(1)}
-                className={`absolute right-2 top-1/2 z-20 -translate-y-1/2 rounded-full border border-cream/20 bg-ink/80 p-3 text-cream shadow-xl backdrop-blur transition hover:bg-plonkPink hover:text-white sm:right-3 ${
-                  canRight ? "opacity-100" : "pointer-events-none opacity-0"
-                }`}
-              >
-                <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" aria-hidden>
-                  <polyline points="9 18 15 12 9 6" />
-                </svg>
-              </button>
-
-              <div
-                ref={railRef}
-                onScroll={refreshArrows}
-                className="hide-scrollbar flex snap-x snap-mandatory gap-3 overflow-x-auto px-6 pb-2 pt-1"
-                style={{
-                  scrollPaddingLeft: "24px",
-                  scrollPaddingRight: "24px",
-                }}
-              >
-                {events.map((t) => {
+            <RollerDeck ariaLabel={`Upcoming ${TYPE_LABELS[type].toLowerCase()}`}>
+              {events.map((t) => {
                   const isExpanded = expandedId === t.id;
                   const spotsLeft = Math.max(
                     0,
@@ -420,8 +351,7 @@ export default function TournamentSchedule() {
                     </button>
                   );
                 })}
-              </div>
-            </div>
+            </RollerDeck>
           )}
 
           {/* Booking form for the currently-selected card. Rendered
