@@ -15,7 +15,10 @@ const FALLBACK_NAV = [
   "Pool | /pool",
   "Deals | /deals",
   "DJs & Events | /events",
-  "Plonk | /plonk",
+  // Plonk is the sister brand (crazy golf) — opens the standalone
+  // plonkgolf.co.uk site in a new tab. The renderer detects external
+  // URLs and adds target="_blank" + rel automatically.
+  "Plonk | https://www.plonkgolf.co.uk/",
   "Parties | /private-hire",
 ].join("\n");
 
@@ -65,15 +68,28 @@ export default function Header() {
         </Link>
 
         <nav className="hidden items-center gap-7 lg:flex">
-          {NAV.map((item) => (
-            <Link
-              key={item.href}
-              href={item.href}
-              className="text-[13px] font-semibold uppercase tracking-wider text-cream/75 transition hover:text-cream"
-            >
-              {item.label}
-            </Link>
-          ))}
+          {NAV.map((item) => {
+            // External hrefs (Plonk Golf, social, etc.) open in a new
+            // tab so customers don't lose the No Dice session.
+            const isExternal = /^https?:\/\//i.test(item.href);
+            const cls =
+              "text-[13px] font-semibold uppercase tracking-wider text-cream/75 transition hover:text-cream";
+            return isExternal ? (
+              <a
+                key={item.href}
+                href={item.href}
+                target="_blank"
+                rel="noopener noreferrer"
+                className={cls}
+              >
+                {item.label}
+              </a>
+            ) : (
+              <Link key={item.href} href={item.href} className={cls}>
+                {item.label}
+              </Link>
+            );
+          })}
           <Link
             href={ctaHref}
             className="rounded-full bg-plonkPink px-5 py-2 text-xs font-bold uppercase tracking-wider text-white transition hover:bg-plonkPink/90"
@@ -117,17 +133,27 @@ export default function Header() {
       {open && (
         <nav className="border-t border-cream/10 bg-black px-6 py-5 lg:hidden">
           <ul className="flex flex-col gap-3">
-            {NAV.map((item) => (
+            {NAV.map((item) => {
+              const isExternal = /^https?:\/\//i.test(item.href);
+              const linkProps = isExternal
+                ? {
+                    target: "_blank" as const,
+                    rel: "noopener noreferrer",
+                  }
+                : {};
+              return (
               <li key={item.href}>
                 <Link
                   href={item.href}
+                  {...linkProps}
                   onClick={() => setOpen(false)}
                   className="block text-base font-medium uppercase tracking-wider text-cream/85"
                 >
                   {item.label}
                 </Link>
               </li>
-            ))}
+              );
+            })}
             <li>
               <Link
                 href={ctaHref}
