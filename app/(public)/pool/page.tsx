@@ -24,8 +24,8 @@ export default function PoolPage() {
     "pool.intro",
     "American 7ft pool tables. Walk in, book ahead for groups, or claim a table for the evening.",
   );
-  const ctaLabel = useContent("pool.cta_label", "Book a table");
-  const ctaHref = useContent("pool.cta_href", "/book");
+  const ctaLabel = useContent("pool.cta_label", "Book a pool table");
+  const ctaHref = useContent("pool.cta_href", "/book/pool");
 
   return (
     <main>
