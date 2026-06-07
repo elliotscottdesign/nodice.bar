@@ -19,6 +19,17 @@ import {
   type DbBookingSetting,
 } from "@/lib/db/bookingSettings";
 import DatePickerInput from "@/components/admin/DatePickerInput";
+import BrandSelect from "@/components/BrandSelect";
+
+const HEARD_FROM_OPTIONS = [
+  { value: "Instagram", label: "Instagram" },
+  { value: "Friend / word of mouth", label: "Friend / word of mouth" },
+  { value: "Walked past", label: "Walked past the venue" },
+  { value: "Google search", label: "Google search" },
+  { value: "A DJ / event night", label: "A DJ / event night" },
+  { value: "Press / blog", label: "Press / blog" },
+  { value: "Other", label: "Other" },
+];
 
 // =============================================================
 // /book/pool — pool table reservation with inline Stripe Payment
@@ -527,22 +538,12 @@ function PoolBookingPageInner() {
             </FormSection>
 
             <FormSection label="Where did you hear about us?">
-              <select
+              <BrandSelect
                 value={heardFrom}
-                onChange={(e) => setHeardFrom(e.target.value)}
-                className={inputCls}
-              >
-                <option value="">Pick one (optional)</option>
-                <option value="Instagram">Instagram</option>
-                <option value="Friend / word of mouth">
-                  Friend / word of mouth
-                </option>
-                <option value="Walked past">Walked past the venue</option>
-                <option value="Google search">Google search</option>
-                <option value="A DJ / event night">A DJ / event night</option>
-                <option value="Press / blog">Press / blog</option>
-                <option value="Other">Other</option>
-              </select>
+                onChange={setHeardFrom}
+                options={HEARD_FROM_OPTIONS}
+                placeholder="Pick one (optional)"
+              />
             </FormSection>
 
             <FormSection label="Anything else? (optional)">

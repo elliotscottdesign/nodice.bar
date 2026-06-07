@@ -16,6 +16,17 @@ import {
   createTournamentEntry,
   type DbTournament,
 } from "@/lib/db/tournaments";
+import BrandSelect from "@/components/BrandSelect";
+
+const HEARD_FROM_OPTIONS = [
+  { value: "Instagram", label: "Instagram" },
+  { value: "Friend / word of mouth", label: "Friend / word of mouth" },
+  { value: "Walked past", label: "Walked past the venue" },
+  { value: "Google search", label: "Google search" },
+  { value: "A DJ / event night", label: "A DJ / event night" },
+  { value: "Press / blog", label: "Press / blog" },
+  { value: "Other", label: "Other" },
+];
 
 // =============================================================
 // InlineTournamentBooking — Stripe Payment Element edition
@@ -298,22 +309,12 @@ export default function InlineTournamentBooking({
             <label className="mb-2 block text-[10px] font-bold uppercase tracking-[0.28em] text-plonkPink">
               Where did you hear about us?
             </label>
-            <select
+            <BrandSelect
               value={heardFrom}
-              onChange={(e) => setHeardFrom(e.target.value)}
-              className="w-full rounded-lg border border-cream/15 bg-ink/40 px-4 py-3 text-base text-cream focus:border-plonkPink focus:outline-none"
-            >
-              <option value="">Pick one (optional)</option>
-              <option value="Instagram">Instagram</option>
-              <option value="Friend / word of mouth">
-                Friend / word of mouth
-              </option>
-              <option value="Walked past">Walked past the venue</option>
-              <option value="Google search">Google search</option>
-              <option value="A DJ / event night">A DJ / event night</option>
-              <option value="Press / blog">Press / blog</option>
-              <option value="Other">Other</option>
-            </select>
+              onChange={setHeardFrom}
+              options={HEARD_FROM_OPTIONS}
+              placeholder="Pick one (optional)"
+            />
           </div>
 
           {/* GDPR-compliant marketing opt-in. Unchecked by default,
