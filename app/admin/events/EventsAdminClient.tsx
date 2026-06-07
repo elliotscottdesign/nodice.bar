@@ -3,6 +3,7 @@
 import { useEffect, useMemo, useState } from "react";
 import { createPortal } from "react-dom";
 import MediaPicker from "@/components/admin/MediaPicker";
+import DatePickerInput from "@/components/admin/DatePickerInput";
 import {
   loadAllEvents,
   loadAllTicketTypes,
@@ -423,12 +424,10 @@ export default function EventsAdminClient() {
           <Section title="Date + recurrence">
             <div className="grid gap-4 sm:grid-cols-3">
               <Field label="First date">
-                <input
-                  type="date"
-                  required
+                <DatePickerInput
                   value={eventDate}
-                  onChange={(e) => setEventDate(e.target.value)}
-                  className={inputCls}
+                  onChange={setEventDate}
+                  placeholder="Pick a date"
                 />
               </Field>
               <Field label="Start time">
