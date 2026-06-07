@@ -4,29 +4,33 @@ import { useEffect, useState } from "react";
 import Link from "next/link";
 import {
   loadUpcomingEventsByCategory,
+  loadTicketTypesForEvent,
   type DbEvent,
+  type DbTicketType,
 } from "@/lib/db/eventsPlatform";
 import { useContent } from "@/lib/content";
 import { Editable } from "./Editable";
+import InlineMatchBooking, {
+  type MatchBookingTarget,
+} from "./InlineMatchBooking";
 
 // =============================================================
 // MatchSchedule — World Cup fixtures roller-deck
 // =============================================================
-// Drops into /world-cup the same way TournamentSchedule drops into
-// /pool. Each card is one match (one row in `events` tagged
-// category='world_cup'). The card's CTA hops the customer to
-// /book/table with the match date prefilled so they reserve a bar
-// table for kickoff.
+// Each card is one match (one events row tagged category='world_cup').
 //
-// Authoring model: the founder adds matches via /admin/events,
-// pickng category = "World Cup — Match". Recommended event name
-// format: "Brazil vs Germany" — first half splits into HOME vs
-// AWAY for the card's big two-line layout.
+// Two booking modes per match, decided by the data:
+//   • FREE   — no active ticket_type with price > 0
+//                → CTA "Reserve a table →" links to
+//                  /book/table?date=<match_date>
+//   • PAID   — an active ticket_type with price_pence > 0
+//                → CTA expands InlineMatchBooking inline below the
+//                  rail (Stripe Payment Element, same UX as the
+//                  pool tournament sign-up)
 //
-// Why not its own table: matches are date-bound events with a
-// name, time, and optional description — exactly what the events
-// table holds. Adding a dedicated table would duplicate the admin
-// UI for no extra power.
+// Both modes are admin-driven: free vs paid is just "does this
+// event have a paid ticket type in /admin/events?". No new admin
+// surface is needed for the World Cup specifically.
 // =============================================================
 
 function formatTime(hhmmss: string | null): string {
@@ -35,7 +39,6 @@ function formatTime(hhmmss: string | null): string {
 }
 
 function splitMatchTitle(name: string): { home: string; away: string } | null {
-  // Accept "Brazil vs Germany" / "Brazil v Germany" / "Brazil - Germany".
   const sep = name.match(/\s+(?:vs?|v\.?|-|–)\s+/i);
   if (!sep) return null;
   const idx = name.indexOf(sep[0]);
@@ -45,36 +48,69 @@ function splitMatchTitle(name: string): { home: string; away: string } | null {
   return { home, away };
 }
 
+function formatPounds(p: number): string {
+  if (p === 0) return "Free";
+  if (p % 100 === 0) return `£${p / 100}`;
+  return `£${(p / 100).toFixed(2)}`;
+}
+
+// One enriched match — events row + first active priced ticket type
+// (or null if free).
+type MatchWithTicket = {
+  event: DbEvent;
+  paidTicket: DbTicketType | null;
+};
+
 export default function MatchSchedule() {
-  const [matches, setMatches] = useState<DbEvent[]>([]);
+  const [matches, setMatches] = useState<MatchWithTicket[]>([]);
   const [loading, setLoading] = useState(true);
   const [err, setErr] = useState("");
+  const [expandedId, setExpandedId] = useState<string | null>(null);
 
   const eyebrow = useContent("worldcup.schedule.eyebrow", "Match schedule");
   const title = useContent(
     "worldcup.schedule.title",
-    "Reserve a Table for Kickoff",
+    "Pick a Match",
   );
   const intro = useContent(
     "worldcup.schedule.intro",
-    "Pick a match, reserve a table for the night. Big screens, full sound, proper crowd. Get in early — we fill up fast for the headline games.",
+    "Big screens, full sound, proper crowd. Free table reservations on most matches — paid entry on the headliners. Get in early.",
   );
 
   useEffect(() => {
+    let cancelled = false;
     setLoading(true);
-    loadUpcomingEventsByCategory("world_cup")
-      .then((rows) => setMatches(rows))
-      .catch((e) =>
-        setErr(e instanceof Error ? e.message : "Failed to load matches"),
-      )
-      .finally(() => setLoading(false));
+    (async () => {
+      try {
+        const events = await loadUpcomingEventsByCategory("world_cup");
+        // Load ticket types in parallel. Most matches will be free
+        // (zero priced tickets), so we pick the FIRST priced one as
+        // the "headline" ticket for the inline form.
+        const ticketRows = await Promise.all(
+          events.map((e) => loadTicketTypesForEvent(e.id)),
+        );
+        const enriched: MatchWithTicket[] = events.map((event, i) => {
+          const tickets = ticketRows[i];
+          const paid = tickets.find((t) => t.active && t.price_pence > 0) ?? null;
+          return { event, paidTicket: paid };
+        });
+        if (!cancelled) setMatches(enriched);
+      } catch (e) {
+        if (!cancelled)
+          setErr(e instanceof Error ? e.message : "Failed to load matches");
+      } finally {
+        if (!cancelled) setLoading(false);
+      }
+    })();
+    return () => {
+      cancelled = true;
+    };
   }, []);
 
+  const expandedMatch = matches.find((m) => m.event.id === expandedId);
+
   return (
-    <section
-      id="matches"
-      className="scroll-mt-24 bg-ink/40 px-6 py-20"
-    >
+    <section id="matches" className="scroll-mt-24 bg-ink/40 px-6 py-20">
       <div className="mx-auto max-w-3xl">
         <div className="mb-3 text-center text-xs font-bold uppercase tracking-[0.3em] text-plonkPink">
           <Editable k="worldcup.schedule.eyebrow">{eyebrow}</Editable>
@@ -105,7 +141,6 @@ export default function MatchSchedule() {
 
           {matches.length > 0 && (
             <div className="relative -mx-6 sm:mx-0">
-              {/* Edge fades */}
               <div
                 aria-hidden
                 className="pointer-events-none absolute left-0 top-0 z-10 h-full w-8 bg-gradient-to-r from-ink to-transparent sm:w-12"
@@ -122,7 +157,7 @@ export default function MatchSchedule() {
                   scrollPaddingRight: "24px",
                 }}
               >
-                {matches.map((m) => {
+                {matches.map(({ event: m, paidTicket }) => {
                   const teams = splitMatchTitle(m.name);
                   const d = new Date(`${m.event_date}T00:00:00`);
                   const weekday = d.toLocaleDateString("en-GB", {
@@ -136,27 +171,18 @@ export default function MatchSchedule() {
                   const isFull =
                     m.max_attendees !== null &&
                     m.paid_entries_count >= m.max_attendees;
+                  const isExpanded = expandedId === m.id;
+                  const isPaid = !!paidTicket;
 
-                  return (
-                    <Link
-                      key={m.id}
-                      href={`/book/table?date=${m.event_date}`}
-                      className={`group snap-start shrink-0 w-[260px] sm:w-[240px] rounded-2xl border p-5 text-left transition ${
-                        isFull
-                          ? "cursor-not-allowed border-cream/10 bg-ink/20 opacity-60"
-                          : "border-cream/10 bg-ink/40 hover:border-plonkPink/60 hover:bg-plonkPink/10"
-                      }`}
-                      onClick={(e) => {
-                        if (isFull) e.preventDefault();
-                      }}
-                    >
-                      {/* Date eyebrow */}
+                  const baseCardCls =
+                    "snap-start shrink-0 w-[260px] sm:w-[240px] rounded-2xl border p-5 text-left transition";
+
+                  const cardInner = (
+                    <>
                       <div className="text-[10px] font-bold uppercase tracking-[0.28em] text-plonkPink">
                         {weekday} · {dayMonth}
                       </div>
 
-                      {/* Match-up — big two-line if we can split, else
-                          one big line if the name didn't follow X vs Y. */}
                       {teams ? (
                         <div className="mt-3 space-y-1">
                           <div className="font-display text-2xl uppercase leading-tight tracking-wider text-cream">
@@ -175,36 +201,117 @@ export default function MatchSchedule() {
                         </div>
                       )}
 
-                      {/* Kickoff time */}
                       <div className="mt-4 text-xs uppercase tracking-widest text-cream/55">
                         Kickoff · {kickoff}
                       </div>
 
-                      {/* Optional description / stage label */}
+                      {/* Ticket badge — only on paid matches */}
+                      {isPaid && (
+                        <div className="mt-2 inline-block rounded-full bg-plonkTeal/15 px-2.5 py-1 text-[10px] font-bold uppercase tracking-widest text-plonkTeal">
+                          {formatPounds(paidTicket.price_pence)} entry
+                        </div>
+                      )}
+
                       {m.description && (
                         <p className="mt-2 text-xs text-cream/65">
                           {m.description}
                         </p>
                       )}
 
-                      {/* CTA pill */}
                       <div
                         className={`mt-5 inline-block rounded-full px-4 py-2 text-[11px] font-bold uppercase tracking-widest ${
                           isFull
                             ? "border border-cream/15 text-cream/50"
-                            : "bg-plonkPink text-white"
+                            : isExpanded
+                              ? "bg-cream/10 text-cream"
+                              : "bg-plonkPink text-white"
                         }`}
                       >
-                        {isFull ? "Fully booked" : "Reserve a table →"}
+                        {isFull
+                          ? "Sold out"
+                          : isExpanded
+                            ? "Selected"
+                            : isPaid
+                              ? "Buy tickets →"
+                              : "Reserve a table →"}
                       </div>
+                    </>
+                  );
+
+                  // Paid match → button that toggles inline expand
+                  if (isPaid) {
+                    return (
+                      <button
+                        key={m.id}
+                        type="button"
+                        disabled={isFull}
+                        onClick={() =>
+                          !isFull && setExpandedId(isExpanded ? null : m.id)
+                        }
+                        className={`${baseCardCls} ${
+                          isFull
+                            ? "cursor-not-allowed border-cream/10 bg-ink/20 opacity-60"
+                            : isExpanded
+                              ? "border-plonkPink bg-plonkPink/10"
+                              : "border-cream/10 bg-ink/40 hover:border-plonkPink/60 hover:bg-plonkPink/10"
+                        }`}
+                      >
+                        {cardInner}
+                      </button>
+                    );
+                  }
+
+                  // Free match → link to /book/table prefilled
+                  return (
+                    <Link
+                      key={m.id}
+                      href={`/book/table?date=${m.event_date}`}
+                      className={`${baseCardCls} ${
+                        isFull
+                          ? "cursor-not-allowed border-cream/10 bg-ink/20 opacity-60"
+                          : "border-cream/10 bg-ink/40 hover:border-plonkPink/60 hover:bg-plonkPink/10"
+                      }`}
+                      onClick={(e) => {
+                        if (isFull) e.preventDefault();
+                      }}
+                    >
+                      {cardInner}
                     </Link>
                   );
                 })}
               </div>
             </div>
           )}
+
+          {/* Inline ticket form for the currently-selected paid match */}
+          {expandedMatch && expandedMatch.paidTicket && (
+            <div className="mx-auto mt-8 max-w-2xl">
+              <InlineMatchBooking
+                target={buildTarget(expandedMatch)}
+                onClose={() => setExpandedId(null)}
+              />
+            </div>
+          )}
         </div>
       </div>
     </section>
   );
+}
+
+function buildTarget(m: MatchWithTicket): MatchBookingTarget {
+  const t = m.paidTicket!;
+  const capRemaining =
+    m.event.max_attendees !== null
+      ? Math.max(0, m.event.max_attendees - m.event.paid_entries_count)
+      : null;
+  return {
+    event_id: m.event.id,
+    ticket_type_id: t.id,
+    match_name: m.event.name,
+    match_date: m.event.event_date,
+    match_time: m.event.start_time,
+    ticket_label: t.name,
+    price_per_ticket_pence: t.price_pence,
+    capacity_remaining: capRemaining,
+  };
 }
