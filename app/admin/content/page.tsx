@@ -53,7 +53,7 @@ const PAGES: { label: string; href: string; description: string; group: string }
     label: "World Cup",
     href: "/admin/content/info/worldcup",
     description:
-      "Hero and copy on /worldcup. Match fixtures live in /admin/events (category 'World Cup — Match').",
+      "Hero and copy on /world-cup. Match fixtures live in /admin/events (category 'World Cup — Match').",
   },
   {
     group: "Nav pages",
