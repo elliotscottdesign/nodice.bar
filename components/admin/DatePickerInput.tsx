@@ -22,7 +22,13 @@ import "react-day-picker/dist/style.css";
 // =============================================================
 
 function isoFromDate(d: Date): string {
-  return d.toISOString().slice(0, 10);
+  // Build YYYY-MM-DD from the LOCAL date parts. toISOString() shifts
+  // to UTC, which in BST (UTC+1) rolls the date back a day — picking
+  // Wed midnight local would round-trip as Tue's ISO string.
+  const y = d.getFullYear();
+  const m = String(d.getMonth() + 1).padStart(2, "0");
+  const day = String(d.getDate()).padStart(2, "0");
+  return `${y}-${m}-${day}`;
 }
 
 function dateFromIso(s: string): Date | undefined {
