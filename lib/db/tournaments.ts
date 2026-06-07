@@ -32,7 +32,11 @@ export type DbTournament = {
   start_time: string | null; // HH:MM[:SS]
   max_teams: number;
   entry_fee_pence: number;
+  /** True = shows on the public /pool schedule. */
   registration_open: boolean;
+  /** True = customers can actually pay to enter. False = display
+   *  only, e.g. GRAND FINAL which is invitation-only. */
+  bookable: boolean;
   tournament_type: TournamentType;
   created_at: string;
   updated_at: string;

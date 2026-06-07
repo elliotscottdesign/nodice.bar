@@ -170,27 +170,56 @@ export default function TournamentSchedule() {
           )}
 
           <ul className="space-y-3">
-            {events.map((t) => (
-              <li key={t.id}>
-                <Link
-                  href={`/book/tournament?tournament=${t.id}`}
-                  className="group flex items-center justify-between gap-4 rounded-xl border border-cream/10 bg-ink/40 px-5 py-4 transition hover:border-plonkPink/60 hover:bg-plonkPink/10"
-                >
-                  <div className="min-w-0 flex-1">
-                    <div className="text-base font-bold text-cream">
-                      {formatDate(t.event_date)}
+            {events.map((t) => {
+              // GRAND FINAL and any future "invitation only" specials
+              // show in the schedule but aren't clickable — render as
+              // a div instead of a Link so there's no false affordance.
+              const meta =
+                formatTime(t.start_time) +
+                (t.bookable
+                  ? ` · ${formatFee(t.entry_fee_pence)} entry · up to ${t.max_teams} teams`
+                  : t.description
+                    ? ` · ${t.description}`
+                    : "");
+              return (
+                <li key={t.id}>
+                  {t.bookable ? (
+                    <Link
+                      href={`/book/tournament?tournament=${t.id}`}
+                      className="group flex items-center justify-between gap-4 rounded-xl border border-cream/10 bg-ink/40 px-5 py-4 transition hover:border-plonkPink/60 hover:bg-plonkPink/10"
+                    >
+                      <div className="min-w-0 flex-1">
+                        <div className="text-base font-bold text-cream">
+                          {formatDate(t.event_date)}
+                        </div>
+                        <div className="mt-0.5 text-xs uppercase tracking-widest text-cream/55">
+                          {meta}
+                        </div>
+                      </div>
+                      <span className="shrink-0 rounded-full bg-plonkPink px-4 py-2 text-[11px] font-bold uppercase tracking-widest text-white opacity-90 transition group-hover:opacity-100">
+                        Sign up →
+                      </span>
+                    </Link>
+                  ) : (
+                    <div className="flex items-center justify-between gap-4 rounded-xl border border-plonkYellow/30 bg-plonkYellow/5 px-5 py-4">
+                      <div className="min-w-0 flex-1">
+                        <div className="text-base font-bold text-cream">
+                          {t.name === "GRAND FINAL"
+                            ? "GRAND FINAL"
+                            : formatDate(t.event_date)}
+                        </div>
+                        <div className="mt-0.5 text-xs uppercase tracking-widest text-cream/55">
+                          {formatDate(t.event_date)} · {meta}
+                        </div>
+                      </div>
+                      <span className="shrink-0 rounded-full border border-plonkYellow/50 px-4 py-2 text-[11px] font-bold uppercase tracking-widest text-plonkYellow">
+                        Invitation only
+                      </span>
                     </div>
-                    <div className="mt-0.5 text-xs uppercase tracking-widest text-cream/55">
-                      {formatTime(t.start_time)} · {formatFee(t.entry_fee_pence)}{" "}
-                      entry · up to {t.max_teams} teams
-                    </div>
-                  </div>
-                  <span className="shrink-0 rounded-full bg-plonkPink px-4 py-2 text-[11px] font-bold uppercase tracking-widest text-white opacity-90 transition group-hover:opacity-100">
-                    Sign up →
-                  </span>
-                </Link>
-              </li>
-            ))}
+                  )}
+                </li>
+              );
+            })}
           </ul>
         </div>
       </div>

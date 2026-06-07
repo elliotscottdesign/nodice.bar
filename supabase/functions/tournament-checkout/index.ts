@@ -132,7 +132,7 @@ Deno.serve(async (req) => {
 
   const { data: tournament, error: tournErr } = await db
     .from("tournaments")
-    .select("id, name, entry_fee_pence, registration_open")
+    .select("id, name, entry_fee_pence, registration_open, bookable")
     .eq("id", tournament_id)
     .maybeSingle();
   if (tournErr) {
@@ -147,6 +147,15 @@ Deno.serve(async (req) => {
   if (!tournament.registration_open) {
     return jsonResponse(
       { error: "Registration is closed for this tournament" },
+      { status: 409 },
+    );
+  }
+  // GRAND FINAL and similar invitation-only events are visible on
+  // the public schedule but bookable=false blocks any direct sign-up
+  // attempt — even if someone deep-links the booking form.
+  if (!tournament.bookable) {
+    return jsonResponse(
+      { error: "This event is invitation only — not publicly bookable" },
       { status: 409 },
     );
   }
