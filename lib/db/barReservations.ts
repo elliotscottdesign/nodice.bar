@@ -25,7 +25,11 @@ export type DbBarReservation = {
   heard_from: string | null;
   /** GDPR newsletter opt-in. Unchecked by default. */
   marketing_opt_in: boolean;
-  status: "pending" | "confirmed" | "cancelled";
+  /** Total charged in pence (£6 per 30 min for pool, null for legacy). */
+  amount_pence: number | null;
+  stripe_payment_intent_id: string | null;
+  paid_at: string | null;
+  status: "pending" | "paid" | "confirmed" | "cancelled" | "refunded";
   created_at: string;
   updated_at: string;
 };

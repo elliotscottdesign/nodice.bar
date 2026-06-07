@@ -1,21 +1,51 @@
 "use client";
 
-import { Suspense, useMemo, useState } from "react";
+import { Suspense, useCallback, useMemo, useState } from "react";
 import { useSearchParams } from "next/navigation";
+import {
+  loadStripe,
+  type Stripe as StripeJs,
+  type StripeElementsOptions,
+} from "@stripe/stripe-js";
+import {
+  Elements,
+  PaymentElement,
+  useElements,
+  useStripe,
+} from "@stripe/react-stripe-js";
 import { createBarReservation } from "@/lib/db/barReservations";
 
-// /book/pool — pool table reservation flow. Slots are 30 minutes
-// starting on the hour (so :00 and :30). Single-venue (Hackney).
-// MVP: no Stripe, no capacity check — every submit lands as
-// status='pending' in bar_reservations. Founder confirms manually
-// from the admin panel.
+// =============================================================
+// /book/pool — pool table reservation with inline Stripe Payment
+// =============================================================
+// 3-phase flow, mirroring InlineTournamentBooking on /pool:
+//   form     — date / time / duration / party + contact + GDPR
+//   paying   — Stripe Payment Element inline below the summary
+//   paid     — green "You're in" inline confirmation
+//
+// Pricing: £6 per 30 minutes. Customer picks 30 or 60 min slot;
+// total surfaces in the form ("Pay £6") and on the Stripe widget.
+// The actual amount is recomputed server-side from
+// `duration_minutes` so the browser can't tamper with the price.
+// =============================================================
 
-const OPEN_HOUR = 16;   // 4pm — first bookable slot
-const CLOSE_HOUR = 23;  // 11pm — last bookable slot start (30-min)
-const SLOT_MINUTES = 30;
+const PUBLISHABLE_KEY =
+  process.env.NEXT_PUBLIC_STRIPE_PUBLISHABLE_KEY ?? "";
+const SUPABASE_URL =
+  process.env.NEXT_PUBLIC_SUPABASE_URL ??
+  "https://rntcujcpsozvuxvmlejv.supabase.co";
+const SUPABASE_ANON_KEY = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY ?? "";
+const CHECKOUT_FN_URL = `${SUPABASE_URL}/functions/v1/pool-checkout`;
 
-// Generate ["16:00", "16:30", "17:00", ...] up to but not past the
-// close hour so the last slot is 23:30 (closing at midnight).
+let _stripePromise: Promise<StripeJs | null> | null = null;
+function getStripePromise(): Promise<StripeJs | null> {
+  if (!_stripePromise) _stripePromise = loadStripe(PUBLISHABLE_KEY);
+  return _stripePromise;
+}
+
+const OPEN_HOUR = 16;
+const CLOSE_HOUR = 23;
+
 function generatePoolSlots(): string[] {
   const out: string[] = [];
   for (let h = OPEN_HOUR; h <= CLOSE_HOUR; h++) {
@@ -33,10 +63,57 @@ function todayIso(): string {
   return `${y}-${m}-${day}`;
 }
 
-// Next.js 14 static export refuses to build any page that calls
-// useSearchParams() outside a <Suspense> boundary. The actual page
-// content moves into PoolBookingPageInner; the default export wraps
-// it so the build passes.
+function formatPounds(pence: number): string {
+  if (pence % 100 === 0) return `£${pence / 100}`;
+  return `£${(pence / 100).toFixed(2)}`;
+}
+
+// Duration → price. Mirrors the server-side computation in the
+// pool-checkout Edge Function so the totals always match.
+function priceForDuration(min: number): number {
+  return Math.ceil(min / 30) * 600; // 600 pence = £6 per 30 min
+}
+
+// Stripe appearance — same dark theme as the tournament flow.
+function buildAppearance(): StripeElementsOptions["appearance"] {
+  return {
+    theme: "night",
+    variables: {
+      colorPrimary: "#DA1B33",
+      colorBackground: "#0c0c0c",
+      colorText: "#F5EFE3",
+      colorTextSecondary: "rgba(245,239,227,0.55)",
+      colorTextPlaceholder: "rgba(245,239,227,0.4)",
+      colorDanger: "#DA1B33",
+      colorSuccess: "#46B4A5",
+      fontFamily: '"DM Sans", system-ui, -apple-system, sans-serif',
+      fontSizeBase: "15px",
+      spacingUnit: "4px",
+      borderRadius: "10px",
+    },
+    rules: {
+      ".Input": {
+        backgroundColor: "rgba(255,255,255,0.04)",
+        border: "1px solid rgba(245,239,227,0.15)",
+        padding: "12px 14px",
+      },
+      ".Input:focus": {
+        border: "1px solid #DA1B33",
+        boxShadow: "0 0 0 1px #DA1B33",
+      },
+      ".Label": {
+        color: "rgba(245,239,227,0.55)",
+        fontSize: "10px",
+        fontWeight: "700",
+        textTransform: "uppercase",
+        letterSpacing: "0.28em",
+      },
+    },
+  };
+}
+
+type Phase = "form" | "paying" | "paid" | "error";
+
 export default function PoolBookingPage() {
   return (
     <Suspense fallback={null}>
@@ -49,70 +126,124 @@ function PoolBookingPageInner() {
   const params = useSearchParams();
   const slots = useMemo(generatePoolSlots, []);
 
+  // ----- Form state -----
   const [date, setDate] = useState(params.get("date") || todayIso());
+  const [time, setTime] = useState<string>("");
+  const [duration, setDuration] = useState<30 | 60>(30);
   const [partySize, setPartySize] = useState<number>(
     Math.max(1, Math.min(8, parseInt(params.get("size") || "2", 10) || 2)),
   );
-  const [time, setTime] = useState<string>("");
   const [name, setName] = useState("");
   const [email, setEmail] = useState("");
   const [phone, setPhone] = useState("");
   const [notes, setNotes] = useState("");
   const [heardFrom, setHeardFrom] = useState("");
   const [marketingOptIn, setMarketingOptIn] = useState(false);
+
+  // ----- Flow state -----
+  const [phase, setPhase] = useState<Phase>("form");
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState("");
-  const [success, setSuccess] = useState(false);
+  const [clientSecret, setClientSecret] = useState<string | null>(null);
 
-  async function submit(e: React.FormEvent) {
-    e.preventDefault();
-    if (!time) {
-      setError("Pick a time first.");
-      return;
-    }
-    setSubmitting(true);
-    setError("");
-    try {
-      await createBarReservation({
-        kind: "pool",
-        reservation_date: date,
-        start_time: time,
-        duration_minutes: SLOT_MINUTES,
-        party_size: partySize,
-        // Always 1 — the "Tables wanted" picker was removed; staff
-        // allocate tables based on party size at the venue.
-        resource_count: 1,
-        name: name.trim(),
-        email: email.trim(),
-        phone: phone.trim() || null,
-        notes: notes.trim() || null,
-        heard_from: heardFrom || null,
-        marketing_opt_in: marketingOptIn,
-      });
-      setSuccess(true);
-    } catch (err) {
-      setError(
-        err instanceof Error
-          ? err.message
-          : "Couldn't send the reservation — try again or email info@nodice.bar",
-      );
-    } finally {
-      setSubmitting(false);
-    }
-  }
+  const totalPence = priceForDuration(duration);
 
-  if (success) {
+  const elementsOptions = useMemo<StripeElementsOptions | null>(
+    () =>
+      clientSecret
+        ? { clientSecret, appearance: buildAppearance(), loader: "auto" }
+        : null,
+    [clientSecret],
+  );
+
+  const handleSubmit = useCallback(
+    async (e: React.FormEvent) => {
+      e.preventDefault();
+      if (!time) {
+        setError("Pick a time first.");
+        return;
+      }
+      setError("");
+      setSubmitting(true);
+      try {
+        // 1) Insert the pending reservation row.
+        const r = await createBarReservation({
+          kind: "pool",
+          reservation_date: date,
+          start_time: time,
+          duration_minutes: duration,
+          party_size: partySize,
+          resource_count: 1,
+          name: name.trim(),
+          email: email.trim(),
+          phone: phone.trim() || null,
+          notes: notes.trim() || null,
+          heard_from: heardFrom || null,
+          marketing_opt_in: marketingOptIn,
+        });
+
+        // 2) Ask the pool-checkout Edge Function for a PaymentIntent.
+        const res = await fetch(CHECKOUT_FN_URL, {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json",
+            apikey: SUPABASE_ANON_KEY,
+            Authorization: `Bearer ${SUPABASE_ANON_KEY}`,
+          },
+          body: JSON.stringify({ reservation_id: r.id }),
+        });
+        if (!res.ok) {
+          const txt = await res.text().catch(() => "");
+          throw new Error(
+            `Couldn't start payment (${res.status}): ${txt || "no detail"}`,
+          );
+        }
+        const body = (await res.json()) as { client_secret?: string };
+        if (!body.client_secret) {
+          throw new Error("Server returned no client_secret");
+        }
+
+        setClientSecret(body.client_secret);
+        setPhase("paying");
+      } catch (err) {
+        setError(
+          err instanceof Error
+            ? err.message
+            : "Couldn't start payment — try again or email info@nodice.bar",
+        );
+        setPhase("error");
+      } finally {
+        setSubmitting(false);
+      }
+    },
+    [
+      date,
+      time,
+      duration,
+      partySize,
+      name,
+      email,
+      phone,
+      notes,
+      heardFrom,
+      marketingOptIn,
+    ],
+  );
+
+  // ----- 'paid' inline confirmation -----
+  if (phase === "paid") {
     return (
       <main className="px-6 py-24">
-        <div className="mx-auto max-w-xl rounded-2xl border border-cream/10 p-10 text-center">
-          <div className="text-xs font-bold uppercase tracking-[0.3em] text-plonkPink">
-            Request received
+        <div className="mx-auto max-w-xl rounded-2xl border border-plonkTeal/40 bg-plonkTeal/10 p-10 text-center">
+          <div className="text-xs font-bold uppercase tracking-[0.3em] text-plonkTeal">
+            Payment received
           </div>
           <h1 className="mt-3 font-display text-4xl uppercase tracking-wider">
-            Got it
+            Table booked
           </h1>
           <p className="mt-4 text-base text-cream/75">
-            We'll email you within 24 hours to confirm your pool table — or sooner if it's last-minute.
+            Confirmation email is on its way to <strong>{email}</strong>. See
+            you at {time} on {date}.
           </p>
         </div>
       </main>
@@ -123,151 +254,346 @@ function PoolBookingPageInner() {
     <main className="px-6 py-16">
       <div className="mx-auto max-w-3xl">
         <div className="mb-4 text-center text-xs font-bold uppercase tracking-[0.3em] text-plonkPink">
-          Pool · 30-min slots
+          Pool · 30-min slots · £6 per slot
         </div>
         <h1 className="text-center font-display text-5xl uppercase tracking-wider sm:text-6xl">
           Reserve a Pool Table
         </h1>
         <p className="mx-auto mt-4 max-w-xl text-center text-base text-cream/75">
-          American 7ft tables. Six available — book one, or grab the lot for a tournament.
+          American 7ft tables. Pick 30 or 60 minutes, pay to confirm.
         </p>
 
-        <form onSubmit={submit} className="mt-12 space-y-8">
-          <FormSection label="Date">
-            <input
-              type="date"
-              required
-              value={date}
-              onChange={(e) => setDate(e.target.value)}
-              min={todayIso()}
-              className="w-full rounded-lg border border-cream/15 bg-ink/40 px-4 py-3 text-base text-cream focus:border-plonkPink focus:outline-none"
-            />
-          </FormSection>
+        {phase === "form" && (
+          <form onSubmit={handleSubmit} className="mt-12 space-y-8">
+            <FormSection label="Date">
+              <input
+                type="date"
+                required
+                value={date}
+                onChange={(e) => setDate(e.target.value)}
+                min={todayIso()}
+                className={inputCls}
+              />
+            </FormSection>
 
-          <FormSection label="Time">
-            <div className="grid grid-cols-4 gap-2 sm:grid-cols-6">
-              {slots.map((s) => {
-                const active = time === s;
-                return (
-                  <button
-                    key={s}
-                    type="button"
-                    onClick={() => setTime(s)}
-                    className={`rounded-lg border px-2 py-3 text-sm transition ${
-                      active
-                        ? "border-plonkPink bg-plonkPink text-white"
-                        : "border-cream/15 bg-ink/40 text-cream hover:border-cream/40"
-                    }`}
-                  >
-                    {s}
-                  </button>
-                );
-              })}
+            <FormSection label="Time">
+              <div className="grid grid-cols-4 gap-2 sm:grid-cols-6">
+                {slots.map((s) => {
+                  const active = time === s;
+                  return (
+                    <button
+                      key={s}
+                      type="button"
+                      onClick={() => setTime(s)}
+                      className={`rounded-lg border px-2 py-3 text-sm transition ${
+                        active
+                          ? "border-plonkPink bg-plonkPink text-white"
+                          : "border-cream/15 bg-ink/40 text-cream hover:border-cream/40"
+                      }`}
+                    >
+                      {s}
+                    </button>
+                  );
+                })}
+              </div>
+            </FormSection>
+
+            <FormSection label="How long?">
+              <div className="grid gap-3 sm:grid-cols-2">
+                {[30, 60].map((d) => {
+                  const active = duration === d;
+                  const price = priceForDuration(d);
+                  return (
+                    <button
+                      key={d}
+                      type="button"
+                      onClick={() => setDuration(d as 30 | 60)}
+                      className={`rounded-xl border px-5 py-4 text-left transition ${
+                        active
+                          ? "border-plonkPink bg-plonkPink/10"
+                          : "border-cream/15 bg-ink/40 hover:border-cream/40"
+                      }`}
+                    >
+                      <div className="text-base font-bold text-cream">
+                        {d} minutes
+                      </div>
+                      <div className="mt-0.5 text-xs uppercase tracking-widest text-cream/55">
+                        {formatPounds(price)} entry
+                      </div>
+                    </button>
+                  );
+                })}
+              </div>
+            </FormSection>
+
+            <FormSection label="Party size">
+              <NumberPicker
+                value={partySize}
+                min={1}
+                max={8}
+                onChange={setPartySize}
+              />
+            </FormSection>
+
+            <div className="grid gap-6 sm:grid-cols-2">
+              <FormSection label="Name">
+                <input
+                  type="text"
+                  required
+                  value={name}
+                  onChange={(e) => setName(e.target.value)}
+                  className={inputCls}
+                />
+              </FormSection>
+              <FormSection label="Email">
+                <input
+                  type="email"
+                  required
+                  value={email}
+                  onChange={(e) => setEmail(e.target.value)}
+                  className={inputCls}
+                />
+              </FormSection>
             </div>
-          </FormSection>
 
-          <FormSection label="Party size">
-            <NumberPicker value={partySize} min={1} max={8} onChange={setPartySize} />
-          </FormSection>
-
-          <div className="grid gap-6 sm:grid-cols-2">
-            <FormSection label="Name">
+            <FormSection label="Phone">
               <input
-                type="text"
+                type="tel"
                 required
-                value={name}
-                onChange={(e) => setName(e.target.value)}
-                className="w-full rounded-lg border border-cream/15 bg-ink/40 px-4 py-3 text-base text-cream focus:border-plonkPink focus:outline-none"
+                value={phone}
+                onChange={(e) => setPhone(e.target.value)}
+                placeholder="We'll text you about any updates"
+                className={inputCls}
               />
             </FormSection>
-            <FormSection label="Email">
-              <input
-                type="email"
-                required
-                value={email}
-                onChange={(e) => setEmail(e.target.value)}
-                className="w-full rounded-lg border border-cream/15 bg-ink/40 px-4 py-3 text-base text-cream focus:border-plonkPink focus:outline-none"
+
+            <FormSection label="Where did you hear about us?">
+              <select
+                value={heardFrom}
+                onChange={(e) => setHeardFrom(e.target.value)}
+                className={inputCls}
+              >
+                <option value="">Pick one (optional)</option>
+                <option value="Instagram">Instagram</option>
+                <option value="Friend / word of mouth">
+                  Friend / word of mouth
+                </option>
+                <option value="Walked past">Walked past the venue</option>
+                <option value="Google search">Google search</option>
+                <option value="A DJ / event night">A DJ / event night</option>
+                <option value="Press / blog">Press / blog</option>
+                <option value="Other">Other</option>
+              </select>
+            </FormSection>
+
+            <FormSection label="Anything else? (optional)">
+              <textarea
+                value={notes}
+                onChange={(e) => setNotes(e.target.value)}
+                rows={3}
+                className={inputCls}
               />
             </FormSection>
-          </div>
 
-          <FormSection label="Phone">
-            <input
-              type="tel"
-              required
-              value={phone}
-              onChange={(e) => setPhone(e.target.value)}
-              placeholder="We'll text you about any updates"
-              className="w-full rounded-lg border border-cream/15 bg-ink/40 px-4 py-3 text-base text-cream focus:border-plonkPink focus:outline-none"
-            />
-          </FormSection>
+            <label className="flex cursor-pointer items-start gap-3 rounded-lg border border-cream/10 bg-ink/20 px-4 py-3 text-sm text-cream/85 transition hover:border-cream/25">
+              <input
+                type="checkbox"
+                checked={marketingOptIn}
+                onChange={(e) => setMarketingOptIn(e.target.checked)}
+                className="mt-0.5 h-4 w-4 shrink-0 accent-plonkPink"
+              />
+              <span>
+                Keep me in the loop — send me No Dice news, upcoming events
+                and the odd offer. Unsubscribe anytime.
+              </span>
+            </label>
 
-          <FormSection label="Where did you hear about us?">
-            <select
-              value={heardFrom}
-              onChange={(e) => setHeardFrom(e.target.value)}
-              className="w-full rounded-lg border border-cream/15 bg-ink/40 px-4 py-3 text-base text-cream focus:border-plonkPink focus:outline-none"
+            {error && (
+              <div className="rounded-lg border border-plonkPink/40 bg-plonkPink/10 px-4 py-3 text-sm text-plonkPink">
+                {error}
+              </div>
+            )}
+
+            <button
+              type="submit"
+              disabled={submitting}
+              className="w-full rounded-full bg-plonkPink py-4 text-sm font-bold uppercase tracking-widest text-white shadow-lg shadow-plonkPink/20 transition hover:bg-plonkPink/90 disabled:opacity-50"
             >
-              <option value="">Pick one (optional)</option>
-              <option value="Instagram">Instagram</option>
-              <option value="Friend / word of mouth">
-                Friend / word of mouth
-              </option>
-              <option value="Walked past">Walked past the venue</option>
-              <option value="Google search">Google search</option>
-              <option value="A DJ / event night">A DJ / event night</option>
-              <option value="Press / blog">Press / blog</option>
-              <option value="Other">Other</option>
-            </select>
-          </FormSection>
+              {submitting
+                ? "One sec…"
+                : `Continue to payment · ${formatPounds(totalPence)}`}
+            </button>
 
-          <FormSection label="Anything else? (optional)">
-            <textarea
-              value={notes}
-              onChange={(e) => setNotes(e.target.value)}
-              rows={3}
-              className="w-full rounded-lg border border-cream/15 bg-ink/40 px-4 py-3 text-base text-cream focus:border-plonkPink focus:outline-none"
-            />
-          </FormSection>
+            <p className="text-center text-xs text-cream/55">
+              Secure payment via Stripe. Your table's held the moment payment
+              clears.
+            </p>
+          </form>
+        )}
 
-          {/* GDPR-compliant marketing opt-in. Unchecked by default. */}
-          <label className="flex cursor-pointer items-start gap-3 rounded-lg border border-cream/10 bg-ink/20 px-4 py-3 text-sm text-cream/85 transition hover:border-cream/25">
-            <input
-              type="checkbox"
-              checked={marketingOptIn}
-              onChange={(e) => setMarketingOptIn(e.target.checked)}
-              className="mt-0.5 h-4 w-4 shrink-0 accent-plonkPink"
-            />
-            <span>
-              Keep me in the loop — send me No Dice news, upcoming events
-              and the odd offer. Unsubscribe anytime.
-            </span>
-          </label>
-
-          {error && (
-            <div className="rounded-lg border border-plonkPink/40 bg-plonkPink/10 px-4 py-3 text-sm text-plonkPink">
-              {error}
+        {phase === "paying" && elementsOptions && (
+          <div className="mt-12 rounded-xl border border-plonkPink/30 bg-plonkPink/5 p-6">
+            <div className="mb-5 text-center">
+              <div className="text-[10px] font-bold uppercase tracking-[0.3em] text-plonkPink">
+                Payment
+              </div>
+              <h3 className="mt-2 font-display text-2xl uppercase tracking-wider text-cream">
+                Pay {formatPounds(totalPence)} to confirm
+              </h3>
+              <p className="mt-1 text-xs text-cream/55">
+                {duration} min · {date} · {time}
+              </p>
             </div>
-          )}
+            <Elements stripe={getStripePromise()} options={elementsOptions}>
+              <PaymentForm
+                feeLabel={formatPounds(totalPence)}
+                onSuccess={() => setPhase("paid")}
+                onError={(msg) => {
+                  setError(msg);
+                  setPhase("error");
+                }}
+                onCancel={() => setPhase("form")}
+              />
+            </Elements>
+          </div>
+        )}
 
-          <button
-            type="submit"
-            disabled={submitting}
-            className="w-full rounded-full bg-plonkPink py-4 text-sm font-bold uppercase tracking-widest text-white shadow-lg shadow-plonkPink/20 transition hover:bg-plonkPink/90 disabled:opacity-50"
-          >
-            {submitting ? "Sending…" : "Reserve the pool table"}
-          </button>
-
-          <p className="text-center text-xs text-cream/55">
-            Free to reserve — pay at the bar. We'll email to confirm within 24 hours.
-          </p>
-        </form>
+        {phase === "error" && (
+          <div className="mt-12 space-y-4 text-center">
+            <div className="rounded-lg border border-plonkPink/40 bg-plonkPink/10 px-4 py-3 text-sm text-plonkPink">
+              {error || "Something went wrong."}
+            </div>
+            <button
+              type="button"
+              onClick={() => {
+                setError("");
+                setPhase("form");
+              }}
+              className="rounded-full bg-plonkPink px-6 py-2.5 text-xs font-bold uppercase tracking-widest text-white hover:bg-plonkPink/90"
+            >
+              Try again
+            </button>
+          </div>
+        )}
       </div>
     </main>
   );
 }
 
-function FormSection({ label, children }: { label: string; children: React.ReactNode }) {
+// ----------------------------------------------------------------
+// PaymentForm — Stripe Elements wrapper, identical pattern to the
+// tournament booking. confirmPayment with redirect: 'if_required'
+// keeps everyone on /book/pool unless 3D Secure forces a redirect.
+// ----------------------------------------------------------------
+function PaymentForm({
+  feeLabel,
+  onSuccess,
+  onError,
+  onCancel,
+}: {
+  feeLabel: string;
+  onSuccess: () => void;
+  onError: (msg: string) => void;
+  onCancel: () => void;
+}) {
+  const stripe = useStripe();
+  const elements = useElements();
+  const [submitting, setSubmitting] = useState(false);
+  const [inlineErr, setInlineErr] = useState("");
+
+  const handlePay = useCallback(async () => {
+    if (!stripe || !elements) return;
+    setSubmitting(true);
+    setInlineErr("");
+
+    const { error: submitError } = await elements.submit();
+    if (submitError) {
+      setInlineErr(
+        submitError.message ?? "Please check your card details and try again.",
+      );
+      setSubmitting(false);
+      return;
+    }
+
+    const { error } = await stripe.confirmPayment({
+      elements,
+      redirect: "if_required",
+      confirmParams: {
+        return_url: `${window.location.origin}/nodice.bar/book/pool/`,
+      },
+    });
+
+    if (error) {
+      if (
+        error.type === "card_error" ||
+        error.type === "validation_error"
+      ) {
+        setInlineErr(error.message ?? "Card declined — try a different card.");
+      } else {
+        onError(error.message ?? "Payment failed — please try again.");
+      }
+      setSubmitting(false);
+      return;
+    }
+
+    onSuccess();
+  }, [stripe, elements, onSuccess, onError]);
+
+  return (
+    <div className="space-y-5">
+      <div className="rounded-xl border border-cream/10 bg-ink/40 p-4">
+        <PaymentElement
+          options={{
+            layout: "tabs",
+            wallets: { applePay: "auto", googlePay: "auto" },
+          }}
+        />
+      </div>
+
+      {inlineErr && (
+        <div className="rounded-lg border border-plonkPink/40 bg-plonkPink/10 px-4 py-3 text-sm text-plonkPink">
+          {inlineErr}
+        </div>
+      )}
+
+      <div className="flex flex-col-reverse gap-3 sm:flex-row sm:items-center sm:justify-between">
+        <button
+          type="button"
+          onClick={onCancel}
+          className="text-xs uppercase tracking-wider text-cream/55 hover:text-cream"
+        >
+          Cancel
+        </button>
+        <button
+          type="button"
+          onClick={handlePay}
+          disabled={submitting || !stripe || !elements}
+          className="rounded-full bg-plonkPink px-7 py-3 text-sm font-bold uppercase tracking-widest text-white shadow-lg shadow-plonkPink/20 transition hover:bg-plonkPink/90 disabled:opacity-50"
+        >
+          {submitting ? "Processing…" : `Pay ${feeLabel}`}
+        </button>
+      </div>
+
+      <p className="text-center text-[10px] uppercase tracking-widest text-cream/40">
+        Secured by Stripe · your card never touches our servers
+      </p>
+    </div>
+  );
+}
+
+// ----------------------------------------------------------------
+// Layout helpers
+// ----------------------------------------------------------------
+const inputCls =
+  "w-full rounded-lg border border-cream/15 bg-ink/40 px-4 py-3 text-base text-cream focus:border-plonkPink focus:outline-none";
+
+function FormSection({
+  label,
+  children,
+}: {
+  label: string;
+  children: React.ReactNode;
+}) {
   return (
     <div>
       <label className="mb-2 block text-[10px] font-bold uppercase tracking-[0.28em] text-plonkPink">

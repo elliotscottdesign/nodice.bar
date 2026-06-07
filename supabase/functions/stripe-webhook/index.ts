@@ -223,6 +223,83 @@ async function handleTournamentPaymentIntent(
   return new Response("ok", { status: 200 });
 }
 
+// =============================================================
+// Pool reservation Payment Element handler
+// =============================================================
+// Mirrors handleTournamentPaymentIntent but updates a row in
+// `bar_reservations` and doesn't currently fire a confirmation
+// email (the booking notes already trigger one via the older flow
+// once the founder marks it confirmed). If the founder wants an
+// auto-email here too we can add a send-pool-confirmation function
+// later.
+async function handlePoolReservationPaymentIntent(
+  pi: Stripe.PaymentIntent,
+  eventType: string,
+): Promise<Response> {
+  const reservationId = pi.metadata?.reservation_id;
+  if (!reservationId) {
+    return new Response("pool_reservation metadata missing reservation_id", {
+      status: 200,
+    });
+  }
+  if (eventType !== "payment_intent.succeeded") {
+    console.log(
+      `pool webhook ${eventType}: reservation ${reservationId} — non-success terminal state, leaving as pending`,
+    );
+    return new Response("ok (non-success)", { status: 200 });
+  }
+
+  // Locate the row by id (metadata) then fall back to payment intent id.
+  let r: { id: string; status: string } | null = null;
+  {
+    const { data, error } = await db
+      .from("bar_reservations")
+      .select("id, status")
+      .eq("id", reservationId)
+      .maybeSingle();
+    if (error) {
+      return new Response(`DB lookup error: ${error.message}`, { status: 500 });
+    }
+    r = data;
+  }
+  if (!r) {
+    const { data, error } = await db
+      .from("bar_reservations")
+      .select("id, status")
+      .eq("stripe_payment_intent_id", pi.id)
+      .maybeSingle();
+    if (error) {
+      return new Response(`DB lookup error: ${error.message}`, { status: 500 });
+    }
+    r = data;
+  }
+  if (!r) {
+    return new Response("reservation not found (will retry)", { status: 200 });
+  }
+  if (r.status === "paid" || r.status === "refunded") {
+    return new Response("already settled", { status: 200 });
+  }
+
+  const { error: updateErr } = await db
+    .from("bar_reservations")
+    .update({
+      status: "paid",
+      paid_at: new Date().toISOString(),
+      stripe_payment_intent_id: pi.id,
+    })
+    .eq("id", r.id);
+  if (updateErr) {
+    return new Response(`DB update error: ${updateErr.message}`, {
+      status: 500,
+    });
+  }
+
+  console.log(
+    `pool webhook payment_intent.succeeded: reservation ${r.id} → paid (pi=${pi.id})`,
+  );
+  return new Response("ok", { status: 200 });
+}
+
 async function fireTournamentConfirmationEmail(entryId: string): Promise<void> {
   const res = await fetch(
     `${SUPABASE_URL}/functions/v1/send-tournament-confirmation`,
@@ -289,6 +366,12 @@ Deno.serve(async (req) => {
   // accidentally fall through into the bookings table lookup below.
   if (pi.metadata?.kind === "tournament_entry") {
     return await handleTournamentPaymentIntent(pi, event.type);
+  }
+
+  // Pool table reservations — same Payment Element pattern as
+  // tournaments, but the row lives in bar_reservations.
+  if (pi.metadata?.kind === "pool_reservation") {
+    return await handlePoolReservationPaymentIntent(pi, event.type);
   }
 
   // We always update by PaymentIntent ID (which we wrote when creating the
