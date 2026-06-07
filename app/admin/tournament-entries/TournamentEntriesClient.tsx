@@ -141,6 +141,8 @@ export default function TournamentEntriesClient() {
       "tournament_date",
       "status",
       "paid_at",
+      "heard_from",
+      "marketing_opt_in",
       "notes",
     ];
     const rows = filtered.map((e) => {
@@ -155,6 +157,8 @@ export default function TournamentEntriesClient() {
         t?.event_date ?? "",
         e.status,
         e.paid_at ?? "",
+        e.heard_from ?? "",
+        e.marketing_opt_in ? "yes" : "no",
         e.notes ?? "",
       ];
     });
@@ -275,6 +279,20 @@ export default function TournamentEntriesClient() {
                       <div className="text-xs text-cream/55">
                         {e.captain_phone}
                       </div>
+                      {(e.heard_from || e.marketing_opt_in) && (
+                        <div className="mt-1.5 flex flex-wrap gap-1">
+                          {e.heard_from && (
+                            <span className="rounded-full bg-cream/5 px-2 py-0.5 text-[10px] uppercase tracking-wider text-cream/60">
+                              via {e.heard_from}
+                            </span>
+                          )}
+                          {e.marketing_opt_in && (
+                            <span className="rounded-full bg-plonkTeal/15 px-2 py-0.5 text-[10px] uppercase tracking-wider text-plonkTeal">
+                              ✓ Newsletter
+                            </span>
+                          )}
+                        </div>
+                      )}
                     </td>
                     <td className="px-4 py-3 align-top">
                       <div className="text-cream/90">{t?.name ?? "—"}</div>

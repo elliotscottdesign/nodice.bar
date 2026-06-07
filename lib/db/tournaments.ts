@@ -61,6 +61,11 @@ export type DbTournamentEntry = {
   captain_phone: string;
   player_count: number | null;
   notes: string | null;
+  /** "Where did you hear about us?" — free-text source captured at
+   *  sign-up so the founder can see which marketing channels work. */
+  heard_from: string | null;
+  /** Explicit (unchecked-by-default) newsletter opt-in. */
+  marketing_opt_in: boolean;
   status: TournamentEntryStatus;
   stripe_session_id: string | null;
   stripe_payment_intent_id: string | null;
@@ -77,6 +82,8 @@ export type NewTournamentEntry = {
   captain_phone: string;
   player_count?: number | null;
   notes?: string | null;
+  heard_from?: string | null;
+  marketing_opt_in?: boolean;
 };
 
 // =========================================================

@@ -126,6 +126,8 @@ export default function InlineTournamentBooking({
   const [captainName, setCaptainName] = useState("");
   const [captainEmail, setCaptainEmail] = useState("");
   const [captainPhone, setCaptainPhone] = useState("");
+  const [heardFrom, setHeardFrom] = useState("");
+  const [marketingOptIn, setMarketingOptIn] = useState(false);
   const [submitting, setSubmitting] = useState(false);
 
   const elementsOptions = useMemo<StripeElementsOptions | null>(
@@ -154,6 +156,8 @@ export default function InlineTournamentBooking({
           captain_phone: captainPhone.trim(),
           player_count: null,
           notes: null,
+          heard_from: heardFrom || null,
+          marketing_opt_in: marketingOptIn,
         });
 
         const res = await fetch(CHECKOUT_FN_URL, {
@@ -192,7 +196,15 @@ export default function InlineTournamentBooking({
         setSubmitting(false);
       }
     },
-    [tournament.id, teamName, captainName, captainEmail, captainPhone],
+    [
+      tournament.id,
+      teamName,
+      captainName,
+      captainEmail,
+      captainPhone,
+      heardFrom,
+      marketingOptIn,
+    ],
   );
 
   if (phase === "paid") {
@@ -278,6 +290,44 @@ export default function InlineTournamentBooking({
               placeholder="We'll text you about any updates"
             />
           </div>
+
+          <div>
+            <label className="mb-2 block text-[10px] font-bold uppercase tracking-[0.28em] text-plonkPink">
+              Where did you hear about us?
+            </label>
+            <select
+              value={heardFrom}
+              onChange={(e) => setHeardFrom(e.target.value)}
+              className="w-full rounded-lg border border-cream/15 bg-ink/40 px-4 py-3 text-base text-cream focus:border-plonkPink focus:outline-none"
+            >
+              <option value="">Pick one (optional)</option>
+              <option value="Instagram">Instagram</option>
+              <option value="Friend / word of mouth">
+                Friend / word of mouth
+              </option>
+              <option value="Walked past">Walked past the venue</option>
+              <option value="Google search">Google search</option>
+              <option value="A DJ / event night">A DJ / event night</option>
+              <option value="Press / blog">Press / blog</option>
+              <option value="Other">Other</option>
+            </select>
+          </div>
+
+          {/* GDPR-compliant marketing opt-in. Unchecked by default,
+              clear language about what they're signing up for. The
+              flag goes straight onto the entry row. */}
+          <label className="flex cursor-pointer items-start gap-3 rounded-lg border border-cream/10 bg-ink/20 px-4 py-3 text-sm text-cream/85 transition hover:border-cream/25">
+            <input
+              type="checkbox"
+              checked={marketingOptIn}
+              onChange={(e) => setMarketingOptIn(e.target.checked)}
+              className="mt-0.5 h-4 w-4 shrink-0 accent-plonkPink"
+            />
+            <span>
+              Keep me in the loop — send me No Dice news, future
+              tournament dates and the odd offer. Unsubscribe anytime.
+            </span>
+          </label>
 
           {error && phase === "form" && (
             <div className="rounded-lg border border-plonkPink/40 bg-plonkPink/10 px-4 py-3 text-sm text-plonkPink">
