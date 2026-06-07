@@ -15,6 +15,7 @@ import {
 import { getImageSpec } from "@/lib/imageSpecs";
 import { SpecCaption } from "@/components/admin/ContentEditor";
 import ImagePositioner from "@/components/admin/ImagePositioner";
+import MediaPicker from "@/components/admin/MediaPicker";
 import { createPortal } from "react-dom";
 import type { ImageDisplay } from "@/lib/content";
 
@@ -219,6 +220,11 @@ export default function GalleriesAdminClient() {
   const [err, setErr] = useState("");
   const [busy, setBusy] = useState(false);
   const [uploading, setUploading] = useState(false);
+  // Open state for the media library / upload picker. Replaces the
+  // old upload-only button so the founder can pick from existing
+  // media too — no more re-uploading the same hero shot for every
+  // gallery.
+  const [pickerOpen, setPickerOpen] = useState(false);
   // Drag-and-drop reorder state. `dragId` is the card currently being
   // dragged; `overId` is the card it's hovering over (the future
   // insertion point). Both clear on drop / drag-end.
@@ -289,6 +295,44 @@ export default function GalleriesAdminClient() {
       setErr(describe(e, "Upload failed"));
     } finally {
       setUploading(false);
+    }
+  }
+
+  // Add an image by picking it from the shared media library (or
+  // freshly uploading via the picker's drop-zone). Accepts either a
+  // bare src string or the full ImageDisplay record from the
+  // positioner step (which carries crop / zoom).
+  async function handleAddFromPicker(picked: string | ImageDisplay) {
+    setBusy(true);
+    setErr("");
+    try {
+      const display: ImageDisplay =
+        typeof picked === "string"
+          ? { src: picked, x: 50, y: 50, zoom: 1, fit: "cover" }
+          : picked;
+      await createGalleryImage({
+        gallery_key: activeKey,
+        src: display.src,
+        // Pull a sensible alt from the file path — last segment,
+        // extension stripped.
+        alt: (display.src.split("/").pop() ?? "image").replace(
+          /\.[^.]+$/,
+          "",
+        ),
+        caption: null,
+        sort_order: images.length + 1,
+        active: true,
+        position_x: Math.round(display.x ?? 50),
+        position_y: Math.round(display.y ?? 50),
+        position_zoom: display.zoom ?? 1,
+        position_fit: display.fit ?? "cover",
+      });
+      setPickerOpen(false);
+      await reload();
+    } catch (e) {
+      setErr(describe(e, "Couldn't add image"));
+    } finally {
+      setBusy(false);
     }
   }
 
@@ -427,30 +471,22 @@ export default function GalleriesAdminClient() {
           <AdminCard
             title={activeGalleryMeta.label}
             action={
-              <label
-                className={`cursor-pointer rounded-full bg-plonkPink px-5 py-2 text-xs font-bold uppercase tracking-wider text-white hover:bg-plonkPink/90 ${
-                  uploading ? "pointer-events-none opacity-50" : ""
-                }`}
+              <button
+                type="button"
+                onClick={() => setPickerOpen(true)}
+                disabled={busy || uploading}
+                className="rounded-full bg-plonkPink px-5 py-2 text-xs font-bold uppercase tracking-wider text-white hover:bg-plonkPink/90 disabled:opacity-50"
               >
-                {uploading ? "Uploading…" : "+ Upload image"}
-                <input
-                  type="file"
-                  accept="image/*"
-                  className="hidden"
-                  onChange={(e) => {
-                    const f = e.target.files?.[0];
-                    if (f) handleAddFromUpload(f);
-                    e.target.value = "";
-                  }}
-                />
-              </label>
+                {busy || uploading ? "Working…" : "+ Add image"}
+              </button>
             }
           >
             {loading ? (
               <p className="px-5 py-8 text-sm text-cream/60">Loading…</p>
             ) : images.length === 0 ? (
               <p className="px-5 py-10 text-center text-sm text-cream/55">
-                No images in this gallery yet — click "+ Upload image". Until
+                No images in this gallery yet — click "+ Add image" to
+                pick from the media library or upload a new one. Until
                 you add any, the public page falls back to its hardcoded
                 images.
               </p>
@@ -608,6 +644,25 @@ export default function GalleriesAdminClient() {
               </div>
             </div>,
             document.body,
+          );
+        })()}
+
+      {/* Media library + upload picker. Replaces the old upload-only
+          file input — admin can now choose any existing image from
+          public/ or previous uploads, or drop a new one in. The
+          picker's positioner step uses the gallery's aspect so the
+          founder can frame the shot before it lands in the gallery. */}
+      {pickerOpen &&
+        (() => {
+          const aspectClass = getImageSpec(activeKey).aspectClass;
+          const m = /\[([\d/]+)\]/.exec(aspectClass);
+          const aspect = m?.[1] ?? "1/1";
+          return (
+            <MediaPicker
+              aspect={aspect}
+              onPick={handleAddFromPicker}
+              onClose={() => setPickerOpen(false)}
+            />
           );
         })()}
     </>
