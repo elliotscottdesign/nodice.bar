@@ -129,9 +129,39 @@ async function handleTournamentCheckoutCompleted(
     `webhook checkout.session.completed: tournament_entry ${entry.id} → paid (pi=${paymentIntentId})`,
   );
 
-  // TODO: send a confirmation email via the existing
-  // send-booking-confirmation function or a new dedicated one.
+  // Fire the No Dice branded confirmation email. Failures here MUST
+  // NOT fail the webhook — Stripe would just keep retrying and we'd
+  // re-send the same email each time. The entry is already paid in
+  // the DB at this point; the email is a nice-to-have on top. An
+  // admin "resend" button can re-trigger it manually.
+  fireTournamentConfirmationEmail(entry.id).catch((e) => {
+    console.error(
+      `Tournament confirmation email failed for entry ${entry.id}:`,
+      e,
+    );
+  });
+
   return new Response("ok", { status: 200 });
+}
+
+async function fireTournamentConfirmationEmail(entryId: string): Promise<void> {
+  const res = await fetch(
+    `${SUPABASE_URL}/functions/v1/send-tournament-confirmation`,
+    {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        // Service-role key counts as a valid JWT to Edge Functions so
+        // the email function can keep JWT verification on.
+        Authorization: `Bearer ${SUPABASE_SERVICE_ROLE_KEY}`,
+      },
+      body: JSON.stringify({ entry_id: entryId }),
+    },
+  );
+  if (!res.ok) {
+    const txt = await res.text().catch(() => "");
+    throw new Error(`HTTP ${res.status}: ${txt}`);
+  }
 }
 
 Deno.serve(async (req) => {
