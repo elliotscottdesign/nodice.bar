@@ -58,6 +58,8 @@ function PoolBookingPageInner() {
   const [email, setEmail] = useState("");
   const [phone, setPhone] = useState("");
   const [notes, setNotes] = useState("");
+  const [heardFrom, setHeardFrom] = useState("");
+  const [marketingOptIn, setMarketingOptIn] = useState(false);
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState("");
   const [success, setSuccess] = useState(false);
@@ -84,6 +86,8 @@ function PoolBookingPageInner() {
         email: email.trim(),
         phone: phone.trim() || null,
         notes: notes.trim() || null,
+        heard_from: heardFrom || null,
+        marketing_opt_in: marketingOptIn,
       });
       setSuccess(true);
     } catch (err) {
@@ -187,13 +191,34 @@ function PoolBookingPageInner() {
             </FormSection>
           </div>
 
-          <FormSection label="Phone (optional)">
+          <FormSection label="Phone">
             <input
               type="tel"
+              required
               value={phone}
               onChange={(e) => setPhone(e.target.value)}
+              placeholder="We'll text you about any updates"
               className="w-full rounded-lg border border-cream/15 bg-ink/40 px-4 py-3 text-base text-cream focus:border-plonkPink focus:outline-none"
             />
+          </FormSection>
+
+          <FormSection label="Where did you hear about us?">
+            <select
+              value={heardFrom}
+              onChange={(e) => setHeardFrom(e.target.value)}
+              className="w-full rounded-lg border border-cream/15 bg-ink/40 px-4 py-3 text-base text-cream focus:border-plonkPink focus:outline-none"
+            >
+              <option value="">Pick one (optional)</option>
+              <option value="Instagram">Instagram</option>
+              <option value="Friend / word of mouth">
+                Friend / word of mouth
+              </option>
+              <option value="Walked past">Walked past the venue</option>
+              <option value="Google search">Google search</option>
+              <option value="A DJ / event night">A DJ / event night</option>
+              <option value="Press / blog">Press / blog</option>
+              <option value="Other">Other</option>
+            </select>
           </FormSection>
 
           <FormSection label="Anything else? (optional)">
@@ -204,6 +229,20 @@ function PoolBookingPageInner() {
               className="w-full rounded-lg border border-cream/15 bg-ink/40 px-4 py-3 text-base text-cream focus:border-plonkPink focus:outline-none"
             />
           </FormSection>
+
+          {/* GDPR-compliant marketing opt-in. Unchecked by default. */}
+          <label className="flex cursor-pointer items-start gap-3 rounded-lg border border-cream/10 bg-ink/20 px-4 py-3 text-sm text-cream/85 transition hover:border-cream/25">
+            <input
+              type="checkbox"
+              checked={marketingOptIn}
+              onChange={(e) => setMarketingOptIn(e.target.checked)}
+              className="mt-0.5 h-4 w-4 shrink-0 accent-plonkPink"
+            />
+            <span>
+              Keep me in the loop — send me No Dice news, upcoming events
+              and the odd offer. Unsubscribe anytime.
+            </span>
+          </label>
 
           {error && (
             <div className="rounded-lg border border-plonkPink/40 bg-plonkPink/10 px-4 py-3 text-sm text-plonkPink">

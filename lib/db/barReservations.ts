@@ -21,6 +21,10 @@ export type DbBarReservation = {
   email: string;
   phone: string | null;
   notes: string | null;
+  /** "Where did you hear about us?" — free text captured at booking. */
+  heard_from: string | null;
+  /** GDPR newsletter opt-in. Unchecked by default. */
+  marketing_opt_in: boolean;
   status: "pending" | "confirmed" | "cancelled";
   created_at: string;
   updated_at: string;
@@ -28,8 +32,11 @@ export type DbBarReservation = {
 
 export type NewBarReservation = Omit<
   DbBarReservation,
-  "id" | "status" | "created_at" | "updated_at"
->;
+  "id" | "status" | "created_at" | "updated_at" | "heard_from" | "marketing_opt_in"
+> & {
+  heard_from?: string | null;
+  marketing_opt_in?: boolean;
+};
 
 export async function createBarReservation(
   input: NewBarReservation,
