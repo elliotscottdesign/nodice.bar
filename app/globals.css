@@ -392,3 +392,15 @@ select:-webkit-autofill:focus {
   caret-color: #F2EBD9;
   transition: background-color 9999s ease-in-out 0s;
 }
+
+/* Horizontal "roller-deck" scroll rails (TournamentSchedule on /pool,
+   future card rails) — hide the native scrollbar while keeping the
+   scroll behaviour. Lives here rather than as a Tailwind plugin
+   because we only need it in one place. */
+.hide-scrollbar {
+  -ms-overflow-style: none; /* IE / old Edge */
+  scrollbar-width: none;    /* Firefox */
+}
+.hide-scrollbar::-webkit-scrollbar {
+  display: none;            /* Chrome / Safari */
+}

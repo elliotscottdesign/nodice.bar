@@ -201,7 +201,7 @@ export default function TournamentSchedule() {
           <Editable k={TYPE_TAGLINE_KEYS[type]}>{currentTagline}</Editable>
         </p>
 
-        <div className="mx-auto mt-10 max-w-2xl">
+        <div className="mt-10">
           {loading && (
             <p className="text-center text-sm text-cream/55">Loading…</p>
           )}
@@ -215,99 +215,178 @@ export default function TournamentSchedule() {
             </p>
           )}
 
-          <ul className="space-y-3">
-            {events.map((t) => {
-              const isExpanded = expandedId === t.id;
-              // Sold-out at the schema-level cap. The Edge Function
-              // does its own server-side check (including in-flight
-              // pending payments) so this is just UI politeness — we
-              // show SOLD OUT and disable the row instead of letting
-              // the customer fill the form only to be rejected.
-              const spotsLeft = Math.max(
-                0,
-                t.max_teams - t.paid_entries_count,
-              );
-              const isSoldOut = spotsLeft <= 0;
-              return (
-                <li key={t.id}>
-                  {t.bookable ? (
-                    <>
-                      {/* Row button — clicking toggles inline expansion */}
-                      <button
-                        type="button"
-                        onClick={() =>
-                          !isSoldOut &&
-                          setExpandedId(isExpanded ? null : t.id)
-                        }
-                        disabled={isSoldOut}
-                        className={`group flex w-full items-center justify-between gap-4 rounded-xl border px-5 py-4 text-left transition ${
-                          isSoldOut
-                            ? "cursor-not-allowed border-cream/10 bg-ink/20 opacity-60"
-                            : isExpanded
-                              ? "border-plonkPink bg-plonkPink/10"
-                              : "border-cream/10 bg-ink/40 hover:border-plonkPink/60 hover:bg-plonkPink/10"
-                        }`}
-                      >
-                        <div className="min-w-0 flex-1">
-                          <div className="text-base font-bold text-cream">
-                            {formatDate(t.event_date)}
-                          </div>
-                          <div className="mt-0.5 text-xs uppercase tracking-widest text-cream/55">
-                            {formatTime(t.start_time)} ·{" "}
-                            {formatFee(t.entry_fee_pence)} entry ·{" "}
-                            {isSoldOut
-                              ? `${t.max_teams} / ${t.max_teams} teams`
-                              : spotsLeft === 1
-                                ? "Last spot left"
-                                : `${spotsLeft} of ${t.max_teams} spots left`}
-                          </div>
-                        </div>
-                        <span
-                          className={`shrink-0 rounded-full px-4 py-2 text-[11px] font-bold uppercase tracking-widest transition ${
-                            isSoldOut
-                              ? "border border-cream/15 text-cream/50"
-                              : isExpanded
-                                ? "bg-cream/10 text-cream"
-                                : "bg-plonkPink text-white opacity-90 group-hover:opacity-100"
-                          }`}
-                        >
-                          {isSoldOut
-                            ? "Sold out"
-                            : isExpanded
-                              ? "Close"
-                              : "Sign up →"}
-                        </span>
-                      </button>
+          {/* =========================================================
+              Horizontal "roller deck" of upcoming tournament dates.
+              Replaces the vertical list — cards snap-scroll left/right
+              on mobile, fan out as a row on desktop. Tapping a card
+              selects it and the booking form renders BELOW the rail
+              (rather than expanding the card in-place — keeps the rail
+              tidy and avoids reflow on touch devices).
+              ========================================================= */}
+          {events.length > 0 && (
+            <div className="relative -mx-6 sm:mx-0">
+              {/* Edge-fade gradients so customers see content extends
+                  past the visible viewport. Pointer-events: none so
+                  they don't intercept taps. */}
+              <div
+                aria-hidden
+                className="pointer-events-none absolute left-0 top-0 z-10 h-full w-8 bg-gradient-to-r from-ink to-transparent sm:w-12"
+              />
+              <div
+                aria-hidden
+                className="pointer-events-none absolute right-0 top-0 z-10 h-full w-8 bg-gradient-to-l from-ink to-transparent sm:w-12"
+              />
 
-                      {/* Inline form + Stripe Embedded Checkout */}
-                      {isExpanded && !isSoldOut && (
-                        <InlineTournamentBooking
-                          tournament={t}
-                          onClose={() => setExpandedId(null)}
-                        />
-                      )}
-                    </>
-                  ) : (
-                    <div className="flex items-center justify-between gap-4 rounded-xl border border-plonkYellow/30 bg-plonkYellow/5 px-5 py-4">
-                      <div className="min-w-0 flex-1">
-                        <div className="text-base font-bold text-cream">
+              <div
+                className="hide-scrollbar flex snap-x snap-mandatory gap-3 overflow-x-auto px-6 pb-2 pt-1"
+                style={{
+                  scrollPaddingLeft: "24px",
+                  scrollPaddingRight: "24px",
+                }}
+              >
+                {events.map((t) => {
+                  const isExpanded = expandedId === t.id;
+                  const spotsLeft = Math.max(
+                    0,
+                    t.max_teams - t.paid_entries_count,
+                  );
+                  const isSoldOut = spotsLeft <= 0;
+
+                  // Compact card width — fits ~1.3 cards on mobile so
+                  // the next one peeks in (signals scrollability),
+                  // 3-ish on tablet, 4 on desktop.
+                  const baseCardCls =
+                    "snap-start shrink-0 w-[240px] sm:w-[220px] rounded-2xl border p-5 text-left transition";
+
+                  if (!t.bookable) {
+                    return (
+                      <div
+                        key={t.id}
+                        className={`${baseCardCls} border-plonkYellow/30 bg-plonkYellow/5`}
+                      >
+                        <div className="text-[10px] font-bold uppercase tracking-[0.28em] text-plonkYellow">
+                          Invitation only
+                        </div>
+                        <div className="mt-3 font-display text-xl uppercase tracking-wider text-cream">
                           {t.name}
                         </div>
-                        <div className="mt-0.5 text-xs uppercase tracking-widest text-cream/55">
+                        <div className="mt-2 text-xs text-cream/55">
                           {formatDate(t.event_date)} ·{" "}
                           {formatTime(t.start_time)}
-                          {t.description ? ` · ${t.description}` : ""}
+                        </div>
+                        {t.description && (
+                          <p className="mt-3 text-xs text-cream/65">
+                            {t.description}
+                          </p>
+                        )}
+                      </div>
+                    );
+                  }
+
+                  return (
+                    <button
+                      key={t.id}
+                      type="button"
+                      onClick={() =>
+                        !isSoldOut &&
+                        setExpandedId(isExpanded ? null : t.id)
+                      }
+                      disabled={isSoldOut}
+                      className={`${baseCardCls} ${
+                        isSoldOut
+                          ? "cursor-not-allowed border-cream/10 bg-ink/20 opacity-60"
+                          : isExpanded
+                            ? "border-plonkPink bg-plonkPink/10"
+                            : "border-cream/10 bg-ink/40 hover:border-plonkPink/60 hover:bg-plonkPink/10"
+                      }`}
+                    >
+                      {/* Day-of-week eyebrow */}
+                      <div className="text-[10px] font-bold uppercase tracking-[0.28em] text-plonkPink">
+                        {new Date(`${t.event_date}T00:00:00`).toLocaleDateString(
+                          "en-GB",
+                          { weekday: "long" },
+                        )}
+                      </div>
+                      {/* Big date */}
+                      <div className="mt-2 font-display text-2xl uppercase leading-tight tracking-wider text-cream">
+                        {new Date(`${t.event_date}T00:00:00`).toLocaleDateString(
+                          "en-GB",
+                          { day: "numeric", month: "long" },
+                        )}
+                      </div>
+                      {/* Time + fee */}
+                      <div className="mt-3 text-xs uppercase tracking-widest text-cream/55">
+                        {formatTime(t.start_time)} ·{" "}
+                        {formatFee(t.entry_fee_pence)}
+                      </div>
+
+                      {/* Spots-left bar */}
+                      <div className="mt-4">
+                        <div className="h-1 w-full overflow-hidden rounded-full bg-cream/10">
+                          <div
+                            className={`h-full transition-all ${
+                              isSoldOut
+                                ? "bg-cream/20"
+                                : spotsLeft <= 2
+                                  ? "bg-plonkPink"
+                                  : "bg-plonkTeal"
+                            }`}
+                            style={{
+                              width: `${
+                                ((t.max_teams - spotsLeft) / t.max_teams) * 100
+                              }%`,
+                            }}
+                          />
+                        </div>
+                        <div className="mt-1.5 text-[10px] uppercase tracking-widest text-cream/45">
+                          {isSoldOut
+                            ? `${t.max_teams} / ${t.max_teams} taken`
+                            : spotsLeft === 1
+                              ? "Last spot"
+                              : `${spotsLeft} of ${t.max_teams} left`}
                         </div>
                       </div>
-                      <span className="shrink-0 rounded-full border border-plonkYellow/50 px-4 py-2 text-[11px] font-bold uppercase tracking-widest text-plonkYellow">
-                        Invitation only
-                      </span>
-                    </div>
-                  )}
-                </li>
-              );
-            })}
-          </ul>
+
+                      {/* CTA pill */}
+                      <div
+                        className={`mt-5 inline-block rounded-full px-4 py-2 text-[11px] font-bold uppercase tracking-widest ${
+                          isSoldOut
+                            ? "border border-cream/15 text-cream/50"
+                            : isExpanded
+                              ? "bg-cream/10 text-cream"
+                              : "bg-plonkPink text-white"
+                        }`}
+                      >
+                        {isSoldOut
+                          ? "Sold out"
+                          : isExpanded
+                            ? "Selected"
+                            : "Sign up →"}
+                      </div>
+                    </button>
+                  );
+                })}
+              </div>
+            </div>
+          )}
+
+          {/* Booking form for the currently-selected card. Rendered
+              below the rail so the rail stays clean and the form can
+              breathe. */}
+          {expandedId && (
+            <div className="mx-auto mt-8 max-w-2xl">
+              {(() => {
+                const sel = events.find((e) => e.id === expandedId);
+                if (!sel || !sel.bookable) return null;
+                return (
+                  <InlineTournamentBooking
+                    tournament={sel}
+                    onClose={() => setExpandedId(null)}
+                  />
+                );
+              })()}
+            </div>
+          )}
         </div>
       </div>
     </section>
