@@ -8,6 +8,7 @@ const NAV: { label: string; href: string; group?: string }[] = [
   { label: "Dashboard", href: "/admin", group: "Overview" },
   { label: "Bookings (golf)", href: "/admin/bookings", group: "Overview" },
   { label: "Reservations (pool + table)", href: "/admin/bar-reservations", group: "Overview" },
+  { label: "Tournament entries", href: "/admin/tournament-entries", group: "Overview" },
   { label: "Calendar events", href: "/admin/calendar-events", group: "Overview" },
   { label: "Calendar", href: "/admin/bookings/calendar", group: "Overview" },
   { label: "Customers", href: "/admin/customers", group: "Overview" },

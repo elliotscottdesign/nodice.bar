@@ -62,6 +62,78 @@ async function sendConfirmationEmail(bookingId: string): Promise<void> {
   }
 }
 
+// =============================================================
+// Tournament entry — checkout.session.completed handler
+// =============================================================
+// Tournament team sign-ups go through Stripe Checkout (rather than
+// PaymentIntent). When the customer finishes paying, Stripe fires
+// `checkout.session.completed`. We:
+//   1. Look up tournament_entries by stripe_session_id.
+//   2. Flip its status to 'paid', stamp paid_at, and stamp the
+//      payment_intent_id so admin refunds work later.
+//   3. (TODO) Trigger a confirmation email.
+// Idempotent — Stripe may re-deliver the same event; we no-op if
+// the row is already 'paid' or further along.
+async function handleTournamentCheckoutCompleted(
+  session: Stripe.Checkout.Session,
+): Promise<Response> {
+  if (session.payment_status !== "paid") {
+    // Async payment methods can complete the session but defer
+    // payment confirmation; we wait for the follow-up event.
+    return new Response("session not paid yet", { status: 200 });
+  }
+
+  const { data: entry, error: lookupErr } = await db
+    .from("tournament_entries")
+    .select("id, status")
+    .eq("stripe_session_id", session.id)
+    .maybeSingle();
+  if (lookupErr) {
+    return new Response(
+      `DB lookup error: ${lookupErr.message}`,
+      { status: 500 },
+    );
+  }
+  if (!entry) {
+    // Stripe sometimes retries before our DB has committed the
+    // session_id stamp — return 200 so Stripe doesn't keep
+    // retrying forever. Next delivery will land after the row
+    // exists.
+    return new Response("entry not found (will retry)", { status: 200 });
+  }
+  if (entry.status === "paid" || entry.status === "refunded") {
+    return new Response("already settled", { status: 200 });
+  }
+
+  const paymentIntentId =
+    typeof session.payment_intent === "string"
+      ? session.payment_intent
+      : session.payment_intent?.id ?? null;
+
+  const { error: updateErr } = await db
+    .from("tournament_entries")
+    .update({
+      status: "paid",
+      paid_at: new Date().toISOString(),
+      stripe_payment_intent_id: paymentIntentId,
+    })
+    .eq("id", entry.id);
+  if (updateErr) {
+    return new Response(
+      `DB update error: ${updateErr.message}`,
+      { status: 500 },
+    );
+  }
+
+  console.log(
+    `webhook checkout.session.completed: tournament_entry ${entry.id} → paid (pi=${paymentIntentId})`,
+  );
+
+  // TODO: send a confirmation email via the existing
+  // send-booking-confirmation function or a new dedicated one.
+  return new Response("ok", { status: 200 });
+}
+
 Deno.serve(async (req) => {
   if (req.method !== "POST") return new Response("POST only", { status: 405 });
   if (!STRIPE_WEBHOOK_SECRET) {
@@ -83,6 +155,14 @@ Deno.serve(async (req) => {
   } catch (e) {
     const msg = e instanceof Error ? e.message : String(e);
     return new Response(`Signature verification failed: ${msg}`, { status: 400 });
+  }
+
+  // Tournament team entries pay via Stripe Checkout, which fires
+  // `checkout.session.completed` rather than payment_intent events.
+  // Handle them here BEFORE the payment_intent branch below.
+  if (event.type === "checkout.session.completed") {
+    const session = event.data.object as Stripe.Checkout.Session;
+    return await handleTournamentCheckoutCompleted(session);
   }
 
   // We only care about PaymentIntent terminal states.

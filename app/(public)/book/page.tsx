@@ -32,6 +32,14 @@ const FALLBACK_CARDS = [
     href: "/book/pool",
   },
   {
+    id: "tournament",
+    name: "Pool Tournament",
+    tagline: "Team entry · Pay in advance",
+    blurb: "Register your team for the next No Dice pool tournament. Spots reserved on payment.",
+    image: "",
+    href: "/book/tournament",
+  },
+  {
     id: "parties",
     name: "Party Inquiries",
     tagline: "Private hire · Groups of 10+",
