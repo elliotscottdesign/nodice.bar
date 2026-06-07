@@ -196,7 +196,7 @@ export default function MatchSchedule() {
                       {/* Ticket badge — only on paid matches */}
                       {isPaid && (
                         <div className="mt-2 inline-block rounded-full bg-plonkTeal/15 px-2.5 py-1 text-[10px] font-bold uppercase tracking-widest text-plonkTeal">
-                          {formatPounds(paidTicket.price_pence)} entry
+                          {formatPounds(paidTicket.price_pence)} bar tab spend
                         </div>
                       )}
 
@@ -219,9 +219,7 @@ export default function MatchSchedule() {
                           ? "Sold out"
                           : isExpanded
                             ? "Selected"
-                            : isPaid
-                              ? "Buy tickets →"
-                              : "Reserve a table →"}
+                            : "Reserve a table →"}
                       </div>
                     </>
                   );

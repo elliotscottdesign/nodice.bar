@@ -238,17 +238,17 @@ export default function InlineMatchBooking({
           {target.match_name} · {target.match_time?.slice(0, 5) || "TBC"}
         </div>
         <h3 className="mt-2 font-display text-2xl uppercase tracking-wider text-cream">
-          Buy tickets
+          Reserve your table
         </h3>
         <p className="mt-1 text-xs text-cream/55">
           {target.ticket_label} · {formatPounds(target.price_per_ticket_pence)}{" "}
-          per person
+          bar tab spend per table
         </p>
       </div>
 
       {phase === "form" && (
         <form onSubmit={handleSubmit} className="mt-6 space-y-5">
-          <FormSection label="How many tickets?">
+          <FormSection label="How many tables?">
             <NumberPicker
               value={quantity}
               min={1}
