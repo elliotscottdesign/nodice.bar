@@ -21,7 +21,16 @@ import type { ImageDisplay } from "@/lib/content";
 // Every gallery the public site reads from. New galleries can be added
 // here (and consumed by the page that needs them); the admin will then
 // list them automatically.
-const KNOWN_GALLERIES: { key: string; label: string; description: string }[] = [
+// Each entry maps to the public-site URL where this gallery actually
+// renders. `previewPath` powers the "View page ↗" pill in the
+// admin header so the founder can jump straight from editing the
+// gallery to seeing the live result in a new tab.
+const KNOWN_GALLERIES: {
+  key: string;
+  label: string;
+  description: string;
+  previewPath: string;
+}[] = [
   // ----- Hero sliders (one per page) -----
   // Upload 2+ images to any of these and that page's hero turns into
   // an auto-cycling slider. With 0 images, page falls back to its
@@ -30,71 +39,85 @@ const KNOWN_GALLERIES: { key: string; label: string; description: string }[] = [
     key: "hero.home",
     label: "HERO slider — Home",
     description: "Top-of-page slider on nodice.bar/.",
+    previewPath: "/",
   },
   {
     key: "hero.venue.hackney",
     label: "HERO slider — Hackney",
     description: "Top-of-page slider on /venue/hackney.",
+    previewPath: "/venue/hackney",
   },
   {
     key: "hero.about",
     label: "HERO slider — About",
     description: "Top-of-page slider on /about.",
+    previewPath: "/about",
   },
   {
     key: "hero.contact",
     label: "HERO slider — Contact",
     description: "Top-of-page slider on /contact.",
+    previewPath: "/contact",
   },
   {
     key: "hero.events",
     label: "HERO slider — Events",
     description: "Top-of-page slider on /events.",
+    previewPath: "/events",
   },
   {
     key: "hero.deals",
     label: "HERO slider — Deals",
     description: "Top-of-page slider on /deals.",
+    previewPath: "/deals",
   },
   {
     key: "hero.bar",
     label: "HERO slider — Bar",
     description: "Top-of-page slider on /bar. Portrait shots work best.",
+    previewPath: "/bar",
   },
   {
     key: "hero.pool",
     label: "HERO slider — Pool",
     description: "Top-of-page slider on /pool. Portrait shots of the tables.",
+    previewPath: "/pool",
   },
   {
     key: "hero.vouchers",
     label: "HERO slider — Vouchers",
     description: "Top-of-page slider on /vouchers.",
+    previewPath: "/vouchers",
   },
   {
     key: "hero.faqs",
     label: "HERO slider — FAQs",
     description: "Top-of-page slider on /faqs.",
+    previewPath: "/faqs",
   },
   {
     key: "hero.terms",
     label: "HERO slider — Terms",
     description: "Top-of-page slider on /terms.",
+    previewPath: "/terms",
   },
   {
     key: "hero.privacy",
     label: "HERO slider — Privacy",
     description: "Top-of-page slider on /privacy.",
+    previewPath: "/privacy",
   },
   {
     key: "hero.privatehire",
     label: "HERO slider — Private hire overview",
     description: "Top-of-page slider on /private-hire.",
+    previewPath: "/private-hire",
   },
   {
     key: "hero.privatehire.hackney",
     label: "HERO slider — Private hire (Hackney)",
     description: "Top-of-page slider on /private-hire/hackney.",
+    previewPath: "/private-hire/hackney",
   },
 
   // ----- Inline content galleries -----
@@ -102,50 +125,59 @@ const KNOWN_GALLERIES: { key: string; label: string; description: string }[] = [
     key: "home.features",
     label: "Homepage — More than mini-golf",
     description: "Four cards under the homepage hero (Bar, Pool, Boards, Arcade).",
+    previewPath: "/",
   },
   {
     key: "home.press",
     label: "Homepage — Press logos",
     description: 'The "As featured in" marquee strip on the homepage.',
+    previewPath: "/",
   },
   {
     key: "home.instagram",
     label: "Homepage — Instagram grid",
     description:
       "Curated grid at the bottom of the homepage. Upload 6–9 square photos that best represent the venue. Each tile links to the No Dice Instagram profile.",
+    previewPath: "/",
   },
   {
     key: "about.gallery",
     label: "About page gallery",
     description: "The decade-of-no-dice strip at the bottom of /about.",
+    previewPath: "/about",
   },
   {
     key: "venue.hackney.gallery",
     label: "Hackney page gallery",
     description: "Photo strip on /venue/hackney.",
+    previewPath: "/venue/hackney",
   },
   {
     key: "hackney.events",
     label: "Hackney — Events posters",
     description: '"Events at No Dice" poster grid on /venue/hackney.',
+    previewPath: "/venue/hackney",
   },
   {
     key: "bar.menu_pages",
     label: "Bar — Menu pages",
     description:
       "The menu itself, one image per page. Upload 3 (or more) portrait scans/exports of the menu — they appear as a swipeable slider at the top of /bar. First upload = page 1.",
+    previewPath: "/bar",
   },
   {
     key: "bar.drinks_slider",
     label: "Bar — Drinks slider",
     description:
       "Portrait drink shots that cycle below the menu on /bar.",
+    previewPath: "/bar",
   },
   {
     key: "deals.grid",
     label: "Deals — 4×2 poster grid",
     description:
       "Upload 7–10 portrait poster images for the deals grid on /deals. First 10 render in order.",
+    previewPath: "/deals",
   },
 ];
 
@@ -336,6 +368,20 @@ export default function GalleriesAdminClient() {
       <AdminPageHeader
         title="Galleries"
         description="Manage every photo grid on the public site. Pick a gallery on the left, upload or remove images on the right."
+        action={
+          // "View page ↗" — dynamically points at whichever page
+          // hosts the currently-selected gallery. Lets the founder
+          // hop straight from editing to seeing the live result.
+          <a
+            href={`${process.env.NEXT_PUBLIC_BASE_PATH || ""}${activeGalleryMeta.previewPath}`}
+            target="_blank"
+            rel="noopener noreferrer"
+            className="rounded-full border border-cream/15 px-4 py-1.5 text-xs font-bold uppercase tracking-wider text-cream/85 hover:bg-cream/5"
+            title={`Open ${activeGalleryMeta.previewPath} in a new tab`}
+          >
+            View page ↗
+          </a>
+        }
       />
 
       {err && (
