@@ -1,10 +1,16 @@
 "use client";
 
 import { useCallback, useMemo, useState } from "react";
-import { loadStripe, type Stripe } from "@stripe/stripe-js";
 import {
-  EmbeddedCheckoutProvider,
-  EmbeddedCheckout,
+  loadStripe,
+  type Stripe as StripeJs,
+  type StripeElementsOptions,
+} from "@stripe/stripe-js";
+import {
+  Elements,
+  PaymentElement,
+  useElements,
+  useStripe,
 } from "@stripe/react-stripe-js";
 import {
   createTournamentEntry,
@@ -12,21 +18,21 @@ import {
 } from "@/lib/db/tournaments";
 
 // =============================================================
-// InlineTournamentBooking
+// InlineTournamentBooking — Stripe Payment Element edition
 // =============================================================
 // Drops the full sign-up + payment flow inside an accordion-style
 // row on /pool. State machine:
 //
 //   'form'    — captain fills team details, hits "Continue to payment"
-//   'paying'  — Stripe Embedded Checkout mounted inline below; the
-//               same panel keeps showing the tournament details so
-//               there's no context loss
+//   'paying'  — Payment Element mounted inline below; uses the
+//               app's own dark theme (black background, cream text,
+//               red accent) instead of Stripe's default light UI.
+//               We render our own "Pay £X" button.
 //   'paid'    — green "You're in" confirmation, no further action
 //   'error'   — error banner with retry option
 //
-// Talks to the same `tournament-checkout` Edge Function the standalone
-// page used, but the function now returns a Checkout Session
-// client_secret (embedded mode) rather than a redirect URL.
+// Talks to the `tournament-checkout` Edge Function which now returns
+// a PaymentIntent client_secret (no longer a Checkout Session).
 // =============================================================
 
 const PUBLISHABLE_KEY =
@@ -37,10 +43,10 @@ const SUPABASE_URL =
 const SUPABASE_ANON_KEY = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY ?? "";
 const CHECKOUT_FN_URL = `${SUPABASE_URL}/functions/v1/tournament-checkout`;
 
-// loadStripe should be called once at module scope per Stripe docs,
-// not on every render. Memoised so React doesn't recreate it.
-let _stripePromise: Promise<Stripe | null> | null = null;
-function getStripePromise(): Promise<Stripe | null> {
+// loadStripe should be called once per Stripe docs (not on every
+// render). Memoised at module scope.
+let _stripePromise: Promise<StripeJs | null> | null = null;
+function getStripePromise(): Promise<StripeJs | null> {
   if (!_stripePromise) _stripePromise = loadStripe(PUBLISHABLE_KEY);
   return _stripePromise;
 }
@@ -51,6 +57,59 @@ function formatPounds(pence: number): string {
 }
 
 type Phase = "form" | "paying" | "paid" | "error";
+
+// =============================================================
+// No Dice Stripe appearance theme
+// =============================================================
+// Dark base ('night') + variables that line up with the rest of the
+// site: black background, cream text, plonkPink (#DA1B33) for the
+// active border / accent. The rules block adds the polish that the
+// variables don't cover — input border radius, focus rings, etc.
+// =============================================================
+function buildAppearance(): StripeElementsOptions["appearance"] {
+  return {
+    theme: "night",
+    variables: {
+      colorPrimary: "#DA1B33",
+      colorBackground: "#0c0c0c",
+      colorText: "#F5EFE3",
+      colorTextSecondary: "rgba(245,239,227,0.55)",
+      colorTextPlaceholder: "rgba(245,239,227,0.4)",
+      colorDanger: "#DA1B33",
+      colorSuccess: "#46B4A5",
+      fontFamily: '"DM Sans", system-ui, -apple-system, sans-serif',
+      fontSizeBase: "15px",
+      spacingUnit: "4px",
+      borderRadius: "10px",
+    },
+    rules: {
+      ".Input": {
+        backgroundColor: "rgba(255,255,255,0.04)",
+        border: "1px solid rgba(245,239,227,0.15)",
+        padding: "12px 14px",
+      },
+      ".Input:focus": {
+        border: "1px solid #DA1B33",
+        boxShadow: "0 0 0 1px #DA1B33",
+      },
+      ".Label": {
+        color: "rgba(245,239,227,0.55)",
+        fontSize: "10px",
+        fontWeight: "700",
+        textTransform: "uppercase",
+        letterSpacing: "0.28em",
+      },
+      ".Tab": {
+        backgroundColor: "rgba(255,255,255,0.04)",
+        border: "1px solid rgba(245,239,227,0.15)",
+      },
+      ".Tab--selected": {
+        border: "1px solid #DA1B33",
+        backgroundColor: "rgba(218,27,51,0.08)",
+      },
+    },
+  };
+}
 
 export default function InlineTournamentBooking({
   tournament,
@@ -63,25 +122,19 @@ export default function InlineTournamentBooking({
   const [error, setError] = useState("");
   const [clientSecret, setClientSecret] = useState<string | null>(null);
 
-  // Form fields. Keeping state local to this component means each
-  // expanded row owns its own draft — if the customer collapses and
-  // re-opens, that's a reset, which matches the mental model.
   const [teamName, setTeamName] = useState("");
   const [captainName, setCaptainName] = useState("");
   const [captainEmail, setCaptainEmail] = useState("");
   const [captainPhone, setCaptainPhone] = useState("");
   const [submitting, setSubmitting] = useState(false);
 
-  // Embedded Checkout options. `onComplete` fires when Stripe
-  // confirms the payment AND the redirect_on_completion='never'
-  // setting on the server tells Stripe to stay in the iframe — we
-  // then flip our local phase to 'paid' for the inline confirmation.
-  const checkoutOptions = useMemo(
+  const elementsOptions = useMemo<StripeElementsOptions | null>(
     () =>
       clientSecret
         ? {
             clientSecret,
-            onComplete: () => setPhase("paid"),
+            appearance: buildAppearance(),
+            loader: "auto",
           }
         : null,
     [clientSecret],
@@ -93,8 +146,6 @@ export default function InlineTournamentBooking({
       setError("");
       setSubmitting(true);
       try {
-        // 1) Create the pending DB row. The Edge Function will look
-        //    this up by id when minting the Stripe session.
         const entry = await createTournamentEntry({
           tournament_id: tournament.id,
           team_name: teamName.trim(),
@@ -105,7 +156,6 @@ export default function InlineTournamentBooking({
           notes: null,
         });
 
-        // 2) Ask the Edge Function for a Checkout Session client_secret.
         const res = await fetch(CHECKOUT_FN_URL, {
           method: "POST",
           headers: {
@@ -121,16 +171,14 @@ export default function InlineTournamentBooking({
         if (!res.ok) {
           const txt = await res.text().catch(() => "");
           throw new Error(
-            `Couldn't start checkout (${res.status}): ${txt || "no detail"}`,
+            `Couldn't start payment (${res.status}): ${txt || "no detail"}`,
           );
         }
         const body = (await res.json()) as { client_secret?: string };
         if (!body.client_secret) {
-          throw new Error("Checkout returned no client_secret");
+          throw new Error("Server returned no client_secret");
         }
 
-        // 3) Move into 'paying' phase, which mounts the Embedded
-        //    Checkout below the team form.
         setClientSecret(body.client_secret);
         setPhase("paying");
       } catch (err) {
@@ -147,7 +195,6 @@ export default function InlineTournamentBooking({
     [tournament.id, teamName, captainName, captainEmail, captainPhone],
   );
 
-  // ---- 'paid' state: replace everything with a clean confirmation
   if (phase === "paid") {
     return (
       <div className="mt-3 rounded-xl border border-plonkTeal/40 bg-plonkTeal/10 px-6 py-8 text-center">
@@ -259,9 +306,9 @@ export default function InlineTournamentBooking({
         </form>
       )}
 
-      {phase === "paying" && checkoutOptions && (
+      {phase === "paying" && elementsOptions && (
         <div>
-          <div className="mb-4 text-center">
+          <div className="mb-5 text-center">
             <div className="text-[10px] font-bold uppercase tracking-[0.3em] text-plonkPink">
               Payment
             </div>
@@ -273,18 +320,20 @@ export default function InlineTournamentBooking({
               <strong>{captainName}</strong>
             </p>
           </div>
-          {/* Stripe Embedded Checkout mounts here. The provider needs
-              a stable Promise for the Stripe instance and a stable
-              clientSecret. The iframe handles all card collection +
-              3D Secure inline. */}
-          <div className="overflow-hidden rounded-lg bg-cream">
-            <EmbeddedCheckoutProvider
-              stripe={getStripePromise()}
-              options={checkoutOptions}
-            >
-              <EmbeddedCheckout />
-            </EmbeddedCheckoutProvider>
-          </div>
+          {/* Stripe Payment Element mounted inside our themed wrapper.
+              On success the form fires onSuccess() which flips us into
+              the 'paid' phase. */}
+          <Elements stripe={getStripePromise()} options={elementsOptions}>
+            <PaymentForm
+              feeLabel={formatPounds(tournament.entry_fee_pence)}
+              onSuccess={() => setPhase("paid")}
+              onError={(msg) => {
+                setError(msg);
+                setPhase("error");
+              }}
+              onCancel={onClose}
+            />
+          </Elements>
         </div>
       )}
 
@@ -305,6 +354,122 @@ export default function InlineTournamentBooking({
           </button>
         </div>
       )}
+    </div>
+  );
+}
+
+// =============================================================
+// PaymentForm — the Stripe-driven card form + our Pay button
+// =============================================================
+// Lives inside <Elements> so useStripe / useElements work. Stripe's
+// PaymentElement handles card / wallet collection; we wire up our
+// own button so the styling, copy and disabled state match the rest
+// of the schedule.
+//
+// `redirect: 'if_required'` keeps the customer on /pool for the
+// vast majority of payments. Only triggers a browser-level redirect
+// for 3D Secure flows that can't complete in an iframe, and even
+// then they bounce back to `return_url`.
+// =============================================================
+function PaymentForm({
+  feeLabel,
+  onSuccess,
+  onError,
+  onCancel,
+}: {
+  feeLabel: string;
+  onSuccess: () => void;
+  onError: (msg: string) => void;
+  onCancel: () => void;
+}) {
+  const stripe = useStripe();
+  const elements = useElements();
+  const [submitting, setSubmitting] = useState(false);
+  const [inlineErr, setInlineErr] = useState("");
+
+  const handlePay = useCallback(async () => {
+    if (!stripe || !elements) return;
+    setSubmitting(true);
+    setInlineErr("");
+
+    // Ensure the customer's input is valid before sending to Stripe.
+    const { error: submitError } = await elements.submit();
+    if (submitError) {
+      setInlineErr(
+        submitError.message ?? "Please check your card details and try again.",
+      );
+      setSubmitting(false);
+      return;
+    }
+
+    const { error } = await stripe.confirmPayment({
+      elements,
+      redirect: "if_required",
+      confirmParams: {
+        // Used only when 3D Secure forces a redirect; for the
+        // majority of card payments the customer never leaves.
+        return_url: `${window.location.origin}/nodice.bar/pool/#tournaments`,
+      },
+    });
+
+    if (error) {
+      // Inline errors (card declined etc.) — surface them right next
+      // to the card field. Only escalate to the full error phase for
+      // truly unexpected failures.
+      if (
+        error.type === "card_error" ||
+        error.type === "validation_error"
+      ) {
+        setInlineErr(error.message ?? "Card declined — try a different card.");
+      } else {
+        onError(error.message ?? "Payment failed — please try again.");
+      }
+      setSubmitting(false);
+      return;
+    }
+
+    // No error + no redirect = payment went through inline.
+    onSuccess();
+  }, [stripe, elements, onSuccess, onError]);
+
+  return (
+    <div className="space-y-5">
+      <div className="rounded-xl border border-cream/10 bg-ink/40 p-4">
+        <PaymentElement
+          options={{
+            layout: "tabs",
+            wallets: { applePay: "auto", googlePay: "auto" },
+          }}
+        />
+      </div>
+
+      {inlineErr && (
+        <div className="rounded-lg border border-plonkPink/40 bg-plonkPink/10 px-4 py-3 text-sm text-plonkPink">
+          {inlineErr}
+        </div>
+      )}
+
+      <div className="flex flex-col-reverse gap-3 sm:flex-row sm:items-center sm:justify-between">
+        <button
+          type="button"
+          onClick={onCancel}
+          className="text-xs uppercase tracking-wider text-cream/55 hover:text-cream"
+        >
+          Cancel
+        </button>
+        <button
+          type="button"
+          onClick={handlePay}
+          disabled={submitting || !stripe || !elements}
+          className="rounded-full bg-plonkPink px-7 py-3 text-sm font-bold uppercase tracking-widest text-white shadow-lg shadow-plonkPink/20 transition hover:bg-plonkPink/90 disabled:opacity-50"
+        >
+          {submitting ? "Processing…" : `Pay ${feeLabel}`}
+        </button>
+      </div>
+
+      <p className="text-center text-[10px] uppercase tracking-widest text-cream/40">
+        Secured by Stripe · your card never touches our servers
+      </p>
     </div>
   );
 }

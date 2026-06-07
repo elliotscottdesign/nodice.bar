@@ -196,38 +196,25 @@ Deno.serve(async (req) => {
     );
   }
 
-  // Create the Checkout session in EMBEDDED mode.
+  // Create a PaymentIntent directly — Payment Element flow.
   //
-  // ui_mode: 'embedded'           — returns a client_secret instead
-  //                                 of a hosted page URL; the frontend
-  //                                 mounts the iframe in-page.
-  // redirect_on_completion: 'never' — after successful payment, Stripe
-  //                                  fires the onComplete callback in
-  //                                  the frontend rather than
-  //                                  navigating away. We show an inline
-  //                                  confirmation right there.
-  let session: Stripe.Checkout.Session;
+  // Switched away from Checkout Session (ui_mode: 'embedded') so the
+  // frontend can render a fully No-Dice-branded card form via
+  // <PaymentElement /> with its own appearance theme. The customer
+  // confirms via `stripe.confirmPayment()` client-side; on success
+  // Stripe fires `payment_intent.succeeded` which the webhook uses to
+  // flip the entry to 'paid'. The webhook locates the entry via
+  // metadata.entry_id (not stripe_session_id any more).
+  let intent: Stripe.PaymentIntent;
   try {
-    session = await stripe.checkout.sessions.create({
-      mode: "payment",
-      ui_mode: "embedded",
-      redirect_on_completion: "never",
-      payment_method_types: ["card"],
-      customer_email: entry.captain_email,
-      line_items: [
-        {
-          quantity: 1,
-          price_data: {
-            currency: "gbp",
-            unit_amount: tournament.entry_fee_pence,
-            product_data: {
-              name: `${tournament.name} — team entry`,
-              description: `Entry for team "${entry.team_name}"`,
-            },
-          },
-        },
-      ],
+    intent = await stripe.paymentIntents.create({
+      amount: tournament.entry_fee_pence,
+      currency: "gbp",
+      receipt_email: entry.captain_email,
+      description: `${tournament.name} — entry for team "${entry.team_name}"`,
+      automatic_payment_methods: { enabled: true },
       metadata: {
+        kind: "tournament_entry",
         entry_id: entry.id,
         tournament_id: tournament.id,
         team_name: entry.team_name,
@@ -236,29 +223,30 @@ Deno.serve(async (req) => {
   } catch (e) {
     const msg = e instanceof Error ? e.message : String(e);
     return jsonResponse(
-      { error: `Stripe create-session failed: ${msg}` },
+      { error: `Stripe create-intent failed: ${msg}` },
       { status: 502 },
     );
   }
 
-  if (!session.client_secret) {
+  if (!intent.client_secret) {
     return jsonResponse(
       { error: "Stripe returned no client_secret" },
       { status: 502 },
     );
   }
 
-  // Stamp the session id back onto the entry so the webhook can
-  // find it on checkout.session.completed.
+  // Stamp the payment_intent id onto the entry so the webhook can
+  // find it on payment_intent.succeeded. (We also send the id in
+  // metadata as a backup lookup key.)
   const { error: stampErr } = await db
     .from("tournament_entries")
-    .update({ stripe_session_id: session.id })
+    .update({ stripe_payment_intent_id: intent.id })
     .eq("id", entry.id);
   if (stampErr) {
     console.error(
-      `Couldn't stamp session id ${session.id} onto entry ${entry.id}: ${stampErr.message}`,
+      `Couldn't stamp intent id ${intent.id} onto entry ${entry.id}: ${stampErr.message}`,
     );
   }
 
-  return jsonResponse({ client_secret: session.client_secret });
+  return jsonResponse({ client_secret: intent.client_secret });
 });
