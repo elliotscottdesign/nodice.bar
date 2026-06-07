@@ -1,0 +1,21 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64" role="img" aria-label="No Dice">
+  <!-- Solid black rounded background — matches the site's ink colour. -->
+  <rect width="64" height="64" rx="12" fill="#000000"/>
+
+  <!-- Left die — cream face, black pips, showing "2". -->
+  <g transform="translate(7 17) rotate(-9 12 15)">
+    <rect width="26" height="26" rx="5" fill="#F5EFE3"/>
+    <circle cx="8"  cy="8"  r="2.6" fill="#000000"/>
+    <circle cx="18" cy="18" r="2.6" fill="#000000"/>
+  </g>
+
+  <!-- Right die — red face (brand plonkPink), cream pips, showing "5". -->
+  <g transform="translate(31 21) rotate(11 13 13)">
+    <rect width="26" height="26" rx="5" fill="#DA1B33"/>
+    <circle cx="7"  cy="7"  r="2.6" fill="#F5EFE3"/>
+    <circle cx="19" cy="7"  r="2.6" fill="#F5EFE3"/>
+    <circle cx="13" cy="13" r="2.6" fill="#F5EFE3"/>
+    <circle cx="7"  cy="19" r="2.6" fill="#F5EFE3"/>
+    <circle cx="19" cy="19" r="2.6" fill="#F5EFE3"/>
+  </g>
+</svg>
