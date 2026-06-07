@@ -50,9 +50,11 @@ jobs:
           # — it lives only in Supabase Edge Function env vars (set via
           # Supabase Dashboard → Project Settings → Edge Functions →
           # Manage secrets → STRIPE_SECRET_KEY).
-          # Currently a TEST key (pk_test_...). When going live, swap
-          # for the pk_live_... key from the same Stripe dashboard.
-          NEXT_PUBLIC_STRIPE_PUBLISHABLE_KEY: "pk_test_51TfSU0IPCjv16fbxJh47defd1wleAimvRhEtYogYZQ3GDLTIDp56jAOzW1IbOHv0VPmBRjFnpz95UVU4C1mzB9Yv00JrEu4Tao"
+          # LIVE key (pk_live_...). Real money flows through every
+          # Stripe Checkout session this app creates. To roll back to
+          # test mode (e.g. for a UAT or dry-run), swap for the
+          # pk_test_... key from the same Stripe dashboard.
+          NEXT_PUBLIC_STRIPE_PUBLISHABLE_KEY: "pk_live_51TfSToEddxnQskbUXZsHbuesoRp150bJdW2jFjJM1w31Tu5ZMDgg7cQMOXz4crIGUHSQerwNmS5VIOlDmtJyHBFp00PvhA3Q2n"
         run: npm run build
 
       - name: Disable Jekyll on output (lets _next/ folder serve)
