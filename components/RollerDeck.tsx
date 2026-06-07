@@ -102,12 +102,16 @@ export default function RollerDeck({
         className="pointer-events-none absolute right-0 top-0 z-10 h-full w-8 bg-gradient-to-l from-ink to-transparent sm:w-12"
       />
 
-      {/* Arrow buttons — vertically centred, fade out at scroll ends. */}
+      {/* Arrow buttons — hidden on mobile (touch swipe is intuitive),
+          shown sm+ where there's no swipe gesture. Positioned to sit
+          in the rail's extra horizontal padding (added below on sm+)
+          so they appear OUTSIDE the leftmost / rightmost visible card,
+          not on top of it. */}
       <button
         type="button"
         aria-label={`Scroll ${ariaLabel || "list"} left`}
         onClick={() => scrollByCard(-1)}
-        className={`absolute left-2 top-1/2 z-20 -translate-y-1/2 rounded-full border border-cream/20 bg-ink/80 p-3 text-cream shadow-xl backdrop-blur transition hover:bg-plonkPink hover:text-white sm:left-3 ${
+        className={`absolute left-2 top-1/2 z-20 hidden -translate-y-1/2 rounded-full border border-cream/20 bg-ink/80 p-3 text-cream shadow-xl backdrop-blur transition hover:bg-plonkPink hover:text-white sm:flex ${
           canLeft ? "opacity-100" : "pointer-events-none opacity-0"
         }`}
       >
@@ -117,7 +121,7 @@ export default function RollerDeck({
         type="button"
         aria-label={`Scroll ${ariaLabel || "list"} right`}
         onClick={() => scrollByCard(1)}
-        className={`absolute right-2 top-1/2 z-20 -translate-y-1/2 rounded-full border border-cream/20 bg-ink/80 p-3 text-cream shadow-xl backdrop-blur transition hover:bg-plonkPink hover:text-white sm:right-3 ${
+        className={`absolute right-2 top-1/2 z-20 hidden -translate-y-1/2 rounded-full border border-cream/20 bg-ink/80 p-3 text-cream shadow-xl backdrop-blur transition hover:bg-plonkPink hover:text-white sm:flex ${
           canRight ? "opacity-100" : "pointer-events-none opacity-0"
         }`}
       >
@@ -126,12 +130,14 @@ export default function RollerDeck({
 
       {/* The actual scrollable rail. Children are placed directly
           inside — they should declare their own width / snap-start
-          per card. */}
+          per card. The extra sm:px-16 padding pushes the first/last
+          card INWARDS so the absolute-positioned arrows above sit
+          flush in the rail's empty gutter, never overlapping a card. */}
       <div
         ref={railRef}
         onScroll={refreshArrows}
         aria-label={ariaLabel}
-        className="hide-scrollbar flex snap-x snap-mandatory gap-3 overflow-x-auto px-6 pb-2 pt-1"
+        className="hide-scrollbar flex snap-x snap-mandatory gap-3 overflow-x-auto px-6 pb-2 pt-1 sm:px-16"
         style={{
           scrollPaddingLeft: "24px",
           scrollPaddingRight: "24px",
