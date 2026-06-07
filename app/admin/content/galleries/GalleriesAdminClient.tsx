@@ -14,6 +14,9 @@ import {
 } from "@/lib/db/galleries";
 import { getImageSpec } from "@/lib/imageSpecs";
 import { SpecCaption } from "@/components/admin/ContentEditor";
+import ImagePositioner from "@/components/admin/ImagePositioner";
+import { createPortal } from "react-dom";
+import type { ImageDisplay } from "@/lib/content";
 
 // Every gallery the public site reads from. New galleries can be added
 // here (and consumed by the page that needs them); the admin will then
@@ -189,6 +192,26 @@ export default function GalleriesAdminClient() {
   // insertion point). Both clear on drop / drag-end.
   const [dragId, setDragId] = useState<string | null>(null);
   const [overId, setOverId] = useState<string | null>(null);
+  // The image currently open in the positioner modal (or null).
+  const [positioningId, setPositioningId] = useState<string | null>(null);
+
+  async function handleSavePosition(g: DbGalleryImage, d: ImageDisplay) {
+    setBusy(true);
+    try {
+      await updateGalleryImage(g.id, {
+        position_x: Math.round(d.x),
+        position_y: Math.round(d.y),
+        position_zoom: d.zoom,
+        position_fit: d.fit,
+      });
+      setPositioningId(null);
+      await reload();
+    } catch (e) {
+      setErr(describe(e, "Couldn't save position"));
+    } finally {
+      setBusy(false);
+    }
+  }
 
   async function reload() {
     setLoading(true);
@@ -222,6 +245,12 @@ export default function GalleriesAdminClient() {
         caption: null,
         sort_order: images.length + 1,
         active: true,
+        // Centred + 1× by default. Founder can tune via the
+        // "Reposition" button on the card after upload.
+        position_x: 50,
+        position_y: 50,
+        position_zoom: 1,
+        position_fit: "cover",
       });
       await reload();
     } catch (e) {
@@ -426,13 +455,29 @@ export default function GalleriesAdminClient() {
                               : "border-cream/10 hover:border-cream/25"
                         }`}
                       >
-                        {/* eslint-disable-next-line @next/next/no-img-element */}
-                        <img
-                          src={g.src}
-                          alt={g.alt ?? ""}
-                          draggable={false}
-                          className={`${getImageSpec(activeKey).aspectClass} pointer-events-none w-full rounded-lg object-cover`}
-                        />
+                        {/* Preview shows the live position settings so
+                            the founder can see how the image actually
+                            renders before opening the positioner. */}
+                        <div
+                          className={`${getImageSpec(activeKey).aspectClass} pointer-events-none w-full overflow-hidden rounded-lg`}
+                        >
+                          {/* eslint-disable-next-line @next/next/no-img-element */}
+                          <img
+                            src={g.src}
+                            alt={g.alt ?? ""}
+                            draggable={false}
+                            className="h-full w-full"
+                            style={{
+                              objectFit: g.position_fit ?? "cover",
+                              objectPosition: `${g.position_x ?? 50}% ${g.position_y ?? 50}%`,
+                              transform:
+                                (g.position_zoom ?? 1) !== 1
+                                  ? `scale(${g.position_zoom})`
+                                  : undefined,
+                              transformOrigin: `${g.position_x ?? 50}% ${g.position_y ?? 50}%`,
+                            }}
+                          />
+                        </div>
                         <input
                           type="text"
                           defaultValue={g.alt ?? ""}
@@ -441,9 +486,16 @@ export default function GalleriesAdminClient() {
                             handleSaveAlt(g, e.target.value)
                           }
                           placeholder="Alt text"
-                          className="mt-2 w-full rounded-md border border-cream/15 bg-ink/40 px-2 py-1 text-xs text-cream placeholder:text-cream/30 focus:border-plonkPink focus:outline-none"
+                          className="mt-2 w-full rounded-md border border-cream/15 bg-ink/40 px-2 py-1 text-xs text-cream placeholder:text-cream/30 focus:border-plonkTeal focus:outline-none"
                         />
-                        <div className="mt-2 flex items-center justify-end text-xs">
+                        <div className="mt-2 flex items-center justify-between text-xs">
+                          <button
+                            onClick={() => setPositioningId(g.id)}
+                            disabled={busy}
+                            className="rounded-full border border-plonkTeal/40 px-3 py-1 text-[10px] font-bold uppercase tracking-wider text-plonkTeal hover:bg-plonkTeal/10 disabled:opacity-40"
+                          >
+                            Reposition
+                          </button>
                           <button
                             onClick={() => handleDelete(g)}
                             disabled={busy}
@@ -461,6 +513,57 @@ export default function GalleriesAdminClient() {
           </AdminCard>
         </div>
       </div>
+
+      {/* Positioner modal — portaled to body so it sits above
+          everything regardless of the admin sidebar layout. */}
+      {positioningId &&
+        (() => {
+          const g = images.find((x) => x.id === positioningId);
+          if (!g) return null;
+          if (typeof document === "undefined") return null;
+          // Convert aspectClass like "aspect-[3/2]" → "3/2" for the
+          // positioner.
+          const aspectClass = getImageSpec(activeKey).aspectClass;
+          const m = /\[([\d/]+)\]/.exec(aspectClass);
+          const aspect = m?.[1] ?? "1/1";
+          return createPortal(
+            <div className="fixed inset-0 z-[110] flex items-stretch justify-center bg-ink/90 p-2 sm:p-6">
+              <div className="flex h-full w-full max-w-4xl flex-col overflow-hidden rounded-2xl border border-plonkTeal/40 bg-ink shadow-2xl">
+                <div className="flex items-center justify-between gap-3 border-b border-cream/10 px-5 py-4">
+                  <div className="min-w-0">
+                    <h3 className="font-display text-xl">Reposition image</h3>
+                    <p className="truncate text-xs text-cream/55">
+                      Drag · zoom · toggle fit · save when happy
+                    </p>
+                  </div>
+                  <button
+                    type="button"
+                    onClick={() => setPositioningId(null)}
+                    className="rounded-full border border-cream/20 px-4 py-2 text-xs font-bold uppercase tracking-wider text-cream/85 hover:bg-cream/5"
+                  >
+                    Cancel
+                  </button>
+                </div>
+                <div className="flex-1 overflow-y-auto">
+                  <ImagePositioner
+                    src={g.src}
+                    aspect={aspect}
+                    initial={{
+                      src: g.src,
+                      fit: g.position_fit ?? "cover",
+                      x: g.position_x ?? 50,
+                      y: g.position_y ?? 50,
+                      zoom: g.position_zoom ?? 1,
+                    }}
+                    onSave={(d) => handleSavePosition(g, d)}
+                    onCancel={() => setPositioningId(null)}
+                  />
+                </div>
+              </div>
+            </div>,
+            document.body,
+          );
+        })()}
     </>
   );
 }

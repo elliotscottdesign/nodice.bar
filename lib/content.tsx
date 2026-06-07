@@ -229,16 +229,29 @@ export function useImageDisplay(key: string, fallback: string): ImageDisplay {
   return parseImageValue(raw, fallback);
 }
 
+// Per-image positioning info returned alongside src/alt. Every
+// consumer can opt in to applying it via CSS object-fit /
+// object-position / scale(). Defaults match the table defaults so
+// callers can read these fields unconditionally and get sensible
+// behaviour for un-positioned legacy rows.
+export type GalleryItem = {
+  src: string;
+  alt?: string | null;
+  position_x: number;
+  position_y: number;
+  position_zoom: number;
+  position_fit: "cover" | "contain";
+};
+
 // Load every active image in a named gallery, with a per-call fallback
 // for when the admin hasn't populated it yet. Used by the homepage
-// features section, the about page strip, and the venue page galleries.
+// features section, the about page strip, the hero slider and the
+// venue page galleries.
 export function useGallery<T extends { src: string; alt?: string | null }>(
   galleryKey: string,
   fallback: T[],
-): { src: string; alt?: string | null }[] {
-  const [rows, setRows] = useState<{ src: string; alt: string | null }[] | null>(
-    null,
-  );
+): GalleryItem[] {
+  const [rows, setRows] = useState<GalleryItem[] | null>(null);
   useEffect(() => {
     let cancelled = false;
     (async () => {
@@ -246,15 +259,31 @@ export function useGallery<T extends { src: string; alt?: string | null }>(
         const { supabase } = await import("@/lib/supabase");
         const { data, error } = await supabase()
           .from("gallery_images")
-          .select("src, alt, sort_order, active")
+          .select(
+            "src, alt, sort_order, active, position_x, position_y, position_zoom, position_fit",
+          )
           .eq("gallery_key", galleryKey)
           .eq("active", true)
           .order("sort_order");
         if (cancelled || error) return;
+        const raw = (data ?? []) as Array<{
+          src: string;
+          alt: string | null;
+          position_x: number | null;
+          position_y: number | null;
+          position_zoom: number | null;
+          position_fit: string | null;
+        }>;
         setRows(
-          ((data ?? []) as { src: string; alt: string | null }[]).map((r) => ({
+          raw.map((r) => ({
             src: r.src,
             alt: r.alt,
+            position_x: r.position_x ?? 50,
+            position_y: r.position_y ?? 50,
+            position_zoom: r.position_zoom ?? 1,
+            position_fit: (r.position_fit === "contain"
+              ? "contain"
+              : "cover") as "cover" | "contain",
           })),
         );
       } catch {
@@ -266,5 +295,12 @@ export function useGallery<T extends { src: string; alt?: string | null }>(
     };
   }, [galleryKey]);
   if (rows && rows.length > 0) return rows;
-  return fallback;
+  return fallback.map((f) => ({
+    src: f.src,
+    alt: f.alt ?? null,
+    position_x: 50,
+    position_y: 50,
+    position_zoom: 1,
+    position_fit: "cover" as const,
+  }));
 }

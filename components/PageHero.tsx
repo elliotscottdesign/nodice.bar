@@ -63,7 +63,19 @@ export default function PageHero({
           most common viewports; ultrawide screens see a very minor side crop. */}
       <div className="relative w-full bg-forest aspect-[3/2] max-h-[80vh] min-h-[360px] overflow-hidden">
         {useSlider ? (
-          <HeroSlider images={sliderImages.map((s) => ({ src: s.src }))} />
+          <HeroSlider
+            images={sliderImages.map((s) => ({
+              src: s.src,
+              alt: s.alt ?? undefined,
+              // Pass positioning through so the admin's repositioner
+              // settings actually take effect on the live hero.
+              position_x: (s as { position_x?: number }).position_x,
+              position_y: (s as { position_y?: number }).position_y,
+              position_zoom: (s as { position_zoom?: number }).position_zoom,
+              position_fit: (s as { position_fit?: "cover" | "contain" })
+                .position_fit,
+            }))}
+          />
         ) : imageKey ? (
           <DisplayImage
             k={imageKey}
