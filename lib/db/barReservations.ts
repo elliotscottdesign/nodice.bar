@@ -36,7 +36,15 @@ export type DbBarReservation = {
 
 export type NewBarReservation = Omit<
   DbBarReservation,
-  "id" | "status" | "created_at" | "updated_at" | "heard_from" | "marketing_opt_in"
+  | "id"
+  | "status"
+  | "created_at"
+  | "updated_at"
+  | "heard_from"
+  | "marketing_opt_in"
+  | "amount_pence"
+  | "stripe_payment_intent_id"
+  | "paid_at"
 > & {
   heard_from?: string | null;
   marketing_opt_in?: boolean;
