@@ -248,6 +248,9 @@ export default function InlineTournamentBooking({
               onChange={(e) => setTeamName(e.target.value)}
               className="w-full rounded-lg border border-cream/15 bg-ink/40 px-4 py-3 text-base text-cream focus:border-plonkPink focus:outline-none"
             />
+            <p className="mt-1.5 text-[11px] text-cream/50">
+              Can be changed later.
+            </p>
           </div>
 
           <div className="grid gap-4 sm:grid-cols-2">
