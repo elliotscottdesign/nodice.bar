@@ -6,6 +6,8 @@ import {
   type DbTournament,
   type TournamentType,
 } from "@/lib/db/tournaments";
+import { useContent } from "@/lib/content";
+import Editable from "./Editable";
 import InlineTournamentBooking from "./InlineTournamentBooking";
 
 // =============================================================
@@ -35,10 +37,17 @@ const TYPE_LABELS: Record<TournamentType, string> = {
   special: "Special events",
 };
 
-const TYPE_TAGLINES: Record<TournamentType, string> = {
+// Fallback taglines — overridden by CMS via `pool.tournaments.tagline_*`.
+const TYPE_TAGLINES_FALLBACK: Record<TournamentType, string> = {
   doubles: "Teams of two. Every other Wednesday.",
   singles: "Solo entry. Every other Wednesday.",
   special: "One-off tournaments and seasonal showdowns.",
+};
+
+const TYPE_TAGLINE_KEYS: Record<TournamentType, string> = {
+  doubles: "pool.tournaments.tagline_doubles",
+  singles: "pool.tournaments.tagline_singles",
+  special: "pool.tournaments.tagline_special",
 };
 
 function formatDate(iso: string): string {
@@ -66,6 +75,35 @@ export default function TournamentSchedule() {
   const [err, setErr] = useState("");
   const [type, setType] = useState<TournamentType>("doubles");
   const [expandedId, setExpandedId] = useState<string | null>(null);
+
+  // Editable copy. Founder can change all of these from
+  // /admin/content/pool — the keys are namespaced under
+  // pool.tournaments.* so they sit next to the existing pool page
+  // content fields.
+  const eyebrow = useContent("pool.tournaments.eyebrow", "Tournaments");
+  const title = useContent("pool.tournaments.title", "Sign Your Team Up");
+  const intro = useContent(
+    "pool.tournaments.intro",
+    "Pool tournaments run every Wednesday at No Dice — doubles and singles alternate weekly. Pick a format and a date, pay in advance to hold your spot.",
+  );
+  const taglineDoubles = useContent(
+    TYPE_TAGLINE_KEYS.doubles,
+    TYPE_TAGLINES_FALLBACK.doubles,
+  );
+  const taglineSingles = useContent(
+    TYPE_TAGLINE_KEYS.singles,
+    TYPE_TAGLINES_FALLBACK.singles,
+  );
+  const taglineSpecial = useContent(
+    TYPE_TAGLINE_KEYS.special,
+    TYPE_TAGLINES_FALLBACK.special,
+  );
+  const currentTagline =
+    type === "doubles"
+      ? taglineDoubles
+      : type === "singles"
+        ? taglineSingles
+        : taglineSpecial;
 
   useEffect(() => {
     let cancelled = false;
@@ -126,15 +164,15 @@ export default function TournamentSchedule() {
     <section id="tournaments" className="bg-ink/40 px-6 py-20 scroll-mt-24">
       <div className="mx-auto max-w-3xl">
         <div className="mb-3 text-center text-xs font-bold uppercase tracking-[0.3em] text-plonkPink">
-          Tournaments
+          <Editable k="pool.tournaments.eyebrow">{eyebrow}</Editable>
         </div>
         <h2 className="text-center font-display text-4xl uppercase tracking-wider sm:text-5xl">
-          Sign Your Team Up
+          <Editable k="pool.tournaments.title">{title}</Editable>
         </h2>
         <p className="mx-auto mt-4 max-w-xl text-center text-base text-cream/75">
-          Pool tournaments run every Wednesday at No Dice — doubles and
-          singles alternate weekly. Pick a format and a date, pay in advance
-          to hold your spot.
+          <Editable k="pool.tournaments.intro" multiline>
+            {intro}
+          </Editable>
         </p>
 
         {availableTypes.length > 1 && (
@@ -160,7 +198,7 @@ export default function TournamentSchedule() {
         )}
 
         <p className="mx-auto mt-4 max-w-md text-center text-xs uppercase tracking-widest text-cream/55">
-          {TYPE_TAGLINES[type]}
+          <Editable k={TYPE_TAGLINE_KEYS[type]}>{currentTagline}</Editable>
         </p>
 
         <div className="mx-auto mt-10 max-w-2xl">
