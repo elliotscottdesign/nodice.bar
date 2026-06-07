@@ -169,8 +169,7 @@ function renderEmailHtml(opts: {
                 <div style="margin-top:24px;padding-top:24px;border-top:1px solid rgba(245,239,227,0.12);">
                   <div style="font-size:10px;font-weight:700;letter-spacing:0.3em;text-transform:uppercase;color:#DA1B33;margin-bottom:8px;">On the night</div>
                   <div style="font-size:14px;color:rgba(245,239,227,0.85);line-height:1.6;">
-                    Arrive 15 minutes before the start time. Bring your team. Cues provided.
-                    Drinks at the bar — happy hour runs till 7pm Mon–Fri.
+                    From 18:30 we offer free warm-up sessions on the tables. The tournament starts at <strong>19:15 sharp</strong> — if you're late, you won't be able to play. Make sure your team name is correct and your phone number is accurate, we'll text you regarding any updates for the event.
                   </div>
                 </div>
 
@@ -230,7 +229,7 @@ function renderEmailText(opts: {
     `${VENUE_ADDRESS}`,
     ``,
     `ON THE NIGHT`,
-    `Arrive 15 minutes before the start time. Bring your team. Cues provided. Drinks at the bar — happy hour runs till 7pm Mon-Fri.`,
+    `From 18:30 we offer free warm-up sessions on the tables. The tournament starts at 19:15 sharp — if you're late, you won't be able to play. Make sure your team name is correct and your phone number is accurate, we'll text you regarding any updates for the event.`,
     ``,
     `Questions, can't make it, or need to swap a player? Reply to this email — it goes to the team.`,
     ``,
