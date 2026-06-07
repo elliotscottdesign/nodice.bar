@@ -9,7 +9,7 @@ export default function WorldCupContentPage() {
     <>
       <AdminPageHeader
         title="World Cup page"
-        description="Edit the copy on /world-cup. For match fixtures, use /admin/events (category 'World Cup — Match'). For hero images, use Galleries → 'HERO slider — World Cup'."
+        description="Edit the copy on /worldcup. For match fixtures, use /admin/events (category 'World Cup — Match'). For hero images, use Galleries → 'HERO slider — World Cup'."
         action={
           <>
             <Link
@@ -27,7 +27,7 @@ export default function WorldCupContentPage() {
               Hero images ↗
             </Link>
             <a
-              href={`${process.env.NEXT_PUBLIC_BASE_PATH || ""}/world-cup`}
+              href={`${process.env.NEXT_PUBLIC_BASE_PATH || ""}/worldcup`}
               target="_blank"
               rel="noopener noreferrer"
               className="rounded-full border border-cream/15 px-4 py-1.5 text-xs font-bold uppercase tracking-wider text-cream/85 hover:bg-cream/5"
@@ -37,7 +37,7 @@ export default function WorldCupContentPage() {
           </>
         }
       />
-      <ContentEditor page="info.worldcup" previewPath="/world-cup" />
+      <ContentEditor page="info.worldcup" previewPath="/worldcup" />
     </>
   );
 }

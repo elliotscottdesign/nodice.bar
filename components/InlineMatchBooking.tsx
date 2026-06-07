@@ -423,7 +423,7 @@ function PaymentForm({
       elements,
       redirect: "if_required",
       confirmParams: {
-        return_url: `${window.location.origin}/nodice.bar/world-cup/`,
+        return_url: `${window.location.origin}/worldcup/`,
       },
     });
 

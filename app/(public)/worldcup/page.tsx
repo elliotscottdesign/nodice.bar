@@ -5,7 +5,7 @@ import PageHero from "@/components/PageHero";
 import MatchSchedule from "@/components/MatchSchedule";
 import { useContent } from "@/lib/content";
 
-// /world-cup — mirrors /pool's structure:
+// /worldcup — mirrors /pool's structure:
 //   • Hero  — slider-led, content editable via the CMS
 //   • CTA   — "Reserve a table" → /book/table
 //   • Below — MatchSchedule (roller-deck of upcoming fixtures)

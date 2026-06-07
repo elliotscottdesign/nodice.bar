@@ -21,7 +21,7 @@ import {
 // Item-routing table:
 //   pool       /book/pool   — 30-min slots on the hour, pool tables
 //   table      /book/table  — 15-min granularity, restaurant tables
-//   worldcup   /world-cup   — match-anchored reservations
+//   worldcup   /worldcup    — match-anchored reservations
 //   golf       (external)   — Plonk Golf's own booking site
 type ItemId = "pool" | "table" | "worldcup" | "golf";
 
@@ -156,7 +156,7 @@ export default function HeroBookingWidget() {
     if (size > 0 && chosen !== "worldcup") params.set("size", String(size));
     const qs = params.toString();
 
-    const path = chosen === "worldcup" ? "/world-cup" : `/book/${chosen}`;
+    const path = chosen === "worldcup" ? "/worldcup" : `/book/${chosen}`;
     router.push(`${path}${qs ? `?${qs}` : ""}`);
   }
 
