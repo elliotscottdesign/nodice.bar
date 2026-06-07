@@ -41,7 +41,7 @@ export default function PoolPage() {
         sliderKey="hero.pool"
       />
 
-      <section className="px-6 py-20 text-center">
+      <section className="px-6 pb-20 pt-4 text-center">
         <Link
           href={ctaHref}
           className="inline-block rounded-full bg-plonkPink px-10 py-4 text-sm font-bold uppercase tracking-widest text-white transition hover:bg-plonkPink/90"
