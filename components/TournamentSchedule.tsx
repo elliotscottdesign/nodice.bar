@@ -201,15 +201,18 @@ export default function TournamentSchedule() {
                       </span>
                     </Link>
                   ) : (
+                    // Non-bookable rows (e.g. the two Grand Finals)
+                    // — the event name carries the meaning, so we
+                    // show it as the title and push date / time /
+                    // description into the subtitle.
                     <div className="flex items-center justify-between gap-4 rounded-xl border border-plonkYellow/30 bg-plonkYellow/5 px-5 py-4">
                       <div className="min-w-0 flex-1">
                         <div className="text-base font-bold text-cream">
-                          {t.name === "GRAND FINAL"
-                            ? "GRAND FINAL"
-                            : formatDate(t.event_date)}
+                          {t.name}
                         </div>
                         <div className="mt-0.5 text-xs uppercase tracking-widest text-cream/55">
-                          {formatDate(t.event_date)} · {meta}
+                          {formatDate(t.event_date)} · {formatTime(t.start_time)}
+                          {t.description ? ` · ${t.description}` : ""}
                         </div>
                       </div>
                       <span className="shrink-0 rounded-full border border-plonkYellow/50 px-4 py-2 text-[11px] font-bold uppercase tracking-widest text-plonkYellow">
