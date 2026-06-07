@@ -7,7 +7,7 @@ import {
   type TournamentType,
 } from "@/lib/db/tournaments";
 import { useContent } from "@/lib/content";
-import Editable from "./Editable";
+import { Editable } from "./Editable";
 import InlineTournamentBooking from "./InlineTournamentBooking";
 
 // =============================================================
