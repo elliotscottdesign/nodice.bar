@@ -1,6 +1,6 @@
 "use client";
 
-import { Suspense, useCallback, useMemo, useState } from "react";
+import { Suspense, useCallback, useEffect, useMemo, useState } from "react";
 import { useSearchParams } from "next/navigation";
 import {
   loadStripe,
@@ -14,6 +14,11 @@ import {
   useStripe,
 } from "@stripe/react-stripe-js";
 import { createBarReservation } from "@/lib/db/barReservations";
+import {
+  loadBookingSetting,
+  type DbBookingSetting,
+} from "@/lib/db/bookingSettings";
+import DatePickerInput from "@/components/admin/DatePickerInput";
 
 // =============================================================
 // /book/pool — pool table reservation with inline Stripe Payment
@@ -55,6 +60,59 @@ function generatePoolSlots(): string[] {
   return out;
 }
 
+// =============================================================
+// Pool booking rules (kept in code; admin toggle for on/off comes
+// next). Hours/prices are recomputed server-side in pool-checkout
+// from `reservation_date` so the browser can't tamper with them.
+// =============================================================
+
+const DAY_NAMES = [
+  "Sunday",
+  "Monday",
+  "Tuesday",
+  "Wednesday",
+  "Thursday",
+  "Friday",
+  "Saturday",
+] as const;
+
+// 6 = Saturday — closed all day.
+const CLOSED_DAYS = [6];
+
+// On these days, all pool bookings must END by 18:30 (tournament
+// warm-up starts then). Wed=3, Fri=5.
+const TOURNAMENT_DAYS = [3, 5];
+const TOURNAMENT_DAY_LATEST_END_MIN = 18 * 60 + 30; // 18:30
+
+// Monday discount — half-price slots.
+const DISCOUNT_DAYS = [1];
+
+function dayOfWeek(iso: string): number {
+  return new Date(`${iso}T00:00:00`).getDay();
+}
+
+function minutesFromSlot(slot: string): number {
+  const [h, m] = slot.split(":").map(Number);
+  return h * 60 + m;
+}
+
+function isClosed(iso: string): boolean {
+  return CLOSED_DAYS.includes(dayOfWeek(iso));
+}
+
+// Slots that fit the day's rules for a given duration. On tournament
+// days the booking must end by 18:30, so 60-min picks lose 18:00 and
+// 30-min picks lose anything after 18:00.
+function availableSlots(iso: string, duration: number): string[] {
+  if (isClosed(iso)) return [];
+  const day = dayOfWeek(iso);
+  const all = generatePoolSlots();
+  const latestEnd = TOURNAMENT_DAYS.includes(day)
+    ? TOURNAMENT_DAY_LATEST_END_MIN
+    : 24 * 60;
+  return all.filter((s) => minutesFromSlot(s) + duration <= latestEnd);
+}
+
 function todayIso(): string {
   const d = new Date();
   const y = d.getFullYear();
@@ -68,10 +126,13 @@ function formatPounds(pence: number): string {
   return `£${(pence / 100).toFixed(2)}`;
 }
 
-// Duration → price. Mirrors the server-side computation in the
-// pool-checkout Edge Function so the totals always match.
-function priceForDuration(min: number): number {
-  return Math.ceil(min / 30) * 600; // 600 pence = £6 per 30 min
+// Day-of-week + duration → price (pence). Monday is half price.
+// Mirrors the server-side computation in pool-checkout so totals
+// always match.
+function priceForBooking(iso: string, duration: number): number {
+  const day = dayOfWeek(iso);
+  const basePer30 = DISCOUNT_DAYS.includes(day) ? 300 : 600;
+  return Math.ceil(duration / 30) * basePer30;
 }
 
 // Stripe appearance — same dark theme as the tournament flow.
@@ -124,7 +185,6 @@ export default function PoolBookingPage() {
 
 function PoolBookingPageInner() {
   const params = useSearchParams();
-  const slots = useMemo(generatePoolSlots, []);
 
   // ----- Form state -----
   const [date, setDate] = useState(params.get("date") || todayIso());
@@ -146,7 +206,43 @@ function PoolBookingPageInner() {
   const [error, setError] = useState("");
   const [clientSecret, setClientSecret] = useState<string | null>(null);
 
-  const totalPence = priceForDuration(duration);
+  // ----- Admin kill-switch -----
+  // Loads /admin/booking-settings's `pool` row on mount. While
+  // loading we hold the form back so the customer doesn't briefly
+  // see it before we discover bookings are paused.
+  const [setting, setSetting] = useState<DbBookingSetting | null>(null);
+  const [settingLoaded, setSettingLoaded] = useState(false);
+  useEffect(() => {
+    let cancelled = false;
+    loadBookingSetting("pool")
+      .then((s) => {
+        if (!cancelled) {
+          setSetting(s);
+          setSettingLoaded(true);
+        }
+      })
+      .catch(() => {
+        // If we can't read settings, fail open — better to let the
+        // customer book than to block the whole page on a transient
+        // Supabase blip.
+        if (!cancelled) setSettingLoaded(true);
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, []);
+
+  // Recomputed every render based on the date + duration. If the
+  // customer changes date and their selected time is no longer valid
+  // (e.g. they picked 18:00 then switched to a Wednesday and the
+  // tournament cutoff kicks in), clear `time` and ask them to repick.
+  const slots = useMemo(
+    () => availableSlots(date, duration),
+    [date, duration],
+  );
+  const totalPence = priceForBooking(date, duration);
+  const closed = isClosed(date);
+  const closedNote = closed ? `${DAY_NAMES[dayOfWeek(date)]} — no pool bookings.` : "";
 
   const elementsOptions = useMemo<StripeElementsOptions | null>(
     () =>
@@ -263,68 +359,131 @@ function PoolBookingPageInner() {
           American 7ft tables. Pick 30 or 60 minutes, pay to confirm.
         </p>
 
-        {phase === "form" && (
+        {settingLoaded && setting && setting.enabled === false && (
+          <div className="mx-auto mt-12 max-w-xl rounded-2xl border border-plonkPink/40 bg-plonkPink/10 p-8 text-center">
+            <div className="text-[10px] font-bold uppercase tracking-[0.3em] text-plonkPink">
+              Bookings paused
+            </div>
+            <p className="mt-4 text-base text-cream/85">
+              {setting.closed_message ||
+                "Pool table bookings are temporarily paused — check back soon or DM us on Instagram."}
+            </p>
+            <a
+              href="https://instagram.com/nodice.bar"
+              target="_blank"
+              rel="noreferrer"
+              className="mt-6 inline-block rounded-full bg-plonkPink px-6 py-2.5 text-xs font-bold uppercase tracking-widest text-white hover:bg-plonkPink/90"
+            >
+              DM us on Instagram
+            </a>
+          </div>
+        )}
+
+        {phase === "form" && settingLoaded && setting?.enabled !== false && (
           <form onSubmit={handleSubmit} className="mt-12 space-y-8">
             <FormSection label="Date">
-              <input
-                type="date"
-                required
+              <DatePickerInput
                 value={date}
-                onChange={(e) => setDate(e.target.value)}
-                min={todayIso()}
-                className={inputCls}
+                onChange={(iso) => {
+                  setDate(iso);
+                  // Clear time if it no longer fits the new day's slot
+                  // window (e.g. switching to a Wed/Fri after picking
+                  // 18:30 on a Mon).
+                  if (time && !availableSlots(iso, duration).includes(time)) {
+                    setTime("");
+                  }
+                }}
+                minIso={todayIso()}
+                disabledDaysOfWeek={CLOSED_DAYS}
               />
+              {closedNote && (
+                <p className="mt-2 text-xs text-plonkPink">{closedNote}</p>
+              )}
             </FormSection>
 
-            <FormSection label="Time">
-              <div className="grid grid-cols-4 gap-2 sm:grid-cols-6">
-                {slots.map((s) => {
-                  const active = time === s;
-                  return (
-                    <button
-                      key={s}
-                      type="button"
-                      onClick={() => setTime(s)}
-                      className={`rounded-lg border px-2 py-3 text-sm transition ${
-                        active
-                          ? "border-plonkPink bg-plonkPink text-white"
-                          : "border-cream/15 bg-ink/40 text-cream hover:border-cream/40"
-                      }`}
-                    >
-                      {s}
-                    </button>
-                  );
-                })}
-              </div>
-            </FormSection>
+            {!closed && (
+              <FormSection label="Time">
+                {slots.length === 0 ? (
+                  <p className="text-sm text-cream/55">
+                    No slots fit a {duration}-minute booking on{" "}
+                    {DAY_NAMES[dayOfWeek(date)]}. Try a shorter duration.
+                  </p>
+                ) : (
+                  <div className="grid grid-cols-4 gap-2 sm:grid-cols-6">
+                    {slots.map((s) => {
+                      const active = time === s;
+                      return (
+                        <button
+                          key={s}
+                          type="button"
+                          onClick={() => setTime(s)}
+                          className={`rounded-lg border px-2 py-3 text-sm transition ${
+                            active
+                              ? "border-plonkPink bg-plonkPink text-white"
+                              : "border-cream/15 bg-ink/40 text-cream hover:border-cream/40"
+                          }`}
+                        >
+                          {s}
+                        </button>
+                      );
+                    })}
+                  </div>
+                )}
+                {TOURNAMENT_DAYS.includes(dayOfWeek(date)) && (
+                  <p className="mt-2 text-xs text-cream/55">
+                    Tournament night — bookings must end by 18:30 so the
+                    tables are clear for warm-up.
+                  </p>
+                )}
+              </FormSection>
+            )}
 
-            <FormSection label="How long?">
-              <div className="grid gap-3 sm:grid-cols-2">
-                {[30, 60].map((d) => {
-                  const active = duration === d;
-                  const price = priceForDuration(d);
-                  return (
-                    <button
-                      key={d}
-                      type="button"
-                      onClick={() => setDuration(d as 30 | 60)}
-                      className={`rounded-xl border px-5 py-4 text-left transition ${
-                        active
-                          ? "border-plonkPink bg-plonkPink/10"
-                          : "border-cream/15 bg-ink/40 hover:border-cream/40"
-                      }`}
-                    >
-                      <div className="text-base font-bold text-cream">
-                        {d} minutes
-                      </div>
-                      <div className="mt-0.5 text-xs uppercase tracking-widest text-cream/55">
-                        {formatPounds(price)} entry
-                      </div>
-                    </button>
-                  );
-                })}
-              </div>
-            </FormSection>
+            {!closed && (
+              <FormSection label="How long?">
+                <div className="grid gap-3 sm:grid-cols-2">
+                  {[30, 60].map((d) => {
+                    const active = duration === d;
+                    const price = priceForBooking(date, d);
+                    const fits = availableSlots(date, d).length > 0;
+                    return (
+                      <button
+                        key={d}
+                        type="button"
+                        disabled={!fits}
+                        onClick={() => {
+                          setDuration(d as 30 | 60);
+                          if (
+                            time &&
+                            !availableSlots(date, d).includes(time)
+                          ) {
+                            setTime("");
+                          }
+                        }}
+                        className={`rounded-xl border px-5 py-4 text-left transition ${
+                          !fits
+                            ? "cursor-not-allowed border-cream/10 bg-ink/20 opacity-50"
+                            : active
+                              ? "border-plonkPink bg-plonkPink/10"
+                              : "border-cream/15 bg-ink/40 hover:border-cream/40"
+                        }`}
+                      >
+                        <div className="text-base font-bold text-cream">
+                          {d} minutes
+                        </div>
+                        <div className="mt-0.5 text-xs uppercase tracking-widest text-cream/55">
+                          {formatPounds(price)}
+                          {DISCOUNT_DAYS.includes(dayOfWeek(date)) && (
+                            <span className="ml-2 rounded-full bg-plonkTeal/15 px-2 py-0.5 text-[9px] font-bold uppercase tracking-wider text-plonkTeal">
+                              Monday ½ price
+                            </span>
+                          )}
+                        </div>
+                      </button>
+                    );
+                  })}
+                </div>
+              </FormSection>
+            )}
 
             <FormSection label="Party size">
               <NumberPicker

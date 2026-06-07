@@ -155,6 +155,7 @@ export default function DashboardClient() {
               <ul className="divide-y divide-cream/5">
                 {[
                   { label: "Edit ticket prices", href: "/admin/tickets" },
+                  { label: "Pool / table bookings on-off switch", href: "/admin/booking-settings" },
                   { label: "Block a date (private hire / holiday)", href: "/admin/closed" },
                   { label: "Create a promo code", href: "/admin/promos" },
                   { label: "Issue a gift voucher", href: "/admin/vouchers" },

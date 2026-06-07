@@ -58,11 +58,13 @@ const db = createClient(SUPABASE_URL, SUPABASE_SERVICE_ROLE_KEY, {
   auth: { persistSession: false },
 });
 
-// £6 per 30 minutes. Always rounded up to the next slot so a 45-min
-// request would charge for 60 min — defensive against any future
-// duration values that aren't multiples of 30.
-function feeFromDurationMinutes(min: number): number {
-  return Math.ceil(min / 30) * 600;
+// £6 per 30 minutes by default; Monday is half-price (£3 per 30 min).
+// Always rounded up to the next slot. Recomputed here server-side so
+// the customer can't tamper with the amount via the browser.
+function feeForBooking(isoDate: string, durationMinutes: number): number {
+  const day = new Date(`${isoDate}T00:00:00Z`).getUTCDay();
+  const basePer30 = day === 1 ? 300 : 600; // Monday discount
+  return Math.ceil(durationMinutes / 30) * basePer30;
 }
 
 Deno.serve(async (req) => {
@@ -118,7 +120,26 @@ Deno.serve(async (req) => {
     );
   }
 
-  const amount = feeFromDurationMinutes(r.duration_minutes);
+  // Master kill-switch — admin can flip 'pool' off in
+  // /admin/booking-settings and the customer can't bypass it by
+  // holding the page open while we toggle.
+  const { data: setting } = await db
+    .from("booking_settings")
+    .select("enabled, closed_message")
+    .eq("id", "pool")
+    .maybeSingle();
+  if (setting && setting.enabled === false) {
+    return jsonResponse(
+      {
+        error:
+          setting.closed_message ||
+          "Pool table bookings are temporarily paused. DM us on Instagram if it's urgent.",
+      },
+      { status: 423 },
+    );
+  }
+
+  const amount = feeForBooking(r.reservation_date, r.duration_minutes);
   if (amount <= 0) {
     return jsonResponse(
       { error: "Could not compute a positive fee" },

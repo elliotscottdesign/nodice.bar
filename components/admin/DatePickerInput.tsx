@@ -46,12 +46,16 @@ export default function DatePickerInput({
   value,
   onChange,
   minIso,
+  disabledDaysOfWeek,
   className,
   placeholder = "Pick a date",
 }: {
   value: string; // YYYY-MM-DD
   onChange: (iso: string) => void;
   minIso?: string;
+  /** Day-of-week numbers to grey out (0=Sun, 1=Mon, …, 6=Sat).
+   *  Used by /book/pool to disable Saturdays. */
+  disabledDaysOfWeek?: number[];
   className?: string;
   placeholder?: string;
 }) {
@@ -136,7 +140,12 @@ export default function DatePickerInput({
                   setOpen(false);
                 }
               }}
-              disabled={minDate ? { before: minDate } : undefined}
+              disabled={[
+                ...(minDate ? [{ before: minDate }] : []),
+                ...(disabledDaysOfWeek && disabledDaysOfWeek.length > 0
+                  ? [{ dayOfWeek: disabledDaysOfWeek }]
+                  : []),
+              ]}
               weekStartsOn={1}
               showOutsideDays
             />
