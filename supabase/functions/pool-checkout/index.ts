@@ -58,13 +58,70 @@ const db = createClient(SUPABASE_URL, SUPABASE_SERVICE_ROLE_KEY, {
   auth: { persistSession: false },
 });
 
-// £6 per 30 minutes by default; Monday is half-price (£3 per 30 min).
-// Always rounded up to the next slot. Recomputed here server-side so
-// the customer can't tamper with the amount via the browser.
-function feeForBooking(isoDate: string, durationMinutes: number): number {
-  const day = new Date(`${isoDate}T00:00:00Z`).getUTCDay();
-  const basePer30 = day === 1 ? 300 : 600; // Monday discount
-  return Math.ceil(durationMinutes / 30) * basePer30;
+// Price is recomputed server-side from the live config in Supabase
+// (bookable_products + bookable_price_windows + bookable_date_overrides)
+// so the customer can't tamper with the amount, and any admin price
+// change applies immediately to new bookings.
+
+type PriceWindow = {
+  days_of_week: number[];
+  start_time: string;
+  end_time: string;
+  price_per_30min_pence: number;
+  is_default: boolean;
+  priority: number;
+};
+
+function timeToMin(t: string): number {
+  const [h, m] = t.split(":").map(Number);
+  return h * 60 + (m || 0);
+}
+
+function dayOfWeekUtc(iso: string): number {
+  return new Date(`${iso}T00:00:00Z`).getUTCDay();
+}
+
+function pricePer30(
+  windows: PriceWindow[],
+  iso: string,
+  slotMin: number,
+): number {
+  const dow = dayOfWeekUtc(iso);
+  for (const w of windows) {
+    if (!w.days_of_week.includes(dow)) continue;
+    const ws = timeToMin(w.start_time);
+    const we = timeToMin(w.end_time);
+    if (slotMin < ws || slotMin >= we) continue;
+    return w.price_per_30min_pence;
+  }
+  const def = windows.find((w) => w.is_default);
+  return def ? def.price_per_30min_pence : 0;
+}
+
+async function feeForBookingFromConfig(
+  productId: string,
+  isoDate: string,
+  startTime: string,
+  durationMinutes: number,
+): Promise<number> {
+  const { data, error } = await db
+    .from("bookable_price_windows")
+    .select("*")
+    .eq("product_id", productId)
+    .order("priority", { ascending: false });
+  if (error || !data) {
+    // Fail-closed wouldn't be customer-friendly, fail-open to the
+    // legacy flat rate so a Supabase blip doesn't break checkout.
+    return Math.ceil(durationMinutes / 30) * 600;
+  }
+  const windows = data as PriceWindow[];
+  const startMin = timeToMin(startTime);
+  const blocks = Math.ceil(durationMinutes / 30);
+  let total = 0;
+  for (let i = 0; i < blocks; i++) {
+    total += pricePer30(windows, isoDate, startMin + i * 30);
+  }
+  return total;
 }
 
 Deno.serve(async (req) => {
@@ -120,26 +177,31 @@ Deno.serve(async (req) => {
     );
   }
 
-  // Master kill-switch — admin can flip 'pool' off in
-  // /admin/booking-settings and the customer can't bypass it by
-  // holding the page open while we toggle.
-  const { data: setting } = await db
-    .from("booking_settings")
+  // Master kill-switch — admin flips this in
+  // /admin/products/pool. Customer can't bypass it by holding the
+  // page open while we toggle.
+  const { data: product } = await db
+    .from("bookable_products")
     .select("enabled, closed_message")
     .eq("id", "pool")
     .maybeSingle();
-  if (setting && setting.enabled === false) {
+  if (product && product.enabled === false) {
     return jsonResponse(
       {
         error:
-          setting.closed_message ||
+          product.closed_message ||
           "Pool table bookings are temporarily paused. DM us on Instagram if it's urgent.",
       },
       { status: 423 },
     );
   }
 
-  const amount = feeForBooking(r.reservation_date, r.duration_minutes);
+  const amount = await feeForBookingFromConfig(
+    "pool",
+    r.reservation_date,
+    r.start_time,
+    r.duration_minutes,
+  );
   if (amount <= 0) {
     return jsonResponse(
       { error: "Could not compute a positive fee" },

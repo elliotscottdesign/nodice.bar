@@ -15,9 +15,14 @@ import {
 } from "@stripe/react-stripe-js";
 import { createBarReservation } from "@/lib/db/barReservations";
 import {
-  loadBookingSetting,
-  type DbBookingSetting,
-} from "@/lib/db/bookingSettings";
+  loadBookableProductConfig,
+  availableSlotsForDate,
+  priceForBooking as priceForBookingFromCfg,
+  isDateBookable,
+  recurringClosedDaysOfWeek,
+  DAY_NAMES,
+  type BookableProductConfig,
+} from "@/lib/db/bookableProducts";
 import DatePickerInput from "@/components/admin/DatePickerInput";
 import BrandSelect from "@/components/BrandSelect";
 
@@ -59,69 +64,15 @@ function getStripePromise(): Promise<StripeJs | null> {
   return _stripePromise;
 }
 
-const OPEN_HOUR = 16;
-const CLOSE_HOUR = 23;
-
-function generatePoolSlots(): string[] {
-  const out: string[] = [];
-  for (let h = OPEN_HOUR; h <= CLOSE_HOUR; h++) {
-    out.push(`${String(h).padStart(2, "0")}:00`);
-    out.push(`${String(h).padStart(2, "0")}:30`);
-  }
-  return out;
-}
-
 // =============================================================
-// Pool booking rules (kept in code; admin toggle for on/off comes
-// next). Hours/prices are recomputed server-side in pool-checkout
-// from `reservation_date` so the browser can't tamper with them.
+// Hours, slot rules, and prices all come from the bookable_products
+// config (Supabase, edited at /admin/products/pool). The Edge
+// Function recomputes server-side from the same config so the
+// customer can't tamper with the total.
 // =============================================================
-
-const DAY_NAMES = [
-  "Sunday",
-  "Monday",
-  "Tuesday",
-  "Wednesday",
-  "Thursday",
-  "Friday",
-  "Saturday",
-] as const;
-
-// 6 = Saturday — closed all day.
-const CLOSED_DAYS = [6];
-
-// On these days, all pool bookings must END by 18:30 (tournament
-// warm-up starts then). Wed=3, Fri=5.
-const TOURNAMENT_DAYS = [3, 5];
-const TOURNAMENT_DAY_LATEST_END_MIN = 18 * 60 + 30; // 18:30
-
-// Monday discount — half-price slots.
-const DISCOUNT_DAYS = [1];
 
 function dayOfWeek(iso: string): number {
   return new Date(`${iso}T00:00:00`).getDay();
-}
-
-function minutesFromSlot(slot: string): number {
-  const [h, m] = slot.split(":").map(Number);
-  return h * 60 + m;
-}
-
-function isClosed(iso: string): boolean {
-  return CLOSED_DAYS.includes(dayOfWeek(iso));
-}
-
-// Slots that fit the day's rules for a given duration. On tournament
-// days the booking must end by 18:30, so 60-min picks lose 18:00 and
-// 30-min picks lose anything after 18:00.
-function availableSlots(iso: string, duration: number): string[] {
-  if (isClosed(iso)) return [];
-  const day = dayOfWeek(iso);
-  const all = generatePoolSlots();
-  const latestEnd = TOURNAMENT_DAYS.includes(day)
-    ? TOURNAMENT_DAY_LATEST_END_MIN
-    : 24 * 60;
-  return all.filter((s) => minutesFromSlot(s) + duration <= latestEnd);
 }
 
 function todayIso(): string {
@@ -133,17 +84,9 @@ function todayIso(): string {
 }
 
 function formatPounds(pence: number): string {
+  if (pence === 0) return "Free";
   if (pence % 100 === 0) return `£${pence / 100}`;
   return `£${(pence / 100).toFixed(2)}`;
-}
-
-// Day-of-week + duration → price (pence). Monday is half price.
-// Mirrors the server-side computation in pool-checkout so totals
-// always match.
-function priceForBooking(iso: string, duration: number): number {
-  const day = dayOfWeek(iso);
-  const basePer30 = DISCOUNT_DAYS.includes(day) ? 300 : 600;
-  return Math.ceil(duration / 30) * basePer30;
 }
 
 // Stripe appearance — same dark theme as the tournament flow.
@@ -200,7 +143,7 @@ function PoolBookingPageInner() {
   // ----- Form state -----
   const [date, setDate] = useState(params.get("date") || todayIso());
   const [time, setTime] = useState<string>("");
-  const [duration, setDuration] = useState<30 | 60>(30);
+  const [duration, setDuration] = useState<number>(30);
   const [partySize, setPartySize] = useState<number>(
     Math.max(1, Math.min(8, parseInt(params.get("size") || "2", 10) || 2)),
   );
@@ -217,43 +160,87 @@ function PoolBookingPageInner() {
   const [error, setError] = useState("");
   const [clientSecret, setClientSecret] = useState<string | null>(null);
 
-  // ----- Admin kill-switch -----
-  // Loads /admin/booking-settings's `pool` row on mount. While
-  // loading we hold the form back so the customer doesn't briefly
-  // see it before we discover bookings are paused.
-  const [setting, setSetting] = useState<DbBookingSetting | null>(null);
-  const [settingLoaded, setSettingLoaded] = useState(false);
+  // ----- Live config from /admin/products/pool -----
+  // Hours, prices, deals, master on/off all come from Supabase.
+  // While loading we render nothing; the Edge Function rechecks
+  // server-side at checkout so a mid-session admin toggle can't be
+  // bypassed by holding the page open.
+  const [cfg, setCfg] = useState<BookableProductConfig | null>(null);
+  const [cfgLoaded, setCfgLoaded] = useState(false);
   useEffect(() => {
     let cancelled = false;
-    loadBookingSetting("pool")
-      .then((s) => {
+    loadBookableProductConfig("pool")
+      .then((c) => {
         if (!cancelled) {
-          setSetting(s);
-          setSettingLoaded(true);
+          setCfg(c);
+          setCfgLoaded(true);
         }
       })
       .catch(() => {
-        // If we can't read settings, fail open — better to let the
-        // customer book than to block the whole page on a transient
-        // Supabase blip.
-        if (!cancelled) setSettingLoaded(true);
+        // Fail open — don't block the whole page on a Supabase blip.
+        if (!cancelled) setCfgLoaded(true);
       });
     return () => {
       cancelled = true;
     };
   }, []);
 
-  // Recomputed every render based on the date + duration. If the
-  // customer changes date and their selected time is no longer valid
-  // (e.g. they picked 18:00 then switched to a Wednesday and the
-  // tournament cutoff kicks in), clear `time` and ask them to repick.
-  const slots = useMemo(
-    () => availableSlots(date, duration),
-    [date, duration],
+  // Allowed slot lengths, derived from the product config.
+  // e.g. min=30, max=60, step=30 → [30, 60].
+  const allowedDurations = useMemo<number[]>(() => {
+    if (!cfg) return [30, 60];
+    const out: number[] = [];
+    for (
+      let d = cfg.product.min_duration_minutes;
+      d <= cfg.product.max_duration_minutes;
+      d += cfg.product.duration_step_minutes
+    ) {
+      out.push(d);
+    }
+    return out.length > 0 ? out : [cfg.product.min_duration_minutes];
+  }, [cfg]);
+
+  // Keep `duration` valid as config loads / changes.
+  useEffect(() => {
+    if (!allowedDurations.includes(duration)) {
+      setDuration(allowedDurations[0]);
+    }
+  }, [allowedDurations, duration]);
+
+  // Closed-by-default days-of-week (for greying out the calendar).
+  const closedDaysOfWeek = useMemo(
+    () => (cfg ? recurringClosedDaysOfWeek(cfg) : []),
+    [cfg],
   );
-  const totalPence = priceForBooking(date, duration);
-  const closed = isClosed(date);
-  const closedNote = closed ? `${DAY_NAMES[dayOfWeek(date)]} — no pool bookings.` : "";
+
+  // Slot list for the current date + duration. Filtered by hours,
+  // date overrides, and per-day cutoffs encoded in the open windows.
+  const slots = useMemo(
+    () => (cfg ? availableSlotsForDate(cfg, date, duration) : []),
+    [cfg, date, duration],
+  );
+
+  const closed = cfg ? !isDateBookable(cfg, date) : false;
+  const closedOverride = cfg?.overrides.find((o) => o.date === date && o.closed);
+  const closedNote = closed
+    ? closedOverride?.note
+      ? `Closed: ${closedOverride.note}`
+      : `${DAY_NAMES[dayOfWeek(date)]} — closed.`
+    : "";
+
+  const totalPence =
+    cfg && time
+      ? priceForBookingFromCfg(cfg, date, time, duration)
+      : cfg
+        ? // No time picked yet — show the earliest-slot price as a
+          // preview so the CTA isn't blank.
+          (() => {
+            const first = slots[0];
+            return first
+              ? priceForBookingFromCfg(cfg, date, first, duration)
+              : 0;
+          })()
+        : 0;
 
   const elementsOptions = useMemo<StripeElementsOptions | null>(
     () =>
@@ -280,7 +267,7 @@ function PoolBookingPageInner() {
           start_time: time,
           duration_minutes: duration,
           party_size: partySize,
-          resource_count: 1,
+          resource_count: cfg?.product.default_resource_count ?? 1,
           name: name.trim(),
           email: email.trim(),
           phone: phone.trim() || null,
@@ -361,22 +348,23 @@ function PoolBookingPageInner() {
     <main className="px-6 py-16">
       <div className="mx-auto max-w-3xl">
         <div className="mb-4 text-center text-xs font-bold uppercase tracking-[0.3em] text-plonkPink">
-          Pool · 30-min slots · £6 per slot
+          {cfg?.product.customer_eyebrow || "Pool · 30-min slots"}
         </div>
         <h1 className="text-center font-display text-5xl uppercase tracking-wider sm:text-6xl">
-          Reserve a Pool Table
+          {cfg?.product.customer_title || "Reserve a Pool Table"}
         </h1>
         <p className="mx-auto mt-4 max-w-xl text-center text-base text-cream/75">
-          American 7ft tables. Pick 30 or 60 minutes, pay to confirm.
+          {cfg?.product.customer_intro ||
+            "American 7ft tables. Pick a length, pay to confirm."}
         </p>
 
-        {settingLoaded && setting && setting.enabled === false && (
+        {cfgLoaded && cfg && !cfg.product.enabled && (
           <div className="mx-auto mt-12 max-w-xl rounded-2xl border border-plonkPink/40 bg-plonkPink/10 p-8 text-center">
             <div className="text-[10px] font-bold uppercase tracking-[0.3em] text-plonkPink">
               Bookings paused
             </div>
             <p className="mt-4 text-base text-cream/85">
-              {setting.closed_message ||
+              {cfg.product.closed_message ||
                 "Pool table bookings are temporarily paused — check back soon or DM us on Instagram."}
             </p>
             <a
@@ -390,7 +378,7 @@ function PoolBookingPageInner() {
           </div>
         )}
 
-        {phase === "form" && settingLoaded && setting?.enabled !== false && (
+        {phase === "form" && cfgLoaded && cfg?.product.enabled !== false && (
           <form onSubmit={handleSubmit} className="mt-12 space-y-8">
             <FormSection label="Date">
               <DatePickerInput
@@ -400,12 +388,16 @@ function PoolBookingPageInner() {
                   // Clear time if it no longer fits the new day's slot
                   // window (e.g. switching to a Wed/Fri after picking
                   // 18:30 on a Mon).
-                  if (time && !availableSlots(iso, duration).includes(time)) {
+                  if (
+                    cfg &&
+                    time &&
+                    !availableSlotsForDate(cfg, iso, duration).includes(time)
+                  ) {
                     setTime("");
                   }
                 }}
                 minIso={todayIso()}
-                disabledDaysOfWeek={CLOSED_DAYS}
+                disabledDaysOfWeek={closedDaysOfWeek}
               />
               {closedNote && (
                 <p className="mt-2 text-xs text-plonkPink">{closedNote}</p>
@@ -440,32 +432,38 @@ function PoolBookingPageInner() {
                     })}
                   </div>
                 )}
-                {TOURNAMENT_DAYS.includes(dayOfWeek(date)) && (
-                  <p className="mt-2 text-xs text-cream/55">
-                    Tournament night — bookings must end by 18:30 so the
-                    tables are clear for warm-up.
-                  </p>
-                )}
               </FormSection>
             )}
 
-            {!closed && (
+            {!closed && cfg && (
               <FormSection label="How long?">
-                <div className="grid gap-3 sm:grid-cols-2">
-                  {[30, 60].map((d) => {
+                <div
+                  className={`grid gap-3 ${
+                    allowedDurations.length > 1 ? "sm:grid-cols-2" : ""
+                  }`}
+                >
+                  {allowedDurations.map((d) => {
                     const active = duration === d;
-                    const price = priceForBooking(date, d);
-                    const fits = availableSlots(date, d).length > 0;
+                    // Preview price from the first available slot at
+                    // this duration (since price varies by time-of-day).
+                    const previewSlots = availableSlotsForDate(cfg, date, d);
+                    const fits = previewSlots.length > 0;
+                    const previewTime = time && previewSlots.includes(time)
+                      ? time
+                      : previewSlots[0];
+                    const price = previewTime
+                      ? priceForBookingFromCfg(cfg, date, previewTime, d)
+                      : 0;
                     return (
                       <button
                         key={d}
                         type="button"
                         disabled={!fits}
                         onClick={() => {
-                          setDuration(d as 30 | 60);
+                          setDuration(d);
                           if (
                             time &&
-                            !availableSlots(date, d).includes(time)
+                            !availableSlotsForDate(cfg, date, d).includes(time)
                           ) {
                             setTime("");
                           }
@@ -482,12 +480,7 @@ function PoolBookingPageInner() {
                           {d} minutes
                         </div>
                         <div className="mt-0.5 text-xs uppercase tracking-widest text-cream/55">
-                          {formatPounds(price)}
-                          {DISCOUNT_DAYS.includes(dayOfWeek(date)) && (
-                            <span className="ml-2 rounded-full bg-plonkTeal/15 px-2 py-0.5 text-[9px] font-bold uppercase tracking-wider text-plonkTeal">
-                              Monday ½ price
-                            </span>
-                          )}
+                          {fits ? `from ${formatPounds(price)}` : "—"}
                         </div>
                       </button>
                     );
@@ -499,8 +492,8 @@ function PoolBookingPageInner() {
             <FormSection label="Party size">
               <NumberPicker
                 value={partySize}
-                min={1}
-                max={8}
+                min={cfg?.product.min_party_size ?? 1}
+                max={cfg?.product.max_party_size ?? 8}
                 onChange={setPartySize}
               />
             </FormSection>
