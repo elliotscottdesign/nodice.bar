@@ -218,6 +218,16 @@ export default function TournamentSchedule() {
           <ul className="space-y-3">
             {events.map((t) => {
               const isExpanded = expandedId === t.id;
+              // Sold-out at the schema-level cap. The Edge Function
+              // does its own server-side check (including in-flight
+              // pending payments) so this is just UI politeness — we
+              // show SOLD OUT and disable the row instead of letting
+              // the customer fill the form only to be rejected.
+              const spotsLeft = Math.max(
+                0,
+                t.max_teams - t.paid_entries_count,
+              );
+              const isSoldOut = spotsLeft <= 0;
               return (
                 <li key={t.id}>
                   {t.bookable ? (
@@ -226,12 +236,16 @@ export default function TournamentSchedule() {
                       <button
                         type="button"
                         onClick={() =>
+                          !isSoldOut &&
                           setExpandedId(isExpanded ? null : t.id)
                         }
+                        disabled={isSoldOut}
                         className={`group flex w-full items-center justify-between gap-4 rounded-xl border px-5 py-4 text-left transition ${
-                          isExpanded
-                            ? "border-plonkPink bg-plonkPink/10"
-                            : "border-cream/10 bg-ink/40 hover:border-plonkPink/60 hover:bg-plonkPink/10"
+                          isSoldOut
+                            ? "cursor-not-allowed border-cream/10 bg-ink/20 opacity-60"
+                            : isExpanded
+                              ? "border-plonkPink bg-plonkPink/10"
+                              : "border-cream/10 bg-ink/40 hover:border-plonkPink/60 hover:bg-plonkPink/10"
                         }`}
                       >
                         <div className="min-w-0 flex-1">
@@ -240,23 +254,33 @@ export default function TournamentSchedule() {
                           </div>
                           <div className="mt-0.5 text-xs uppercase tracking-widest text-cream/55">
                             {formatTime(t.start_time)} ·{" "}
-                            {formatFee(t.entry_fee_pence)} entry · up to{" "}
-                            {t.max_teams} teams
+                            {formatFee(t.entry_fee_pence)} entry ·{" "}
+                            {isSoldOut
+                              ? `${t.max_teams} / ${t.max_teams} teams`
+                              : spotsLeft === 1
+                                ? "Last spot left"
+                                : `${spotsLeft} of ${t.max_teams} spots left`}
                           </div>
                         </div>
                         <span
                           className={`shrink-0 rounded-full px-4 py-2 text-[11px] font-bold uppercase tracking-widest transition ${
-                            isExpanded
-                              ? "bg-cream/10 text-cream"
-                              : "bg-plonkPink text-white opacity-90 group-hover:opacity-100"
+                            isSoldOut
+                              ? "border border-cream/15 text-cream/50"
+                              : isExpanded
+                                ? "bg-cream/10 text-cream"
+                                : "bg-plonkPink text-white opacity-90 group-hover:opacity-100"
                           }`}
                         >
-                          {isExpanded ? "Close" : "Sign up →"}
+                          {isSoldOut
+                            ? "Sold out"
+                            : isExpanded
+                              ? "Close"
+                              : "Sign up →"}
                         </span>
                       </button>
 
                       {/* Inline form + Stripe Embedded Checkout */}
-                      {isExpanded && (
+                      {isExpanded && !isSoldOut && (
                         <InlineTournamentBooking
                           tournament={t}
                           onClose={() => setExpandedId(null)}

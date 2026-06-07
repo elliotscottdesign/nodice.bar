@@ -31,6 +31,11 @@ export type DbTournament = {
   event_date: string;        // YYYY-MM-DD
   start_time: string | null; // HH:MM[:SS]
   max_teams: number;
+  /** Denormalized count of entries with status='paid'. Kept in sync
+   *  by a DB trigger on tournament_entries — public clients read it
+   *  to render "X / max_teams" or "SOLD OUT" without needing access
+   *  to the entries table itself. */
+  paid_entries_count: number;
   entry_fee_pence: number;
   /** True = shows on the public /pool schedule. */
   registration_open: boolean;

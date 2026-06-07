@@ -132,7 +132,7 @@ Deno.serve(async (req) => {
 
   const { data: tournament, error: tournErr } = await db
     .from("tournaments")
-    .select("id, name, entry_fee_pence, registration_open, bookable")
+    .select("id, name, entry_fee_pence, registration_open, bookable, max_teams")
     .eq("id", tournament_id)
     .maybeSingle();
   if (tournErr) {
@@ -163,6 +163,36 @@ Deno.serve(async (req) => {
     return jsonResponse(
       { error: "Tournament has no entry fee configured" },
       { status: 500 },
+    );
+  }
+
+  // Capacity check. Count BOTH paid entries (final state) AND
+  // pending_payment entries created in the last 15 minutes (active
+  // checkout sessions). Older pending rows are treated as abandoned —
+  // their spot is released so we don't lock capacity indefinitely
+  // for customers who never finished paying.
+  const FIFTEEN_MIN_AGO = new Date(Date.now() - 15 * 60 * 1000).toISOString();
+  const { count: activeCount, error: countErr } = await db
+    .from("tournament_entries")
+    .select("id", { count: "exact", head: true })
+    .eq("tournament_id", tournament.id)
+    .neq("id", entry.id)
+    .or(
+      `status.eq.paid,and(status.eq.pending_payment,created_at.gte.${FIFTEEN_MIN_AGO})`,
+    );
+  if (countErr) {
+    return jsonResponse(
+      { error: `Capacity check failed: ${countErr.message}` },
+      { status: 500 },
+    );
+  }
+  const taken = activeCount ?? 0;
+  if (taken >= tournament.max_teams) {
+    return jsonResponse(
+      {
+        error: `Sorry, this tournament just filled up — ${tournament.max_teams} teams already secured. Pick another date.`,
+      },
+      { status: 409 },
     );
   }
 
