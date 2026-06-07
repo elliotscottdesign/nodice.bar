@@ -10,6 +10,7 @@ import { Editable } from "@/components/Editable";
 import PageHero from "@/components/PageHero";
 import { useEditMode } from "@/lib/editMode";
 import CalendarEventModal from "@/components/CalendarEventModal";
+import InstagramFeed from "@/components/InstagramFeed";
 
 // /events — monthly calendar grid. Mon-Sun, 7 cols. Days with events
 // show the artwork (4:5) + title + optional body + optional link.
@@ -316,6 +317,16 @@ export default function EventsPage() {
           )}
         </div>
       </section>
+
+      {/* Live @nodice.bar feed under the calendar. Same Behold widget
+          as the homepage; copy is independently editable via its own
+          CMS keys so the wording can vary between pages. */}
+      <InstagramFeed
+        eyebrowKey="events.instagram.eyebrow"
+        eyebrowFallback="@nodice.bar"
+        headingKey="events.instagram.heading"
+        headingFallback="What's been going on."
+      />
 
       {/* Inline create/edit modal — only mounted when something is
           open. Save / delete refresh the month's events. */}

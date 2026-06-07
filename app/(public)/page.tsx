@@ -9,6 +9,7 @@ import HeroBookingWidget from "@/components/HeroBookingWidget";
 import { useContent, useImage, useGallery } from "@/lib/content";
 import { Editable, DisplayImage } from "@/components/Editable";
 import ManageGalleryLink from "@/components/ManageGalleryLink";
+import InstagramFeed from "@/components/InstagramFeed";
 
 const PRESS = [
   { name: "Evening Standard", src: "/images/London-Evening-Standard-logo.jpg" },
@@ -218,79 +219,19 @@ export default function HomePage() {
           CtaCard component below is left in the file (unused) in case
           the two cards are wanted back later. */}
 
-      {/* ───────────── INSTAGRAM GRID ─────────────
-          Curated Instagram-style grid. Pulls images from the
-          `home.instagram` gallery key — manage at /admin/content/
-          galleries. Each tile links to the No Dice Instagram profile.
-          When the founder uploads images via the admin, those replace
-          the placeholder set below. */}
-      <InstagramStrip />
+      {/* ───────────── INSTAGRAM FEED ─────────────
+          Live @nodice.bar feed via Behold.so. Shared component used
+          on /events too so the widget setup lives in one place. CMS
+          keys keep the existing home.instagram.* edits valid. */}
+      <InstagramFeed />
     </main>
   );
 }
 
 // Live Instagram feed rendered by Behold.so. The widget pulls posts
-// auto-synced from @nodice.bar (managed at behold.so) and renders
-// its own grid + click-through to each post. We supply the eyebrow,
-// heading and the "Follow" CTA around it.
-//
-// To swap providers (or feeds) in future: change the feed-id below.
-// The Behold loader script lives at https://w.behold.so/widget.js
-// and is loaded via Next.js's <Script> for proper hydration order.
-function InstagramStrip() {
-  const INSTAGRAM_URL = "https://www.instagram.com/nodice.bar/";
-  const BEHOLD_FEED_ID = "Ri14ASLlH0Y21Si7xE2v";
-
-  return (
-    <section className="relative overflow-hidden px-6 py-24">
-      <div className="mx-auto max-w-6xl">
-        <div className="mb-10 text-center">
-          <p className="text-xs font-bold uppercase tracking-eyebrow text-plonkYellow">
-            <Editable k="home.instagram.eyebrow">
-              {useContent("home.instagram.eyebrow", "@nodice.bar")}
-            </Editable>
-          </p>
-          <h2 className="mt-5 font-display text-4xl leading-tight sm:text-5xl md:text-6xl">
-            <Editable k="home.instagram.heading">
-              {useContent("home.instagram.heading", "Follow along.")}
-            </Editable>
-          </h2>
-        </div>
-
-        {/* Behold's widget loader — Next.js handles ordering so the
-            <behold-widget> custom element below upgrades correctly
-            after hydration. `afterInteractive` waits until the page
-            is responsive so we don't block first paint. */}
-        <Script
-          src="https://w.behold.so/widget.js"
-          type="module"
-          strategy="afterInteractive"
-        />
-        {/* createElement avoids the TS "unknown JSX element" warning
-            that a literal <behold-widget> tag would throw. The widget
-            renders its own grid + click-through; styling is themed at
-            behold.so (sign in to recolour to match the site). */}
-        {createElement("behold-widget", { "feed-id": BEHOLD_FEED_ID })}
-
-        <div className="mt-10 text-center">
-          <a
-            href={INSTAGRAM_URL}
-            target="_blank"
-            rel="noopener noreferrer"
-            className="inline-flex items-center gap-2 rounded-full bg-plonkPink px-8 py-3 text-sm font-bold uppercase tracking-wider text-white shadow-lg shadow-plonkPink/20 transition hover:bg-plonkPink/90"
-          >
-            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden>
-              <rect x="2" y="2" width="20" height="20" rx="5" />
-              <path d="M16 11.37A4 4 0 1 1 12.63 8 4 4 0 0 1 16 11.37z" />
-              <line x1="17.5" y1="6.5" x2="17.51" y2="6.5" />
-            </svg>
-            Follow @nodice.bar
-          </a>
-        </div>
-      </div>
-    </section>
-  );
-}
+// auto-synced from @nodice.bar (managed at behold.so). The widget
+// is now in components/InstagramFeed.tsx — used here AND on /events
+// (and any future page that wants the live grid).
 
 /* ───────────── components ───────────── */
 
