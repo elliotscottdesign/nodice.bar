@@ -1,10 +1,15 @@
 "use client";
 
-import { forwardRef, useEffect, useLayoutEffect, useRef, useState } from "react";
+import { forwardRef, useEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
 import { createPortal } from "react-dom";
 import { useRouter } from "next/navigation";
 import CalendarPopup from "./CalendarPopup";
 import { localIso } from "@/lib/dateIso";
+import {
+  loadBookableProductConfig,
+  recurringClosedDaysOfWeek,
+  type BookableProductConfig,
+} from "@/lib/db/bookableProducts";
 
 // HeroBookingWidget — the single floating front door for every kind
 // of reservation No Dice takes. User picks WHAT (Pool / Table /
@@ -62,6 +67,70 @@ export default function HeroBookingWidget() {
 
   const [openField, setOpenField] = useState<null | "item" | "size">(null);
   const [calendarOpen, setCalendarOpen] = useState(false);
+
+  // Live booking config for whichever item is currently selected.
+  // Drives the calendar grey-outs (closed days), the date-overrides
+  // (private hire), and the max party size in the WHO picker.
+  // Item IDs map directly to bookable_products.id ('pool', 'table').
+  // World Cup + golf don't have config rows yet — they fall through
+  // to defaults.
+  const [cfg, setCfg] = useState<BookableProductConfig | null>(null);
+  useEffect(() => {
+    setCfg(null);
+    if (item !== "pool" && item !== "table") return;
+    let cancelled = false;
+    loadBookableProductConfig(item)
+      .then((c) => {
+        if (!cancelled) setCfg(c);
+      })
+      .catch(() => {
+        // Fail open — if config can't load, calendar shows everything.
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, [item]);
+
+  const disabledDaysOfWeek = useMemo(
+    () => (cfg ? recurringClosedDaysOfWeek(cfg) : undefined),
+    [cfg],
+  );
+  const disabledDates = useMemo(
+    () =>
+      cfg
+        ? cfg.overrides.filter((o) => o.closed).map((o) => o.date)
+        : undefined,
+    [cfg],
+  );
+
+  const maxPartySize = cfg?.product.max_party_size ?? 12;
+  const minPartySize = cfg?.product.min_party_size ?? 1;
+
+  // If the customer picked a date BEFORE changing WHAT — and the new
+  // item closes that day-of-week — silently clear it so the disabled
+  // date isn't carried forward into the next page's query string.
+  useEffect(() => {
+    if (!date || !cfg) return;
+    const dow = new Date(`${date}T00:00:00`).getDay();
+    const closed =
+      (disabledDaysOfWeek ?? []).includes(dow) ||
+      (disabledDates ?? []).includes(date);
+    if (closed) setDate("");
+  }, [date, cfg, disabledDaysOfWeek, disabledDates]);
+
+  // Clamp party size if the new product caps it lower than the
+  // customer's current pick (e.g. switching from Table 12 → Pool 8).
+  useEffect(() => {
+    if (size > 0 && size > maxPartySize) setSize(maxPartySize);
+    if (size > 0 && size < minPartySize) setSize(minPartySize);
+  }, [size, maxPartySize, minPartySize]);
+  // Trim the default 1..12 list down to the product's range. Keeps the
+  // hand-picked "1,2,3,4,5,6,7,8,10,12" choices (no 9/11) for table
+  // bookings, but caps at 8 for pool.
+  const partySizeOptions = useMemo(() => {
+    const base = [1, 2, 3, 4, 5, 6, 7, 8, 10, 12];
+    return base.filter((n) => n >= minPartySize && n <= maxPartySize);
+  }, [minPartySize, maxPartySize]);
 
   // Refs to the trigger buttons so the portaled dropdown can position
   // itself flush under whichever one was clicked.
@@ -157,7 +226,7 @@ export default function HeroBookingWidget() {
             align="center"
             onClose={() => setOpenField(null)}
           >
-            {[1, 2, 3, 4, 5, 6, 7, 8, 10, 12].map((n) => (
+            {partySizeOptions.map((n) => (
               <button
                 key={n}
                 onClick={() => {
@@ -190,6 +259,8 @@ export default function HeroBookingWidget() {
           value={date || todayIso()}
           minIso={todayIso()}
           maxIso={maxIso()}
+          disabledDaysOfWeek={disabledDaysOfWeek}
+          disabledDates={disabledDates}
           onSelect={(iso) => {
             setDate(iso);
             setCalendarOpen(false);

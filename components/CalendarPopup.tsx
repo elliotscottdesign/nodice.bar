@@ -9,12 +9,20 @@ export default function CalendarPopup({
   maxIso,
   onSelect,
   onClose,
+  disabledDaysOfWeek,
+  disabledDates,
 }: {
   value: string;
   minIso: string;
   maxIso: string;
   onSelect: (iso: string) => void;
   onClose: () => void;
+  /** Day-of-week numbers to grey out (0=Sun … 6=Sat). e.g. [6] hides
+   *  Saturdays for pool bookings. */
+  disabledDaysOfWeek?: number[];
+  /** Specific ISO dates to grey out (private hire, bank holiday, etc.).
+   *  Read from bookable_date_overrides where closed=true. */
+  disabledDates?: string[];
 }) {
   const initial = new Date(value + "T00:00:00");
   const [shown, setShown] = useState<{ year: number; month: number }>(() => ({
@@ -30,9 +38,15 @@ export default function CalendarPopup({
   const maxDate = new Date(maxIso + "T00:00:00");
   const todayIsoNow = localIso(new Date());
 
+  const disabledDateSet = new Set(disabledDates ?? []);
+  const disabledDowSet = new Set(disabledDaysOfWeek ?? []);
+
   function isDisabled(iso: string) {
     const d = new Date(iso + "T00:00:00");
-    return d < minDate || d > maxDate;
+    if (d < minDate || d > maxDate) return true;
+    if (disabledDateSet.has(iso)) return true;
+    if (disabledDowSet.has(d.getDay())) return true;
+    return false;
   }
 
   const cells: ({ iso: string; day: number } | null)[] = [];
