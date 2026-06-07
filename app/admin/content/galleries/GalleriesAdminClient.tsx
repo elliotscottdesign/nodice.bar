@@ -85,6 +85,13 @@ const KNOWN_GALLERIES: {
     previewPath: "/pool",
   },
   {
+    key: "hero.worldcup",
+    label: "HERO slider — World Cup",
+    description:
+      "Top-of-page slider on /world-cup. Crowd / big-screen shots work best.",
+    previewPath: "/world-cup",
+  },
+  {
     key: "hero.vouchers",
     label: "HERO slider — Vouchers",
     description: "Top-of-page slider on /vouchers.",
