@@ -83,6 +83,15 @@ export default function PageHero({
         ) : null}
         {/* Subtle top shade so the sticky nav stays legible over light photos */}
         <div className="pointer-events-none absolute inset-x-0 top-0 h-24 bg-gradient-to-b from-forestDeep/55 to-transparent" />
+        {/* Admin shortcut — floats bottom-right of the hero image
+            itself so the founder can see exactly which media this
+            controls. Only visible in admin Edit mode. */}
+        {sliderKey && (
+          <ManageGalleryLink
+            galleryKey={sliderKey}
+            label="Manage hero images"
+          />
+        )}
       </div>
 
       {/* Copy — clean hard edge between image and title band */}
@@ -104,13 +113,8 @@ export default function PageHero({
             )}
           </p>
         )}
-
-        {/* In-page admin shortcut to the hero slider's gallery — only
-            visible when admin Edit mode is on, only when this hero
-            has a sliderKey wired. */}
-        {sliderKey && (
-          <ManageGalleryLink galleryKey={sliderKey} label="Manage hero slider images / order" />
-        )}
+        {/* Hero slider's ManageGalleryLink now sits on top of the
+            image itself (above), not down here under the title. */}
       </div>
     </section>
   );

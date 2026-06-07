@@ -216,7 +216,7 @@ export default function HackneyPage() {
       {/* Events at No Dice — gallery-driven, manage at /admin/content/galleries (key: hackney.events) */}
       {eventsPosters.length > 0 && (
         <section className="tint-plum-island-ember">
-          <div className="mx-auto max-w-6xl px-6 py-16">
+          <div className="relative mx-auto max-w-6xl px-6 py-16">
             <h2 className="text-center font-display text-3xl sm:text-4xl">
               {eventsHeading}
             </h2>

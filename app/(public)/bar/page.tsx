@@ -56,11 +56,11 @@ export default function BarPage() {
       {/* MENU SLIDER — the page IS the menu. Horizontal scroll-snap with
           prev/next + dots. Founder uploads each menu page as an image to
           the bar.menu_pages gallery (one upload = one page). */}
-      <section className="px-6 pt-16 pb-12">
+      <section className="relative px-6 pt-16 pb-12">
         <MenuSlider pages={menuPages} />
         <ManageGalleryLink
           galleryKey="bar.menu_pages"
-          label="Upload / reorder MENU PAGES"
+          label="Manage menu pages"
         />
       </section>
 

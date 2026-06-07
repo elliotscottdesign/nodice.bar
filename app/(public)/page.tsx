@@ -311,7 +311,7 @@ function PressMarquee({
   // Duplicate the array so the CSS marquee animation loops seamlessly.
   const looped = [...gallery, ...gallery];
   return (
-    <section className="tint-plum overflow-hidden py-12">
+    <section className="tint-plum relative overflow-hidden py-12">
       <p className="text-center text-xs font-bold uppercase tracking-eyebrow text-cream/40">
         {eyebrow}
       </p>
@@ -334,7 +334,7 @@ function PressMarquee({
           ))}
         </div>
       </div>
-      <ManageGalleryLink galleryKey="home.press" label="Manage press logos / order" />
+      <ManageGalleryLink galleryKey="home.press" label="Manage press logos" />
     </section>
   );
 }

@@ -2,7 +2,6 @@
 
 import Link from "next/link";
 import PageHero from "@/components/PageHero";
-import ManageGalleryLink from "@/components/ManageGalleryLink";
 import TournamentSchedule from "@/components/TournamentSchedule";
 import { useContent } from "@/lib/content";
 
@@ -48,11 +47,9 @@ export default function PoolPage() {
         >
           {ctaLabel}
         </Link>
-        {/* Admin-only jump button — hidden when not in edit mode. */}
-        <ManageGalleryLink
-          galleryKey="hero.pool"
-          label="Manage hero images / order"
-        />
+        {/* Hero-images shortcut now floats over the hero itself
+            (mounted by PageHero) — used to live down here, removed
+            so it doesn't duplicate. */}
       </section>
 
       {/* Tournament sign-up section. Dropdown for Doubles / Singles,

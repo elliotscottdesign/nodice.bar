@@ -112,13 +112,15 @@ export default function AboutPage() {
         </article>
       </section>
 
-      <Gallery
-        heading={galleryHeading}
-        intro={galleryIntro}
-        images={galleryImages}
-        tint="tint-forest-deep"
-      />
-      <div className="px-6 pb-12">
+      {/* Wrapped in a relative container so the floating "Manage
+          images" pill sits on top of the gallery itself. */}
+      <div className="relative">
+        <Gallery
+          heading={galleryHeading}
+          intro={galleryIntro}
+          images={galleryImages}
+          tint="tint-forest-deep"
+        />
         <ManageGalleryLink galleryKey="about.gallery" />
       </div>
     </main>
