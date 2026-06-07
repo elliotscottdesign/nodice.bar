@@ -121,6 +121,34 @@ export default function PrivateHirePage() {
     DEFAULTS.house_rules,
   );
 
+  // Section titles. Hardcoded for years — surfacing them as CMS
+  // fields means the founder can rename "Capacity" → "Numbers" or
+  // "Venue welcomes" → "Yes to" etc., direct from the live page.
+  const capacityTitle = useContent(
+    "privatehire.hackney.capacity_title",
+    "Capacity",
+  );
+  const featuresTitle = useContent(
+    "privatehire.hackney.features_title",
+    "Room features",
+  );
+  const cateringTitle = useContent(
+    "privatehire.hackney.catering_title",
+    "Catering",
+  );
+  const licencesTitle = useContent(
+    "privatehire.hackney.licences_title",
+    "Licences",
+  );
+  const welcomesTitle = useContent(
+    "privatehire.hackney.welcomes_title",
+    "Venue welcomes",
+  );
+  const houseRulesTitle = useContent(
+    "privatehire.hackney.house_rules_title",
+    "House rules",
+  );
+
   return (
     <main>
       <PageHero
@@ -176,7 +204,7 @@ export default function PrivateHirePage() {
       {/* Fact sheet */}
       <section className="tint-plumDeep-to-plum px-6 py-24">
         <div className="mx-auto max-w-6xl space-y-12">
-          <FactPanel title="Capacity">
+          <FactPanel title={capacityTitle} titleKey="privatehire.hackney.capacity_title">
             <div className="grid gap-4 sm:grid-cols-3">
               {capacities.map((c) => (
                 <div
@@ -194,7 +222,7 @@ export default function PrivateHirePage() {
             </div>
           </FactPanel>
 
-          <FactPanel title="Room features">
+          <FactPanel title={featuresTitle} titleKey="privatehire.hackney.features_title">
             <ul className="grid gap-x-6 gap-y-3 sm:grid-cols-2 lg:grid-cols-3">
               {features.map((f) => (
                 <li
@@ -208,7 +236,7 @@ export default function PrivateHirePage() {
             </ul>
           </FactPanel>
 
-          <FactPanel title="Catering">
+          <FactPanel title={cateringTitle} titleKey="privatehire.hackney.catering_title">
             <div className="grid gap-x-10 gap-y-3 md:grid-cols-2">
               <ul className="space-y-3">
                 {cateringYes.map((c) => (
@@ -235,7 +263,7 @@ export default function PrivateHirePage() {
             </div>
           </FactPanel>
 
-          <FactPanel title="Licences">
+          <FactPanel title={licencesTitle} titleKey="privatehire.hackney.licences_title">
             <p className="whitespace-pre-line text-sm leading-relaxed text-cream/85 sm:text-base">
               <Editable k="privatehire.hackney.licences" multiline>
                 {licences}
@@ -243,7 +271,7 @@ export default function PrivateHirePage() {
             </p>
           </FactPanel>
 
-          <FactPanel title="Venue welcomes">
+          <FactPanel title={welcomesTitle} titleKey="privatehire.hackney.welcomes_title">
             <ul className="grid gap-x-6 gap-y-3 sm:grid-cols-2">
               {welcomes.map((w) => (
                 <li
@@ -257,7 +285,7 @@ export default function PrivateHirePage() {
             </ul>
           </FactPanel>
 
-          <FactPanel title="House rules">
+          <FactPanel title={houseRulesTitle} titleKey="privatehire.hackney.house_rules_title">
             <p className="whitespace-pre-line text-sm leading-relaxed text-cream/85 sm:text-base">
               <Editable k="privatehire.hackney.house_rules" multiline>
                 {houseRules}
@@ -274,16 +302,20 @@ export default function PrivateHirePage() {
 
 function FactPanel({
   title,
+  titleKey,
   children,
 }: {
   title: string;
+  /** CMS key for the title — wrapping it in Editable lets the
+   *  founder click-to-edit the section heading on the live page. */
+  titleKey: string;
   children: React.ReactNode;
 }) {
   return (
     <Reveal>
       <div className="rounded-3xl border border-plumLine/60 p-7 sm:p-9">
         <h3 className="font-display text-2xl text-plonkYellow sm:text-3xl">
-          {title}
+          <Editable k={titleKey}>{title}</Editable>
         </h3>
         <div className="mt-6">{children}</div>
       </div>
