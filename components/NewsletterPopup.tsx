@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
+import { usePathname } from "next/navigation";
 
 // =============================================================
 // NewsletterPopup — 10% off first booking, one per visitor
@@ -63,6 +64,11 @@ export default function NewsletterPopup() {
   const [error, setError] = useState<string | null>(null);
   const [submitted, setSubmitted] = useState(false);
   const [copied, setCopied] = useState(false);
+
+  // Suppress on admin pages — staff doing back-of-house work shouldn't
+  // see the customer-facing 10%-off prompt.
+  const pathname = usePathname() ?? "";
+  const isAdmin = pathname.startsWith("/admin");
 
   useEffect(() => {
     if (load()) return;
@@ -151,7 +157,7 @@ export default function NewsletterPopup() {
     }
   }
 
-  if (!visible) return null;
+  if (isAdmin || !visible) return null;
 
   return (
     <div

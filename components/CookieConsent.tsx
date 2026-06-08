@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
+import { usePathname } from "next/navigation";
 
 const STORAGE_KEY = "plonk_cookie_consent_v1";
 
@@ -39,6 +40,12 @@ export default function CookieConsent() {
   const [analytics, setAnalytics] = useState(true);
   const [marketing, setMarketing] = useState(true);
 
+  // Skip the banner on admin pages — staff aren't the "public visitor"
+  // the consent banner is required for, and it gets in the way of
+  // back-of-house work.
+  const pathname = usePathname() ?? "";
+  const isAdmin = pathname.startsWith("/admin");
+
   useEffect(() => {
     const existing = loadConsent();
     if (!existing) setVisible(true);
@@ -73,7 +80,7 @@ export default function CookieConsent() {
     setCustomise(false);
   }
 
-  if (!visible) return null;
+  if (isAdmin || !visible) return null;
 
   return (
     <div
