@@ -24,6 +24,15 @@ const COOKIES_KEY = "plonk_cookie_consent_v1";
 const SHOW_DELAY_MS = 4000;
 const DISCOUNT_CODE = "WELCOME20";
 
+// Edge Function endpoint that records the signup + emails the code.
+// Browser auth is the public anon key which Supabase accepts as a
+// valid JWT for this function. (See send-welcome-discount/index.ts.)
+const SUPABASE_URL =
+  process.env.NEXT_PUBLIC_SUPABASE_URL ??
+  "https://rntcujcpsozvuxvmlejv.supabase.co";
+const SUPABASE_ANON_KEY = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY ?? "";
+const SEND_FN_URL = `${SUPABASE_URL}/functions/v1/send-welcome-discount`;
+
 type StoredState =
   | { status: "dismissed"; ts: string }
   | {
@@ -121,7 +130,7 @@ export default function NewsletterPopup() {
     setVisible(false);
   }
 
-  function submit(e: React.FormEvent) {
+  async function submit(e: React.FormEvent) {
     e.preventDefault();
     if (!isValidEmail(email)) {
       setError("That email doesn't look right.");
@@ -132,6 +141,28 @@ export default function NewsletterPopup() {
       return;
     }
     setError(null);
+
+    // Fire the welcome email + record the signup. Best-effort —
+    // even if the network blip fails, we still show the success
+    // screen so the customer has the code in front of them. The
+    // localStorage state below ensures we won't pester them again.
+    try {
+      await fetch(SEND_FN_URL, {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          apikey: SUPABASE_ANON_KEY,
+          Authorization: `Bearer ${SUPABASE_ANON_KEY}`,
+        },
+        body: JSON.stringify({
+          email: email.trim().toLowerCase(),
+          source: "popup",
+        }),
+      });
+    } catch {
+      /* network blip — customer still sees the code below */
+    }
+
     save({
       status: "submitted",
       email: email.trim(),
