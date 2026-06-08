@@ -1,15 +1,37 @@
 "use client";
 
-import Image from "next/image";
 import { useEffect, useState } from "react";
 
-const STORAGE_KEY = "plonk_newsletter_v1";
+// =============================================================
+// NewsletterPopup — 10% off first booking, one per visitor
+// =============================================================
+// Pops once per browser (localStorage key) after the visitor's seen
+// the cookie banner. Offers a 10% discount code for any No Dice
+// event ticket. The code itself (WELCOME10 by default) is created
+// in /admin/promos so the founder can swap, disable, or expire it
+// without us pushing.
+//
+// Re-open programmatically with `window.dispatchEvent(new
+// CustomEvent("plonk:newsletter:open"))` — wired to the footer link.
+//
+// Branding follows CLAUDE.md: Bebas Neue display (`font-display`),
+// DM Sans body, plonkPink accent (#DA1B33), ink background.
+// =============================================================
+
+const STORAGE_KEY = "nd_newsletter_v1";
 const COOKIES_KEY = "plonk_cookie_consent_v1";
 const SHOW_DELAY_MS = 4000;
+const DISCOUNT_CODE = "WELCOME10";
 
 type StoredState =
   | { status: "dismissed"; ts: string }
-  | { status: "submitted"; email: string; optIn: boolean; ts: string; pending_sync: true };
+  | {
+      status: "submitted";
+      email: string;
+      optIn: boolean;
+      ts: string;
+      pending_sync: true;
+    };
 
 function load(): StoredState | null {
   if (typeof window === "undefined") return null;
@@ -40,6 +62,7 @@ export default function NewsletterPopup() {
   const [optIn, setOptIn] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [submitted, setSubmitted] = useState(false);
+  const [copied, setCopied] = useState(false);
 
   useEffect(() => {
     if (load()) return;
@@ -78,7 +101,6 @@ export default function NewsletterPopup() {
     };
   }, []);
 
-  // Allow ESC to close
   useEffect(() => {
     if (!visible) return;
     const onKey = (e: KeyboardEvent) => {
@@ -100,7 +122,7 @@ export default function NewsletterPopup() {
       return;
     }
     if (!optIn) {
-      setError("Tick the box to confirm you'd like No Dice emails.");
+      setError("Tick the box so we can email you the code.");
       return;
     }
     setError(null);
@@ -113,9 +135,20 @@ export default function NewsletterPopup() {
     });
     setSubmitted(true);
     window.dispatchEvent(
-      new CustomEvent("plonk:newsletter:signup", { detail: { email: email.trim() } })
+      new CustomEvent("plonk:newsletter:signup", {
+        detail: { email: email.trim() },
+      }),
     );
-    window.setTimeout(() => setVisible(false), 2200);
+  }
+
+  async function copyCode() {
+    try {
+      await navigator.clipboard.writeText(DISCOUNT_CODE);
+      setCopied(true);
+      window.setTimeout(() => setCopied(false), 2000);
+    } catch {
+      /* clipboard may be blocked — visitor can still read the code */
+    }
   }
 
   if (!visible) return null;
@@ -127,101 +160,94 @@ export default function NewsletterPopup() {
       aria-modal="true"
       className="fixed inset-0 z-[110] flex items-center justify-center px-4 py-6 sm:p-6"
     >
-      {/* backdrop */}
+      {/* Backdrop — click to dismiss */}
       <button
         type="button"
         aria-label="Close"
         onClick={dismiss}
-        className="absolute inset-0 cursor-default bg-forestDeep/85 backdrop-blur-sm"
+        className="absolute inset-0 cursor-default bg-black/85 backdrop-blur-sm"
       />
 
-      <div className="relative grid w-full max-w-3xl overflow-hidden rounded-2xl border border-forestLine/60 bg-forest shadow-2xl md:grid-cols-2">
-        {/* close */}
+      <div className="relative w-full max-w-md overflow-hidden rounded-2xl border border-cream/15 bg-ink shadow-2xl shadow-black/60">
+        {/* Close button */}
         <button
           type="button"
           aria-label="Close"
           onClick={dismiss}
-          className="absolute right-3 top-3 z-10 rounded-full bg-forestDeep/70 p-2 text-cream/80 transition hover:bg-forestDeep hover:text-cream"
+          className="absolute right-3 top-3 z-10 rounded-full p-2 text-cream/55 transition hover:bg-cream/10 hover:text-cream"
         >
-          <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden>
+          <svg
+            width="18"
+            height="18"
+            viewBox="0 0 24 24"
+            fill="none"
+            stroke="currentColor"
+            strokeWidth="2"
+            strokeLinecap="round"
+            strokeLinejoin="round"
+            aria-hidden
+          >
             <line x1="18" y1="6" x2="6" y2="18" />
             <line x1="6" y1="6" x2="18" y2="18" />
           </svg>
         </button>
 
-        {/* image */}
-        <div className="relative hidden aspect-[4/5] md:block">
-          <Image
-            src=""
-            alt=""
-            fill
-            sizes="(min-width: 768px) 50vw, 100vw"
-            className="object-cover"
-          />
-          <div className="absolute inset-0 bg-gradient-to-r from-transparent to-forest/30" />
-        </div>
+        <div className="px-7 pb-8 pt-9 sm:px-10 sm:pb-10 sm:pt-10">
+          {/* Wordmark */}
+          <div className="flex flex-col items-center">
+            {/* eslint-disable-next-line @next/next/no-img-element */}
+            <img
+              src={`${process.env.NEXT_PUBLIC_BASE_PATH || ""}/nodice-wordmark.png`}
+              alt="No Dice"
+              style={{ width: 200, height: "auto", display: "block" }}
+            />
+          </div>
 
-        {/* form */}
-        <div className="flex flex-col justify-center p-7 sm:p-10">
           {!submitted ? (
             <>
-              <p className="text-xs font-bold uppercase tracking-eyebrow text-plonkYellow">
-                Join the putt list
+              <p className="mt-6 text-center text-[11px] font-bold uppercase tracking-[0.28em] text-plonkPink">
+                Welcome to No Dice
               </p>
               <h2
                 id="newsletter-title"
-                className="mt-3 font-display text-3xl leading-tight sm:text-4xl"
+                className="mt-3 text-center font-display text-4xl uppercase leading-none tracking-wider text-cream sm:text-5xl"
               >
-                Get in on the action.
+                10% off your<br />first event
               </h2>
-              <p className="mt-3 text-sm leading-relaxed text-cream/75">
-                Early bookings, secret events and the occasional free round.
-                No spam, ever.
+              <p className="mx-auto mt-4 max-w-xs text-center text-sm leading-relaxed text-cream/65">
+                Drop your email and we'll send the code for 10% off your first
+                event ticket at No Dice — pool tournament, World Cup match
+                night, DJ night, whatever's next.
               </p>
 
-              <form onSubmit={submit} className="mt-6 space-y-4" noValidate>
-                <label className="block">
-                  <span className="sr-only">Email</span>
-                  <input
-                    type="email"
-                    required
-                    value={email}
-                    onChange={(e) => {
-                      setEmail(e.target.value);
-                      if (error) setError(null);
-                    }}
-                    placeholder="your@email.com"
-                    autoComplete="email"
-                    className="w-full rounded-full border border-forestLine bg-forestRaised px-5 py-3.5 text-sm text-cream placeholder:text-cream/40 outline-none transition focus:border-plonkYellow"
-                  />
-                </label>
+              <form onSubmit={submit} className="mt-7 space-y-4" noValidate>
+                <input
+                  type="email"
+                  required
+                  value={email}
+                  onChange={(ev) => {
+                    setEmail(ev.target.value);
+                    if (error) setError(null);
+                  }}
+                  placeholder="you@email.com"
+                  autoComplete="email"
+                  className="w-full rounded-lg border border-cream/20 bg-ink/40 px-4 py-3 text-sm text-cream placeholder:text-cream/35 outline-none transition focus:border-plonkPink"
+                />
 
-                <label className="flex cursor-pointer items-start gap-3 text-xs leading-relaxed text-cream/70">
+                <label className="flex cursor-pointer items-start gap-2.5 text-xs leading-relaxed text-cream/65">
                   <input
                     type="checkbox"
                     checked={optIn}
-                    onChange={(e) => {
-                      setOptIn(e.target.checked);
+                    onChange={(ev) => {
+                      setOptIn(ev.target.checked);
                       if (error) setError(null);
                     }}
-                    className="sr-only"
+                    className="mt-0.5 h-4 w-4 shrink-0 accent-plonkPink"
                   />
-                  <span
-                    aria-hidden
-                    className={`mt-0.5 flex h-4 w-4 shrink-0 items-center justify-center rounded border transition ${
-                      optIn
-                        ? "border-plonkYellow bg-plonkYellow text-forestDeep"
-                        : "border-cream/40 bg-transparent"
-                    }`}
-                  >
-                    {optIn && (
-                      <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round">
-                        <polyline points="20 6 9 17 4 12" />
-                      </svg>
-                    )}
+                  <span>
+                    Email me the code, plus the occasional update on what's
+                    on. Unsubscribe anytime.
                   </span>
-                  I'd like emails from No Dice — news, offers and the odd
-                  free round. Unsubscribe anytime.
                 </label>
 
                 {error && (
@@ -232,23 +258,52 @@ export default function NewsletterPopup() {
 
                 <button
                   type="submit"
-                  className="w-full rounded-full bg-plonkPink px-6 py-3.5 text-sm font-bold uppercase tracking-wider text-white shadow-lg shadow-plonkPink/20 transition hover:bg-plonkPink/90"
+                  className="w-full rounded-full bg-plonkPink py-3.5 text-xs font-bold uppercase tracking-[0.22em] text-white shadow-lg shadow-plonkPink/20 transition hover:bg-plonkPink/90"
                 >
-                  I'm in
+                  Send me the code
+                </button>
+
+                <button
+                  type="button"
+                  onClick={dismiss}
+                  className="block w-full text-center text-[11px] font-bold uppercase tracking-[0.22em] text-cream/45 hover:text-cream/70"
+                >
+                  No thanks
                 </button>
               </form>
             </>
           ) : (
-            <div className="py-6 text-center">
-              <p className="text-xs font-bold uppercase tracking-eyebrow text-plonkYellow">
+            <div className="mt-6 text-center">
+              <p className="text-[11px] font-bold uppercase tracking-[0.28em] text-plonkTeal">
                 You're in
               </p>
-              <h2 className="mt-3 font-display text-3xl leading-tight sm:text-4xl">
-                See you on the green.
+              <h2 className="mt-3 font-display text-4xl uppercase leading-none tracking-wider text-cream sm:text-5xl">
+                Here's your code
               </h2>
-              <p className="mt-4 text-sm leading-relaxed text-cream/75">
-                We'll be in touch. In the meantime — pick a tee time.
+              <button
+                type="button"
+                onClick={copyCode}
+                className="mx-auto mt-6 flex w-full max-w-[260px] items-center justify-between gap-3 rounded-lg border border-dashed border-plonkPink/60 bg-plonkPink/10 px-4 py-3 text-left transition hover:bg-plonkPink/15"
+              >
+                <span className="font-display text-2xl tracking-[0.18em] text-plonkPink">
+                  {DISCOUNT_CODE}
+                </span>
+                <span className="text-[10px] font-bold uppercase tracking-widest text-cream/55">
+                  {copied ? "Copied" : "Tap to copy"}
+                </span>
+              </button>
+              <p className="mx-auto mt-5 max-w-xs text-sm leading-relaxed text-cream/65">
+                10% off your first event ticket — applies at checkout. We've
+                also sent it to <strong className="text-cream">{email}</strong>{" "}
+                so you don't lose it.
               </p>
+              <button
+                type="button"
+                onClick={() => setVisible(false)}
+                className="mt-7 rounded-full border border-cream/20 px-6 py-2.5 text-xs font-bold uppercase tracking-[0.22em] text-cream/85 hover:bg-cream/5"
+              >
+                Done
+              </button>
             </div>
           )}
         </div>
