@@ -119,6 +119,12 @@ export default function EventsAdminClient() {
     | "name-asc"
     | "created-desc";
   const [sortBy, setSortBy] = useState<SortKey>("date-asc");
+  // Category filter — "all" shows everything; any specific category
+  // narrows the list (and calendar) to just that type. Useful when
+  // the World Cup fixtures + DJ nights are dwarfing the pool stuff.
+  const [categoryFilter, setCategoryFilter] = useState<EventCategory | "all">(
+    "all",
+  );
   // List ↔ calendar toggle. Calendar shows a month grid with event
   // chips on each date; click a chip to open the same edit modal.
   const [view, setView] = useState<"list" | "calendar">("list");
@@ -208,13 +214,19 @@ export default function EventsAdminClient() {
   // doesn't shuffle on every refresh.
   const visibleEvents = useMemo(() => {
     const q = search.trim().toLowerCase();
+    // 1) Category filter first — usually narrows by the most.
+    const byCategory =
+      categoryFilter === "all"
+        ? events
+        : events.filter((e) => e.category === categoryFilter);
+    // 2) Then the live search.
     const filtered = q
-      ? events.filter((e) => {
+      ? byCategory.filter((e) => {
           const name = e.name.toLowerCase();
           const desc = (e.description ?? "").toLowerCase();
           return name.includes(q) || desc.includes(q);
         })
-      : events;
+      : byCategory;
 
     function revenueOf(ev: DbEvent): number {
       const tts = ticketsByEvent.get(ev.id) ?? [];
@@ -262,7 +274,7 @@ export default function EventsAdminClient() {
         break;
     }
     return sorted;
-  }, [events, ticketsByEvent, search, sortBy]);
+  }, [events, ticketsByEvent, search, sortBy, categoryFilter]);
 
   // Preview the dates that will be created when the form is saved.
   // Updates live as the founder changes the recurrence settings so
@@ -763,12 +775,16 @@ export default function EventsAdminClient() {
                     <line x1="21" y1="21" x2="16.65" y2="16.65" />
                   </svg>
                 </div>
+                <CategoryDropdown
+                  value={categoryFilter}
+                  onChange={setCategoryFilter}
+                />
                 <SortDropdown value={sortBy} onChange={setSortBy} />
                 <ViewToggle value={view} onChange={setView} />
               </div>
 
               {/* List counter — useful when filtered. */}
-              {(search || sortBy !== "date-asc") && (
+              {(search || sortBy !== "date-asc" || categoryFilter !== "all") && (
                 <p className="mb-3 text-[11px] uppercase tracking-widest text-cream/45">
                   Showing {visibleEvents.length} of {events.length} events
                 </p>
@@ -1473,6 +1489,124 @@ function SortDropdown({
                 }`}
               >
                 <span>{o.label}</span>
+                {active && (
+                  <span aria-hidden className="text-plonkTeal">
+                    ✓
+                  </span>
+                )}
+              </li>
+            );
+          })}
+        </ul>
+      )}
+    </div>
+  );
+}
+
+// =============================================================
+// CategoryDropdown — filter the list by event category
+// =============================================================
+// "All" is the default. Picking a specific category narrows both
+// the list and the calendar grid to events of that type only.
+// Visually identical to the SortDropdown so the toolbar reads as
+// one consistent row of pills.
+function CategoryDropdown({
+  value,
+  onChange,
+}: {
+  value: EventCategory | "all";
+  onChange: (v: EventCategory | "all") => void;
+}) {
+  const [open, setOpen] = useState(false);
+  const ref = useRef<HTMLDivElement | null>(null);
+  useEffect(() => {
+    if (!open) return;
+    const onClick = (e: MouseEvent) => {
+      if (!ref.current?.contains(e.target as Node)) setOpen(false);
+    };
+    const onKey = (e: KeyboardEvent) => {
+      if (e.key === "Escape") setOpen(false);
+    };
+    document.addEventListener("mousedown", onClick);
+    document.addEventListener("keydown", onKey);
+    return () => {
+      document.removeEventListener("mousedown", onClick);
+      document.removeEventListener("keydown", onKey);
+    };
+  }, [open]);
+
+  const label =
+    value === "all" ? "All categories" : CATEGORY_LABEL[value];
+
+  return (
+    <div ref={ref} className="relative">
+      <button
+        type="button"
+        onClick={() => setOpen((v) => !v)}
+        className={`flex items-center gap-2 rounded-full border bg-ink/40 px-4 py-2.5 text-xs font-bold uppercase tracking-wider text-cream transition ${
+          open
+            ? "border-plonkTeal"
+            : "border-cream/15 hover:border-cream/30"
+        }`}
+      >
+        <span className="text-cream/45">Category:</span>
+        <span>{label}</span>
+        <svg
+          width="12"
+          height="12"
+          viewBox="0 0 24 24"
+          fill="none"
+          stroke="currentColor"
+          strokeWidth="2.5"
+          aria-hidden
+          className={`text-plonkTeal transition-transform ${
+            open ? "rotate-180" : ""
+          }`}
+        >
+          <polyline points="6 9 12 15 18 9" />
+        </svg>
+      </button>
+      {open && (
+        <ul
+          role="listbox"
+          className="absolute left-0 z-30 mt-2 max-h-72 w-64 overflow-auto rounded-lg border border-plonkTeal/30 bg-ink py-1.5 text-sm shadow-2xl shadow-black/40"
+        >
+          {(
+            [
+              "all",
+              "pool_tournament_doubles",
+              "pool_tournament_singles",
+              "pool_special",
+              "dj_night",
+              "food_event",
+              "drink_special",
+              "arcade",
+              "golf",
+              "world_cup",
+              "other",
+            ] as ("all" | EventCategory)[]
+          ).map((cat) => {
+            const active = cat === value;
+            const text =
+              cat === "all" ? "All categories" : CATEGORY_LABEL[cat];
+            return (
+              <li
+                key={cat}
+                role="option"
+                aria-selected={active}
+                onMouseDown={(e) => {
+                  e.preventDefault();
+                  e.stopPropagation();
+                  onChange(cat);
+                  setOpen(false);
+                }}
+                className={`flex cursor-pointer items-center justify-between px-4 py-2.5 transition ${
+                  active
+                    ? "bg-plonkTeal/15 text-cream"
+                    : "text-cream/85 hover:bg-cream/5 hover:text-cream"
+                }`}
+              >
+                <span>{text}</span>
                 {active && (
                   <span aria-hidden className="text-plonkTeal">
                     ✓
