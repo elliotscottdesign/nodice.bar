@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { createPortal } from "react-dom";
 import MediaPicker from "@/components/admin/MediaPicker";
 import DatePickerInput from "@/components/admin/DatePickerInput";
@@ -106,6 +106,32 @@ export default function EventsAdminClient() {
   // ID of the event currently being edited (modal open if non-null).
   const [editingEventId, setEditingEventId] = useState<string | null>(null);
 
+  // ---- List filters & view mode ----
+  // Live search across event name + description.
+  const [search, setSearch] = useState("");
+  // Sort key — see SORT_OPTIONS below for the dropdown labels.
+  type SortKey =
+    | "date-asc"
+    | "date-desc"
+    | "sold-desc"
+    | "sold-asc"
+    | "revenue-desc"
+    | "name-asc"
+    | "created-desc";
+  const [sortBy, setSortBy] = useState<SortKey>("date-asc");
+  // List ↔ calendar toggle. Calendar shows a month grid with event
+  // chips on each date; click a chip to open the same edit modal.
+  const [view, setView] = useState<"list" | "calendar">("list");
+  // Which month the calendar view is currently showing. Stored as
+  // (year, monthIndex 0-11) so the prev/next chevrons can just
+  // increment without juggling Date object construction edge cases.
+  const [calMonth, setCalMonth] = useState<{ year: number; month: number }>(
+    () => {
+      const d = new Date();
+      return { year: d.getFullYear(), month: d.getMonth() };
+    },
+  );
+
   // ----- Form state -----
   const [name, setName] = useState("");
   const [description, setDescription] = useState("");
@@ -176,6 +202,67 @@ export default function EventsAdminClient() {
     }
     return m;
   }, [ticketTypes]);
+
+  // Search-filtered + sorted list driving both views. Sort is stable
+  // (events with no ticket data tie-break by name) so the order
+  // doesn't shuffle on every refresh.
+  const visibleEvents = useMemo(() => {
+    const q = search.trim().toLowerCase();
+    const filtered = q
+      ? events.filter((e) => {
+          const name = e.name.toLowerCase();
+          const desc = (e.description ?? "").toLowerCase();
+          return name.includes(q) || desc.includes(q);
+        })
+      : events;
+
+    function revenueOf(ev: DbEvent): number {
+      const tts = ticketsByEvent.get(ev.id) ?? [];
+      // Per-ticket: price × paid count. Sum across all tiers.
+      return tts.reduce(
+        (sum, t) => sum + t.price_pence * (t.paid_count ?? 0),
+        0,
+      );
+    }
+
+    const sorted = [...filtered];
+    switch (sortBy) {
+      case "date-asc":
+        sorted.sort((a, b) => a.event_date.localeCompare(b.event_date));
+        break;
+      case "date-desc":
+        sorted.sort((a, b) => b.event_date.localeCompare(a.event_date));
+        break;
+      case "sold-desc":
+        sorted.sort(
+          (a, b) =>
+            (b.paid_entries_count ?? 0) - (a.paid_entries_count ?? 0) ||
+            a.event_date.localeCompare(b.event_date),
+        );
+        break;
+      case "sold-asc":
+        sorted.sort(
+          (a, b) =>
+            (a.paid_entries_count ?? 0) - (b.paid_entries_count ?? 0) ||
+            a.event_date.localeCompare(b.event_date),
+        );
+        break;
+      case "revenue-desc":
+        sorted.sort(
+          (a, b) =>
+            revenueOf(b) - revenueOf(a) ||
+            a.event_date.localeCompare(b.event_date),
+        );
+        break;
+      case "name-asc":
+        sorted.sort((a, b) => a.name.localeCompare(b.name));
+        break;
+      case "created-desc":
+        sorted.sort((a, b) => b.created_at.localeCompare(a.created_at));
+        break;
+    }
+    return sorted;
+  }, [events, ticketsByEvent, search, sortBy]);
 
   // Preview the dates that will be created when the form is saved.
   // Updates live as the founder changes the recurrence settings so
@@ -651,8 +738,56 @@ export default function EventsAdminClient() {
               No events yet. Hit "+ Create event" to get started.
             </p>
           ) : (
-            <ul className="space-y-2">
-              {events.map((e) => {
+            <>
+              {/* Toolbar: search · sort · list/calendar toggle */}
+              <div className="mb-4 flex flex-wrap items-center gap-3">
+                <div className="relative flex-1 min-w-[200px]">
+                  <input
+                    type="search"
+                    value={search}
+                    onChange={(ev) => setSearch(ev.target.value)}
+                    placeholder="Search events by name or description…"
+                    className="w-full rounded-full border border-cream/15 bg-ink/40 py-2.5 pl-10 pr-4 text-sm text-cream placeholder:text-cream/35 focus:border-plonkTeal focus:outline-none"
+                  />
+                  <svg
+                    width="16"
+                    height="16"
+                    viewBox="0 0 24 24"
+                    fill="none"
+                    stroke="currentColor"
+                    strokeWidth="2"
+                    aria-hidden
+                    className="pointer-events-none absolute left-3.5 top-1/2 -translate-y-1/2 text-cream/40"
+                  >
+                    <circle cx="11" cy="11" r="7" />
+                    <line x1="21" y1="21" x2="16.65" y2="16.65" />
+                  </svg>
+                </div>
+                <SortDropdown value={sortBy} onChange={setSortBy} />
+                <ViewToggle value={view} onChange={setView} />
+              </div>
+
+              {/* List counter — useful when filtered. */}
+              {(search || sortBy !== "date-asc") && (
+                <p className="mb-3 text-[11px] uppercase tracking-widest text-cream/45">
+                  Showing {visibleEvents.length} of {events.length} events
+                </p>
+              )}
+
+              {view === "calendar" ? (
+                <CalendarView
+                  events={visibleEvents}
+                  month={calMonth}
+                  onMonthChange={setCalMonth}
+                  onEventClick={(id) => setEditingEventId(id)}
+                />
+              ) : visibleEvents.length === 0 ? (
+                <p className="rounded-xl border border-cream/10 bg-ink/40 px-6 py-10 text-center text-sm text-cream/55">
+                  No events match "{search}". Try a different search.
+                </p>
+              ) : (
+                <ul className="space-y-2">
+                  {visibleEvents.map((e) => {
                 const ticketsForEv = ticketsByEvent.get(e.id) ?? [];
                 return (
                   <li
@@ -708,6 +843,8 @@ export default function EventsAdminClient() {
                 );
               })}
             </ul>
+              )}
+            </>
           )}
         </div>
       )}
@@ -1233,3 +1370,317 @@ function Badge({ label }: { label: string }) {
 // Kept as an import so a future change inside this file can lift
 // the form into a modal without re-adding the import.
 void createPortal;
+
+// =============================================================
+// SortDropdown — branded select for the events list ordering
+// =============================================================
+const SORT_OPTIONS: { value: SortKey; label: string }[] = [
+  { value: "date-asc",     label: "Soonest first" },
+  { value: "date-desc",    label: "Furthest first" },
+  { value: "sold-desc",    label: "Most sold" },
+  { value: "sold-asc",     label: "Least sold" },
+  { value: "revenue-desc", label: "Most revenue" },
+  { value: "name-asc",     label: "A → Z" },
+  { value: "created-desc", label: "Recently added" },
+];
+
+type SortKey =
+  | "date-asc"
+  | "date-desc"
+  | "sold-desc"
+  | "sold-asc"
+  | "revenue-desc"
+  | "name-asc"
+  | "created-desc";
+
+function SortDropdown({
+  value,
+  onChange,
+}: {
+  value: SortKey;
+  onChange: (v: SortKey) => void;
+}) {
+  const [open, setOpen] = useState(false);
+  const ref = useRef<HTMLDivElement | null>(null);
+  useEffect(() => {
+    if (!open) return;
+    const onClick = (e: MouseEvent) => {
+      if (!ref.current?.contains(e.target as Node)) setOpen(false);
+    };
+    const onKey = (e: KeyboardEvent) => {
+      if (e.key === "Escape") setOpen(false);
+    };
+    document.addEventListener("mousedown", onClick);
+    document.addEventListener("keydown", onKey);
+    return () => {
+      document.removeEventListener("mousedown", onClick);
+      document.removeEventListener("keydown", onKey);
+    };
+  }, [open]);
+
+  const current = SORT_OPTIONS.find((o) => o.value === value)!;
+
+  return (
+    <div ref={ref} className="relative">
+      <button
+        type="button"
+        onClick={() => setOpen((v) => !v)}
+        className={`flex items-center gap-2 rounded-full border bg-ink/40 px-4 py-2.5 text-xs font-bold uppercase tracking-wider text-cream transition ${
+          open
+            ? "border-plonkTeal"
+            : "border-cream/15 hover:border-cream/30"
+        }`}
+      >
+        <span className="text-cream/45">Sort:</span>
+        <span>{current.label}</span>
+        <svg
+          width="12"
+          height="12"
+          viewBox="0 0 24 24"
+          fill="none"
+          stroke="currentColor"
+          strokeWidth="2.5"
+          aria-hidden
+          className={`text-plonkTeal transition-transform ${
+            open ? "rotate-180" : ""
+          }`}
+        >
+          <polyline points="6 9 12 15 18 9" />
+        </svg>
+      </button>
+      {open && (
+        <ul
+          role="listbox"
+          className="absolute right-0 z-30 mt-2 w-56 rounded-lg border border-plonkTeal/30 bg-ink py-1.5 text-sm shadow-2xl shadow-black/40"
+        >
+          {SORT_OPTIONS.map((o) => {
+            const active = o.value === value;
+            return (
+              <li
+                key={o.value}
+                role="option"
+                aria-selected={active}
+                onMouseDown={(e) => {
+                  e.preventDefault();
+                  e.stopPropagation();
+                  onChange(o.value);
+                  setOpen(false);
+                }}
+                className={`flex cursor-pointer items-center justify-between px-4 py-2.5 transition ${
+                  active
+                    ? "bg-plonkTeal/15 text-cream"
+                    : "text-cream/85 hover:bg-cream/5 hover:text-cream"
+                }`}
+              >
+                <span>{o.label}</span>
+                {active && (
+                  <span aria-hidden className="text-plonkTeal">
+                    ✓
+                  </span>
+                )}
+              </li>
+            );
+          })}
+        </ul>
+      )}
+    </div>
+  );
+}
+
+// =============================================================
+// ViewToggle — list ↔ calendar pill
+// =============================================================
+function ViewToggle({
+  value,
+  onChange,
+}: {
+  value: "list" | "calendar";
+  onChange: (v: "list" | "calendar") => void;
+}) {
+  const Pill = ({
+    target,
+    label,
+  }: {
+    target: "list" | "calendar";
+    label: string;
+  }) => {
+    const active = value === target;
+    return (
+      <button
+        type="button"
+        onClick={() => onChange(target)}
+        className={`rounded-full px-4 py-1.5 text-[11px] font-bold uppercase tracking-wider transition ${
+          active
+            ? "bg-plonkTeal text-ink"
+            : "text-cream/65 hover:text-cream"
+        }`}
+      >
+        {label}
+      </button>
+    );
+  };
+  return (
+    <div className="flex items-center gap-1 rounded-full border border-cream/15 bg-ink/40 p-1">
+      <Pill target="list" label="List" />
+      <Pill target="calendar" label="Calendar" />
+    </div>
+  );
+}
+
+// =============================================================
+// CalendarView — month grid with event chips per day
+// =============================================================
+function CalendarView({
+  events,
+  month,
+  onMonthChange,
+  onEventClick,
+}: {
+  events: DbEvent[];
+  month: { year: number; month: number };
+  onMonthChange: (m: { year: number; month: number }) => void;
+  onEventClick: (id: string) => void;
+}) {
+  const { year, month: m } = month;
+  const monthStart = new Date(year, m, 1);
+  const monthEnd = new Date(year, m + 1, 0);
+  const monthLabel = monthStart.toLocaleDateString("en-GB", {
+    month: "long",
+    year: "numeric",
+  });
+  // Monday-first grid. JS getDay() returns 0=Sun, so shift.
+  const firstWeekday = (monthStart.getDay() + 6) % 7;
+  const daysInMonth = monthEnd.getDate();
+
+  // Build day buckets indexed by YYYY-MM-DD.
+  const eventsByDate = new Map<string, DbEvent[]>();
+  for (const e of events) {
+    const arr = eventsByDate.get(e.event_date) ?? [];
+    arr.push(e);
+    eventsByDate.set(e.event_date, arr);
+  }
+
+  const cells: ({ iso: string; day: number } | null)[] = [];
+  for (let i = 0; i < firstWeekday; i++) cells.push(null);
+  for (let d = 1; d <= daysInMonth; d++) {
+    const iso = `${year}-${String(m + 1).padStart(2, "0")}-${String(d).padStart(2, "0")}`;
+    cells.push({ iso, day: d });
+  }
+  while (cells.length % 7 !== 0) cells.push(null);
+
+  const todayIso = new Date().toISOString().slice(0, 10);
+
+  function prev() {
+    onMonthChange(m === 0 ? { year: year - 1, month: 11 } : { year, month: m - 1 });
+  }
+  function next() {
+    onMonthChange(m === 11 ? { year: year + 1, month: 0 } : { year, month: m + 1 });
+  }
+  function jumpToday() {
+    const d = new Date();
+    onMonthChange({ year: d.getFullYear(), month: d.getMonth() });
+  }
+
+  // Per-category accent colours so the chips read at a glance.
+  function chipClass(cat: string): string {
+    if (cat.startsWith("pool"))      return "bg-plonkPink/20 text-plonkPink border-plonkPink/40";
+    if (cat === "world_cup")         return "bg-plonkTeal/20 text-plonkTeal border-plonkTeal/40";
+    if (cat === "dj_night")          return "bg-plonkYellow/20 text-plonkYellow border-plonkYellow/40";
+    if (cat === "food_event")        return "bg-orange-400/15 text-orange-300 border-orange-400/30";
+    if (cat === "drink_special")     return "bg-purple-400/15 text-purple-300 border-purple-400/30";
+    return "bg-cream/10 text-cream/80 border-cream/20";
+  }
+
+  return (
+    <div className="rounded-2xl border border-cream/10 bg-ink/30 p-3 sm:p-5">
+      <div className="mb-3 flex items-center justify-between gap-2">
+        <h3 className="font-display text-2xl text-cream">{monthLabel}</h3>
+        <div className="flex items-center gap-1">
+          <button
+            type="button"
+            onClick={prev}
+            className="rounded-full border border-cream/15 p-2 text-cream/70 hover:border-cream/40 hover:text-cream"
+            aria-label="Previous month"
+          >
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" aria-hidden>
+              <polyline points="15 18 9 12 15 6" />
+            </svg>
+          </button>
+          <button
+            type="button"
+            onClick={jumpToday}
+            className="rounded-full border border-cream/15 px-3 py-1.5 text-[11px] font-bold uppercase tracking-wider text-cream/70 hover:border-cream/40 hover:text-cream"
+          >
+            Today
+          </button>
+          <button
+            type="button"
+            onClick={next}
+            className="rounded-full border border-cream/15 p-2 text-cream/70 hover:border-cream/40 hover:text-cream"
+            aria-label="Next month"
+          >
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" aria-hidden>
+              <polyline points="9 18 15 12 9 6" />
+            </svg>
+          </button>
+        </div>
+      </div>
+
+      {/* Weekday header (Monday-first) */}
+      <div className="mb-1.5 grid grid-cols-7 gap-1 px-1 text-[10px] font-bold uppercase tracking-widest text-cream/35">
+        {["Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun"].map((d) => (
+          <div key={d} className="text-center">
+            {d}
+          </div>
+        ))}
+      </div>
+
+      {/* Day grid */}
+      <div className="grid grid-cols-7 gap-1">
+        {cells.map((c, i) =>
+          c === null ? (
+            <div key={`pad-${i}`} className="h-24 rounded-lg bg-ink/20" />
+          ) : (
+            <div
+              key={c.iso}
+              className={`h-24 rounded-lg border p-1.5 ${
+                c.iso === todayIso
+                  ? "border-plonkPink/60 bg-plonkPink/5"
+                  : "border-cream/10 bg-ink/40"
+              }`}
+            >
+              <div
+                className={`text-[10px] font-bold ${
+                  c.iso === todayIso ? "text-plonkPink" : "text-cream/45"
+                }`}
+              >
+                {c.day}
+              </div>
+              <div className="mt-1 space-y-1 overflow-hidden">
+                {(eventsByDate.get(c.iso) ?? []).slice(0, 3).map((ev) => (
+                  <button
+                    key={ev.id}
+                    type="button"
+                    onClick={() => onEventClick(ev.id)}
+                    title={`${ev.name}${ev.start_time ? ` · ${ev.start_time.slice(0, 5)}` : ""}`}
+                    className={`block w-full truncate rounded border px-1.5 py-0.5 text-left text-[10px] font-bold uppercase tracking-wide ${chipClass(
+                      ev.category,
+                    )}`}
+                  >
+                    {ev.start_time ? `${ev.start_time.slice(0, 5)} ` : ""}
+                    {ev.name}
+                  </button>
+                ))}
+                {(eventsByDate.get(c.iso) ?? []).length > 3 && (
+                  <div className="text-[9px] text-cream/45">
+                    +{(eventsByDate.get(c.iso) ?? []).length - 3} more
+                  </div>
+                )}
+              </div>
+            </div>
+          ),
+        )}
+      </div>
+    </div>
+  );
+}
