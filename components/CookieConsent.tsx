@@ -82,7 +82,7 @@ export default function CookieConsent() {
       aria-modal="true"
       className="fixed inset-x-0 bottom-0 z-[100] px-4 pb-4 sm:px-6 sm:pb-6"
     >
-      <div className="mx-auto max-w-3xl overflow-hidden rounded-2xl border border-forestLine/60 bg-forestDeep/95 shadow-2xl backdrop-blur">
+      <div className="mx-auto max-w-3xl overflow-hidden rounded-2xl border border-cream/20 bg-ink/95 shadow-2xl backdrop-blur">
         {!customise ? (
           <div className="grid gap-5 p-6 sm:grid-cols-[1fr_auto] sm:items-center sm:gap-8 sm:p-7">
             <div>
@@ -201,7 +201,7 @@ function ConsentRow({
   onChange: (v: boolean) => void;
 }) {
   return (
-    <li className="flex items-start justify-between gap-4 rounded-xl border border-forestLine/50 bg-forest/40 p-4">
+    <li className="flex items-start justify-between gap-4 rounded-xl border border-cream/15 bg-ink/40 p-4">
       <div>
         <p className="text-sm font-semibold text-cream">{title}</p>
         <p className="mt-1 text-xs leading-relaxed text-cream/65">{body}</p>
@@ -215,10 +215,10 @@ function ConsentRow({
         onClick={() => onChange(!checked)}
         className={`relative mt-1 inline-flex h-6 w-11 shrink-0 items-center rounded-full transition ${
           disabled
-            ? "cursor-not-allowed bg-forestLine/80"
+            ? "cursor-not-allowed bg-cream/15"
             : checked
-            ? "bg-plonkYellow"
-            : "bg-forestLine"
+            ? "bg-plonkPink"
+            : "bg-cream/25"
         }`}
       >
         <span
