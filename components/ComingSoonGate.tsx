@@ -21,6 +21,17 @@ import { useSearchParams } from "next/navigation";
 // the preview code. Routes that start with /admin are passed through
 // untouched.
 // =============================================================
+// PERSISTENCE NOTE — June 2026
+// =============================================================
+// The unlock lives in localStorage (NOT sessionStorage) so it
+// survives across browser closes, new tabs, even reboots. The flag
+// only gets set in two ways:
+//   1. Visit any /admin/* page on this device
+//   2. Visit any URL with ?preview=NODICE17
+// Once set, this device is unlocked permanently. To re-lock for
+// testing, clear localStorage in DevTools (or run
+// `localStorage.removeItem("nd_preview_unlocked")` in the console)
+// or open the site in an incognito window.
 
 const STORAGE_KEY = "nd_preview_unlocked";
 const PREVIEW_CODE = "NODICE17";
@@ -28,7 +39,16 @@ const FOUNDER_EMAIL = "info@nodice.bar";
 
 function hasUnlock(): boolean {
   if (typeof window === "undefined") return false;
-  return window.sessionStorage.getItem(STORAGE_KEY) === "1";
+  return window.localStorage.getItem(STORAGE_KEY) === "1";
+}
+
+function persistUnlock() {
+  if (typeof window === "undefined") return;
+  try {
+    window.localStorage.setItem(STORAGE_KEY, "1");
+  } catch {
+    /* Safari private mode / quota — fail silently. */
+  }
 }
 
 export default function ComingSoonGate({
@@ -41,22 +61,19 @@ export default function ComingSoonGate({
   const [unlocked, setUnlocked] = useState(false);
 
   useEffect(() => {
-    // 1) Accept the unlock code from the URL — set the session flag
-    //    so subsequent navigation stays unlocked without keeping the
-    //    `?preview=…` in the URL.
+    // 1) Accept the unlock code from the URL — once. Sticks forever.
     const code = params.get("preview");
     if (code && code === PREVIEW_CODE) {
-      window.sessionStorage.setItem(STORAGE_KEY, "1");
+      persistUnlock();
     }
-    // 2) Admin tree is always unlocked — AND visiting any admin page
-    //    persists the session unlock, so when staff click back to a
-    //    public page (e.g. to preview a customer flow) the gate stays
-    //    open without them having to remember the preview code.
+    // 2) Admin tree is always unlocked, AND it persists the unlock to
+    //    localStorage so any subsequent visit to a public page from
+    //    this device skips the splash without re-typing the code.
     const onAdmin =
       typeof window !== "undefined" &&
       /^\/(nodice\.bar\/)?admin(\/|$)/.test(window.location.pathname);
     if (onAdmin) {
-      window.sessionStorage.setItem(STORAGE_KEY, "1");
+      persistUnlock();
     }
     setUnlocked(hasUnlock() || onAdmin);
     setReady(true);
