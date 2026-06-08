@@ -4,11 +4,11 @@ import { useEffect, useState } from "react";
 import { usePathname } from "next/navigation";
 
 // =============================================================
-// NewsletterPopup — 10% off first booking, one per visitor
+// NewsletterPopup — 20% off first booking, one per visitor
 // =============================================================
 // Pops once per browser (localStorage key) after the visitor's seen
-// the cookie banner. Offers a 10% discount code for any No Dice
-// event ticket. The code itself (WELCOME10 by default) is created
+// the cookie banner. Offers a 20% discount code for any No Dice
+// event ticket. The code itself (WELCOME20 by default) is created
 // in /admin/promos so the founder can swap, disable, or expire it
 // without us pushing.
 //
@@ -22,7 +22,7 @@ import { usePathname } from "next/navigation";
 const STORAGE_KEY = "nd_newsletter_v1";
 const COOKIES_KEY = "plonk_cookie_consent_v1";
 const SHOW_DELAY_MS = 4000;
-const DISCOUNT_CODE = "WELCOME10";
+const DISCOUNT_CODE = "WELCOME20";
 
 type StoredState =
   | { status: "dismissed"; ts: string }
@@ -218,12 +218,12 @@ export default function NewsletterPopup() {
                 id="newsletter-title"
                 className="mt-3 text-center font-display text-4xl uppercase leading-none tracking-wider text-cream sm:text-5xl"
               >
-                10% off your<br />first event
+                20% off your<br />first event
               </h2>
               <p className="mx-auto mt-4 max-w-xs text-center text-sm leading-relaxed text-cream/65">
-                Drop your email and we'll send the code for 10% off your first
-                event ticket at No Dice — pool tournament, World Cup match
-                night, DJ night, whatever's next.
+                Drop your email and we'll send the code for 20% off your first
+                event ticket at No Dice! Pool sessions, tournament nights,
+                World Cup matches, DJ sessions or even golf!
               </p>
 
               <form onSubmit={submit} className="mt-7 space-y-4" noValidate>
@@ -299,7 +299,7 @@ export default function NewsletterPopup() {
                 </span>
               </button>
               <p className="mx-auto mt-5 max-w-xs text-sm leading-relaxed text-cream/65">
-                10% off your first event ticket — applies at checkout. We've
+                20% off your first event ticket — applies at checkout. We've
                 also sent it to <strong className="text-cream">{email}</strong>{" "}
                 so you don't lose it.
               </p>
