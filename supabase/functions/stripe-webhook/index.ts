@@ -297,7 +297,37 @@ async function handlePoolReservationPaymentIntent(
   console.log(
     `pool webhook payment_intent.succeeded: reservation ${r.id} → paid (pi=${pi.id})`,
   );
+
+  // Fire-and-forget confirmation email. Failure must NOT fail the
+  // webhook — Stripe would just retry and the customer would be
+  // confirmed in the DB twice. The booking is already confirmed at
+  // this point; the email is on top.
+  firePoolConfirmationEmail(r.id).catch((e) => {
+    console.error(
+      `Pool confirmation email failed for reservation ${r!.id}:`,
+      e,
+    );
+  });
+
   return new Response("ok", { status: 200 });
+}
+
+async function firePoolConfirmationEmail(reservationId: string): Promise<void> {
+  const res = await fetch(
+    `${SUPABASE_URL}/functions/v1/send-pool-confirmation`,
+    {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        Authorization: `Bearer ${SUPABASE_SERVICE_ROLE_KEY}`,
+      },
+      body: JSON.stringify({ reservation_id: reservationId }),
+    },
+  );
+  if (!res.ok) {
+    const txt = await res.text().catch(() => "");
+    throw new Error(`HTTP ${res.status}: ${txt}`);
+  }
 }
 
 // =============================================================
@@ -372,7 +402,35 @@ async function handleEventEntryPaymentIntent(
   console.log(
     `event-entry webhook payment_intent.succeeded: entry ${entry.id} → paid (pi=${pi.id})`,
   );
+
+  fireEventEntryConfirmationEmail(entry.id).catch((e) => {
+    console.error(
+      `Event-entry confirmation email failed for entry ${entry!.id}:`,
+      e,
+    );
+  });
+
   return new Response("ok", { status: 200 });
+}
+
+async function fireEventEntryConfirmationEmail(
+  entryId: string,
+): Promise<void> {
+  const res = await fetch(
+    `${SUPABASE_URL}/functions/v1/send-event-entry-confirmation`,
+    {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        Authorization: `Bearer ${SUPABASE_SERVICE_ROLE_KEY}`,
+      },
+      body: JSON.stringify({ entry_id: entryId }),
+    },
+  );
+  if (!res.ok) {
+    const txt = await res.text().catch(() => "");
+    throw new Error(`HTTP ${res.status}: ${txt}`);
+  }
 }
 
 async function fireTournamentConfirmationEmail(entryId: string): Promise<void> {
