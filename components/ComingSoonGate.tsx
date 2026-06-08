@@ -48,10 +48,16 @@ export default function ComingSoonGate({
     if (code && code === PREVIEW_CODE) {
       window.sessionStorage.setItem(STORAGE_KEY, "1");
     }
-    // 2) Admin tree is always unlocked.
+    // 2) Admin tree is always unlocked — AND visiting any admin page
+    //    persists the session unlock, so when staff click back to a
+    //    public page (e.g. to preview a customer flow) the gate stays
+    //    open without them having to remember the preview code.
     const onAdmin =
       typeof window !== "undefined" &&
       /^\/(nodice\.bar\/)?admin(\/|$)/.test(window.location.pathname);
+    if (onAdmin) {
+      window.sessionStorage.setItem(STORAGE_KEY, "1");
+    }
     setUnlocked(hasUnlock() || onAdmin);
     setReady(true);
   }, [params]);
