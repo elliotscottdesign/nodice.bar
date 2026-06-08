@@ -119,11 +119,12 @@ export default function EventsAdminClient() {
     | "name-asc"
     | "created-desc";
   const [sortBy, setSortBy] = useState<SortKey>("date-asc");
-  // Category filter — "all" shows everything; any specific category
-  // narrows the list (and calendar) to just that type. Useful when
-  // the World Cup fixtures + DJ nights are dwarfing the pool stuff.
-  const [categoryFilter, setCategoryFilter] = useState<EventCategory | "all">(
-    "all",
+  // Category filter — multi-select. Empty set = "all categories"
+  // (default). Tick one or more to narrow both the list and the
+  // calendar grid. Combines naturally with related types — e.g.
+  // tick Doubles + Singles + Special to see every pool tournament.
+  const [categoryFilter, setCategoryFilter] = useState<Set<EventCategory>>(
+    () => new Set(),
   );
   // List ↔ calendar toggle. Calendar shows a month grid with event
   // chips on each date; click a chip to open the same edit modal.
@@ -216,9 +217,9 @@ export default function EventsAdminClient() {
     const q = search.trim().toLowerCase();
     // 1) Category filter first — usually narrows by the most.
     const byCategory =
-      categoryFilter === "all"
+      categoryFilter.size === 0
         ? events
-        : events.filter((e) => e.category === categoryFilter);
+        : events.filter((e) => categoryFilter.has(e.category));
     // 2) Then the live search.
     const filtered = q
       ? byCategory.filter((e) => {
@@ -784,7 +785,7 @@ export default function EventsAdminClient() {
               </div>
 
               {/* List counter — useful when filtered. */}
-              {(search || sortBy !== "date-asc" || categoryFilter !== "all") && (
+              {(search || sortBy !== "date-asc" || categoryFilter.size > 0) && (
                 <p className="mb-3 text-[11px] uppercase tracking-widest text-cream/45">
                   Showing {visibleEvents.length} of {events.length} events
                 </p>
@@ -1504,18 +1505,31 @@ function SortDropdown({
 }
 
 // =============================================================
-// CategoryDropdown — filter the list by event category
+// CategoryDropdown — multi-select category filter
 // =============================================================
-// "All" is the default. Picking a specific category narrows both
-// the list and the calendar grid to events of that type only.
-// Visually identical to the SortDropdown so the toolbar reads as
-// one consistent row of pills.
+// Empty selection = show all categories (default). Tick one or
+// more to narrow both the list and the calendar grid. Closing the
+// menu is via outside-click / Esc; "Clear" wipes the selection
+// back to default in one tap.
+const ALL_CATEGORIES: EventCategory[] = [
+  "pool_tournament_doubles",
+  "pool_tournament_singles",
+  "pool_special",
+  "dj_night",
+  "food_event",
+  "drink_special",
+  "arcade",
+  "golf",
+  "world_cup",
+  "other",
+];
+
 function CategoryDropdown({
   value,
   onChange,
 }: {
-  value: EventCategory | "all";
-  onChange: (v: EventCategory | "all") => void;
+  value: Set<EventCategory>;
+  onChange: (v: Set<EventCategory>) => void;
 }) {
   const [open, setOpen] = useState(false);
   const ref = useRef<HTMLDivElement | null>(null);
@@ -1535,8 +1549,21 @@ function CategoryDropdown({
     };
   }, [open]);
 
+  // Header label: "All categories" / "1 selected · Pool tournament — Doubles" /
+  // "3 selected" depending on how many are ticked.
   const label =
-    value === "all" ? "All categories" : CATEGORY_LABEL[value];
+    value.size === 0
+      ? "All categories"
+      : value.size === 1
+        ? CATEGORY_LABEL[Array.from(value)[0]]
+        : `${value.size} selected`;
+
+  function toggle(cat: EventCategory) {
+    const next = new Set(value);
+    if (next.has(cat)) next.delete(cat);
+    else next.add(cat);
+    onChange(next);
+  }
 
   return (
     <div ref={ref} className="relative">
@@ -1551,6 +1578,11 @@ function CategoryDropdown({
       >
         <span className="text-cream/45">Category:</span>
         <span>{label}</span>
+        {value.size > 0 && (
+          <span className="rounded-full bg-plonkTeal/20 px-1.5 py-0.5 text-[10px] text-plonkTeal">
+            {value.size}
+          </span>
+        )}
         <svg
           width="12"
           height="12"
@@ -1567,55 +1599,90 @@ function CategoryDropdown({
         </svg>
       </button>
       {open && (
-        <ul
-          role="listbox"
-          className="absolute left-0 z-30 mt-2 max-h-72 w-64 overflow-auto rounded-lg border border-plonkTeal/30 bg-ink py-1.5 text-sm shadow-2xl shadow-black/40"
-        >
-          {(
-            [
-              "all",
-              "pool_tournament_doubles",
-              "pool_tournament_singles",
-              "pool_special",
-              "dj_night",
-              "food_event",
-              "drink_special",
-              "arcade",
-              "golf",
-              "world_cup",
-              "other",
-            ] as ("all" | EventCategory)[]
-          ).map((cat) => {
-            const active = cat === value;
-            const text =
-              cat === "all" ? "All categories" : CATEGORY_LABEL[cat];
-            return (
-              <li
-                key={cat}
-                role="option"
-                aria-selected={active}
+        <div className="absolute left-0 z-30 mt-2 w-72 overflow-hidden rounded-lg border border-plonkTeal/30 bg-ink text-sm shadow-2xl shadow-black/40">
+          {/* Header row with clear / select-all */}
+          <div className="flex items-center justify-between border-b border-cream/10 px-4 py-2">
+            <span className="text-[10px] font-bold uppercase tracking-widest text-cream/55">
+              Filter by category
+            </span>
+            <div className="flex gap-2 text-[11px] font-bold uppercase tracking-wider">
+              <button
+                type="button"
                 onMouseDown={(e) => {
                   e.preventDefault();
                   e.stopPropagation();
-                  onChange(cat);
-                  setOpen(false);
+                  onChange(new Set());
                 }}
-                className={`flex cursor-pointer items-center justify-between px-4 py-2.5 transition ${
-                  active
-                    ? "bg-plonkTeal/15 text-cream"
-                    : "text-cream/85 hover:bg-cream/5 hover:text-cream"
-                }`}
+                disabled={value.size === 0}
+                className="text-plonkTeal hover:underline disabled:cursor-not-allowed disabled:opacity-30"
               >
-                <span>{text}</span>
-                {active && (
-                  <span aria-hidden className="text-plonkTeal">
-                    ✓
+                Clear
+              </button>
+              <span className="text-cream/30">·</span>
+              <button
+                type="button"
+                onMouseDown={(e) => {
+                  e.preventDefault();
+                  e.stopPropagation();
+                  onChange(new Set(ALL_CATEGORIES));
+                }}
+                disabled={value.size === ALL_CATEGORIES.length}
+                className="text-plonkTeal hover:underline disabled:cursor-not-allowed disabled:opacity-30"
+              >
+                All
+              </button>
+            </div>
+          </div>
+
+          <ul role="listbox" className="max-h-72 overflow-auto py-1.5">
+            {ALL_CATEGORIES.map((cat) => {
+              const checked = value.has(cat);
+              return (
+                <li
+                  key={cat}
+                  role="option"
+                  aria-selected={checked}
+                  onMouseDown={(e) => {
+                    e.preventDefault();
+                    e.stopPropagation();
+                    toggle(cat);
+                  }}
+                  className={`flex cursor-pointer items-center gap-3 px-4 py-2 transition ${
+                    checked
+                      ? "bg-plonkTeal/10 text-cream"
+                      : "text-cream/85 hover:bg-cream/5 hover:text-cream"
+                  }`}
+                >
+                  {/* Custom checkbox so it can match the brand. */}
+                  <span
+                    aria-hidden
+                    className={`flex h-4 w-4 shrink-0 items-center justify-center rounded border ${
+                      checked
+                        ? "border-plonkTeal bg-plonkTeal text-ink"
+                        : "border-cream/30 bg-transparent"
+                    }`}
+                  >
+                    {checked && (
+                      <svg
+                        width="10"
+                        height="10"
+                        viewBox="0 0 24 24"
+                        fill="none"
+                        stroke="currentColor"
+                        strokeWidth="3"
+                        strokeLinecap="round"
+                        strokeLinejoin="round"
+                      >
+                        <polyline points="20 6 9 17 4 12" />
+                      </svg>
+                    )}
                   </span>
-                )}
-              </li>
-            );
-          })}
-        </ul>
+                  <span className="flex-1">{CATEGORY_LABEL[cat]}</span>
+                </li>
+              );
+            })}
+          </ul>
+        </div>
       )}
     </div>
   );
