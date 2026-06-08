@@ -4,12 +4,12 @@ import AdminBar from "@/components/AdminBar";
 import { ContentProvider } from "@/lib/content";
 import { EditModeProvider } from "@/lib/editMode";
 
-// Customer site lives at staff.nodice.bar — the SUBDOMAIN is the
+// Customer site lives at dev.nodice.bar — the SUBDOMAIN is the
 // gate. Public visitors to nodice.bar see the splash served by the
 // separate Plonk-Borough-2.0 deployment; staff bookmark
-// staff.nodice.bar and develop with zero friction. Anyone who finds
-// staff.nodice.bar in the wild will see the real site, which is
-// fine — the domain is not promoted or linked anywhere public.
+// dev.nodice.bar and develop with zero friction. Anyone who finds
+// dev.nodice.bar in the wild will see the real site, which is fine
+// — the domain is not promoted or linked anywhere public.
 export default function PublicLayout({
   children,
 }: {
