@@ -29,15 +29,14 @@ jobs:
 
       - name: Build static site
         env:
-          GITHUB_PAGES: "true"
-          # Per-deploy hash appended to every image URL by image-loader.js,
-          # so browsers can't cache a stale 404 across deploys.
+          # NOTE — June 2026: the site moved off the /nodice.bar/ subpath
+          # onto the custom domain root (https://nodice.bar/). The basePath
+          # env vars are intentionally left UNSET now so Next builds with
+          # an empty prefix. Setting GITHUB_PAGES / NEXT_PUBLIC_BASE_PATH
+          # again would re-break every asset URL (404s like
+          # nodice.bar/nodice.bar/_next/…).
           NEXT_PUBLIC_BUILD_ID: ${{ github.sha }}
-          # GitHub Pages serves this site under /nodice.bar/ so any client-
-          # side fetch() (media manifest, JSON config, etc.) has to prepend
-          # the prefix. next.config.mjs sets `basePath` for Next routing,
-          # but raw fetches read this env var instead.
-          NEXT_PUBLIC_BASE_PATH: "/nodice.bar"
+          NEXT_PUBLIC_BASE_PATH: ""
           # Supabase — anon public key is designed to be embedded in
           # browser code; safe to keep inline. The real protection is the
           # Row-Level Security policies on the database, not this key.
