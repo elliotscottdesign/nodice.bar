@@ -39,7 +39,7 @@ export const metadata: Metadata = {
     template: "%s · No Dice",
   },
   description:
-    "No Dice — a neighbourhood bar in the railway arches off London Fields. Pool tables, arcade, kitchen residencies, big screens for sport. Opens 17 June 2026.",
+    "No Dice — a neighbourhood bar in the railway arches off London Fields. Pool tables, arcade, kitchen residencies, big screens for sport. Opens 19 June 2026.",
   applicationName: VENUE.name,
   authors: [{ name: VENUE.legalName }],
   keywords: [
