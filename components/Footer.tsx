@@ -1,8 +1,23 @@
 "use client";
 
+import { useState } from "react";
 import Link from "next/link";
 import { useContent } from "@/lib/content";
 import { Editable } from "./Editable";
+
+// Newsletter signup endpoint — same Edge Function the popup uses,
+// so footer + popup signups both land in newsletter_signups and
+// both trigger the branded WELCOME20 welcome email. Source tag
+// lets the founder distinguish in the table.
+const SUPABASE_URL =
+  process.env.NEXT_PUBLIC_SUPABASE_URL ??
+  "https://rntcujcpsozvuxvmlejv.supabase.co";
+const SUPABASE_ANON_KEY = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY ?? "";
+const SIGNUP_FN_URL = `${SUPABASE_URL}/functions/v1/send-welcome-discount`;
+
+function isValidEmail(v: string): boolean {
+  return /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(v.trim());
+}
 
 // Twitter + YouTube removed per founder direction. Instagram + Facebook
 // stay; URLs are editable from /admin/content/global/footer.
@@ -74,12 +89,11 @@ export default function Footer() {
 
   return (
     <footer className="bg-forestDeep">
-      {/* Brand block (NO DICE title + tagline + email) removed per
-          founder direction. Grid drops from 3 → 2 cols: Hackney
-          address + Socials. The brand_title / brand_tagline /
-          brand_email content keys still exist in the DB (harmless,
-          just unused) in case the column is wanted back later. */}
-      <div className="mx-auto grid max-w-6xl gap-12 px-6 py-16 md:grid-cols-2">
+      {/* 3-column grid: Hackney · Socials · Newsletter signup. On
+          mobile the columns stack; on md+ they sit side by side.
+          Brand_* content keys remain in the DB (unused but harmless)
+          in case the old brand block ever comes back. */}
+      <div className="mx-auto grid max-w-6xl gap-12 px-6 py-16 md:grid-cols-3">
         <div>
           <h4 className="text-xs font-bold uppercase tracking-eyebrow text-plonkYellow">
             <Editable k="footer.hackney_heading">{hackneyHeading}</Editable>
@@ -110,6 +124,8 @@ export default function Footer() {
             ))}
           </ul>
         </div>
+
+        <FooterNewsletter />
       </div>
 
       <div className="border-t border-plumLine/40">
@@ -132,5 +148,103 @@ export default function Footer() {
         </div>
       </div>
     </footer>
+  );
+}
+
+// =============================================================
+// FooterNewsletter — compact email signup with WELCOME20 hook
+// =============================================================
+// Posts to the same Edge Function the popup uses, tagged with
+// source='footer' so the founder can tell where signups originate.
+// On success the form swaps to a confirmation panel so the visitor
+// gets immediate feedback without leaving the page.
+// =============================================================
+function FooterNewsletter() {
+  const [email, setEmail] = useState("");
+  const [state, setState] = useState<"idle" | "sending" | "ok" | "err">("idle");
+  const [error, setError] = useState("");
+
+  async function submit(e: React.FormEvent) {
+    e.preventDefault();
+    if (!isValidEmail(email)) {
+      setError("That email doesn't look right.");
+      return;
+    }
+    setError("");
+    setState("sending");
+    try {
+      const res = await fetch(SIGNUP_FN_URL, {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          apikey: SUPABASE_ANON_KEY,
+          Authorization: `Bearer ${SUPABASE_ANON_KEY}`,
+        },
+        body: JSON.stringify({
+          email: email.trim().toLowerCase(),
+          source: "footer",
+        }),
+      });
+      if (!res.ok) {
+        setState("err");
+        setError("Couldn't send right now — try again in a minute.");
+        return;
+      }
+      setState("ok");
+    } catch {
+      setState("err");
+      setError("Network blip — please try again.");
+    }
+  }
+
+  return (
+    <div>
+      <h4 className="text-xs font-bold uppercase tracking-eyebrow text-plonkYellow">
+        Join the list
+      </h4>
+      {state === "ok" ? (
+        <div className="mt-3 rounded-xl border border-plonkPink/40 bg-plonkPink/5 px-4 py-3 text-sm leading-relaxed text-cream/85">
+          <strong className="text-plonkPink">You're in.</strong> Check your inbox
+          for the WELCOME20 code — 20% off your first event ticket.
+        </div>
+      ) : (
+        <>
+          <p className="mt-3 text-sm leading-relaxed text-cream/65">
+            <strong className="text-cream">20% off your first event</strong> —
+            plus the occasional update on what's on. Unsubscribe anytime.
+          </p>
+          <form onSubmit={submit} className="mt-3" noValidate>
+            <div className="flex gap-2">
+              <input
+                type="email"
+                required
+                value={email}
+                onChange={(ev) => {
+                  setEmail(ev.target.value);
+                  if (error) setError("");
+                  if (state === "err") setState("idle");
+                }}
+                placeholder="you@email.com"
+                autoComplete="email"
+                className="min-w-0 flex-1 rounded-lg border border-cream/20 bg-ink/40 px-3 py-2 text-sm text-cream placeholder:text-cream/35 outline-none transition focus:border-plonkPink"
+                aria-label="Email address"
+              />
+              <button
+                type="submit"
+                disabled={state === "sending"}
+                className="shrink-0 rounded-lg bg-plonkPink px-4 text-xs font-bold uppercase tracking-wider text-white transition hover:bg-plonkPink/90 disabled:opacity-60"
+              >
+                {state === "sending" ? "…" : "Join"}
+              </button>
+            </div>
+            {error && (
+              <p className="mt-2 text-xs text-plonkPink" role="alert">
+                {error}
+              </p>
+            )}
+          </form>
+        </>
+      )}
+    </div>
   );
 }
