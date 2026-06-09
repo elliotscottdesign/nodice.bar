@@ -14,6 +14,7 @@ import InlineMatchBooking, {
   type MatchBookingTarget,
 } from "./InlineMatchBooking";
 import RollerDeck from "./RollerDeck";
+import MatchCalendar from "./MatchCalendar";
 
 // =============================================================
 // MatchSchedule — World Cup fixtures roller-deck
@@ -67,6 +68,10 @@ export default function MatchSchedule() {
   const [loading, setLoading] = useState(true);
   const [err, setErr] = useState("");
   const [expandedId, setExpandedId] = useState<string | null>(null);
+  // View mode — defaults to roller (existing UX) so nothing changes
+  // for customers who don't want a calendar. The toggle persists for
+  // the session only; we don't write to storage on purpose.
+  const [view, setView] = useState<"roller" | "calendar">("roller");
 
   // Scroll-arrow behaviour, snap rail, edge-fades and hidden
   // scrollbar all come from the shared <RollerDeck> wrapper below.
@@ -128,7 +133,45 @@ export default function MatchSchedule() {
           </Editable>
         </p>
 
-        <div className="mt-10">
+        {/* VIEW TOGGLE — Roller / Calendar. Same visual language as
+            the month pills on the /events calendar so the affordance
+            is familiar across the site. */}
+        {matches.length > 0 && (
+          <div className="mt-8 flex justify-center">
+            <div
+              role="tablist"
+              aria-label="Match view"
+              className="inline-flex rounded-full border border-cream/15 p-1"
+            >
+              {(
+                [
+                  { id: "roller", label: "List" },
+                  { id: "calendar", label: "Calendar" },
+                ] as const
+              ).map((opt) => {
+                const isActive = view === opt.id;
+                return (
+                  <button
+                    key={opt.id}
+                    type="button"
+                    role="tab"
+                    aria-selected={isActive}
+                    onClick={() => setView(opt.id)}
+                    className={`rounded-full px-5 py-2 text-xs font-bold uppercase tracking-[0.18em] transition ${
+                      isActive
+                        ? "bg-plonkPink text-white"
+                        : "text-cream/70 hover:text-cream"
+                    }`}
+                  >
+                    {opt.label}
+                  </button>
+                );
+              })}
+            </div>
+          </div>
+        )}
+
+        <div className="mt-6">
           {loading && (
             <p className="text-center text-sm text-cream/55">Loading…</p>
           )}
@@ -143,7 +186,16 @@ export default function MatchSchedule() {
             </p>
           )}
 
-          {matches.length > 0 && (
+          {matches.length > 0 && view === "calendar" && (
+            <MatchCalendar
+              matches={matches}
+              loading={loading}
+              expandedId={expandedId}
+              setExpandedId={setExpandedId}
+            />
+          )}
+
+          {matches.length > 0 && view === "roller" && (
             <RollerDeck ariaLabel="Upcoming matches">
               {matches.map(({ event: m, paidTicket }) => {
                   const teams = splitMatchTitle(m.name);
