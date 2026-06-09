@@ -2,7 +2,6 @@
 
 import { Suspense, useEffect, useMemo, useState } from "react";
 import { useSearchParams } from "next/navigation";
-import { createBarReservation } from "@/lib/db/barReservations";
 import {
   loadBookableProductConfig,
   availableSlotsForDate,
@@ -39,6 +38,16 @@ const HEARD_FROM_OPTIONS = [
   { value: "Press / blog", label: "Press / blog" },
   { value: "Other", label: "Other" },
 ];
+
+// The free /book/table insert goes through an Edge Function so the
+// browser doesn't need direct INSERT permission on bar_reservations
+// (RLS keeps anon out of the table — only the service_role inside
+// the function can write).
+const SUPABASE_URL =
+  process.env.NEXT_PUBLIC_SUPABASE_URL ??
+  "https://rntcujcpsozvuxvmlejv.supabase.co";
+const SUPABASE_ANON_KEY = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY ?? "";
+const RESERVATION_FN_URL = `${SUPABASE_URL}/functions/v1/create-table-reservation`;
 
 function todayIso(): string {
   const d = new Date();
@@ -145,20 +154,37 @@ function TableBookingPageInner() {
     setSubmitting(true);
     setError("");
     try {
-      await createBarReservation({
-        kind: "table",
-        reservation_date: date,
-        start_time: time,
-        duration_minutes: duration,
-        party_size: partySize,
-        resource_count: cfg?.product.default_resource_count ?? 1,
-        name: name.trim(),
-        email: email.trim(),
-        phone: phone.trim() || null,
-        notes: notes.trim() || null,
-        heard_from: heardFrom || null,
-        marketing_opt_in: marketingOptIn,
+      // POST to create-table-reservation Edge Function. The function
+      // validates server-side, runs the kill-switch check, and inserts
+      // the row via service_role so RLS on bar_reservations stays
+      // locked down to anon.
+      const res = await fetch(RESERVATION_FN_URL, {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          apikey: SUPABASE_ANON_KEY,
+          Authorization: `Bearer ${SUPABASE_ANON_KEY}`,
+        },
+        body: JSON.stringify({
+          reservation_date: date,
+          start_time: time,
+          duration_minutes: duration,
+          party_size: partySize,
+          resource_count: cfg?.product.default_resource_count ?? 1,
+          name: name.trim(),
+          email: email.trim(),
+          phone: phone.trim() || null,
+          notes: notes.trim() || null,
+          heard_from: heardFrom || null,
+          marketing_opt_in: marketingOptIn,
+        }),
       });
+      if (!res.ok) {
+        const txt = await res.text().catch(() => "");
+        throw new Error(
+          `Couldn't save the reservation (${res.status}): ${txt || "no detail"}`,
+        );
+      }
       setSuccess(true);
     } catch (err) {
       setError(

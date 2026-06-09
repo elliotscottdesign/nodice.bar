@@ -13,7 +13,6 @@ import {
   useElements,
   useStripe,
 } from "@stripe/react-stripe-js";
-import { createBarReservation } from "@/lib/db/barReservations";
 import {
   loadBookableProductConfig,
   availableSlotsForDate,
@@ -260,23 +259,11 @@ function PoolBookingPageInner() {
       setError("");
       setSubmitting(true);
       try {
-        // 1) Insert the pending reservation row.
-        const r = await createBarReservation({
-          kind: "pool",
-          reservation_date: date,
-          start_time: time,
-          duration_minutes: duration,
-          party_size: partySize,
-          resource_count: cfg?.product.default_resource_count ?? 1,
-          name: name.trim(),
-          email: email.trim(),
-          phone: phone.trim() || null,
-          notes: notes.trim() || null,
-          heard_from: heardFrom || null,
-          marketing_opt_in: marketingOptIn,
-        });
-
-        // 2) Ask the pool-checkout Edge Function for a PaymentIntent.
+        // Single round-trip: pool-checkout validates, computes the
+        // fee server-side, creates the Stripe PaymentIntent, AND
+        // inserts the bar_reservations row in one call. The function
+        // uses the service_role key so it can insert even with RLS
+        // locked down on the table (anon cannot insert directly).
         const res = await fetch(CHECKOUT_FN_URL, {
           method: "POST",
           headers: {
@@ -284,7 +271,19 @@ function PoolBookingPageInner() {
             apikey: SUPABASE_ANON_KEY,
             Authorization: `Bearer ${SUPABASE_ANON_KEY}`,
           },
-          body: JSON.stringify({ reservation_id: r.id }),
+          body: JSON.stringify({
+            reservation_date: date,
+            start_time: time,
+            duration_minutes: duration,
+            party_size: partySize,
+            resource_count: cfg?.product.default_resource_count ?? 1,
+            name: name.trim(),
+            email: email.trim(),
+            phone: phone.trim() || null,
+            notes: notes.trim() || null,
+            heard_from: heardFrom || null,
+            marketing_opt_in: marketingOptIn,
+          }),
         });
         if (!res.ok) {
           const txt = await res.text().catch(() => "");
@@ -292,7 +291,10 @@ function PoolBookingPageInner() {
             `Couldn't start payment (${res.status}): ${txt || "no detail"}`,
           );
         }
-        const body = (await res.json()) as { client_secret?: string };
+        const body = (await res.json()) as {
+          client_secret?: string;
+          reservation_id?: string;
+        };
         if (!body.client_secret) {
           throw new Error("Server returned no client_secret");
         }

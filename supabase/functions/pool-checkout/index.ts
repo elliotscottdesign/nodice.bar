@@ -1,16 +1,38 @@
 // =============================================================
-// pool-checkout — Stripe PaymentIntent for /book/pool
+// pool-checkout — secure pool booking endpoint
 // =============================================================
 // POST /functions/v1/pool-checkout
-// Body: { reservation_id: string }
+// Body (full reservation data, no row exists yet on the client side):
+//   {
+//     reservation_date: "YYYY-MM-DD",
+//     start_time: "HH:MM",
+//     duration_minutes: number,
+//     party_size: number,
+//     resource_count: number,
+//     name: string,
+//     email: string,
+//     phone?: string | null,
+//     notes?: string | null,
+//     heard_from?: string | null,
+//     marketing_opt_in?: boolean
+//   }
 //
 // Flow:
-//   1. Look up the pending bar_reservations row.
-//   2. Compute the fee server-side from `duration_minutes` (£6 per
-//      30-minute slot) so the browser can't pass a tampered amount.
-//   3. Create a Stripe PaymentIntent for that total.
-//   4. Stamp the intent id back onto the reservation.
-//   5. Return { client_secret } for the inline Payment Element.
+//   1. Validate the body server-side.
+//   2. Confirm the "pool" product is enabled (admin kill-switch).
+//   3. Compute the fee from bookable_price_windows — never trusted
+//      from the client.
+//   4. Create a Stripe PaymentIntent for that total.
+//   5. INSERT the bar_reservations row using the service_role key
+//      with the intent_id and amount already stamped — single round-
+//      trip, no follow-up UPDATE needed.
+//   6. Return { reservation_id, client_secret }.
+//
+// Why this shape:
+//   The customer-site browser holds only the anon key. With RLS
+//   enabled on bar_reservations (the secure config), anon cannot
+//   insert directly. So the insert lives here, where the
+//   service_role key bypasses RLS server-side.
 //
 // stripe-webhook (separate function) handles
 // payment_intent.succeeded — flips status='pending' → 'paid' and
@@ -58,11 +80,10 @@ const db = createClient(SUPABASE_URL, SUPABASE_SERVICE_ROLE_KEY, {
   auth: { persistSession: false },
 });
 
-// Price is recomputed server-side from the live config in Supabase
-// (bookable_products + bookable_price_windows + bookable_date_overrides)
-// so the customer can't tamper with the amount, and any admin price
-// change applies immediately to new bookings.
-
+// =============================================================
+// Pricing helpers — recompute the fee here so the browser can't
+// pass a tampered amount.
+// =============================================================
 type PriceWindow = {
   days_of_week: number[];
   start_time: string;
@@ -110,8 +131,8 @@ async function feeForBookingFromConfig(
     .eq("product_id", productId)
     .order("priority", { ascending: false });
   if (error || !data) {
-    // Fail-closed wouldn't be customer-friendly, fail-open to the
-    // legacy flat rate so a Supabase blip doesn't break checkout.
+    // Fail-open to the legacy flat rate so a Supabase blip doesn't
+    // break checkout — better than 500-ing the customer.
     return Math.ceil(durationMinutes / 30) * 600;
   }
   const windows = data as PriceWindow[];
@@ -122,6 +143,88 @@ async function feeForBookingFromConfig(
     total += pricePer30(windows, isoDate, startMin + i * 30);
   }
   return total;
+}
+
+// =============================================================
+// Input validation — the body is whatever the customer's browser
+// posts, so we can't trust anything. Keep checks defensive but
+// permissive enough that a normal happy-path booking sails through.
+// =============================================================
+const EMAIL_RE = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+const DATE_RE = /^\d{4}-\d{2}-\d{2}$/;
+const TIME_RE = /^\d{2}:\d{2}(:\d{2})?$/;
+
+type PoolBookingInput = {
+  reservation_date: string;
+  start_time: string;
+  duration_minutes: number;
+  party_size: number;
+  resource_count: number;
+  name: string;
+  email: string;
+  phone?: string | null;
+  notes?: string | null;
+  heard_from?: string | null;
+  marketing_opt_in?: boolean;
+};
+
+function validate(body: Partial<PoolBookingInput>): {
+  ok: true;
+  input: PoolBookingInput;
+} | { ok: false; error: string } {
+  if (!body || typeof body !== "object") {
+    return { ok: false, error: "Body must be a JSON object" };
+  }
+  if (!body.reservation_date || !DATE_RE.test(body.reservation_date)) {
+    return { ok: false, error: "reservation_date must be YYYY-MM-DD" };
+  }
+  if (!body.start_time || !TIME_RE.test(body.start_time)) {
+    return { ok: false, error: "start_time must be HH:MM" };
+  }
+  if (
+    typeof body.duration_minutes !== "number" ||
+    body.duration_minutes <= 0 ||
+    body.duration_minutes > 600
+  ) {
+    return { ok: false, error: "duration_minutes must be a positive number" };
+  }
+  if (
+    typeof body.party_size !== "number" ||
+    body.party_size <= 0 ||
+    body.party_size > 50
+  ) {
+    return { ok: false, error: "party_size must be 1-50" };
+  }
+  if (
+    typeof body.resource_count !== "number" ||
+    body.resource_count <= 0 ||
+    body.resource_count > 10
+  ) {
+    return { ok: false, error: "resource_count must be 1-10" };
+  }
+  if (!body.name || typeof body.name !== "string" || body.name.trim().length < 2) {
+    return { ok: false, error: "name is required" };
+  }
+  if (!body.email || typeof body.email !== "string" || !EMAIL_RE.test(body.email)) {
+    return { ok: false, error: "valid email is required" };
+  }
+  return {
+    ok: true,
+    input: {
+      reservation_date: body.reservation_date,
+      start_time: body.start_time,
+      duration_minutes: body.duration_minutes,
+      party_size: body.party_size,
+      resource_count: body.resource_count,
+      name: body.name.trim(),
+      email: body.email.trim(),
+      phone: typeof body.phone === "string" ? body.phone.trim() || null : null,
+      notes: typeof body.notes === "string" ? body.notes.trim() || null : null,
+      heard_from:
+        typeof body.heard_from === "string" ? body.heard_from.trim() || null : null,
+      marketing_opt_in: !!body.marketing_opt_in,
+    },
+  };
 }
 
 Deno.serve(async (req) => {
@@ -137,49 +240,18 @@ Deno.serve(async (req) => {
     );
   }
 
-  let body: { reservation_id?: string };
+  let raw: Partial<PoolBookingInput>;
   try {
-    body = await req.json();
+    raw = await req.json();
   } catch {
     return jsonResponse({ error: "Invalid JSON body" }, { status: 400 });
   }
-  const { reservation_id } = body;
-  if (!reservation_id) {
-    return jsonResponse({ error: "Missing reservation_id" }, { status: 400 });
-  }
 
-  const { data: r, error } = await db
-    .from("bar_reservations")
-    .select(
-      "id, kind, status, reservation_date, start_time, duration_minutes, party_size, name, email",
-    )
-    .eq("id", reservation_id)
-    .maybeSingle();
-  if (error) {
-    return jsonResponse(
-      { error: `DB lookup error: ${error.message}` },
-      { status: 500 },
-    );
-  }
-  if (!r) {
-    return jsonResponse({ error: "Reservation not found" }, { status: 404 });
-  }
-  if (r.kind !== "pool") {
-    return jsonResponse(
-      { error: "Reservation is not a pool booking" },
-      { status: 400 },
-    );
-  }
-  if (r.status !== "pending") {
-    return jsonResponse(
-      { error: `Reservation already in status '${r.status}'` },
-      { status: 409 },
-    );
-  }
+  const v = validate(raw);
+  if (!v.ok) return jsonResponse({ error: v.error }, { status: 400 });
+  const input = v.input;
 
-  // Master kill-switch — admin flips this in
-  // /admin/products/pool. Customer can't bypass it by holding the
-  // page open while we toggle.
+  // Master kill-switch — admin flips this in /admin/products/pool.
   const { data: product } = await db
     .from("bookable_products")
     .select("enabled, closed_message")
@@ -198,9 +270,9 @@ Deno.serve(async (req) => {
 
   const amount = await feeForBookingFromConfig(
     "pool",
-    r.reservation_date,
-    r.start_time,
-    r.duration_minutes,
+    input.reservation_date,
+    input.start_time,
+    input.duration_minutes,
   );
   if (amount <= 0) {
     return jsonResponse(
@@ -209,22 +281,25 @@ Deno.serve(async (req) => {
     );
   }
 
+  // Stripe FIRST — if Stripe rejects, we never write a half-baked row.
   let intent: Stripe.PaymentIntent;
   try {
     intent = await stripe.paymentIntents.create({
       amount,
       currency: "gbp",
-      receipt_email: r.email,
-      description: `Pool table — ${r.duration_minutes} min on ${r.reservation_date} at ${r.start_time}`,
+      receipt_email: input.email,
+      description: `Pool table — ${input.duration_minutes} min on ${input.reservation_date} at ${input.start_time}`,
       automatic_payment_methods: { enabled: true },
       metadata: {
         kind: "pool_reservation",
-        reservation_id: r.id,
-        reservation_date: r.reservation_date,
-        start_time: r.start_time,
-        duration_minutes: String(r.duration_minutes),
-        party_size: String(r.party_size),
-        name: r.name,
+        // reservation_id stamped after the insert via update; webhook
+        // also tolerates the metadata being just the kind for first-pass
+        // lookups.
+        reservation_date: input.reservation_date,
+        start_time: input.start_time,
+        duration_minutes: String(input.duration_minutes),
+        party_size: String(input.party_size),
+        name: input.name,
       },
     });
   } catch (e) {
@@ -245,18 +320,62 @@ Deno.serve(async (req) => {
     );
   }
 
-  const { error: stampErr } = await db
+  // Now INSERT the reservation row with everything attached. status
+  // defaults to 'pending' via the DB; the webhook flips to 'paid' once
+  // Stripe confirms.
+  const { data: r, error: insertErr } = await db
     .from("bar_reservations")
-    .update({
-      stripe_payment_intent_id: intent.id,
+    .insert({
+      kind: "pool",
+      reservation_date: input.reservation_date,
+      start_time: input.start_time,
+      duration_minutes: input.duration_minutes,
+      party_size: input.party_size,
+      resource_count: input.resource_count,
+      name: input.name,
+      email: input.email,
+      phone: input.phone,
+      notes: input.notes,
+      heard_from: input.heard_from,
+      marketing_opt_in: input.marketing_opt_in,
       amount_pence: amount,
+      stripe_payment_intent_id: intent.id,
     })
-    .eq("id", r.id);
-  if (stampErr) {
-    console.error(
-      `Couldn't stamp intent ${intent.id} onto reservation ${r.id}: ${stampErr.message}`,
+    .select("id")
+    .single();
+  if (insertErr || !r) {
+    // Best-effort: cancel the orphan PaymentIntent so the customer
+    // doesn't see a stale Stripe object. If cancellation fails (rare),
+    // we still return an error — Stripe will auto-expire it.
+    await stripe.paymentIntents
+      .cancel(intent.id, { cancellation_reason: "abandoned" })
+      .catch(() => {});
+    return jsonResponse(
+      {
+        error: `Failed to save reservation: ${
+          insertErr?.message ?? "unknown error"
+        }`,
+      },
+      { status: 500 },
     );
   }
 
-  return jsonResponse({ client_secret: intent.client_secret });
+  // Stamp the reservation_id onto the PaymentIntent metadata so the
+  // webhook can find it by either route (metadata.reservation_id OR
+  // by looking up via stripe_payment_intent_id).
+  await stripe.paymentIntents
+    .update(intent.id, {
+      metadata: {
+        ...intent.metadata,
+        reservation_id: r.id,
+      },
+    })
+    .catch((e) => {
+      console.warn(`Could not update PaymentIntent metadata: ${e}`);
+    });
+
+  return jsonResponse({
+    reservation_id: r.id,
+    client_secret: intent.client_secret,
+  });
 });

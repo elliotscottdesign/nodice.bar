@@ -1,20 +1,35 @@
 // =============================================================
-// match-checkout — Stripe PaymentIntent for /world-cup tickets
+// match-checkout — secure World Cup ticket endpoint
 // =============================================================
 // POST /functions/v1/match-checkout
-// Body: { entry_id: string, event_id: string }
+// Body (full entry data — no row exists yet on the client side):
+//   {
+//     event_id: string,
+//     ticket_type_id: string,
+//     attendee_name: string,
+//     attendee_email: string,
+//     attendee_phone: string,
+//     quantity: number,
+//     notes?: string | null,
+//     heard_from?: string | null,
+//     marketing_opt_in?: boolean
+//   }
 //
 // Flow:
-//   1. Look up the pending event_entries row.
-//   2. Look up the matching event + ticket_type (server-side so
-//      the customer can't tamper with quantity / price).
-//   3. Compute amount = ticket_type.price_pence × entry.quantity.
-//   4. Create a Stripe PaymentIntent stamped with
-//      metadata.kind='event_entry' so the webhook routes it.
-//   5. Return { client_secret } for the inline Payment Element.
+//   1. Validate the body server-side.
+//   2. Look up event + ticket_type — never trust the client price.
+//   3. Verify the event is open + ticket is active + capacity remains.
+//   4. Compute amount = ticket_type.price_pence × quantity.
+//   5. Create a Stripe PaymentIntent.
+//   6. INSERT the event_entries row using the service_role key with
+//      the intent_id + amount already stamped.
+//   7. Return { entry_id, client_secret }.
 //
-// The webhook (stripe-webhook) flips event_entries.status to 'paid'
-// once payment_intent.succeeded fires.
+// Why this shape:
+//   The customer-site browser holds only the anon key. With RLS
+//   enabled on event_entries (the secure config), anon cannot
+//   insert directly. So the insert lives here, where the
+//   service_role key bypasses RLS server-side.
 // =============================================================
 
 import Stripe from "https://esm.sh/stripe@17.4.0?target=denonext";
@@ -58,6 +73,80 @@ const db = createClient(SUPABASE_URL, SUPABASE_SERVICE_ROLE_KEY, {
   auth: { persistSession: false },
 });
 
+const EMAIL_RE = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+const UUID_RE =
+  /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+
+type MatchBookingInput = {
+  event_id: string;
+  ticket_type_id: string;
+  attendee_name: string;
+  attendee_email: string;
+  attendee_phone: string;
+  quantity: number;
+  notes?: string | null;
+  heard_from?: string | null;
+  marketing_opt_in?: boolean;
+};
+
+function validate(body: Partial<MatchBookingInput>): {
+  ok: true;
+  input: MatchBookingInput;
+} | { ok: false; error: string } {
+  if (!body || typeof body !== "object") {
+    return { ok: false, error: "Body must be a JSON object" };
+  }
+  if (!body.event_id || !UUID_RE.test(body.event_id)) {
+    return { ok: false, error: "event_id must be a UUID" };
+  }
+  if (!body.ticket_type_id || !UUID_RE.test(body.ticket_type_id)) {
+    return { ok: false, error: "ticket_type_id must be a UUID" };
+  }
+  if (
+    !body.attendee_name ||
+    typeof body.attendee_name !== "string" ||
+    body.attendee_name.trim().length < 2
+  ) {
+    return { ok: false, error: "attendee_name is required" };
+  }
+  if (
+    !body.attendee_email ||
+    typeof body.attendee_email !== "string" ||
+    !EMAIL_RE.test(body.attendee_email)
+  ) {
+    return { ok: false, error: "valid attendee_email is required" };
+  }
+  if (
+    !body.attendee_phone ||
+    typeof body.attendee_phone !== "string" ||
+    body.attendee_phone.trim().length < 5
+  ) {
+    return { ok: false, error: "attendee_phone is required" };
+  }
+  if (
+    typeof body.quantity !== "number" ||
+    body.quantity <= 0 ||
+    body.quantity > 100
+  ) {
+    return { ok: false, error: "quantity must be 1-100" };
+  }
+  return {
+    ok: true,
+    input: {
+      event_id: body.event_id,
+      ticket_type_id: body.ticket_type_id,
+      attendee_name: body.attendee_name.trim(),
+      attendee_email: body.attendee_email.trim(),
+      attendee_phone: body.attendee_phone.trim(),
+      quantity: Math.floor(body.quantity),
+      notes: typeof body.notes === "string" ? body.notes.trim() || null : null,
+      heard_from:
+        typeof body.heard_from === "string" ? body.heard_from.trim() || null : null,
+      marketing_opt_in: !!body.marketing_opt_in,
+    },
+  };
+}
+
 Deno.serve(async (req) => {
   const preflight = handlePreflight(req);
   if (preflight) return preflight;
@@ -71,49 +160,16 @@ Deno.serve(async (req) => {
     );
   }
 
-  let body: { entry_id?: string; event_id?: string };
+  let raw: Partial<MatchBookingInput>;
   try {
-    body = await req.json();
+    raw = await req.json();
   } catch {
     return jsonResponse({ error: "Invalid JSON body" }, { status: 400 });
   }
-  const { entry_id, event_id } = body;
-  if (!entry_id || !event_id) {
-    return jsonResponse(
-      { error: "Missing entry_id or event_id" },
-      { status: 400 },
-    );
-  }
 
-  // Entry
-  const { data: entry, error: entryErr } = await db
-    .from("event_entries")
-    .select(
-      "id, status, attendee_email, attendee_name, event_id, ticket_type_id, quantity",
-    )
-    .eq("id", entry_id)
-    .maybeSingle();
-  if (entryErr) {
-    return jsonResponse(
-      { error: `DB error on entry lookup: ${entryErr.message}` },
-      { status: 500 },
-    );
-  }
-  if (!entry) {
-    return jsonResponse({ error: "Entry not found" }, { status: 404 });
-  }
-  if (entry.event_id !== event_id) {
-    return jsonResponse(
-      { error: "Entry doesn't belong to this event" },
-      { status: 400 },
-    );
-  }
-  if (entry.status !== "pending_payment") {
-    return jsonResponse(
-      { error: `Entry already in status '${entry.status}'` },
-      { status: 409 },
-    );
-  }
+  const v = validate(raw);
+  if (!v.ok) return jsonResponse({ error: v.error }, { status: 400 });
+  const input = v.input;
 
   // Event — sanity check it's open and bookable
   const { data: ev, error: evErr } = await db
@@ -121,7 +177,7 @@ Deno.serve(async (req) => {
     .select(
       "id, name, event_date, category, bookable, registration_open, max_attendees, paid_entries_count",
     )
-    .eq("id", event_id)
+    .eq("id", input.event_id)
     .maybeSingle();
   if (evErr) {
     return jsonResponse(
@@ -146,7 +202,7 @@ Deno.serve(async (req) => {
   }
   if (
     ev.max_attendees !== null &&
-    ev.paid_entries_count + entry.quantity > ev.max_attendees
+    ev.paid_entries_count + input.quantity > ev.max_attendees
   ) {
     return jsonResponse(
       { error: "Not enough capacity left for this purchase" },
@@ -158,7 +214,7 @@ Deno.serve(async (req) => {
   const { data: tt, error: ttErr } = await db
     .from("ticket_types")
     .select("id, name, price_pence, active, event_id")
-    .eq("id", entry.ticket_type_id)
+    .eq("id", input.ticket_type_id)
     .maybeSingle();
   if (ttErr) {
     return jsonResponse(
@@ -175,15 +231,14 @@ Deno.serve(async (req) => {
       { status: 409 },
     );
   }
-  if (tt.event_id !== event_id) {
+  if (tt.event_id !== input.event_id) {
     return jsonResponse(
       { error: "Ticket doesn't belong to this event" },
       { status: 400 },
     );
   }
 
-  const qty = Math.max(1, entry.quantity);
-  const amount = tt.price_pence * qty;
+  const amount = tt.price_pence * input.quantity;
   if (amount <= 0) {
     return jsonResponse(
       { error: "Free tickets shouldn't go through Stripe — DB seed error" },
@@ -191,24 +246,24 @@ Deno.serve(async (req) => {
     );
   }
 
+  // Stripe FIRST — if Stripe rejects, we never write an orphan entry.
   let intent: Stripe.PaymentIntent;
   try {
     intent = await stripe.paymentIntents.create({
       amount,
       currency: "gbp",
-      receipt_email: entry.attendee_email,
-      description: `${ev.name} — ${tt.name} × ${qty}`,
+      receipt_email: input.attendee_email,
+      description: `${ev.name} — ${tt.name} × ${input.quantity}`,
       automatic_payment_methods: { enabled: true },
       metadata: {
         kind: "event_entry",
-        entry_id: entry.id,
         event_id: ev.id,
         event_name: ev.name,
         event_date: ev.event_date,
         category: ev.category,
         ticket_type_id: tt.id,
-        quantity: String(qty),
-        attendee_name: entry.attendee_name,
+        quantity: String(input.quantity),
+        attendee_name: input.attendee_name,
       },
     });
   } catch (e) {
@@ -229,20 +284,53 @@ Deno.serve(async (req) => {
     );
   }
 
-  // Stamp the intent id + final amount back onto the entry so the
-  // webhook can confirm the right row even if metadata gets garbled.
-  const { error: stampErr } = await db
+  // INSERT the entry with intent + amount already attached.
+  const { data: entry, error: insertErr } = await db
     .from("event_entries")
-    .update({
-      stripe_payment_intent_id: intent.id,
+    .insert({
+      event_id: input.event_id,
+      ticket_type_id: input.ticket_type_id,
+      attendee_name: input.attendee_name,
+      attendee_email: input.attendee_email,
+      attendee_phone: input.attendee_phone,
+      quantity: input.quantity,
+      notes: input.notes,
+      heard_from: input.heard_from,
+      marketing_opt_in: input.marketing_opt_in,
       amount_paid_pence: amount,
+      stripe_payment_intent_id: intent.id,
     })
-    .eq("id", entry.id);
-  if (stampErr) {
-    console.error(
-      `Couldn't stamp intent ${intent.id} onto entry ${entry.id}: ${stampErr.message}`,
+    .select("id")
+    .single();
+  if (insertErr || !entry) {
+    await stripe.paymentIntents
+      .cancel(intent.id, { cancellation_reason: "abandoned" })
+      .catch(() => {});
+    return jsonResponse(
+      {
+        error: `Failed to save entry: ${
+          insertErr?.message ?? "unknown error"
+        }`,
+      },
+      { status: 500 },
     );
   }
 
-  return jsonResponse({ client_secret: intent.client_secret });
+  // Stamp the entry_id onto the Stripe metadata so the webhook can
+  // find it without an extra lookup.
+  await stripe.paymentIntents
+    .update(intent.id, {
+      metadata: {
+        ...intent.metadata,
+        entry_id: entry.id,
+      },
+    })
+    .catch((e) => {
+      console.warn(`Could not update PaymentIntent metadata: ${e}`);
+    });
+
+  return jsonResponse({
+    entry_id: entry.id,
+    client_secret: intent.client_secret,
+  });
 });

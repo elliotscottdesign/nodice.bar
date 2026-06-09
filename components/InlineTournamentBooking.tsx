@@ -12,10 +12,7 @@ import {
   useElements,
   useStripe,
 } from "@stripe/react-stripe-js";
-import {
-  createTournamentEntry,
-  type DbTournament,
-} from "@/lib/db/tournaments";
+import type { DbTournament } from "@/lib/db/tournaments";
 import BrandSelect from "@/components/BrandSelect";
 
 const HEARD_FROM_OPTIONS = [
@@ -159,18 +156,11 @@ export default function InlineTournamentBooking({
       setError("");
       setSubmitting(true);
       try {
-        const entry = await createTournamentEntry({
-          tournament_id: tournament.id,
-          team_name: teamName.trim(),
-          captain_name: captainName.trim(),
-          captain_email: captainEmail.trim(),
-          captain_phone: captainPhone.trim(),
-          player_count: null,
-          notes: null,
-          heard_from: heardFrom || null,
-          marketing_opt_in: marketingOptIn,
-        });
-
+        // Single round-trip: tournament-checkout validates, looks
+        // up the event + entry fee, creates the Stripe PaymentIntent
+        // AND inserts the tournament_entries row in one call. The
+        // function uses the service_role key so it can insert even
+        // with RLS locked down on the table.
         const res = await fetch(CHECKOUT_FN_URL, {
           method: "POST",
           headers: {
@@ -179,8 +169,15 @@ export default function InlineTournamentBooking({
             Authorization: `Bearer ${SUPABASE_ANON_KEY}`,
           },
           body: JSON.stringify({
-            entry_id: entry.id,
             tournament_id: tournament.id,
+            team_name: teamName.trim(),
+            captain_name: captainName.trim(),
+            captain_email: captainEmail.trim(),
+            captain_phone: captainPhone.trim(),
+            player_count: null,
+            notes: null,
+            heard_from: heardFrom || null,
+            marketing_opt_in: marketingOptIn,
           }),
         });
         if (!res.ok) {
@@ -189,7 +186,10 @@ export default function InlineTournamentBooking({
             `Couldn't start payment (${res.status}): ${txt || "no detail"}`,
           );
         }
-        const body = (await res.json()) as { client_secret?: string };
+        const body = (await res.json()) as {
+          client_secret?: string;
+          entry_id?: string;
+        };
         if (!body.client_secret) {
           throw new Error("Server returned no client_secret");
         }

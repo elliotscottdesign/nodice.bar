@@ -12,7 +12,6 @@ import {
   useElements,
   useStripe,
 } from "@stripe/react-stripe-js";
-import { createEventEntry } from "@/lib/db/eventEntries";
 import BrandSelect from "@/components/BrandSelect";
 
 // =============================================================
@@ -145,18 +144,11 @@ export default function InlineMatchBooking({
       setError("");
       setSubmitting(true);
       try {
-        const entry = await createEventEntry({
-          event_id: target.event_id,
-          ticket_type_id: target.ticket_type_id,
-          attendee_name: name.trim(),
-          attendee_email: email.trim(),
-          attendee_phone: phone.trim(),
-          quantity,
-          notes: notes.trim() || null,
-          heard_from: heardFrom || null,
-          marketing_opt_in: marketingOptIn,
-        });
-
+        // Single round-trip: match-checkout validates, looks up the
+        // event + ticket type, creates the Stripe PaymentIntent AND
+        // inserts the event_entries row in one call. The function
+        // uses the service_role key so it can insert even with RLS
+        // locked down on the table.
         const res = await fetch(CHECKOUT_FN_URL, {
           method: "POST",
           headers: {
@@ -165,8 +157,15 @@ export default function InlineMatchBooking({
             Authorization: `Bearer ${SUPABASE_ANON_KEY}`,
           },
           body: JSON.stringify({
-            entry_id: entry.id,
             event_id: target.event_id,
+            ticket_type_id: target.ticket_type_id,
+            attendee_name: name.trim(),
+            attendee_email: email.trim(),
+            attendee_phone: phone.trim(),
+            quantity,
+            notes: notes.trim() || null,
+            heard_from: heardFrom || null,
+            marketing_opt_in: marketingOptIn,
           }),
         });
         if (!res.ok) {
@@ -175,7 +174,10 @@ export default function InlineMatchBooking({
             `Couldn't start payment (${res.status}): ${txt || "no detail"}`,
           );
         }
-        const body = (await res.json()) as { client_secret?: string };
+        const body = (await res.json()) as {
+          client_secret?: string;
+          entry_id?: string;
+        };
         if (!body.client_secret) {
           throw new Error("Server returned no client_secret");
         }

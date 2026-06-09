@@ -1,30 +1,38 @@
 // =============================================================
-// No Dice — tournament-checkout Edge Function
+// tournament-checkout — secure tournament entry endpoint
 // =============================================================
 // POST /functions/v1/tournament-checkout
+// Body (full entry data — no row exists yet on the client side):
+//   {
+//     tournament_id: string,       // event id (events table)
+//     team_name: string,
+//     captain_name: string,
+//     captain_email: string,
+//     captain_phone: string,
+//     player_count?: number | null,
+//     notes?: string | null,
+//     heard_from?: string | null,
+//     marketing_opt_in?: boolean
+//   }
 //
-// Body: { entry_id: string, tournament_id: string }
+// Flow:
+//   1. Validate body server-side.
+//   2. Look up the events row (events table is the source of truth
+//      since the events-platform migration; tournament_id is the
+//      event id, which equals the legacy tournaments.id).
+//   3. Look up the active ticket_types row for the entry fee — never
+//      trust the client price.
+//   4. Capacity check vs paid + recent-pending entries.
+//   5. Create a Stripe PaymentIntent.
+//   6. INSERT the tournament_entries row using the service_role key
+//      with the intent_id already stamped.
+//   7. Return { entry_id, client_secret }.
 //
-// Browser hands us the pending tournament_entries row + its parent
-// tournament. We:
-//   1. Look up the entry + tournament server-side (NEVER trust the
-//      browser for the amount — Stripe Checkout would silently honor
-//      whatever price we sent, so the price MUST come from our DB).
-//   2. Create a Stripe Checkout Session with the tournament's
-//      `entry_fee_pence`, customer email, and metadata pointing back
-//      at the entry id.
-//   3. Stamp the session id back onto the entry row so the
-//      stripe-webhook function can find it again on payment success.
-//   4. Return { url } — the browser hard-redirects there.
-//
-// What lives in env vars:
-//   STRIPE_SECRET_KEY              — Stripe live or test secret key
-//   SUPABASE_URL                   — auto-injected by Supabase
-//   SUPABASE_SERVICE_ROLE_KEY      — auto-injected by Supabase
-//   PUBLIC_SITE_URL                — root of the deployed site, used
-//                                   to build success/cancel URLs.
-//                                   For GitHub Pages this is
-//                                   https://elliotscottdesign.github.io/nodice.bar
+// Why this shape:
+//   The customer-site browser holds only the anon key. With RLS
+//   enabled on tournament_entries, anon cannot insert directly. So
+//   the insert lives here, where the service_role key bypasses RLS
+//   server-side.
 // =============================================================
 
 import Stripe from "https://esm.sh/stripe@17.4.0?target=denonext";
@@ -57,9 +65,6 @@ function handlePreflight(req: Request): Response | null {
 const STRIPE_SECRET_KEY = Deno.env.get("STRIPE_SECRET_KEY") ?? "";
 const SUPABASE_URL = Deno.env.get("SUPABASE_URL") ?? "";
 const SUPABASE_SERVICE_ROLE_KEY = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY") ?? "";
-const PUBLIC_SITE_URL =
-  Deno.env.get("PUBLIC_SITE_URL") ??
-  "https://elliotscottdesign.github.io/nodice.bar";
 
 const stripe = new Stripe(STRIPE_SECRET_KEY, {
   apiVersion: "2024-06-20",
@@ -70,10 +75,77 @@ const db = createClient(SUPABASE_URL, SUPABASE_SERVICE_ROLE_KEY, {
   auth: { persistSession: false },
 });
 
-type Payload = {
-  entry_id?: string;
-  tournament_id?: string;
+const EMAIL_RE = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+const UUID_RE =
+  /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+
+type TournamentEntryInput = {
+  tournament_id: string;
+  team_name: string;
+  captain_name: string;
+  captain_email: string;
+  captain_phone: string;
+  player_count?: number | null;
+  notes?: string | null;
+  heard_from?: string | null;
+  marketing_opt_in?: boolean;
 };
+
+function validate(body: Partial<TournamentEntryInput>): {
+  ok: true;
+  input: TournamentEntryInput;
+} | { ok: false; error: string } {
+  if (!body || typeof body !== "object") {
+    return { ok: false, error: "Body must be a JSON object" };
+  }
+  if (!body.tournament_id || !UUID_RE.test(body.tournament_id)) {
+    return { ok: false, error: "tournament_id must be a UUID" };
+  }
+  if (
+    !body.team_name ||
+    typeof body.team_name !== "string" ||
+    body.team_name.trim().length < 2
+  ) {
+    return { ok: false, error: "team_name is required" };
+  }
+  if (
+    !body.captain_name ||
+    typeof body.captain_name !== "string" ||
+    body.captain_name.trim().length < 2
+  ) {
+    return { ok: false, error: "captain_name is required" };
+  }
+  if (
+    !body.captain_email ||
+    typeof body.captain_email !== "string" ||
+    !EMAIL_RE.test(body.captain_email)
+  ) {
+    return { ok: false, error: "valid captain_email is required" };
+  }
+  if (
+    !body.captain_phone ||
+    typeof body.captain_phone !== "string" ||
+    body.captain_phone.trim().length < 5
+  ) {
+    return { ok: false, error: "captain_phone is required" };
+  }
+  return {
+    ok: true,
+    input: {
+      tournament_id: body.tournament_id,
+      team_name: body.team_name.trim(),
+      captain_name: body.captain_name.trim(),
+      captain_email: body.captain_email.trim(),
+      captain_phone: body.captain_phone.trim(),
+      player_count:
+        typeof body.player_count === "number" ? body.player_count : null,
+      notes: typeof body.notes === "string" ? body.notes.trim() || null : null,
+      heard_from:
+        typeof body.heard_from === "string" ? body.heard_from.trim() || null : null,
+      marketing_opt_in: !!body.marketing_opt_in,
+    },
+  };
+}
 
 Deno.serve(async (req) => {
   const preflight = handlePreflight(req);
@@ -88,95 +160,89 @@ Deno.serve(async (req) => {
     );
   }
 
-  let body: Payload;
+  let raw: Partial<TournamentEntryInput>;
   try {
-    body = (await req.json()) as Payload;
+    raw = await req.json();
   } catch {
     return jsonResponse({ error: "Invalid JSON body" }, { status: 400 });
   }
-  const { entry_id, tournament_id } = body;
-  if (!entry_id || !tournament_id) {
-    return jsonResponse(
-      { error: "Missing entry_id or tournament_id" },
-      { status: 400 },
-    );
-  }
 
-  // Look up entry + tournament server-side.
-  const { data: entry, error: entryErr } = await db
-    .from("tournament_entries")
-    .select("id, status, captain_email, team_name, tournament_id")
-    .eq("id", entry_id)
+  const v = validate(raw);
+  if (!v.ok) return jsonResponse({ error: v.error }, { status: 400 });
+  const input = v.input;
+
+  // Look up the tournament event (events table — the events-platform
+  // migration moved tournament metadata here; ticket_types now holds
+  // the entry fee). The id equals the legacy tournaments.id for
+  // backfilled tournaments, so this works for both old and new.
+  const { data: ev, error: evErr } = await db
+    .from("events")
+    .select(
+      "id, name, category, registration_open, bookable, max_attendees, paid_entries_count",
+    )
+    .eq("id", input.tournament_id)
     .maybeSingle();
-  if (entryErr) {
+  if (evErr) {
     return jsonResponse(
-      { error: `DB error on entry lookup: ${entryErr.message}` },
+      { error: `DB error on tournament lookup: ${evErr.message}` },
       { status: 500 },
     );
   }
-  if (!entry) {
-    return jsonResponse({ error: "Entry not found" }, { status: 404 });
-  }
-  if (entry.tournament_id !== tournament_id) {
-    return jsonResponse(
-      { error: "Entry does not belong to that tournament" },
-      { status: 400 },
-    );
-  }
-  if (entry.status !== "pending_payment") {
-    return jsonResponse(
-      { error: `Entry already in status '${entry.status}'` },
-      { status: 409 },
-    );
-  }
-
-  const { data: tournament, error: tournErr } = await db
-    .from("tournaments")
-    .select("id, name, entry_fee_pence, registration_open, bookable, max_teams")
-    .eq("id", tournament_id)
-    .maybeSingle();
-  if (tournErr) {
-    return jsonResponse(
-      { error: `DB error on tournament lookup: ${tournErr.message}` },
-      { status: 500 },
-    );
-  }
-  if (!tournament) {
+  if (!ev) {
     return jsonResponse({ error: "Tournament not found" }, { status: 404 });
   }
-  if (!tournament.registration_open) {
+  if (!ev.registration_open) {
     return jsonResponse(
       { error: "Registration is closed for this tournament" },
       { status: 409 },
     );
   }
-  // GRAND FINAL and similar invitation-only events are visible on
-  // the public schedule but bookable=false blocks any direct sign-up
-  // attempt — even if someone deep-links the booking form.
-  if (!tournament.bookable) {
+  if (!ev.bookable) {
     return jsonResponse(
       { error: "This event is invitation only — not publicly bookable" },
       { status: 409 },
     );
   }
-  if (!tournament.entry_fee_pence || tournament.entry_fee_pence <= 0) {
+  if (
+    ev.category !== "pool_tournament_doubles" &&
+    ev.category !== "pool_tournament_singles" &&
+    ev.category !== "pool_special"
+  ) {
+    return jsonResponse(
+      { error: "Event is not a tournament" },
+      { status: 400 },
+    );
+  }
+
+  // First active ticket = the entry fee. Mirrors loadOpenTournaments.
+  const { data: tt, error: ttErr } = await db
+    .from("ticket_types")
+    .select("id, price_pence, active")
+    .eq("event_id", input.tournament_id)
+    .eq("active", true)
+    .order("sort_order", { ascending: true })
+    .limit(1)
+    .maybeSingle();
+  if (ttErr) {
+    return jsonResponse(
+      { error: `DB error on ticket lookup: ${ttErr.message}` },
+      { status: 500 },
+    );
+  }
+  if (!tt || !tt.price_pence || tt.price_pence <= 0) {
     return jsonResponse(
       { error: "Tournament has no entry fee configured" },
       { status: 500 },
     );
   }
 
-  // Capacity check. Count BOTH paid entries (final state) AND
-  // pending_payment entries created in the last 15 minutes (active
-  // checkout sessions). Older pending rows are treated as abandoned —
-  // their spot is released so we don't lock capacity indefinitely
-  // for customers who never finished paying.
+  // Capacity check — count paid entries + pending entries created in
+  // the last 15 min (treat older pending as abandoned).
   const FIFTEEN_MIN_AGO = new Date(Date.now() - 15 * 60 * 1000).toISOString();
   const { count: activeCount, error: countErr } = await db
     .from("tournament_entries")
     .select("id", { count: "exact", head: true })
-    .eq("tournament_id", tournament.id)
-    .neq("id", entry.id)
+    .eq("tournament_id", input.tournament_id)
     .or(
       `status.eq.paid,and(status.eq.pending_payment,created_at.gte.${FIFTEEN_MIN_AGO})`,
     );
@@ -186,38 +252,29 @@ Deno.serve(async (req) => {
       { status: 500 },
     );
   }
-  const taken = activeCount ?? 0;
-  if (taken >= tournament.max_teams) {
+  const maxTeams = ev.max_attendees ?? 12;
+  if ((activeCount ?? 0) >= maxTeams) {
     return jsonResponse(
       {
-        error: `Sorry, this tournament just filled up — ${tournament.max_teams} teams already secured. Pick another date.`,
+        error: `Sorry, this tournament just filled up — ${maxTeams} teams already secured. Pick another date.`,
       },
       { status: 409 },
     );
   }
 
-  // Create a PaymentIntent directly — Payment Element flow.
-  //
-  // Switched away from Checkout Session (ui_mode: 'embedded') so the
-  // frontend can render a fully No-Dice-branded card form via
-  // <PaymentElement /> with its own appearance theme. The customer
-  // confirms via `stripe.confirmPayment()` client-side; on success
-  // Stripe fires `payment_intent.succeeded` which the webhook uses to
-  // flip the entry to 'paid'. The webhook locates the entry via
-  // metadata.entry_id (not stripe_session_id any more).
+  // Stripe FIRST — if it fails, we never write an orphan entry.
   let intent: Stripe.PaymentIntent;
   try {
     intent = await stripe.paymentIntents.create({
-      amount: tournament.entry_fee_pence,
+      amount: tt.price_pence,
       currency: "gbp",
-      receipt_email: entry.captain_email,
-      description: `${tournament.name} — entry for team "${entry.team_name}"`,
+      receipt_email: input.captain_email,
+      description: `${ev.name} — entry for team "${input.team_name}"`,
       automatic_payment_methods: { enabled: true },
       metadata: {
         kind: "tournament_entry",
-        entry_id: entry.id,
-        tournament_id: tournament.id,
-        team_name: entry.team_name,
+        tournament_id: ev.id,
+        team_name: input.team_name,
       },
     });
   } catch (e) {
@@ -235,18 +292,51 @@ Deno.serve(async (req) => {
     );
   }
 
-  // Stamp the payment_intent id onto the entry so the webhook can
-  // find it on payment_intent.succeeded. (We also send the id in
-  // metadata as a backup lookup key.)
-  const { error: stampErr } = await db
+  // INSERT the entry with intent already stamped.
+  const { data: entry, error: insertErr } = await db
     .from("tournament_entries")
-    .update({ stripe_payment_intent_id: intent.id })
-    .eq("id", entry.id);
-  if (stampErr) {
-    console.error(
-      `Couldn't stamp intent id ${intent.id} onto entry ${entry.id}: ${stampErr.message}`,
+    .insert({
+      tournament_id: input.tournament_id,
+      team_name: input.team_name,
+      captain_name: input.captain_name,
+      captain_email: input.captain_email,
+      captain_phone: input.captain_phone,
+      player_count: input.player_count,
+      notes: input.notes,
+      heard_from: input.heard_from,
+      marketing_opt_in: input.marketing_opt_in,
+      stripe_payment_intent_id: intent.id,
+    })
+    .select("id")
+    .single();
+  if (insertErr || !entry) {
+    await stripe.paymentIntents
+      .cancel(intent.id, { cancellation_reason: "abandoned" })
+      .catch(() => {});
+    return jsonResponse(
+      {
+        error: `Failed to save entry: ${
+          insertErr?.message ?? "unknown error"
+        }`,
+      },
+      { status: 500 },
     );
   }
 
-  return jsonResponse({ client_secret: intent.client_secret });
+  // Stamp the entry_id back onto Stripe metadata for the webhook.
+  await stripe.paymentIntents
+    .update(intent.id, {
+      metadata: {
+        ...intent.metadata,
+        entry_id: entry.id,
+      },
+    })
+    .catch((e) => {
+      console.warn(`Could not update PaymentIntent metadata: ${e}`);
+    });
+
+  return jsonResponse({
+    entry_id: entry.id,
+    client_secret: intent.client_secret,
+  });
 });
