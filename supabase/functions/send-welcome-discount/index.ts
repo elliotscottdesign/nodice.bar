@@ -81,7 +81,12 @@ The No Dice team
         <td align="center">
           <table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="max-width:520px;background:#0c0c0c;border:1px solid rgba(245,239,227,0.12);border-radius:16px;padding:36px 28px;">
             <tr>
-              <td align="center" style="padding-bottom:20px;">
+              <td align="center" style="padding-bottom:8px;">
+                <img src="https://dev.nodice.bar/nodice-wordmark.png" alt="No Dice" style="display:block;margin:0 auto;width:220px;max-width:80%;height:auto;border:0;outline:none;text-decoration:none;">
+              </td>
+            </tr>
+            <tr>
+              <td align="center" style="padding:8px 0 20px;">
                 <div style="font-size:11px;font-weight:700;letter-spacing:0.28em;color:#DA1B33;text-transform:uppercase;">Welcome to No Dice</div>
               </td>
             </tr>
