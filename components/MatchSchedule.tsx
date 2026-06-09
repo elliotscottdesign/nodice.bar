@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import Link from "next/link";
 import {
   loadUpcomingEventsByCategory,
@@ -72,6 +72,10 @@ export default function MatchSchedule() {
   // for customers who don't want a calendar. The toggle persists for
   // the session only; we don't write to storage on purpose.
   const [view, setView] = useState<"roller" | "calendar">("roller");
+  // Ref on the inline ticket form wrapper. When the customer picks a
+  // paid match (roller OR calendar) we scroll this into view so they
+  // don't have to hunt for the payment form below the long card grid.
+  const bookingRef = useRef<HTMLDivElement | null>(null);
 
   // Scroll-arrow behaviour, snap rail, edge-fades and hidden
   // scrollbar all come from the shared <RollerDeck> wrapper below.
@@ -117,6 +121,25 @@ export default function MatchSchedule() {
   }, []);
 
   const expandedMatch = matches.find((m) => m.event.id === expandedId);
+
+  // Auto-scroll the inline ticket form into view whenever the
+  // customer picks a paid match. We wait a frame so the form is
+  // actually in the DOM before measuring its position (the same-tick
+  // ref is still null because the conditional render below hasn't
+  // mounted yet). 'center' positioning leaves headroom above so the
+  // match they tapped stays partially visible — anchoring the scroll
+  // psychologically to "I just picked that, now I'm paying for it"
+  // rather than the form appearing from nowhere.
+  useEffect(() => {
+    if (!expandedId) return;
+    const id = requestAnimationFrame(() => {
+      bookingRef.current?.scrollIntoView({
+        behavior: "smooth",
+        block: "center",
+      });
+    });
+    return () => cancelAnimationFrame(id);
+  }, [expandedId]);
 
   return (
     <section id="matches" className="scroll-mt-24 bg-ink/40 px-6 py-20">
@@ -320,9 +343,12 @@ export default function MatchSchedule() {
             </RollerDeck>
           )}
 
-          {/* Inline ticket form for the currently-selected paid match */}
+          {/* Inline ticket form for the currently-selected paid match.
+              `bookingRef` is the target for the auto-scroll effect
+              above — wraps the form so scrollIntoView can find it
+              regardless of which view (roller / calendar) opened it. */}
           {expandedMatch && expandedMatch.paidTicket && (
-            <div className="mx-auto mt-8 max-w-2xl">
+            <div ref={bookingRef} className="mx-auto mt-8 max-w-2xl scroll-mt-24">
               <InlineMatchBooking
                 target={buildTarget(expandedMatch)}
                 onClose={() => setExpandedId(null)}
