@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import RollerDeck from "./RollerDeck";
 import {
   loadOpenTournaments,
@@ -76,6 +76,25 @@ export default function TournamentSchedule() {
   const [err, setErr] = useState("");
   const [type, setType] = useState<TournamentType>("doubles");
   const [expandedId, setExpandedId] = useState<string | null>(null);
+  // Ref on the inline booking form wrapper. When the customer picks
+  // a tournament we smooth-scroll the form into view so they don't
+  // have to hunt for it below the rail of cards.
+  const bookingRef = useRef<HTMLDivElement | null>(null);
+
+  // Auto-scroll the inline form into view whenever a tournament is
+  // selected. We wait a frame so the form is mounted before we
+  // measure its position. 'center' positioning keeps the card they
+  // tapped partially visible above the form.
+  useEffect(() => {
+    if (!expandedId) return;
+    const id = requestAnimationFrame(() => {
+      bookingRef.current?.scrollIntoView({
+        behavior: "smooth",
+        block: "center",
+      });
+    });
+    return () => cancelAnimationFrame(id);
+  }, [expandedId]);
 
   // Scroll-arrow behaviour, snap rail, edge-fades and hidden
   // scrollbar all come from the shared <RollerDeck> wrapper below.
@@ -356,9 +375,10 @@ export default function TournamentSchedule() {
 
           {/* Booking form for the currently-selected card. Rendered
               below the rail so the rail stays clean and the form can
-              breathe. */}
+              breathe. `bookingRef` is the target for the auto-scroll
+              effect at the top of this component. */}
           {expandedId && (
-            <div className="mx-auto mt-8 max-w-2xl">
+            <div ref={bookingRef} className="mx-auto mt-8 max-w-2xl scroll-mt-24">
               {(() => {
                 const sel = events.find((e) => e.id === expandedId);
                 if (!sel || !sel.bookable) return null;
