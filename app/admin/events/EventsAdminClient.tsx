@@ -146,6 +146,14 @@ export default function EventsAdminClient() {
   const [posterUrl, setPosterUrl] = useState<string>("");
   const [showPicker, setShowPicker] = useState(false);
   const [category, setCategory] = useState<EventCategory>("dj_night");
+  // Auto-tick "Closes /book/table reservations" when the admin
+  // picks a category that almost always needs the dining tables.
+  // They can still untick manually for the rare exception.
+  useEffect(() => {
+    if (category === "world_cup" || category === "food_event") {
+      setBlocksTableBookings(true);
+    }
+  }, [category]);
   const [eventDate, setEventDate] = useState<string>(todayIso());
   const [startTime, setStartTime] = useState<string>("19:00");
   const [endTime, setEndTime] = useState<string>("");
@@ -154,6 +162,10 @@ export default function EventsAdminClient() {
   const [showOnPool, setShowOnPool] = useState(false);
   const [showOnCalendar, setShowOnCalendar] = useState(true);
   const [showOnBar, setShowOnBar] = useState(false);
+  // "Blocks /book/table" — closes free dining-table reservations
+  // for the event's date. Auto-defaults to true when the category
+  // implies it (World Cup match, food residency); admin can toggle.
+  const [blocksTableBookings, setBlocksTableBookings] = useState(false);
   const [requiresTicket, setRequiresTicket] = useState(true);
   const [maxAttendees, setMaxAttendees] = useState<string>("");
   const [tickets, setTickets] = useState<TicketDraft[]>([
@@ -174,6 +186,7 @@ export default function EventsAdminClient() {
     setShowOnPool(false);
     setShowOnCalendar(true);
     setShowOnBar(false);
+    setBlocksTableBookings(false);
     setRequiresTicket(true);
     setMaxAttendees("");
     setTickets([{ name: "General entry", description: "", price: "", capacity: "" }]);
@@ -339,6 +352,7 @@ export default function EventsAdminClient() {
           bookable: true,
           max_attendees: maxAttendees ? parseInt(maxAttendees, 10) : null,
           registration_open: true,
+          blocks_table_bookings: blocksTableBookings,
         });
         if (i === 0) parentId = created.id;
 
@@ -522,7 +536,19 @@ export default function EventsAdminClient() {
                   onChange={setShowOnBar}
                   label="Show on /bar page"
                 />
+                <Checkbox
+                  checked={blocksTableBookings}
+                  onChange={setBlocksTableBookings}
+                  label="Closes /book/table reservations for this date"
+                />
               </div>
+              {blocksTableBookings && (
+                <p className="mt-2 text-xs text-cream/55">
+                  Customers booking a free table for that day will be
+                  shown a message and redirected to the right booking
+                  page instead.
+                </p>
+              )}
             </Field>
           </Section>
 
@@ -938,6 +964,9 @@ function EditEventModal({
   const [registrationOpen, setRegistrationOpen] = useState(
     event.registration_open,
   );
+  const [blocksTableBookings, setBlocksTableBookings] = useState(
+    event.blocks_table_bookings ?? false,
+  );
 
   // ---- Ticket types ----
   // Mirror state for each existing ticket type, plus a track of which
@@ -998,6 +1027,7 @@ function EditEventModal({
         show_on_pool_schedule: showOnPool,
         show_on_bar_page: showOnBar,
         registration_open: registrationOpen,
+        blocks_table_bookings: blocksTableBookings,
       });
 
       // 2) Each ticket row → update / create / delete.
@@ -1131,6 +1161,11 @@ function EditEventModal({
               label="Show on bar page"
               checked={showOnBar}
               onChange={setShowOnBar}
+            />
+            <ModalCheck
+              label="Closes /book/table for this date"
+              checked={blocksTableBookings}
+              onChange={setBlocksTableBookings}
             />
             <ModalCheck
               label="Registration open"

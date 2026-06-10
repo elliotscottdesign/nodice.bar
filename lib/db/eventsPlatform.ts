@@ -54,6 +54,10 @@ export type DbEvent = {
   max_attendees: number | null;
   registration_open: boolean;
   paid_entries_count: number;
+  /** True = this event closes /book/table reservations for
+   *  event_date. The booking calendar greys out the day and surfaces
+   *  a message linking to the right booking flow. */
+  blocks_table_bookings: boolean;
   created_at: string;
   updated_at: string;
 };

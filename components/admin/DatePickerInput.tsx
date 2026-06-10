@@ -53,6 +53,7 @@ export default function DatePickerInput({
   onChange,
   minIso,
   disabledDaysOfWeek,
+  disabledDates,
   className,
   placeholder = "Pick a date",
 }: {
@@ -62,6 +63,10 @@ export default function DatePickerInput({
   /** Day-of-week numbers to grey out (0=Sun, 1=Mon, …, 6=Sat).
    *  Used by /book/pool to disable Saturdays. */
   disabledDaysOfWeek?: number[];
+  /** Specific ISO dates (YYYY-MM-DD) to grey out — e.g. days
+   *  where a competing event blocks /book/table reservations
+   *  (World Cup match nights, food residencies). */
+  disabledDates?: string[];
   className?: string;
   placeholder?: string;
 }) {
@@ -150,6 +155,14 @@ export default function DatePickerInput({
                 ...(minDate ? [{ before: minDate }] : []),
                 ...(disabledDaysOfWeek && disabledDaysOfWeek.length > 0
                   ? [{ dayOfWeek: disabledDaysOfWeek }]
+                  : []),
+                // Specific blocked dates — each is its own Date.
+                // DayPicker accepts Date objects in the disabled
+                // matchers array and matches by year+month+day.
+                ...(disabledDates && disabledDates.length > 0
+                  ? (disabledDates
+                      .map((iso) => dateFromIso(iso))
+                      .filter(Boolean) as Date[])
                   : []),
               ]}
               weekStartsOn={1}

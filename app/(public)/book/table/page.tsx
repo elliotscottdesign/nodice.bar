@@ -10,8 +10,14 @@ import {
   DAY_NAMES,
   type BookableProductConfig,
 } from "@/lib/db/bookableProducts";
+import {
+  loadBlockedDates,
+  findBlockedDate,
+  type BlockedDate,
+} from "@/lib/db/tableBlocking";
 import DatePickerInput from "@/components/admin/DatePickerInput";
 import BrandSelect from "@/components/BrandSelect";
+import Link from "next/link";
 
 // =============================================================
 // /book/table — bar table reservation (FREE)
@@ -90,6 +96,49 @@ function TableBookingPageInner() {
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState("");
   const [success, setSuccess] = useState(false);
+
+  // ----- Blocked dates (World Cup match nights, food residencies) -----
+  // Loaded once on mount for the next ~120 days. Drives both the
+  // greyed-out cells in the date picker AND the message panel that
+  // appears when the customer lands on a blocked date via ?date=… .
+  const [blockedDates, setBlockedDates] = useState<BlockedDate[]>([]);
+  useEffect(() => {
+    let cancelled = false;
+    const today = new Date();
+    const fromIso = today.toISOString().slice(0, 10);
+    const to = new Date(today);
+    to.setDate(to.getDate() + 120);
+    const toIso = to.toISOString().slice(0, 10);
+    loadBlockedDates(fromIso, toIso)
+      .then((rows) => {
+        if (!cancelled) setBlockedDates(rows);
+      })
+      .catch(() => {
+        // Fail-open: if the lookup errors, the calendar shows all
+        // dates as bookable. Worst case the customer's table booking
+        // collides with a match — same as the current behaviour, so
+        // we don't make things worse.
+        if (!cancelled) setBlockedDates([]);
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, []);
+
+  // ISO strings of every blocked date, passed to the DatePicker so
+  // it can grey them out in the picker grid.
+  const blockedIsoList = useMemo(
+    () => blockedDates.map((b) => b.iso),
+    [blockedDates],
+  );
+
+  // If the currently-selected date is one of the blocked ones,
+  // surface it so the form panel can render a "Book elsewhere"
+  // message instead of the time slots.
+  const blockingEvent = useMemo(
+    () => findBlockedDate(blockedDates, date),
+    [blockedDates, date],
+  );
 
   // ----- Live config from /admin/products/table -----
   const [cfg, setCfg] = useState<BookableProductConfig | null>(null);
@@ -268,13 +317,53 @@ function TableBookingPageInner() {
                 }}
                 minIso={todayIso()}
                 disabledDaysOfWeek={closedDaysOfWeek}
+                disabledDates={blockedIsoList}
               />
               {closedNote && (
                 <p className="mt-2 text-xs text-plonkPink">{closedNote}</p>
               )}
             </FormSection>
 
-            {!closed && (
+            {/* Blocked-date panel — shown when the customer picked
+                (or deep-linked to) a date where a competing event is
+                on. Replaces the time / duration / contact form so
+                they don't double-book the room. Picks them up and
+                hands them off to the right booking flow with a single
+                clear CTA. */}
+            {blockingEvent && (
+              <div className="rounded-2xl border border-plonkPink/40 bg-plonkPink/10 px-6 py-7 text-cream">
+                <div className="text-[11px] font-bold uppercase tracking-[0.28em] text-plonkPink">
+                  We're booked out for that night
+                </div>
+                <h3 className="mt-2 font-display text-2xl sm:text-3xl">
+                  {blockingEvent.event_name}
+                </h3>
+                <p className="mt-3 max-w-prose text-sm text-cream/75">
+                  {blockingEvent.category === "world_cup"
+                    ? "We're showing the match — every table that night is reserved for ticket-holders. Book a match table instead, or pick a different night."
+                    : blockingEvent.category === "food_event"
+                      ? "We've got a food residency on that night — the kitchen team uses the dining tables for guests. See what's on, or pick a different night."
+                      : "We've got something on that night that needs the dining tables. See what's on, or pick a different night."}
+                </p>
+                <div className="mt-5 flex flex-wrap gap-3">
+                  <Link
+                    href={blockingEvent.redirect_href}
+                    className="inline-block rounded-full bg-plonkPink px-6 py-3 text-xs font-bold uppercase tracking-widest text-white transition hover:bg-plonkPink/90"
+                  >
+                    {blockingEvent.redirect_label} →
+                  </Link>
+                  <button
+                    type="button"
+                    onClick={() => setDate(todayIso())}
+                    className="inline-block rounded-full border border-cream/25 px-6 py-3 text-xs font-bold uppercase tracking-widest text-cream/85 transition hover:border-cream/50"
+                  >
+                    Pick a different night
+                  </button>
+                </div>
+              </div>
+            )}
+
+            {!closed && !blockingEvent && (
               <FormSection label="Time">
                 {slots.length === 0 ? (
                   <p className="text-sm text-cream/55">
@@ -305,7 +394,7 @@ function TableBookingPageInner() {
               </FormSection>
             )}
 
-            {!closed && cfg && allowedDurations.length > 1 && (
+            {!closed && !blockingEvent && cfg && allowedDurations.length > 1 && (
               <FormSection label="How long?">
                 <div className="grid gap-3 sm:grid-cols-3">
                   {allowedDurations.map((d) => {
@@ -349,6 +438,12 @@ function TableBookingPageInner() {
               </FormSection>
             )}
 
+            {/* Everything below — party, contact, submit — is only
+                relevant when the date is actually bookable. Hidden
+                entirely on a blocked date so the message panel above
+                is the only thing the customer sees. */}
+            {!blockingEvent && !closed && (
+            <>
             <FormSection label="Party size">
               <NumberPicker
                 value={partySize}
@@ -438,6 +533,8 @@ function TableBookingPageInner() {
             <p className="text-center text-xs text-cream/55">
               Free to reserve. We'll email to confirm.
             </p>
+            </>
+            )}
           </form>
         )}
       </div>
