@@ -85,6 +85,7 @@ export async function loadDjNightsInRange(
         image_url: n.image || "",
         link_url: null,
         active: true,
+        subcategory: "DJ Night",
         created_at: "",
         updated_at: "",
       } as DbCalendarEvent;

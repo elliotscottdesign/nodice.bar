@@ -8,6 +8,7 @@ import {
   createCalendarEvent,
   updateCalendarEvent,
   deleteCalendarEvent,
+  EVENT_TYPES,
   type DbCalendarEvent,
   type NewCalendarEvent,
 } from "@/lib/db/calendarEvents";
@@ -27,6 +28,7 @@ type DraftState = {
   image_url: string;
   link_url: string;
   active: boolean;
+  subcategory: string;         // event type
 };
 
 const EMPTY_DRAFT: DraftState = {
@@ -38,6 +40,7 @@ const EMPTY_DRAFT: DraftState = {
   image_url: "",
   link_url: "",
   active: true,
+  subcategory: "Special Event",
 };
 
 function describe(err: unknown, fallback: string) {
@@ -111,6 +114,7 @@ export default function CalendarEventsAdminClient() {
       image_url: ev.image_url,
       link_url: ev.link_url ?? "",
       active: ev.active,
+      subcategory: ev.subcategory ?? "Special Event",
     });
     // Scroll to top so the form is visible.
     window.scrollTo({ top: 0, behavior: "smooth" });
@@ -137,6 +141,7 @@ export default function CalendarEventsAdminClient() {
       image_url: draft.image_url,
       link_url: draft.link_url.trim() || null,
       active: draft.active,
+      subcategory: draft.subcategory,
     };
 
     try {
@@ -184,6 +189,20 @@ export default function CalendarEventsAdminClient() {
       {/* ───── Add / edit form ───── */}
       <AdminCard title={draft.id ? "Edit event" : "Add new event"}>
         <form onSubmit={save} className="grid gap-4 p-5 sm:grid-cols-2">
+          <Field label="Type" className="sm:col-span-2">
+            <select
+              value={draft.subcategory}
+              onChange={(e) => setDraft({ ...draft, subcategory: e.target.value })}
+              className={inputClass}
+            >
+              {EVENT_TYPES.map((t) => (
+                <option key={t} value={t}>
+                  {t}
+                </option>
+              ))}
+            </select>
+          </Field>
+
           <Field label="Date">
             <input
               type="date"

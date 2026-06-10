@@ -32,9 +32,19 @@ export type DbCalendarEvent = {
   image_url: string;
   link_url: string | null;
   active: boolean;
+  subcategory: string | null;   // event type: DJ Night / Match Day / Pool Night / Food Night / Special Event
   created_at: string;
   updated_at: string;
 };
+
+// The event-type tags the founder picks when adding/editing an event.
+export const EVENT_TYPES = [
+  "DJ Night",
+  "Match Day",
+  "Pool Night",
+  "Food Night",
+  "Special Event",
+] as const;
 
 export type NewCalendarEvent = Omit<
   DbCalendarEvent,
@@ -51,12 +61,13 @@ type EventsRow = {
   poster_url: string | null;
   external_link: string | null;
   registration_open: boolean;
+  subcategory: string | null;
   created_at: string;
   updated_at: string;
 };
 
 const SELECT =
-  "id, event_date, start_time, name, description, poster_url, external_link, registration_open, created_at, updated_at";
+  "id, event_date, start_time, name, description, poster_url, external_link, registration_open, subcategory, created_at, updated_at";
 
 function toCalendar(r: EventsRow): DbCalendarEvent {
   return {
@@ -68,6 +79,7 @@ function toCalendar(r: EventsRow): DbCalendarEvent {
     image_url: r.poster_url ?? "",
     link_url: r.external_link,
     active: r.registration_open,
+    subcategory: r.subcategory,
     created_at: r.created_at,
     updated_at: r.updated_at,
   };
@@ -82,6 +94,7 @@ function fromCalendar(input: Partial<NewCalendarEvent>): Record<string, unknown>
   if (input.image_url !== undefined) out.poster_url = input.image_url || null;
   if (input.link_url !== undefined) out.external_link = input.link_url;
   if (input.active !== undefined) out.registration_open = input.active;
+  if (input.subcategory !== undefined) out.subcategory = input.subcategory || null;
   return out;
 }
 
