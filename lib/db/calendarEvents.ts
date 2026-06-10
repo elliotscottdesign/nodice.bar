@@ -41,7 +41,10 @@ export type NewCalendarEvent = Omit<
   "id" | "created_at" | "updated_at"
 >;
 
-// Internal row type for SELECTs against `events`.
+// Internal row type for SELECTs against `events`. Note `dj` is a
+// PostgREST embedded resource (FK join via events.dj_id → djs.id) —
+// only populated when the event has a linked DJ. We use the
+// profile_image_url as the fallback when poster_url is empty.
 type EventsRow = {
   id: string;
   event_date: string;
@@ -51,21 +54,32 @@ type EventsRow = {
   poster_url: string | null;
   external_link: string | null;
   registration_open: boolean;
+  dj_id: string | null;
+  dj: { profile_image_url: string | null } | null;
   created_at: string;
   updated_at: string;
 };
 
+// PostgREST select string. `dj:djs(profile_image_url)` is a foreign-
+// table join: pulls the linked DJ's profile_image_url so the public
+// /events calendar can render the DJ's image as a fallback without
+// a second round-trip.
 const SELECT =
-  "id, event_date, start_time, name, description, poster_url, external_link, registration_open, created_at, updated_at";
+  "id, event_date, start_time, name, description, poster_url, external_link, registration_open, dj_id, dj:djs(profile_image_url), created_at, updated_at";
 
 function toCalendar(r: EventsRow): DbCalendarEvent {
+  // Display fallback: explicit poster wins; otherwise the linked
+  // DJ's profile image; otherwise empty string (the calendar renders
+  // a "no artwork" placeholder).
+  const image =
+    r.poster_url || r.dj?.profile_image_url || "";
   return {
     id: r.id,
     event_date: r.event_date,
     start_time: r.start_time,
     title: r.name,
     body: r.description,
-    image_url: r.poster_url ?? "",
+    image_url: image,
     link_url: r.external_link,
     active: r.registration_open,
     created_at: r.created_at,

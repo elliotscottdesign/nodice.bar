@@ -58,6 +58,10 @@ export type DbEvent = {
    *  event_date. The booking calendar greys out the day and surfaces
    *  a message linking to the right booking flow. */
   blocks_table_bookings: boolean;
+  /** Optional FK to djs.id — set for dj_night events so the display
+   *  layer can fall back to the DJ's profile_image_url when this
+   *  event has no poster_url of its own. NULL for non-DJ events. */
+  dj_id: string | null;
   created_at: string;
   updated_at: string;
 };
