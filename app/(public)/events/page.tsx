@@ -127,19 +127,17 @@ export default function EventsPage() {
     const from = isoFor(active.year, active.month, 1);
     const lastDay = new Date(active.year, active.month + 1, 0).getDate();
     const to = isoFor(active.year, active.month, lastDay);
-    try {
-      // Manually-added events (this site's DB) + confirmed DJ nights
-      // (team hub feed) shown together. DJ nights are best-effort.
-      const [cal, dj] = await Promise.all([
-        loadCalendarEventsInRange(from, to),
-        loadDjNightsInRange(from, to),
-      ]);
-      setEvents([...cal, ...dj]);
-    } catch {
-      setEvents([]);
-    } finally {
-      setLoading(false);
-    }
+    // Manually-added events (this site's DB) + confirmed DJ nights (team hub
+    // feed). allSettled so one source failing never blanks the other — a DB
+    // hiccup still shows DJ nights, and a feed hiccup still shows your events.
+    const [calRes, djRes] = await Promise.allSettled([
+      loadCalendarEventsInRange(from, to),
+      loadDjNightsInRange(from, to),
+    ]);
+    const cal = calRes.status === "fulfilled" ? calRes.value : [];
+    const dj = djRes.status === "fulfilled" ? djRes.value : [];
+    setEvents([...cal, ...dj]);
+    setLoading(false);
   }, [active.year, active.month]);
 
   useEffect(() => {
@@ -148,19 +146,16 @@ export default function EventsPage() {
     const from = isoFor(active.year, active.month, 1);
     const lastDay = new Date(active.year, active.month + 1, 0).getDate();
     const to = isoFor(active.year, active.month, lastDay);
-    Promise.all([
+    Promise.allSettled([
       loadCalendarEventsInRange(from, to),
       loadDjNightsInRange(from, to),
-    ])
-      .then(([cal, dj]) => {
-        if (!cancelled) setEvents([...cal, ...dj]);
-      })
-      .catch(() => {
-        if (!cancelled) setEvents([]);
-      })
-      .finally(() => {
-        if (!cancelled) setLoading(false);
-      });
+    ]).then((res) => {
+      if (cancelled) return;
+      const cal = res[0].status === "fulfilled" ? res[0].value : [];
+      const dj = res[1].status === "fulfilled" ? res[1].value : [];
+      setEvents([...cal, ...dj]);
+      setLoading(false);
+    });
     return () => {
       cancelled = true;
     };

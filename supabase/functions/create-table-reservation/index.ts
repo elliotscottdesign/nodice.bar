@@ -179,6 +179,63 @@ Deno.serve(async (req) => {
     );
   }
 
+  // ---------------------------------------------------------
+  // Blocking-event check — match the client-side rule on /book/table.
+  // If a World Cup match or food residency is on for this date with
+  // blocks_table_bookings=true, the booking's [start_time,
+  // start_time+duration_minutes) must END by 2 hours before the
+  // event's start_time, or we reject. Stops anyone bypassing the
+  // greyed-out slot grid by crafting a direct POST.
+  // ---------------------------------------------------------
+  const { data: blockers, error: blockersErr } = await db
+    .from("events")
+    .select("id, name, start_time, blocks_table_bookings")
+    .eq("event_date", input.reservation_date)
+    .eq("blocks_table_bookings", true);
+  if (blockersErr) {
+    return jsonResponse(
+      { error: `Blocking-event lookup failed: ${blockersErr.message}` },
+      { status: 500 },
+    );
+  }
+  if (blockers && blockers.length > 0) {
+    // Earliest-starting blocker. start_time-less blockers come last
+    // and trigger a full-day refusal (we can't compute a cutoff).
+    const sorted = [...blockers].sort((a, b) => {
+      if (!a.start_time && !b.start_time) return 0;
+      if (!a.start_time) return 1;
+      if (!b.start_time) return -1;
+      return String(a.start_time).localeCompare(String(b.start_time));
+    });
+    const earliest = sorted[0];
+    if (!earliest.start_time) {
+      return jsonResponse(
+        {
+          error:
+            `Tables are fully booked on this date — ${earliest.name}. Pick a different night.`,
+        },
+        { status: 409 },
+      );
+    }
+    const [eh, em] = String(earliest.start_time).split(":").map((s) => parseInt(s, 10));
+    const eventMin = eh * 60 + (em || 0);
+    const cutoffMin = eventMin - 120; // 2-hour lead time
+    const [bh, bm] = input.start_time.split(":").map((s) => parseInt(s, 10));
+    const bookingStart = bh * 60 + (bm || 0);
+    const bookingEnd = bookingStart + input.duration_minutes;
+    if (bookingEnd > cutoffMin) {
+      const cutoffH = Math.floor(cutoffMin / 60);
+      const cutoffM = cutoffMin % 60;
+      return jsonResponse(
+        {
+          error:
+            `That slot runs into ${earliest.name}. Last seating ends by ${String(cutoffH).padStart(2, "0")}:${String(cutoffM).padStart(2, "0")} on this date.`,
+        },
+        { status: 409 },
+      );
+    }
+  }
+
   const { data: r, error: insertErr } = await db
     .from("bar_reservations")
     .insert({

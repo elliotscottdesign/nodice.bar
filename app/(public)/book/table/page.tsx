@@ -13,6 +13,9 @@ import {
 import {
   loadBlockedDates,
   findBlockedDate,
+  slotCutoffMinForBlocker,
+  formatMinuteOfDay,
+  formatTimeLabel,
   type BlockedDate,
 } from "@/lib/db/tableBlocking";
 import DatePickerInput from "@/components/admin/DatePickerInput";
@@ -125,19 +128,34 @@ function TableBookingPageInner() {
     };
   }, []);
 
-  // ISO strings of every blocked date, passed to the DatePicker so
-  // it can grey them out in the picker grid.
-  const blockedIsoList = useMemo(
-    () => blockedDates.map((b) => b.iso),
+  // HARD-blocked dates only — these are days where a blocking event
+  // is on but the event has no start_time set (e.g. "Fixture TBC"
+  // World Cup matches). We can't compute a 2-hour cutoff for those,
+  // so the whole day is greyed out in the picker. Dates with a
+  // blocking event that DOES have a start_time stay selectable —
+  // their slot grid is filtered instead so customers can still book
+  // an earlier table.
+  const hardBlockedIsoList = useMemo(
+    () =>
+      blockedDates
+        .filter((b) => !b.event_start_time)
+        .map((b) => b.iso),
     [blockedDates],
   );
 
-  // If the currently-selected date is one of the blocked ones,
-  // surface it so the form panel can render a "Book elsewhere"
-  // message instead of the time slots.
+  // The earliest-starting blocking event on the picked date, or null.
+  // Drives the slot cutoff + the friendly note above the slot grid.
   const blockingEvent = useMemo(
     () => findBlockedDate(blockedDates, date),
     [blockedDates, date],
+  );
+
+  // Minute-of-day after which a dining slot may NOT end. Two hours
+  // before the blocking event's start_time. Null = no blocker, or
+  // blocker has no start_time (hard-block path).
+  const slotCutoffMin = useMemo(
+    () => slotCutoffMinForBlocker(blockingEvent),
+    [blockingEvent],
   );
 
   // ----- Live config from /admin/products/table -----
@@ -181,10 +199,28 @@ function TableBookingPageInner() {
     [cfg],
   );
 
-  const slots = useMemo(
-    () => (cfg ? availableSlotsForDate(cfg, date, duration) : []),
-    [cfg, date, duration],
-  );
+  // Raw slots from the bookable-product config. Filtered below
+  // when a blocking event is on this date — only slots that END by
+  // (event_start_time − 2h) survive.
+  const slots = useMemo(() => {
+    if (!cfg) return [];
+    const all = availableSlotsForDate(cfg, date, duration);
+    if (slotCutoffMin === null) return all;
+    return all.filter((s) => {
+      const [hStr, mStr] = s.split(":");
+      const startMin = parseInt(hStr, 10) * 60 + parseInt(mStr || "0", 10);
+      return startMin + duration <= slotCutoffMin;
+    });
+  }, [cfg, date, duration, slotCutoffMin]);
+
+  // Hides the form (time, duration, party, contact, submit) when
+  // there's a blocker AND we can't offer any slots. Either:
+  //   • blocker has no start_time (hard block) → can't compute cutoff
+  //   • cutoff exists but no slots fit before it (event is too early)
+  // The form is allowed to render when there's no blocker, or when
+  // there's a soft block with a working cutoff AND slots still fit.
+  const blockedFromBooking =
+    !!blockingEvent && (slotCutoffMin === null || slots.length === 0);
 
   const closed = cfg ? !isDateBookable(cfg, date) : false;
   const closedOverride = cfg?.overrides.find((o) => o.date === date && o.closed);
@@ -317,20 +353,19 @@ function TableBookingPageInner() {
                 }}
                 minIso={todayIso()}
                 disabledDaysOfWeek={closedDaysOfWeek}
-                disabledDates={blockedIsoList}
+                disabledDates={hardBlockedIsoList}
               />
               {closedNote && (
                 <p className="mt-2 text-xs text-plonkPink">{closedNote}</p>
               )}
             </FormSection>
 
-            {/* Blocked-date panel — shown when the customer picked
-                (or deep-linked to) a date where a competing event is
-                on. Replaces the time / duration / contact form so
-                they don't double-book the room. Picks them up and
-                hands them off to the right booking flow with a single
-                clear CTA. */}
-            {blockingEvent && (
+            {/* HARD-BLOCK panel — only when a blocking event has NO
+                start_time set (e.g. "Fixture TBC" matches). With no
+                kickoff time we can't compute a 2-hour cutoff, so the
+                whole day is closed and we send the customer to the
+                right booking flow with a clear CTA. */}
+            {blockingEvent && slotCutoffMin === null && (
               <div className="rounded-2xl border border-plonkPink/40 bg-plonkPink/10 px-6 py-7 text-cream">
                 <div className="text-[11px] font-bold uppercase tracking-[0.28em] text-plonkPink">
                   We're booked out for that night
@@ -363,7 +398,79 @@ function TableBookingPageInner() {
               </div>
             )}
 
-            {!closed && !blockingEvent && (
+            {/* SOFT-BLOCK note — date is still bookable but the slot
+                grid is filtered to slots that END by 2h before the
+                event. Tell the customer why their later slots are
+                missing so the page doesn't feel broken. */}
+            {!closed &&
+              blockingEvent &&
+              slotCutoffMin !== null &&
+              slots.length > 0 && (
+                <div className="rounded-2xl border border-plonkYellow/40 bg-plonkYellow/5 px-5 py-4 text-cream">
+                  <div className="text-[10px] font-bold uppercase tracking-[0.26em] text-plonkYellow">
+                    Early dining only on this date
+                  </div>
+                  <p className="mt-2 text-sm text-cream/85">
+                    <span className="font-semibold text-cream">
+                      {blockingEvent.event_name}
+                    </span>{" "}
+                    starts at{" "}
+                    {blockingEvent.event_start_time
+                      ? formatTimeLabel(blockingEvent.event_start_time)
+                      : "the venue"}
+                    {" "}— dining tables must be cleared by{" "}
+                    <span className="font-semibold text-cream">
+                      {formatMinuteOfDay(slotCutoffMin)}
+                    </span>
+                    . Slots below all end by that time.
+                  </p>
+                  <Link
+                    href={blockingEvent.redirect_href}
+                    className="mt-3 inline-block text-xs font-bold uppercase tracking-widest text-plonkYellow underline-offset-4 hover:underline"
+                  >
+                    {blockingEvent.redirect_label} →
+                  </Link>
+                </div>
+              )}
+
+            {/* No slots fit before the cutoff — e.g. the event is
+                early enough that even the shortest booking would run
+                into it. Encourage a shorter duration or a different
+                day. */}
+            {!closed &&
+              blockingEvent &&
+              slotCutoffMin !== null &&
+              slots.length === 0 && (
+                <div className="rounded-2xl border border-plonkPink/40 bg-plonkPink/10 px-6 py-6 text-cream">
+                  <div className="text-[11px] font-bold uppercase tracking-[0.28em] text-plonkPink">
+                    No early slots fit
+                  </div>
+                  <p className="mt-2 text-sm text-cream/85">
+                    <span className="font-semibold text-cream">
+                      {blockingEvent.event_name}
+                    </span>{" "}
+                    starts at{" "}
+                    {blockingEvent.event_start_time
+                      ? formatTimeLabel(blockingEvent.event_start_time)
+                      : "the venue"}{" "}
+                    — we need tables back by{" "}
+                    <span className="font-semibold text-cream">
+                      {formatMinuteOfDay(slotCutoffMin)}
+                    </span>
+                    . Try a shorter duration, or pick a different night.
+                  </p>
+                  <div className="mt-4 flex flex-wrap gap-3">
+                    <Link
+                      href={blockingEvent.redirect_href}
+                      className="inline-block rounded-full bg-plonkPink px-5 py-2.5 text-[11px] font-bold uppercase tracking-widest text-white transition hover:bg-plonkPink/90"
+                    >
+                      {blockingEvent.redirect_label} →
+                    </Link>
+                  </div>
+                </div>
+              )}
+
+            {!closed && (!blockingEvent || (slotCutoffMin !== null && slots.length > 0)) && (
               <FormSection label="Time">
                 {slots.length === 0 ? (
                   <p className="text-sm text-cream/55">
@@ -394,12 +501,34 @@ function TableBookingPageInner() {
               </FormSection>
             )}
 
-            {!closed && !blockingEvent && cfg && allowedDurations.length > 1 && (
+            {/* Duration picker stays visible on a soft-block date even
+                when no slots currently fit, so the customer can try a
+                shorter duration and see slots reappear. Only hidden on
+                a hard block (no start_time on the event). */}
+            {!closed &&
+              !(blockingEvent && slotCutoffMin === null) &&
+              cfg &&
+              allowedDurations.length > 1 && (
               <FormSection label="How long?">
                 <div className="grid gap-3 sm:grid-cols-3">
                   {allowedDurations.map((d) => {
                     const active = duration === d;
-                    const fits = availableSlotsForDate(cfg, date, d).length > 0;
+                    // Whether this duration has any slot that fits AND
+                    // (when there's a soft block) ends by the cutoff.
+                    // Grey-out + disable durations that don't fit so
+                    // the customer can see at a glance which shorter
+                    // option to switch to.
+                    const fits = (() => {
+                      const all = availableSlotsForDate(cfg, date, d);
+                      if (all.length === 0) return false;
+                      if (slotCutoffMin === null) return true;
+                      return all.some((s) => {
+                        const [hStr, mStr] = s.split(":");
+                        const startMin =
+                          parseInt(hStr, 10) * 60 + parseInt(mStr || "0", 10);
+                        return startMin + d <= slotCutoffMin;
+                      });
+                    })();
                     const label =
                       d >= 60
                         ? d % 60 === 0
@@ -440,9 +569,11 @@ function TableBookingPageInner() {
 
             {/* Everything below — party, contact, submit — is only
                 relevant when the date is actually bookable. Hidden
-                entirely on a blocked date so the message panel above
-                is the only thing the customer sees. */}
-            {!blockingEvent && !closed && (
+                entirely on a hard-blocked date (event has no start
+                time, so we can't compute a cutoff). Soft-blocked
+                dates with a working cutoff keep the form open;
+                the slot grid is already filtered above. */}
+            {!blockedFromBooking && !closed && (
             <>
             <FormSection label="Party size">
               <NumberPicker
