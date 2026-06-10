@@ -20,7 +20,6 @@ import {
   type EventCategory,
   type RecurrenceType,
 } from "@/lib/db/eventsPlatform";
-import { loadAllDjs, resolveEventImage, type DbDj } from "@/lib/db/djs";
 
 // =============================================================
 // EventsAdminClient — the "Create Event" workbench
@@ -155,24 +154,6 @@ export default function EventsAdminClient() {
       setBlocksTableBookings(true);
     }
   }, [category]);
-
-  // DJ list loaded once, used by both the create form and the edit
-  // modal. Kept at the parent so a new DJ created via /admin/djs
-  // shows up after a refresh without per-modal duplication.
-  const [allDjs, setAllDjs] = useState<DbDj[]>([]);
-  useEffect(() => {
-    loadAllDjs()
-      .then(setAllDjs)
-      .catch(() => setAllDjs([]));
-  }, []);
-
-  // DJ link state for the create form. Only visible when category is
-  // 'dj_night'; cleared otherwise so we don't accidentally save a DJ
-  // link onto a non-DJ category.
-  const [djId, setDjId] = useState<string | null>(null);
-  useEffect(() => {
-    if (category !== "dj_night") setDjId(null);
-  }, [category]);
   const [eventDate, setEventDate] = useState<string>(todayIso());
   const [startTime, setStartTime] = useState<string>("19:00");
   const [endTime, setEndTime] = useState<string>("");
@@ -206,7 +187,6 @@ export default function EventsAdminClient() {
     setShowOnCalendar(true);
     setShowOnBar(false);
     setBlocksTableBookings(false);
-    setDjId(null);
     setRequiresTicket(true);
     setMaxAttendees("");
     setTickets([{ name: "General entry", description: "", price: "", capacity: "" }]);
@@ -373,7 +353,6 @@ export default function EventsAdminClient() {
           max_attendees: maxAttendees ? parseInt(maxAttendees, 10) : null,
           registration_open: true,
           blocks_table_bookings: blocksTableBookings,
-          dj_id: category === "dj_night" ? djId : null,
         });
         if (i === 0) parentId = created.id;
 
@@ -490,30 +469,18 @@ export default function EventsAdminClient() {
             <Field label="Poster / artwork (image or GIF)">
               <div className="flex flex-col gap-3 sm:flex-row sm:items-start">
                 <div className="h-40 w-32 shrink-0 overflow-hidden rounded-md border border-cream/15 bg-ink/40">
-                  {(() => {
-                    // Show the EFFECTIVE image — explicit poster wins,
-                    // otherwise fall back to the linked DJ's profile
-                    // image so the admin sees the same artwork the
-                    // customer will. Image preview must not change the
-                    // saved poster_url (still blank if not uploaded).
-                    const dj = djId ? allDjs.find((d) => d.id === djId) : null;
-                    const previewUrl = resolveEventImage(
-                      { poster_url: posterUrl || null },
-                      dj,
-                    );
-                    return previewUrl ? (
-                      // eslint-disable-next-line @next/next/no-img-element
-                      <img
-                        src={previewUrl}
-                        alt=""
-                        className="h-full w-full object-cover"
-                      />
-                    ) : (
-                      <div className="flex h-full w-full items-center justify-center text-[10px] uppercase tracking-widest text-cream/40">
-                        no artwork
-                      </div>
-                    );
-                  })()}
+                  {posterUrl ? (
+                    // eslint-disable-next-line @next/next/no-img-element
+                    <img
+                      src={posterUrl}
+                      alt=""
+                      className="h-full w-full object-cover"
+                    />
+                  ) : (
+                    <div className="flex h-full w-full items-center justify-center text-[10px] uppercase tracking-widest text-cream/40">
+                      no artwork
+                    </div>
+                  )}
                 </div>
                 <div className="flex flex-col gap-2">
                   <button
@@ -532,48 +499,9 @@ export default function EventsAdminClient() {
                       Clear
                     </button>
                   )}
-                  {/* If poster_url is blank but a DJ is linked, surface
-                      that the preview is the DJ's fallback image so the
-                      admin understands what'll show on the public site. */}
-                  {!posterUrl && djId && (
-                    <p className="text-[10px] uppercase tracking-widest text-plonkTeal">
-                      Using DJ profile image
-                    </p>
-                  )}
                 </div>
               </div>
             </Field>
-
-            {/* DJ link — only relevant for dj_night events. Hidden
-                otherwise so the form stays focused. Picker shows the
-                profile image as a thumbnail so the admin can see who
-                they're linking. */}
-            {category === "dj_night" && (
-              <Field label="Which DJ?">
-                <select
-                  value={djId ?? ""}
-                  onChange={(e) => setDjId(e.target.value || null)}
-                  className={inputCls}
-                >
-                  <option value="">— none —</option>
-                  {allDjs.map((d) => (
-                    <option key={d.id} value={d.id}>
-                      {d.name}
-                    </option>
-                  ))}
-                </select>
-                <p className="mt-1 text-[11px] text-cream/55">
-                  Need to add a new DJ?{" "}
-                  <a
-                    href="/admin/djs"
-                    className="text-plonkTeal underline-offset-2 hover:underline"
-                  >
-                    Open /admin/djs in a new tab
-                  </a>{" "}
-                  and refresh this page when you're done.
-                </p>
-              </Field>
-            )}
           </Section>
 
           {/* Category + visibility */}
@@ -981,7 +909,6 @@ export default function EventsAdminClient() {
         <EditEventModal
           event={events.find((e) => e.id === editingEventId)!}
           tickets={ticketsByEvent.get(editingEventId) ?? []}
-          djs={allDjs}
           onClose={() => setEditingEventId(null)}
           onSaved={async () => {
             setEditingEventId(null);
@@ -1011,13 +938,11 @@ export default function EventsAdminClient() {
 function EditEventModal({
   event,
   tickets,
-  djs,
   onClose,
   onSaved,
 }: {
   event: DbEvent;
   tickets: DbTicketType[];
-  djs: DbDj[];
   onClose: () => void;
   onSaved: () => void | Promise<void>;
 }) {
@@ -1042,7 +967,6 @@ function EditEventModal({
   const [blocksTableBookings, setBlocksTableBookings] = useState(
     event.blocks_table_bookings ?? false,
   );
-  const [djId, setDjId] = useState<string | null>(event.dj_id ?? null);
 
   // ---- Ticket types ----
   // Mirror state for each existing ticket type, plus a track of which
@@ -1104,7 +1028,6 @@ function EditEventModal({
         show_on_bar_page: showOnBar,
         registration_open: registrationOpen,
         blocks_table_bookings: blocksTableBookings,
-        dj_id: event.category === "dj_night" ? djId : event.dj_id,
       });
 
       // 2) Each ticket row → update / create / delete.
@@ -1250,35 +1173,6 @@ function EditEventModal({
               onChange={setRegistrationOpen}
             />
           </div>
-
-          {/* DJ link — only shown for dj_night events so the modal
-              stays uncluttered for the other categories. Saving uses
-              the DJ FK so the display layer (admin + public) can fall
-              back to the DJ profile image when no poster is set. */}
-          {event.category === "dj_night" && (
-            <div className="mt-4">
-              <label className="mb-1 block text-[10px] font-bold uppercase tracking-widest text-cream/50">
-                DJ
-              </label>
-              <select
-                value={djId ?? ""}
-                onChange={(e) => setDjId(e.target.value || null)}
-                className="w-full rounded-lg border border-cream/15 bg-ink/40 px-3 py-2 text-sm text-cream focus:border-plonkPink focus:outline-none"
-              >
-                <option value="">— none —</option>
-                {djs.map((d) => (
-                  <option key={d.id} value={d.id}>
-                    {d.name}
-                  </option>
-                ))}
-              </select>
-              {djId && !event.poster_url && (
-                <p className="mt-1 text-[10px] uppercase tracking-widest text-plonkTeal">
-                  Using DJ profile image (no per-event poster set)
-                </p>
-              )}
-            </div>
-          )}
         </div>
 
         {/* ---- Ticket types ---- */}
