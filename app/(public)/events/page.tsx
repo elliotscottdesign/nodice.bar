@@ -5,6 +5,7 @@ import {
   loadCalendarEventsInRange,
   type DbCalendarEvent,
 } from "@/lib/db/calendarEvents";
+import { loadDjNightsInRange, isDjEvent } from "@/lib/db/djNights";
 import { useContent, useImage } from "@/lib/content";
 import { Editable } from "@/components/Editable";
 import PageHero from "@/components/PageHero";
@@ -127,7 +128,13 @@ export default function EventsPage() {
     const lastDay = new Date(active.year, active.month + 1, 0).getDate();
     const to = isoFor(active.year, active.month, lastDay);
     try {
-      setEvents(await loadCalendarEventsInRange(from, to));
+      // Manually-added events (this site's DB) + confirmed DJ nights
+      // (team hub feed) shown together. DJ nights are best-effort.
+      const [cal, dj] = await Promise.all([
+        loadCalendarEventsInRange(from, to),
+        loadDjNightsInRange(from, to),
+      ]);
+      setEvents([...cal, ...dj]);
     } catch {
       setEvents([]);
     } finally {
@@ -141,9 +148,12 @@ export default function EventsPage() {
     const from = isoFor(active.year, active.month, 1);
     const lastDay = new Date(active.year, active.month + 1, 0).getDate();
     const to = isoFor(active.year, active.month, lastDay);
-    loadCalendarEventsInRange(from, to)
-      .then((data) => {
-        if (!cancelled) setEvents(data);
+    Promise.all([
+      loadCalendarEventsInRange(from, to),
+      loadDjNightsInRange(from, to),
+    ])
+      .then(([cal, dj]) => {
+        if (!cancelled) setEvents([...cal, ...dj]);
       })
       .catch(() => {
         if (!cancelled) setEvents([]);
@@ -381,6 +391,9 @@ function DayEventCard({
     ev.image_url && ev.image_url.startsWith("/")
       ? `${base}${ev.image_url}`
       : ev.image_url;
+  // DJ nights are auto-fed from the team hub — shown everywhere but never
+  // editable from this site's admin (the DJ system owns them).
+  const dj = isDjEvent(ev);
 
   const inner = (
     <div className="flex h-full flex-col">
@@ -399,7 +412,12 @@ function DayEventCard({
             no artwork
           </div>
         )}
-        {editing && (
+        {dj && (
+          <span className="absolute left-1 top-1 z-10 rounded-full bg-plonkPink/90 px-1.5 py-0.5 text-[9px] font-bold uppercase tracking-wider text-white">
+            DJ
+          </span>
+        )}
+        {editing && !dj && (
           <span className="absolute right-1 top-1 z-10 rounded-full bg-cream/90 px-1.5 py-0.5 text-[9px] font-bold uppercase tracking-wider text-ink">
             Edit
           </span>
@@ -425,8 +443,9 @@ function DayEventCard({
   );
 
   // Edit mode wins over the public link — clicking always opens the
-  // editor instead of navigating away.
-  if (editing) {
+  // editor instead of navigating away. DJ nights are read-only (managed
+  // in the team hub), so they fall through to the normal display.
+  if (editing && !dj) {
     return (
       <button
         type="button"
