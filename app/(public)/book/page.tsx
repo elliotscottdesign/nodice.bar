@@ -49,14 +49,9 @@ const FALLBACK_CARDS = [
     image: "",
     href: "/private-hire",
   },
-  {
-    id: "golf",
-    name: "Golf",
-    tagline: "Plonk Golf · Sister brand",
-    blurb: "Crazy golf at our sister venue, Plonk Golf — Hackney and Borough.",
-    image: "",
-    href: "https://www.plonkgolf.co.uk/",
-  },
+  // Golf card removed at launch — mini golf course is not open yet.
+  // The /mini-golf coming-soon page captures interest via newsletter
+  // signup with source='minigolf' until we're ready to sell tickets.
   {
     id: "contact",
     name: "Get in touch",
@@ -79,7 +74,7 @@ export default function BookPage() {
   const heroTitle = useContent("book.hero_title", "Book Now");
   const heroIntro = useContent(
     "book.hero_intro",
-    "Pick your booking — table, pool, party or golf.",
+    "Pick your booking — table, pool or party.",
   );
 
   // Per-card hooks. Each card's five fields (name/tagline/blurb/image/

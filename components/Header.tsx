@@ -9,17 +9,17 @@ import { Editable } from "./Editable";
 // Header nav fallback — overridable from the CMS via header.nav.
 // Labels are rendered uppercase by Tailwind (see the JSX below) so
 // the title-case source still ships as BAR / POOL / DEALS / EVENTS
-// / PLONK / BOOKINGS on the page. All six destinations now exist.
+// / MINI GOLF / BOOKINGS on the page. All six destinations now exist.
 const FALLBACK_NAV = [
   "Bar | /bar",
   "Pool | /pool",
   "World Cup | /world-cup",
   "Deals | /deals",
   "DJs & Events | /events",
-  // Plonk is the sister brand (crazy golf) — opens the standalone
-  // plonkgolf.co.uk site in a new tab. The renderer detects external
-  // URLs and adds target="_blank" + rel automatically.
-  "Plonk | https://www.plonkgolf.co.uk/",
+  // Mini Golf — coming-soon landing page (not yet bookable). Replaces
+  // the previous external link to plonkgolf.co.uk; the customer site
+  // captures emails on /mini-golf for an opening announcement.
+  "Mini Golf | /mini-golf",
   "Parties | /private-hire",
   "Contact | /contact",
 ].join("\n");

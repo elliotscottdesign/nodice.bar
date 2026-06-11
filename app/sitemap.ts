@@ -27,6 +27,10 @@ export default function sitemap(): MetadataRoute.Sitemap {
     { path: "/events", priority: 0.9, changeFrequency: "daily" },
     { path: "/deals", priority: 0.8, changeFrequency: "weekly" },
     { path: "/private-hire", priority: 0.7, changeFrequency: "monthly" },
+    // Mini-golf coming-soon landing — replaces the previous external
+    // Plonk Golf link in the header. Email-capture page until the
+    // course opens.
+    { path: "/mini-golf", priority: 0.6, changeFrequency: "monthly" },
     { path: "/contact", priority: 0.7, changeFrequency: "monthly" },
     { path: "/book/pool", priority: 0.8, changeFrequency: "weekly" },
     { path: "/book/table", priority: 0.8, changeFrequency: "weekly" },
