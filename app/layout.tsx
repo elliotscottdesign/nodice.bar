@@ -35,7 +35,7 @@ const VENUE = {
 export const metadata: Metadata = {
   metadataBase: new URL(SITE_URL),
   title: {
-    default: "No Dice — London Fields, Hackney",
+    default: "No Dice, Hackney",
     template: "%s · No Dice",
   },
   description:
@@ -57,25 +57,36 @@ export const metadata: Metadata = {
     type: "website",
     siteName: VENUE.name,
     url: SITE_URL,
-    title: "No Dice — London Fields, Hackney",
+    title: "No Dice, Hackney",
     description:
       "Pool tables, arcade, kitchen residencies, big screens for sport. 407 Mentmore Terrace, E8 3PH.",
     locale: "en_GB",
+    // Two images so platforms with different layout preferences pick
+    // the right one: the dice logo (square, the brand mark) first so
+    // iMessage / WhatsApp / Slack favour it for chat-bubble previews,
+    // and the wordmark banner kept as a fallback for platforms that
+    // want a wide 1.91:1 hero (Twitter/X, LinkedIn).
     images: [
+      {
+        url: "/nodice-logo.png",
+        width: 1200,
+        height: 1200,
+        alt: "No Dice, Hackney",
+      },
       {
         url: "/nodice-wordmark.png",
         width: 1200,
         height: 630,
-        alt: "No Dice — London Fields, Hackney",
+        alt: "No Dice, Hackney",
       },
     ],
   },
   twitter: {
     card: "summary_large_image",
-    title: "No Dice — London Fields, Hackney",
+    title: "No Dice, Hackney",
     description:
       "Pool tables, arcade, kitchen residencies, big screens for sport. 407 Mentmore Terrace, E8 3PH.",
-    images: ["/nodice-wordmark.png"],
+    images: ["/nodice-logo.png"],
   },
   robots: {
     // Block dev.nodice.bar from being indexed while it's the
@@ -85,7 +96,16 @@ export const metadata: Metadata = {
     follow: false,
     googleBot: { index: false, follow: false },
   },
-  icons: { icon: "/icon.svg" },
+  // Favicon + Apple touch icon both point at the 2-dice logo.
+  // The previous /icon.svg fallback didn't actually exist in /public,
+  // which is why iMessage was showing the generic Safari compass.
+  // apple-touch-icon is what iOS Messages uses for the small round
+  // avatar on the link preview bubble.
+  icons: {
+    icon: "/nodice-logo.png",
+    apple: "/nodice-logo.png",
+    shortcut: "/nodice-logo.png",
+  },
 };
 
 export const viewport: Viewport = {
