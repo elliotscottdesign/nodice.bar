@@ -106,6 +106,11 @@ export default function EventsPage() {
   const [modalDate, setModalDate] = useState<string | null>(null);
   const modalOpen = modalEvent !== null || modalDate !== null;
 
+  // Day-view popup state — opened when the customer clicks a day cell
+  // that has multiple events. The popup shows every event for that
+  // date at full size so the calendar cell itself stays compact.
+  const [openDayIso, setOpenDayIso] = useState<string | null>(null);
+
   function openAdd(dateIso: string) {
     setModalEvent(null);
     setModalDate(dateIso);
@@ -292,13 +297,17 @@ export default function EventsPage() {
                     </button>
                   )}
 
-                  {/* Stack of events for this day. */}
+                  {/* Stack of events for this day.
+                      RULES:
+                      - 0 events  → empty 4:5 placeholder (keeps grid rhythm)
+                      - 1 event   → full DayEventCard (existing layout)
+                      - 2+ events → condensed MultiEventStack, capped at
+                        roughly 1.5× the height of a single card, with
+                        click-to-expand into a full-size popup. Prevents a
+                        busy day (e.g. 27 Jun with 4 listings) blowing out
+                        the whole grid row. */}
                   <div className="flex flex-1 flex-col gap-1">
                     {dayEvents.length === 0 ? (
-                      // Empty 4:5 placeholder so the grid keeps its rhythm
-                      // even when nothing's scheduled. In edit mode the
-                      // whole cell becomes clickable so the founder can
-                      // hit anywhere to add an event.
                       editing ? (
                         <button
                           type="button"
@@ -309,15 +318,18 @@ export default function EventsPage() {
                       ) : (
                         <div className="aspect-[4/5] w-full" />
                       )
+                    ) : dayEvents.length === 1 ? (
+                      <DayEventCard
+                        key={dayEvents[0].id}
+                        ev={dayEvents[0]}
+                        editing={editing}
+                        onEdit={() => openEdit(dayEvents[0])}
+                      />
                     ) : (
-                      dayEvents.map((ev) => (
-                        <DayEventCard
-                          key={ev.id}
-                          ev={ev}
-                          editing={editing}
-                          onEdit={() => openEdit(ev)}
-                        />
-                      ))
+                      <MultiEventStack
+                        events={dayEvents}
+                        onOpen={() => setOpenDayIso(dayIso)}
+                      />
                     )}
                   </div>
                 </article>
@@ -360,6 +372,22 @@ export default function EventsPage() {
             closeModal();
             await reload();
           }}
+        />
+      )}
+
+      {/* Day-view popup — opens when the customer clicks a calendar
+          cell that has multiple events. Shows every event for that
+          date at full size so the grid cell can stay compact. */}
+      {openDayIso && (
+        <DayEventsPopup
+          dateIso={openDayIso}
+          events={byDay[parseInt(openDayIso.slice(-2), 10)] ?? []}
+          editing={editing}
+          onEditEvent={(ev) => {
+            setOpenDayIso(null);
+            openEdit(ev);
+          }}
+          onClose={() => setOpenDayIso(null)}
         />
       )}
     </main>
@@ -463,5 +491,191 @@ function DayEventCard({
     </a>
   ) : (
     <div className="flex-1">{inner}</div>
+  );
+}
+
+// =============================================================
+// MultiEventStack — condensed multi-event cell
+// =============================================================
+// Renders inside a day cell when 2+ events fall on the same date.
+// Caps the visual footprint at roughly 1.5× a single DayEventCard
+// regardless of how many events there are (2 or 20), so a busy day
+// can never blow out the row's height.
+//
+// Layout:
+//   • Top half: the first event's artwork (or a "stack" badge if
+//     no artwork) at a shorter aspect than a normal card
+//   • Bottom: a vertical list of small chips — one per event — with
+//     title + start_time
+//   • Top-right pill: "N EVENTS"
+//
+// The whole cell is one button — clicking anywhere opens the
+// DayEventsPopup with the full list at original card size.
+// =============================================================
+function MultiEventStack({
+  events,
+  onOpen,
+}: {
+  events: DbCalendarEvent[];
+  onOpen: () => void;
+}) {
+  const base = process.env.NEXT_PUBLIC_BASE_PATH || "";
+  const first = events[0];
+  const headlineSrc =
+    first.image_url && first.image_url.startsWith("/")
+      ? `${base}${first.image_url}`
+      : first.image_url;
+
+  return (
+    <button
+      type="button"
+      onClick={onOpen}
+      aria-label={`Open ${events.length} events on this day`}
+      className="group flex flex-1 cursor-pointer flex-col overflow-hidden text-left transition hover:opacity-90"
+    >
+      {/* Headline artwork — half-height so total cell stays compact.
+          Falls back to a stack icon when no artwork is set. */}
+      <div className="relative aspect-[5/4] w-full overflow-hidden bg-ink">
+        {headlineSrc ? (
+          // eslint-disable-next-line @next/next/no-img-element
+          <img
+            src={headlineSrc}
+            alt={first.title}
+            loading="lazy"
+            className="h-full w-full object-cover"
+          />
+        ) : (
+          <div className="flex h-full w-full items-center justify-center text-[9px] uppercase tracking-widest text-cream/40">
+            multi-event
+          </div>
+        )}
+
+        {/* Count pill — top-right corner so it doesn't clash with the
+            day-number badge top-left. */}
+        <span className="absolute right-1 top-1 rounded-full bg-plonkPink px-2 py-0.5 text-[9px] font-bold uppercase tracking-wider text-white shadow-md">
+          {events.length} events
+        </span>
+
+        {/* Subtle bottom gradient so the chips below read clearly even
+            when artwork is busy. */}
+        <div className="pointer-events-none absolute inset-x-0 bottom-0 h-6 bg-gradient-to-b from-transparent to-ink/80" />
+      </div>
+
+      {/* Chip stack — one chip per event. Limited to the first 4 so
+          the cell can't grow further; "+N more" if there are extras. */}
+      <div className="flex flex-col gap-0.5 px-1.5 py-1.5 sm:px-2 sm:py-2">
+        {events.slice(0, 4).map((ev) => (
+          <div
+            key={ev.id}
+            className="flex items-center justify-between gap-1.5 truncate"
+          >
+            <span className="line-clamp-1 text-[10px] font-bold uppercase tracking-wider text-cream sm:text-[11px]">
+              {ev.title}
+            </span>
+            {ev.start_time && (
+              <span className="shrink-0 text-[9px] font-bold uppercase tracking-[0.18em] text-plonkPink sm:text-[10px]">
+                {formatTime(ev.start_time)}
+              </span>
+            )}
+          </div>
+        ))}
+        {events.length > 4 && (
+          <span className="text-[9px] font-bold uppercase tracking-wider text-plonkPink sm:text-[10px]">
+            + {events.length - 4} more
+          </span>
+        )}
+
+        <span className="mt-1 text-[9px] font-bold uppercase tracking-widest text-cream/55 group-hover:text-cream/85">
+          Tap to expand →
+        </span>
+      </div>
+    </button>
+  );
+}
+
+// =============================================================
+// DayEventsPopup — full-size view of every event on one date
+// =============================================================
+// Opens from a MultiEventStack click. Centred modal with the date
+// heading at the top and the day's events stacked at their full
+// DayEventCard size (artwork + title + body + time + link). In
+// admin Edit mode, tapping a card opens the inline edit form
+// (reuses the existing CalendarEventModal flow upstream).
+// =============================================================
+function DayEventsPopup({
+  dateIso,
+  events,
+  editing,
+  onEditEvent,
+  onClose,
+}: {
+  dateIso: string;
+  events: DbCalendarEvent[];
+  editing: boolean;
+  onEditEvent: (ev: DbCalendarEvent) => void;
+  onClose: () => void;
+}) {
+  // Close on Escape — standard modal behaviour. Mounting listener
+  // only while the popup is open avoids leaks.
+  useEffect(() => {
+    function onKey(e: KeyboardEvent) {
+      if (e.key === "Escape") onClose();
+    }
+    document.addEventListener("keydown", onKey);
+    return () => document.removeEventListener("keydown", onKey);
+  }, [onClose]);
+
+  const heading = new Date(dateIso + "T00:00:00").toLocaleDateString("en-GB", {
+    weekday: "long",
+    day: "numeric",
+    month: "long",
+  });
+
+  return (
+    <div
+      className="fixed inset-0 z-50 flex items-start justify-center overflow-y-auto bg-black/80 p-4 sm:p-8"
+      onClick={onClose}
+    >
+      <div
+        className="relative w-full max-w-2xl rounded-2xl border border-cream/15 bg-ink p-6 text-cream"
+        onClick={(e) => e.stopPropagation()}
+        role="dialog"
+        aria-modal="true"
+        aria-label={`Events on ${heading}`}
+      >
+        <button
+          type="button"
+          onClick={onClose}
+          aria-label="Close"
+          className="absolute right-3 top-3 rounded-full border border-cream/20 px-3 py-1 text-xs font-bold uppercase tracking-widest text-cream/75 transition hover:border-cream/45"
+        >
+          ×
+        </button>
+
+        <div className="mb-1 text-[11px] font-bold uppercase tracking-[0.28em] text-plonkPink">
+          {events.length} events
+        </div>
+        <h2 className="font-display text-2xl uppercase tracking-wider sm:text-3xl">
+          {heading}
+        </h2>
+
+        {/* Grid of full-size event cards. 1 column on mobile, 2 on
+            tablet+ so the popup stays compact even with 4+ events. */}
+        <div className="mt-6 grid grid-cols-1 gap-4 sm:grid-cols-2">
+          {events.map((ev) => (
+            <div
+              key={ev.id}
+              className="overflow-hidden rounded-xl border border-cream/10 bg-ink/40"
+            >
+              <DayEventCard
+                ev={ev}
+                editing={editing}
+                onEdit={() => onEditEvent(ev)}
+              />
+            </div>
+          ))}
+        </div>
+      </div>
+    </div>
   );
 }
