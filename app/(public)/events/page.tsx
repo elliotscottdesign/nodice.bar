@@ -533,16 +533,19 @@ function MultiEventStack({
       aria-label={`Open ${events.length} events on this day`}
       className="group flex flex-1 cursor-pointer flex-col overflow-hidden text-left transition hover:opacity-90"
     >
-      {/* Headline artwork — half-height so total cell stays compact.
+      {/* Headline artwork — SQUARE thumbnail so portrait posters
+          (most of them — DJ flyers, food residency artwork) fit
+          without weird middle-crops. object-contain shows the whole
+          poster; the bg-ink fills any letterbox space cleanly.
           Falls back to a stack icon when no artwork is set. */}
-      <div className="relative aspect-[5/4] w-full overflow-hidden bg-ink">
+      <div className="relative aspect-square w-full overflow-hidden bg-ink">
         {headlineSrc ? (
           // eslint-disable-next-line @next/next/no-img-element
           <img
             src={headlineSrc}
             alt={first.title}
             loading="lazy"
-            className="h-full w-full object-cover"
+            className="h-full w-full object-contain"
           />
         ) : (
           <div className="flex h-full w-full items-center justify-center text-[9px] uppercase tracking-widest text-cream/40">
