@@ -435,9 +435,16 @@ function DayEventCard({
             no artwork
           </div>
         )}
-        {dj && (
-          <span className="absolute left-1 top-1 z-10 rounded-full bg-plonkPink/90 px-1.5 py-0.5 text-[9px] font-bold uppercase tracking-wider text-white">
-            DJ
+        {/* Category badge — shows the event's type (DJ Night / Match Day / …).
+            DJ-fed nights keep the pink accent; a re-categorised DJ night shows
+            its new category here, so admin changes are visible publicly. */}
+        {ev.subcategory && (
+          <span
+            className={`absolute left-1 top-1 z-10 rounded-full px-1.5 py-0.5 text-[9px] font-bold uppercase tracking-wider ${
+              dj ? "bg-plonkPink/90 text-white" : "bg-ink/80 text-cream/85"
+            }`}
+          >
+            {ev.subcategory}
           </span>
         )}
         {editing && !dj && (

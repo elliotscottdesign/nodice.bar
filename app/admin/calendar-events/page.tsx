@@ -8,7 +8,7 @@ export default function CalendarEventsAdminPage() {
     <>
       <AdminPageHeader
         title="Calendar events"
-        description="Every event on the /events calendar — including DJ nights fed automatically from the DJ booking system (tagged 'DJ Night', shown with a DJ badge). Add or edit an event with a date, artwork, title, body, link and a Type/category. Every event has an editable category; DJ nights default to 'DJ Night' but you can change it here (their other details are managed in DJ Bookings)."
+        description="Every event on the /events calendar — including DJ nights fed automatically from the DJ booking system (marked with a 'DJ Feed' badge). Add or edit an event with a date, artwork, title, body, link and a Type/category. Every event has an editable category; DJ nights default to 'DJ Night' but you can change it here (their other details are managed in DJ Bookings). Note: if a DJ night is rescheduled in DJ Bookings, its category resets to 'DJ Night'."
         action={
           <a
             href={`${process.env.NEXT_PUBLIC_BASE_PATH || ""}/events`}

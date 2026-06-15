@@ -51,17 +51,28 @@ export function isDjEvent(ev: { id: string }): boolean {
 }
 
 // Stable per-night key (date + slot). Also the override-table key.
+// NOTE: the key is date+slot only — the public feed exposes no per-booking id.
+// So a category override is tied to a date/slot, not to a specific booking: if
+// the team hub reschedules a night (date/slot changes) or books a different DJ
+// into the same date/slot, the override no longer follows it (it resets to the
+// default "DJ Night" and would need setting again). Acceptable + documented.
 export function djEventKey(date: string, slot?: string | null): string {
   return `${DJ_EVENT_PREFIX}${date}-${slot || "main"}`;
 }
 
 // Founder-set category overrides (dj_night_overrides). anon may read them
-// (RLS), so the public calendar reflects changes made in /admin.
-async function loadCategoryOverrides(): Promise<Record<string, string>> {
+// (RLS), so the public calendar reflects changes made in /admin. Scoped to the
+// given keys so the query never grows with the table (and is skipped entirely
+// when no DJ nights are in range).
+async function loadCategoryOverrides(
+  keys: string[],
+): Promise<Record<string, string>> {
+  if (!keys.length) return {};
   try {
     const { data, error } = await supabase()
       .from("dj_night_overrides")
-      .select("event_key, subcategory");
+      .select("event_key, subcategory")
+      .in("event_key", keys);
     if (error || !Array.isArray(data)) return {};
     const map: Record<string, string> = {};
     for (const r of data as { event_key: string; subcategory: string | null }[]) {
@@ -91,17 +102,19 @@ export async function loadDjNightsInRange(
     nights = [];
   }
 
-  const overrides = await loadCategoryOverrides();
+  const inRange = nights.filter(
+    (n) =>
+      n &&
+      typeof n.date === "string" &&
+      n.date >= fromIso &&
+      n.date <= toIso,
+  );
+  if (inRange.length === 0) return [];
 
-  return nights
-    .filter(
-      (n) =>
-        n &&
-        typeof n.date === "string" &&
-        n.date >= fromIso &&
-        n.date <= toIso,
-    )
-    .map((n) => {
+  const keys = inRange.map((n) => djEventKey(n.date as string, n.slot));
+  const overrides = await loadCategoryOverrides(keys);
+
+  return inRange.map((n) => {
       const genres = Array.isArray(n.genres) ? n.genres.join(" · ") : "";
       const bodyParts = [
         n.night_name ? `“${n.night_name}”` : null,

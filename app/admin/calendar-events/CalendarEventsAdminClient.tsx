@@ -416,7 +416,7 @@ export default function CalendarEventsAdminClient() {
                   {isDjEvent(ev) ? (
                     <div className="flex w-36 shrink-0 flex-col gap-1.5">
                       <span className="rounded-full bg-plonkPink/90 px-2 py-0.5 text-center text-[9px] font-bold uppercase tracking-wider text-white">
-                        DJ Night
+                        DJ Feed
                       </span>
                       <label className="text-[9px] font-bold uppercase tracking-wider text-cream/45">
                         Category
