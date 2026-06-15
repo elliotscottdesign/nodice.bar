@@ -163,17 +163,22 @@ export default function CalendarEventsAdminClient() {
     try {
       let seriesMsg = "";
       if (draft.id) {
+        const original = rows.find((r) => r.id === draft.id);
         await updateCalendarEvent(draft.id, payload);
         // Keep a recurring series' artwork in sync: change the artwork on one
-        // event and every other event with the same name follows. Untick the
-        // "apply to series" box to change just this one.
-        if (applyToSeries) {
+        // event and every other event with the same name follows. Guarded so it
+        // ONLY fires when the artwork actually changed and the name wasn't
+        // changed — so an unrelated edit (or a rename into an existing name)
+        // never silently re-flattens other events. Untick the box for a one-off.
+        const artChanged = (original?.image_url || "") !== (payload.image_url || "");
+        const renamed = !!original && norm(payload.title) !== norm(original.title);
+        if (applyToSeries && artChanged && !renamed && original) {
           const ids = rows
-            .filter((r) => !isDjEvent(r) && norm(r.title) === norm(payload.title))
+            .filter((r) => !isDjEvent(r) && norm(r.title) === norm(original.title))
             .map((r) => r.id);
           if (ids.length > 1) {
             await setPosterForEvents(ids, payload.image_url);
-            seriesMsg = `Artwork applied to all ${ids.length} “${payload.title}” events.`;
+            seriesMsg = `Artwork applied to all ${ids.length} “${original.title}” events.`;
           }
         }
       } else {
@@ -216,10 +221,12 @@ export default function CalendarEventsAdminClient() {
   // case-insensitively so casing differences don't split a series). DJ-fed rows
   // are excluded — they aren't in the events table.
   const norm = (s: string) => s.trim().toLowerCase();
-  const seriesMembers =
-    draft.id && draft.title.trim()
-      ? rows.filter((r) => !isDjEvent(r) && norm(r.title) === norm(draft.title))
-      : [];
+  // Match the series by the event's CURRENT (saved) name, not the live-typed
+  // title, so renaming in the field can't retarget a different series.
+  const editingRow = draft.id ? rows.find((r) => r.id === draft.id) : undefined;
+  const seriesMembers = editingRow
+    ? rows.filter((r) => !isDjEvent(r) && norm(r.title) === norm(editingRow.title))
+    : [];
 
   // Group rows by month for a cleaner list.
   const groups: { label: string; events: DbCalendarEvent[] }[] = [];
@@ -371,7 +378,7 @@ export default function CalendarEventsAdminClient() {
                 <span>
                   Apply this artwork to all{" "}
                   <strong className="text-cream">{seriesMembers.length}</strong>{" "}
-                  “{draft.title.trim()}” events (the whole recurring series).
+                  “{editingRow?.title}” events (the whole recurring series).
                   Untick to change just this one.
                 </span>
               </label>
