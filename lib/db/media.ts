@@ -75,3 +75,17 @@ export async function listRecentMedia(limit = 50): Promise<DbMediaRow[]> {
   if (error) throw error;
   return (data ?? []) as DbMediaRow[];
 }
+
+// Remove a file from the bucket AND its media_library row. Both require an
+// authenticated session (RLS). Note: anything still referencing the public URL
+// (an event poster, a page image) will break — the caller should warn first.
+export async function deleteMedia(
+  id: string,
+  storagePath: string,
+): Promise<void> {
+  const client = supabase();
+  const { error: rmErr } = await client.storage.from(BUCKET).remove([storagePath]);
+  if (rmErr) throw rmErr;
+  const { error: delErr } = await client.from("media_library").delete().eq("id", id);
+  if (delErr) throw delErr;
+}

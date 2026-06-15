@@ -18,6 +18,7 @@ const NAV: { label: string; href: string; group?: string }[] = [
   { label: "Header", href: "/admin/content/global/header", group: "Site" },
   { label: "Footer", href: "/admin/content/global/footer", group: "Site" },
   { label: "Galleries", href: "/admin/content/galleries", group: "Site" },
+  { label: "Media library", href: "/admin/media", group: "Site" },
 
   { label: "Tickets & Prices", href: "/admin/tickets", group: "Catalogue" },
   { label: "Add-ons", href: "/admin/addons", group: "Catalogue" },
