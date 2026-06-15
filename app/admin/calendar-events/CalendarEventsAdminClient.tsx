@@ -12,6 +12,7 @@ import {
   type DbCalendarEvent,
   type NewCalendarEvent,
 } from "@/lib/db/calendarEvents";
+import { loadDjNightsInRange, setDjNightCategory, isDjEvent } from "@/lib/db/djNights";
 import type { ImageDisplay } from "@/lib/content";
 
 // Admin CRUD for calendar_events. List-style for shipping speed —
@@ -87,7 +88,14 @@ export default function CalendarEventsAdminClient() {
     setLoading(true);
     setErr("");
     try {
-      setRows(await loadAllCalendarEvents());
+      // Manually-authored events + the auto-fed confirmed DJ nights, merged by date.
+      const [cal, dj] = await Promise.all([
+        loadAllCalendarEvents(),
+        loadDjNightsInRange("1970-01-01", "2999-12-31"),
+      ]);
+      setRows(
+        [...cal, ...dj].sort((a, b) => a.event_date.localeCompare(b.event_date)),
+      );
     } catch (e) {
       setErr(describe(e, "Failed to load events"));
     } finally {
@@ -166,6 +174,19 @@ export default function CalendarEventsAdminClient() {
       await reload();
     } catch (e) {
       setErr(describe(e, "Failed to delete event"));
+    }
+  }
+
+  // DJ nights are owned by the DJ system — only their public CATEGORY is
+  // editable here (saved as an override). Optimistic, with rollback on error.
+  async function setDjCategory(ev: DbCalendarEvent, value: string) {
+    const prev = ev.subcategory;
+    setRows((rs) => rs.map((r) => (r.id === ev.id ? { ...r, subcategory: value } : r)));
+    try {
+      await setDjNightCategory(ev.id, value);
+    } catch (e) {
+      setErr(describe(e, "Failed to set category"));
+      setRows((rs) => rs.map((r) => (r.id === ev.id ? { ...r, subcategory: prev } : r)));
     }
   }
 
@@ -362,6 +383,11 @@ export default function CalendarEventsAdminClient() {
                   <div className="min-w-0 flex-1">
                     <p className="text-[10px] font-bold uppercase tracking-[0.22em] text-cream/55">
                       {formatDate(ev.event_date)}
+                      {ev.subcategory && (
+                        <span className="ml-2 rounded-full bg-cream/10 px-2 py-0.5 text-[9px] normal-case tracking-normal text-cream/70">
+                          {ev.subcategory}
+                        </span>
+                      )}
                       {!ev.active && (
                         <span className="ml-2 rounded-full bg-cream/10 px-2 py-0.5 text-[9px] text-cream/55">
                           Hidden
@@ -387,22 +413,47 @@ export default function CalendarEventsAdminClient() {
                       </a>
                     )}
                   </div>
-                  <div className="flex shrink-0 flex-col gap-2">
-                    <button
-                      type="button"
-                      onClick={() => startEdit(ev)}
-                      className="rounded-full border border-cream/15 px-4 py-1.5 text-[10px] font-bold uppercase tracking-wider text-cream/85 hover:bg-cream/5"
-                    >
-                      Edit
-                    </button>
-                    <button
-                      type="button"
-                      onClick={() => remove(ev.id)}
-                      className="rounded-full border border-cream/15 px-4 py-1.5 text-[10px] font-bold uppercase tracking-wider text-cream/55 hover:bg-cream/5"
-                    >
-                      Delete
-                    </button>
-                  </div>
+                  {isDjEvent(ev) ? (
+                    <div className="flex w-36 shrink-0 flex-col gap-1.5">
+                      <span className="rounded-full bg-plonkPink/90 px-2 py-0.5 text-center text-[9px] font-bold uppercase tracking-wider text-white">
+                        DJ Night
+                      </span>
+                      <label className="text-[9px] font-bold uppercase tracking-wider text-cream/45">
+                        Category
+                      </label>
+                      <select
+                        value={ev.subcategory ?? "DJ Night"}
+                        onChange={(e) => setDjCategory(ev, e.target.value)}
+                        className="rounded-lg border border-cream/15 bg-ink/40 px-2 py-1.5 text-xs text-cream focus:border-plonkPink focus:outline-none"
+                      >
+                        {EVENT_TYPES.map((t) => (
+                          <option key={t} value={t}>
+                            {t}
+                          </option>
+                        ))}
+                      </select>
+                      <span className="text-center text-[9px] text-cream/40">
+                        managed in DJ Bookings
+                      </span>
+                    </div>
+                  ) : (
+                    <div className="flex shrink-0 flex-col gap-2">
+                      <button
+                        type="button"
+                        onClick={() => startEdit(ev)}
+                        className="rounded-full border border-cream/15 px-4 py-1.5 text-[10px] font-bold uppercase tracking-wider text-cream/85 hover:bg-cream/5"
+                      >
+                        Edit
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => remove(ev.id)}
+                        className="rounded-full border border-cream/15 px-4 py-1.5 text-[10px] font-bold uppercase tracking-wider text-cream/55 hover:bg-cream/5"
+                      >
+                        Delete
+                      </button>
+                    </div>
+                  )}
                 </article>
               ))}
             </div>

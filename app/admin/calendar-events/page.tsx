@@ -8,7 +8,7 @@ export default function CalendarEventsAdminPage() {
     <>
       <AdminPageHeader
         title="Calendar events"
-        description="Every poster shown on the /events calendar. Add a new event with a date, artwork, title, optional body and optional link. Multiple events per day are stacked in the calendar cell in the order they were added."
+        description="Every event on the /events calendar — including DJ nights fed automatically from the DJ booking system (tagged 'DJ Night', shown with a DJ badge). Add or edit an event with a date, artwork, title, body, link and a Type/category. Every event has an editable category; DJ nights default to 'DJ Night' but you can change it here (their other details are managed in DJ Bookings)."
         action={
           <a
             href={`${process.env.NEXT_PUBLIC_BASE_PATH || ""}/events`}
