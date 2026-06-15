@@ -8,6 +8,7 @@ import {
   createCalendarEvent,
   updateCalendarEvent,
   deleteCalendarEvent,
+  setPosterForEvents,
   EVENT_TYPES,
   type DbCalendarEvent,
   type NewCalendarEvent,
@@ -83,6 +84,8 @@ export default function CalendarEventsAdminClient() {
     event_date: todayIso(),
   });
   const [pickerOpen, setPickerOpen] = useState(false);
+  const [applyToSeries, setApplyToSeries] = useState(true);
+  const [notice, setNotice] = useState("");
 
   async function reload() {
     setLoading(true);
@@ -109,6 +112,7 @@ export default function CalendarEventsAdminClient() {
 
   function resetDraft() {
     setDraft({ ...EMPTY_DRAFT, event_date: todayIso() });
+    setApplyToSeries(true);
   }
 
   function startEdit(ev: DbCalendarEvent) {
@@ -124,6 +128,9 @@ export default function CalendarEventsAdminClient() {
       active: ev.active,
       subcategory: ev.subcategory ?? "Special Event",
     });
+    setApplyToSeries(true);
+    setNotice("");
+    setErr("");
     // Scroll to top so the form is visible.
     window.scrollTo({ top: 0, behavior: "smooth" });
   }
@@ -140,6 +147,7 @@ export default function CalendarEventsAdminClient() {
     }
     setSaving(true);
     setErr("");
+    setNotice("");
 
     const payload: NewCalendarEvent = {
       event_date: draft.event_date,
@@ -153,13 +161,27 @@ export default function CalendarEventsAdminClient() {
     };
 
     try {
+      let seriesMsg = "";
       if (draft.id) {
         await updateCalendarEvent(draft.id, payload);
+        // Keep a recurring series' artwork in sync: change the artwork on one
+        // event and every other event with the same name follows. Untick the
+        // "apply to series" box to change just this one.
+        if (applyToSeries) {
+          const ids = rows
+            .filter((r) => !isDjEvent(r) && norm(r.title) === norm(payload.title))
+            .map((r) => r.id);
+          if (ids.length > 1) {
+            await setPosterForEvents(ids, payload.image_url);
+            seriesMsg = `Artwork applied to all ${ids.length} “${payload.title}” events.`;
+          }
+        }
       } else {
         await createCalendarEvent(payload);
       }
       resetDraft();
       await reload();
+      if (seriesMsg) setNotice(seriesMsg);
     } catch (e) {
       setErr(describe(e, "Failed to save event"));
     } finally {
@@ -190,6 +212,15 @@ export default function CalendarEventsAdminClient() {
     }
   }
 
+  // Events that share this event's name = its recurring "series" (matched
+  // case-insensitively so casing differences don't split a series). DJ-fed rows
+  // are excluded — they aren't in the events table.
+  const norm = (s: string) => s.trim().toLowerCase();
+  const seriesMembers =
+    draft.id && draft.title.trim()
+      ? rows.filter((r) => !isDjEvent(r) && norm(r.title) === norm(draft.title))
+      : [];
+
   // Group rows by month for a cleaner list.
   const groups: { label: string; events: DbCalendarEvent[] }[] = [];
   for (const ev of rows) {
@@ -204,6 +235,12 @@ export default function CalendarEventsAdminClient() {
       {err && (
         <div className="rounded-lg border border-plonkPink/40 bg-plonkPink/10 px-4 py-3 text-sm text-plonkPink">
           {err}
+        </div>
+      )}
+
+      {notice && (
+        <div className="rounded-lg border border-cream/20 bg-cream/5 px-4 py-3 text-sm text-cream">
+          ✓ {notice}
         </div>
       )}
 
@@ -321,6 +358,25 @@ export default function CalendarEventsAdminClient() {
               </div>
             </div>
           </Field>
+
+          {seriesMembers.length > 1 && (
+            <Field label="Recurring series" className="sm:col-span-2">
+              <label className="flex items-start gap-2 py-1 text-sm text-cream/85">
+                <input
+                  type="checkbox"
+                  checked={applyToSeries}
+                  onChange={(e) => setApplyToSeries(e.target.checked)}
+                  className="mt-0.5"
+                />
+                <span>
+                  Apply this artwork to all{" "}
+                  <strong className="text-cream">{seriesMembers.length}</strong>{" "}
+                  “{draft.title.trim()}” events (the whole recurring series).
+                  Untick to change just this one.
+                </span>
+              </label>
+            </Field>
+          )}
 
           <div className="flex gap-3 sm:col-span-2">
             <button

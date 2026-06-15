@@ -188,3 +188,17 @@ export async function deleteCalendarEvent(id: string): Promise<void> {
   const { error } = await supabase().from("events").delete().eq("id", id);
   if (error) throw error;
 }
+
+// Apply one poster to many events at once — used to keep a recurring series'
+// artwork in sync (change the artwork on one, they all follow).
+export async function setPosterForEvents(
+  ids: string[],
+  imageUrl: string,
+): Promise<void> {
+  if (!ids.length) return;
+  const { error } = await supabase()
+    .from("events")
+    .update({ poster_url: imageUrl || null })
+    .in("id", ids);
+  if (error) throw error;
+}
