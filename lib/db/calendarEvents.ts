@@ -57,8 +57,8 @@ export const CATEGORY_DEFAULT_POSTERS: Record<string, string> = {
   "DJ Night": MEDIA + "gallery/hero.events/1780755968715-red-decks-bitmap.png",
   "Match Day": MEDIA + "page/1780867523626-football-300x-colour.png",
   "Pool Night": MEDIA + "gallery/hero.pool/1780752253680-pool-bitmap.png",
-  "Food Night": MEDIA + "gallery/deals.grid/1780743214095-burger-deal-colour.png",
-  "Special Event": MEDIA + "gallery/hero.bar/1780756534913-bar-bitmap-300x-yellow.png",
+  "Food Night": MEDIA + "library/1781564522662-img-6102.jpg",
+  "Special Event": MEDIA + "library/1781564278755-happy-hour-pics.png",
 };
 export function defaultPosterFor(subcategory: string | null): string {
   return (subcategory && CATEGORY_DEFAULT_POSTERS[subcategory]) || "";
