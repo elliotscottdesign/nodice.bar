@@ -46,6 +46,24 @@ export const EVENT_TYPES = [
   "Special Event",
 ] as const;
 
+// Fallback poster shown on the PUBLIC calendar when an event has no artwork of
+// its own — keyed by category, so a customer never sees a blank tile (e.g. a
+// recurring pool night nobody added art to). The admin still shows the real
+// state, so you know which events are using the default. Swap any of these for
+// bespoke default art by uploading a 4:5 image and changing the URL here.
+const MEDIA =
+  "https://rntcujcpsozvuxvmlejv.supabase.co/storage/v1/object/public/media/";
+export const CATEGORY_DEFAULT_POSTERS: Record<string, string> = {
+  "DJ Night": MEDIA + "gallery/hero.events/1780755968715-red-decks-bitmap.png",
+  "Match Day": MEDIA + "page/1780867523626-football-300x-colour.png",
+  "Pool Night": MEDIA + "gallery/hero.pool/1780752253680-pool-bitmap.png",
+  "Food Night": MEDIA + "gallery/deals.grid/1780743214095-burger-deal-colour.png",
+  "Special Event": MEDIA + "gallery/hero.bar/1780756534913-bar-bitmap-300x-yellow.png",
+};
+export function defaultPosterFor(subcategory: string | null): string {
+  return (subcategory && CATEGORY_DEFAULT_POSTERS[subcategory]) || "";
+}
+
 export type NewCalendarEvent = Omit<
   DbCalendarEvent,
   "id" | "created_at" | "updated_at"

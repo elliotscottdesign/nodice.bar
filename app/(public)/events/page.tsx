@@ -3,6 +3,7 @@
 import { useCallback, useEffect, useMemo, useState } from "react";
 import {
   loadCalendarEventsInRange,
+  defaultPosterFor,
   type DbCalendarEvent,
 } from "@/lib/db/calendarEvents";
 import { loadDjNightsInRange, isDjEvent } from "@/lib/db/djNights";
@@ -410,10 +411,10 @@ function DayEventCard({
   onEdit: () => void;
 }) {
   const base = process.env.NEXT_PUBLIC_BASE_PATH || "";
-  const src =
-    ev.image_url && ev.image_url.startsWith("/")
-      ? `${base}${ev.image_url}`
-      : ev.image_url;
+  // No artwork of its own → fall back to the category default so a customer
+  // never sees a blank tile.
+  const raw = ev.image_url || defaultPosterFor(ev.subcategory);
+  const src = raw && raw.startsWith("/") ? `${base}${raw}` : raw;
   // DJ nights are auto-fed from the team hub — shown everywhere but never
   // editable from this site's admin (the DJ system owns them).
   const dj = isDjEvent(ev);
@@ -528,10 +529,11 @@ function MultiEventStack({
 }) {
   const base = process.env.NEXT_PUBLIC_BASE_PATH || "";
   const first = events[0];
+  const headlineRaw = first.image_url || defaultPosterFor(first.subcategory);
   const headlineSrc =
-    first.image_url && first.image_url.startsWith("/")
-      ? `${base}${first.image_url}`
-      : first.image_url;
+    headlineRaw && headlineRaw.startsWith("/")
+      ? `${base}${headlineRaw}`
+      : headlineRaw;
 
   return (
     <button
