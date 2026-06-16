@@ -16,7 +16,7 @@
 //   2. event_entries       — World Cup match tickets
 //   3. tournament_entries  — pool tournament team sign-ups
 //
-// Sender: bookings@nodice.bar via Resend HTTP API.
+// Sender: info@nodice.bar via Resend HTTP API.
 // =============================================================
 
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2.45.4";
@@ -52,7 +52,7 @@ const db = createClient(SUPABASE_URL, SUPABASE_SERVICE_ROLE_KEY, {
   auth: { persistSession: false },
 });
 
-const SENDER = "No Dice <bookings@nodice.bar>";
+const SENDER = "No Dice <info@nodice.bar>";
 const REPLY_TO = "info@nodice.bar";
 const VENUE_NAME = "No Dice";
 const VENUE_ADDRESS =

@@ -10,7 +10,7 @@
 // Also re-invokable from an admin "resend" button (idempotent in
 // spirit — sending again just delivers another copy).
 //
-// Sender: bookings@nodice.bar via Resend HTTP API.
+// Sender: info@nodice.bar via Resend HTTP API.
 // Auth:   function keeps JWT verification ON. Callers must present
 //         a valid Supabase JWT — webhooks pass the service-role key.
 // =============================================================
@@ -54,7 +54,7 @@ const db = createClient(SUPABASE_URL, SUPABASE_SERVICE_ROLE_KEY, {
 // Sender + venue details. Hardcoded because they don't change per
 // email; the values that DO vary (team name, tournament date, etc.)
 // come from the DB.
-const SENDER = "No Dice <bookings@nodice.bar>";
+const SENDER = "No Dice <info@nodice.bar>";
 const REPLY_TO = "info@nodice.bar";
 const VENUE_NAME = "No Dice";
 const VENUE_ADDRESS = "Arch 407, Mentmore Terrace, London Fields, Hackney, E8 3PH";

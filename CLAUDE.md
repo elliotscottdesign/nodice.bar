@@ -73,7 +73,7 @@ Stack: Next.js 14 (App Router) · React 18 · Tailwind · Supabase (Postgres + A
   - `send-pool-confirmation`, `send-event-entry-confirmation`, `send-welcome-discount` — Resend HTTP API senders
   - `send-booking-reminders` — runs hourly via pg_cron, 22-26h window from now with 4h buffer
 - All email templates use the wordmark image from `https://nodice.bar/nodice-wordmark.png` (single source).
-- Sender: **No Dice <bookings@nodice.bar>** · Reply-to: **info@nodice.bar**.
+- Sender: **No Dice <info@nodice.bar>** · Reply-to: **info@nodice.bar**. (Only `info@` and `elliot@` are real mailboxes — never invent another local-part like `bookings@` or `hello@`, replies bounce.)
 
 ### Bookable surfaces ("click → expand below" pattern)
 - `components/MatchSchedule.tsx` — `/world-cup` roller deck of fixtures

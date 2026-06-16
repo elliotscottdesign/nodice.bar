@@ -9,7 +9,7 @@
 // the moment a bar_reservations row transitions to status='paid'.
 // Idempotent in spirit — calling again just sends another copy.
 //
-// Sender: bookings@nodice.bar via Resend HTTP API.
+// Sender: info@nodice.bar via Resend HTTP API.
 // Auth:   JWT verification ON. The webhook calls us with the
 //         service-role key, which Supabase accepts as a JWT.
 // =============================================================
@@ -49,7 +49,7 @@ const db = createClient(SUPABASE_URL, SUPABASE_SERVICE_ROLE_KEY, {
   auth: { persistSession: false },
 });
 
-const SENDER = "No Dice <bookings@nodice.bar>";
+const SENDER = "No Dice <info@nodice.bar>";
 const REPLY_TO = "info@nodice.bar";
 const VENUE_NAME = "No Dice";
 const VENUE_ADDRESS =
