@@ -43,6 +43,7 @@ export const EVENT_TYPES = [
   "Match Day",
   "Pool Night",
   "Food Night",
+  "Deals",
   "Special Event",
 ] as const;
 
@@ -58,6 +59,7 @@ export const CATEGORY_DEFAULT_POSTERS: Record<string, string> = {
   "Match Day": MEDIA + "page/1780867523626-football-300x-colour.png",
   "Pool Night": MEDIA + "gallery/hero.pool/1780752253680-pool-bitmap.png",
   "Food Night": MEDIA + "library/1781565605067-food-night-burger.jpg",
+  "Deals": MEDIA + "gallery/hero.deals/1780768681209-deal-header-bitmap.png",
   "Special Event": MEDIA + "library/1781564278755-happy-hour-pics.png",
 };
 export function defaultPosterFor(subcategory: string | null): string {
