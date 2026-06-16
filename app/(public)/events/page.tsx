@@ -4,6 +4,7 @@ import { useCallback, useEffect, useMemo, useState } from "react";
 import {
   loadCalendarEventsInRange,
   defaultPosterFor,
+  EVENT_TYPES,
   type DbCalendarEvent,
 } from "@/lib/db/calendarEvents";
 import { loadDjNightsInRange, isDjEvent } from "@/lib/db/djNights";
@@ -112,6 +113,19 @@ export default function EventsPage() {
   // date at full size so the calendar cell itself stays compact.
   const [openDayIso, setOpenDayIso] = useState<string | null>(null);
 
+  // Category filter — tick which kinds of event to show. All on by default.
+  const [selectedCats, setSelectedCats] = useState<Set<string>>(
+    () => new Set(EVENT_TYPES),
+  );
+  const allCatsOn = selectedCats.size === EVENT_TYPES.length;
+  const toggleCat = (c: string) =>
+    setSelectedCats((prev) => {
+      const next = new Set(prev);
+      if (next.has(c)) next.delete(c);
+      else next.add(c);
+      return next;
+    });
+
   function openAdd(dateIso: string) {
     setModalEvent(null);
     setModalDate(dateIso);
@@ -174,14 +188,25 @@ export default function EventsPage() {
 
   // Index events by day-of-month for fast cell lookup. Multiple
   // events per day get stacked in the cell in date-add order.
+  // Apply the category filter. When everything is selected we show all events
+  // (including any category not in the filter list); narrowing filters by
+  // subcategory.
+  const visibleEvents = useMemo(
+    () =>
+      allCatsOn
+        ? events
+        : events.filter((e) => selectedCats.has(e.subcategory ?? "")),
+    [events, selectedCats, allCatsOn],
+  );
+
   const byDay = useMemo(() => {
     const m: Record<number, DbCalendarEvent[]> = {};
-    for (const e of events) {
+    for (const e of visibleEvents) {
       const d = parseInt(e.event_date.slice(-2), 10);
       (m[d] ??= []).push(e);
     }
     return m;
-  }, [events]);
+  }, [visibleEvents]);
 
   return (
     <main>
@@ -219,6 +244,43 @@ export default function EventsPage() {
               );
             })}
           </div>
+        </div>
+      </section>
+
+      {/* CATEGORY FILTER — tick which kinds of event to show. */}
+      <section className="px-6 pb-2">
+        <div className="mx-auto flex max-w-6xl flex-wrap items-center gap-2">
+          <span className="mr-1 text-[11px] font-bold uppercase tracking-[0.18em] text-cream/45">
+            Show
+          </span>
+          {EVENT_TYPES.map((c) => {
+            const on = selectedCats.has(c);
+            return (
+              <button
+                key={c}
+                type="button"
+                onClick={() => toggleCat(c)}
+                aria-pressed={on}
+                className={`shrink-0 rounded-full border px-3.5 py-1.5 text-[11px] font-bold uppercase tracking-[0.14em] transition ${
+                  on
+                    ? "border-plonkPink bg-plonkPink text-white"
+                    : "border-cream/15 text-cream/50 hover:border-cream/40 hover:text-cream/80"
+                }`}
+              >
+                {on ? "✓ " : ""}
+                {c}
+              </button>
+            );
+          })}
+          {!allCatsOn && (
+            <button
+              type="button"
+              onClick={() => setSelectedCats(new Set(EVENT_TYPES))}
+              className="ml-1 text-[11px] font-bold uppercase tracking-[0.14em] text-cream/45 underline-offset-2 transition hover:text-cream hover:underline"
+            >
+              Show all
+            </button>
+          )}
         </div>
       </section>
 
@@ -342,11 +404,19 @@ export default function EventsPage() {
             <p className="mt-6 text-center text-xs text-cream/45">Loading…</p>
           )}
 
-          {events.length === 0 && !loading && (
+          {visibleEvents.length === 0 && !loading && (
             <p className="mt-12 text-center text-sm text-cream/55">
-              <Editable k="events.empty_state">
-                Nothing yet for {monthLabel(active.year, active.month)} — check back soon.
-              </Editable>
+              {events.length > 0 && !allCatsOn ? (
+                <>
+                  No matching events for {monthLabel(active.year, active.month)} —
+                  try showing more types above.
+                </>
+              ) : (
+                <Editable k="events.empty_state">
+                  Nothing yet for {monthLabel(active.year, active.month)} — check
+                  back soon.
+                </Editable>
+              )}
             </p>
           )}
         </div>
