@@ -4,12 +4,10 @@ import AdminBar from "@/components/AdminBar";
 import { ContentProvider } from "@/lib/content";
 import { EditModeProvider } from "@/lib/editMode";
 
-// Customer site lives at dev.nodice.bar — the SUBDOMAIN is the
-// gate. Public visitors to nodice.bar see the splash served by the
-// separate Plonk-Borough-2.0 deployment; staff bookmark
-// dev.nodice.bar and develop with zero friction. Anyone who finds
-// dev.nodice.bar in the wild will see the real site, which is fine
-// — the domain is not promoted or linked anywhere public.
+// Customer site lives at nodice.bar (apex). The dev.nodice.bar
+// subdomain is kept pointing at the same build as a staging mirror
+// so staff bookmarks survive — but the canonical surface for
+// search engines, OG previews, and every customer link is the apex.
 export default function PublicLayout({
   children,
 }: {

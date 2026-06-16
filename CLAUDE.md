@@ -4,7 +4,7 @@ This file provides guidance to Claude Code (claude.ai/code) when working in this
 
 ## What this is
 
-Next.js 14 customer-site for **No Dice** — the neighbourhood bar at **407 Mentmore Terrace, London Fields, Hackney, E8 3PH** (operating entity **No Dice Hackney Ltd**, a subsidiary of No Dice Bars Ltd). Static export to GitHub Pages on push, served at **dev.nodice.bar** pre-launch and **nodice.bar** at launch (see `public/CNAME`).
+Next.js 14 customer-site for **No Dice** — the neighbourhood bar at **407 Mentmore Terrace, London Fields, Hackney, E8 3PH** (operating entity **No Dice Hackney Ltd**, a subsidiary of No Dice Bars Ltd). Static export to GitHub Pages on push, served live at **nodice.bar** (apex). `dev.nodice.bar` kept as a staging alias pointing at the same build (see `public/CNAME`).
 
 Stack: Next.js 14 (App Router) · React 18 · Tailwind · Supabase (Postgres + Auth + Edge Functions) · Stripe · Resend.
 
@@ -72,7 +72,7 @@ Stack: Next.js 14 (App Router) · React 18 · Tailwind · Supabase (Postgres + A
   - `stripe-webhook` — routes Stripe events by `metadata.kind` and fires the matching confirmation email
   - `send-pool-confirmation`, `send-event-entry-confirmation`, `send-welcome-discount` — Resend HTTP API senders
   - `send-booking-reminders` — runs hourly via pg_cron, 22-26h window from now with 4h buffer
-- All email templates use the wordmark image from `https://dev.nodice.bar/nodice-wordmark.png` (single source).
+- All email templates use the wordmark image from `https://nodice.bar/nodice-wordmark.png` (single source).
 - Sender: **No Dice <bookings@nodice.bar>** · Reply-to: **info@nodice.bar**.
 
 ### Bookable surfaces ("click → expand below" pattern)
@@ -111,5 +111,5 @@ No test runner / linter / typechecker is wired up — verify with `npm run build
 ## Deploy
 
 - `.github/workflows/deploy.yml` builds and publishes to GitHub Pages on every push to `main`. No staging.
-- Custom domain via `public/CNAME` — currently `dev.nodice.bar`, flips to `nodice.bar` at launch.
+- Custom domain via `public/CNAME` — set to `nodice.bar` (apex). Site is live.
 - `next.config.mjs` exports `output: "export"` for static hosting.

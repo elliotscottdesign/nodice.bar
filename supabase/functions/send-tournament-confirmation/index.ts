@@ -106,7 +106,7 @@ function renderEmailHtml(opts: {
             <!-- Header -->
             <tr>
               <td align="center" style="padding:24px 0 8px;">
-                <img src="https://dev.nodice.bar/nodice-wordmark.png" alt="No Dice" style="display:block;margin:0 auto;width:220px;max-width:80%;height:auto;border:0;outline:none;text-decoration:none;">
+                <img src="https://nodice.bar/nodice-wordmark.png" alt="No Dice" style="display:block;margin:0 auto;width:220px;max-width:80%;height:auto;border:0;outline:none;text-decoration:none;">
               </td>
             </tr>
             <tr>

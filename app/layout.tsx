@@ -6,9 +6,9 @@ import NewsletterPopup from "@/components/NewsletterPopup";
 // =============================================================
 // Canonical site URL — used by metadataBase + structured data
 // =============================================================
-// Once we flip the customer site from dev.nodice.bar to nodice.bar
-// at launch, this stays the same — the schema points at the real
-// public URL so Google indexes the bar with the right canonical.
+// Site is live at nodice.bar. JSON-LD + Open Graph + canonical
+// all anchor here so Google + every social platform indexes the
+// bar against the right URL.
 const SITE_URL = "https://nodice.bar";
 
 const VENUE = {
@@ -88,14 +88,9 @@ export const metadata: Metadata = {
       "Pool tables, arcade, kitchen residencies, big screens for sport. 407 Mentmore Terrace, E8 3PH.",
     images: ["/nodice-logo.png"],
   },
-  robots: {
-    // Block dev.nodice.bar from being indexed while it's the
-    // pre-launch URL. At launch, flip these to true (or just delete
-    // the `robots:` block — Next defaults to indexable).
-    index: false,
-    follow: false,
-    googleBot: { index: false, follow: false },
-  },
+  // robots: omitted — Next defaults to indexable, which is what we
+  // want now the site is live at nodice.bar. (Previously blocked
+  // indexing of the dev.nodice.bar pre-launch URL.)
   // Favicon + Apple touch icon both point at the 2-dice logo.
   // The previous /icon.svg fallback didn't actually exist in /public,
   // which is why iMessage was showing the generic Safari compass.
