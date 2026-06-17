@@ -56,7 +56,7 @@ export default function ContactPage() {
   const hoursLabel = useContent("contact.hours_label", "Opening hours");
   const hoursBody = useContent(
     "contact.hours_body",
-    "Mon–Thu  5pm – 11pm\nFri        5pm – 12am\nSat       2pm – 12am\nSun       2pm – 10pm",
+    "Mon–Thu 3pm – 11pm\nFri 12pm – 12am\nSat 12pm – 12am\nSun 12pm – 11pm",
   );
 
   const socialLabel = useContent("contact.social_label", "Follow No Dice");
