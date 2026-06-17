@@ -462,7 +462,7 @@ function PaymentForm({
       confirmParams: {
         // Used only when 3D Secure forces a redirect; for the
         // majority of card payments the customer never leaves.
-        return_url: `${window.location.origin}/nodice.bar/pool/#tournaments`,
+        return_url: `${window.location.origin}/pool/#tournaments`,
       },
     });
 

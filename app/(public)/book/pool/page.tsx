@@ -674,7 +674,7 @@ function PaymentForm({
       elements,
       redirect: "if_required",
       confirmParams: {
-        return_url: `${window.location.origin}/nodice.bar/book/pool/`,
+        return_url: `${window.location.origin}/book/pool/`,
       },
     });
 
