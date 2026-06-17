@@ -17,7 +17,7 @@ import BrandSelect from "@/components/BrandSelect";
 // =============================================================
 // InlineMatchBooking — Stripe Payment Element for World Cup
 // =============================================================
-// Used by MatchSchedule on /world-cup for any match that has a
+// Used by MatchSchedule on /worldcup for any match that has a
 // paid ticket type (cover-charge games). Mirrors
 // InlineTournamentBooking's state-machine + dark-theme Stripe
 // appearance, but writes to `event_entries` (the new ticketed
@@ -425,7 +425,7 @@ function PaymentForm({
       elements,
       redirect: "if_required",
       confirmParams: {
-        return_url: `${window.location.origin}/world-cup/`,
+        return_url: `${window.location.origin}/worldcup/`,
       },
     });
 

@@ -6,7 +6,7 @@ import { useContent } from "@/lib/content";
 import { supabase } from "@/lib/supabase";
 
 // =============================================================
-// /mini-golf — coming-soon landing
+// /minigolf — coming-soon landing
 // =============================================================
 // Took over from the old external "Plonk Golf" link in the header
 // when we decided the mini-golf course wouldn't be ready for launch.

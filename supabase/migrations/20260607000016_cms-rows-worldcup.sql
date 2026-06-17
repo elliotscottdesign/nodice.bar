@@ -1,5 +1,5 @@
 -- =============================================================
--- CMS rows for /world-cup
+-- CMS rows for /worldcup
 -- =============================================================
 -- Without rows in page_content, the admin ContentEditor renders
 -- an empty form for the page — even though the public page reads

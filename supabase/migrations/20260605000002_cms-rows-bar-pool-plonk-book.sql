@@ -74,7 +74,7 @@ values
   ('book.parties.tagline', 'info.book', 'text',     'Parties — tagline', 'Small uppercase line on the card.',               31, ''),
   ('book.parties.blurb',   'info.book', 'textarea', 'Parties — blurb',   'One sentence on the card.',                       32, ''),
   ('book.parties.image',   'info.book', 'image',    'Parties — image',   'Card cover photo.',                               33, ''),
-  ('book.parties.href',    'info.book', 'url',      'Parties — link',    'Where the card goes (default /private-hire).',    34, ''),
+  ('book.parties.href',    'info.book', 'url',      'Parties — link',    'Where the card goes (default /privatehire).',    34, ''),
 
   ('book.golf.name',    'info.book', 'text',     'Golf — name',    'Card title for the Plonk Golf cross-link lane.',        40, ''),
   ('book.golf.tagline', 'info.book', 'text',     'Golf — tagline', 'Small uppercase line on the card.',                     41, ''),

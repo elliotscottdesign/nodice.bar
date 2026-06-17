@@ -20,14 +20,14 @@ const PAGES: { label: string; href: string; description: string; group: string }
   {
     group: "Private hire",
     label: "Private hire — overview",
-    href: "/admin/content/private-hire",
-    description: "Headline + body for /private-hire.",
+    href: "/admin/content/privatehire",
+    description: "Headline + body for /privatehire.",
   },
   {
     group: "Private hire",
     label: "Private hire — Hackney",
-    href: "/admin/content/private-hire/hackney",
-    description: "Headline + body for /private-hire/hackney.",
+    href: "/admin/content/privatehire/hackney",
+    description: "Headline + body for /privatehire/hackney.",
   },
 
   // ──────────────────────────────────────────────────────────────
@@ -53,7 +53,7 @@ const PAGES: { label: string; href: string; description: string; group: string }
     label: "World Cup",
     href: "/admin/content/info/worldcup",
     description:
-      "Hero and copy on /world-cup. Match fixtures live in /admin/events (category 'World Cup — Match').",
+      "Hero and copy on /worldcup. Match fixtures live in /admin/events (category 'World Cup — Match').",
   },
   {
     group: "Nav pages",
@@ -90,8 +90,8 @@ const PAGES: { label: string; href: string; description: string; group: string }
   {
     group: "Info pages",
     label: "Snack Bar",
-    href: "/admin/content/info/snack-bar",
-    description: "Copy on /snack-bar.",
+    href: "/admin/content/info/snackbar",
+    description: "Copy on /snackbar.",
   },
   {
     group: "Info pages",

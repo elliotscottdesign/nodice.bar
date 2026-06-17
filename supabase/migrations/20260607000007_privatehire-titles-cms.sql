@@ -1,10 +1,10 @@
 -- =============================================================
--- /private-hire — surface section titles as CMS fields
+-- /privatehire — surface section titles as CMS fields
 -- =============================================================
 -- The six fact-panel headings ("Capacity", "Room features", etc.)
 -- used to be hardcoded in JSX. They're now editable via inline
 -- Editable AND via the form-based admin at
--- /admin/content/private-hire — these rows make them show up in
+-- /admin/content/privatehire — these rows make them show up in
 -- that form.
 -- =============================================================
 

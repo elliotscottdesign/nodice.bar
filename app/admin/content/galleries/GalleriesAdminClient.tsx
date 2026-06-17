@@ -88,8 +88,8 @@ const KNOWN_GALLERIES: {
     key: "hero.worldcup",
     label: "HERO slider — World Cup",
     description:
-      "Top-of-page slider on /world-cup. Crowd / big-screen shots work best.",
-    previewPath: "/world-cup",
+      "Top-of-page slider on /worldcup. Crowd / big-screen shots work best.",
+    previewPath: "/worldcup",
   },
   {
     key: "hero.vouchers",
@@ -118,14 +118,14 @@ const KNOWN_GALLERIES: {
   {
     key: "hero.privatehire",
     label: "HERO slider — Private hire overview",
-    description: "Top-of-page slider on /private-hire.",
-    previewPath: "/private-hire",
+    description: "Top-of-page slider on /privatehire.",
+    previewPath: "/privatehire",
   },
   {
     key: "hero.privatehire.hackney",
     label: "HERO slider — Private hire (Hackney)",
-    description: "Top-of-page slider on /private-hire/hackney.",
-    previewPath: "/private-hire/hackney",
+    description: "Top-of-page slider on /privatehire/hackney.",
+    previewPath: "/privatehire/hackney",
   },
 
   // ----- Inline content galleries -----

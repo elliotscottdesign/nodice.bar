@@ -47,10 +47,10 @@ const FALLBACK_CARDS = [
     tagline: "Private hire · Groups of 10+",
     blurb: "Birthdays, leaving dos, brand activations — whole-venue or arch-end hires.",
     image: "",
-    href: "/private-hire",
+    href: "/privatehire",
   },
   // Golf card removed at launch — mini golf course is not open yet.
-  // The /mini-golf coming-soon page captures interest via newsletter
+  // The /minigolf coming-soon page captures interest via newsletter
   // signup with source='minigolf' until we're ready to sell tickets.
   {
     id: "contact",

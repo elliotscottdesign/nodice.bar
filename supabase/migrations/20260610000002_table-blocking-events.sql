@@ -19,7 +19,7 @@ alter table public.events
   add column if not exists blocks_table_bookings boolean not null default false;
 
 comment on column public.events.blocks_table_bookings is
-  'True = this event closes /book/table reservations for its event_date. The /book/table calendar greys out the day and shows a message linking to the right booking flow (/world-cup, /events). Defaults to false; admin form pre-ticks for world_cup + food_event categories. Toggle per event in /admin/events.';
+  'True = this event closes /book/table reservations for its event_date. The /book/table calendar greys out the day and shows a message linking to the right booking flow (/worldcup, /events). Defaults to false; admin form pre-ticks for world_cup + food_event categories. Toggle per event in /admin/events.';
 
 -- Backfill: every existing world_cup + food_event row gets the
 -- block flag flipped on, so the booking calendar starts working

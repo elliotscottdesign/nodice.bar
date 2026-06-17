@@ -9,7 +9,7 @@
 --   2. faqs table  — structured Q&As for /faqs.
 --   3. menu_sections + menu_items — Snack Bar menu data.
 --   4. gallery_images — per-gallery image lists with reorder/alt.
---   5. page_content seed rows for venue/private-hire body copy and
+--   5. page_content seed rows for venue/privatehire body copy and
 --      the four homepage "more than mini-golf" feature blurbs.
 -- =============================================================
 

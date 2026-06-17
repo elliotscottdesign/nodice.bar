@@ -157,11 +157,11 @@ export default function SnackBarAdminClient() {
     <>
       <AdminPageHeader
         title="Snack Bar"
-        description="Menu shown on /snack-bar. Group items into sections (Burgers, Sides…); each item can have a price and description."
+        description="Menu shown on /snackbar. Group items into sections (Burgers, Sides…); each item can have a price and description."
         action={
           <div className="flex gap-2">
             <a
-              href={`${process.env.NEXT_PUBLIC_BASE_PATH || ""}/snack-bar`}
+              href={`${process.env.NEXT_PUBLIC_BASE_PATH || ""}/snackbar`}
               target="_blank"
               rel="noopener noreferrer"
               className="rounded-full border border-cream/15 px-4 py-1.5 text-xs font-bold uppercase tracking-wider text-cream/85 hover:bg-cream/5"

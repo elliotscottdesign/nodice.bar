@@ -7,12 +7,12 @@ import { useContent, useImage } from "@/lib/content";
 import { Editable } from "@/components/Editable";
 
 // =============================================================
-// /private-hire — single-venue private hire page
+// /privatehire — single-venue private hire page
 // =============================================================
-// Single-venue site → the previous /private-hire (overview) +
-// /private-hire/hackney (Hackney fact sheet) split has been folded
-// into ONE page that lives here. /private-hire/hackney now redirects
-// to /private-hire.
+// Single-venue site → the previous /privatehire (overview) +
+// /privatehire/hackney (Hackney fact sheet) split has been folded
+// into ONE page that lives here. /privatehire/hackney now redirects
+// to /privatehire.
 //
 // CMS keys remain on the `privatehire.hackney.*` namespace so any
 // edits the founder has already made are preserved without a

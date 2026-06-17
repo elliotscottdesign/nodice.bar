@@ -76,7 +76,7 @@ Stack: Next.js 14 (App Router) · React 18 · Tailwind · Supabase (Postgres + A
 - Sender: **No Dice <info@nodice.bar>** · Reply-to: **info@nodice.bar**. (Only `info@` and `elliot@` are real mailboxes — never invent another local-part like `bookings@` or `hello@`, replies bounce.)
 
 ### Bookable surfaces ("click → expand below" pattern)
-- `components/MatchSchedule.tsx` — `/world-cup` roller deck of fixtures
+- `components/MatchSchedule.tsx` — `/worldcup` roller deck of fixtures
 - `components/MatchCalendar.tsx` — calendar view of the same matches, toggled from MatchSchedule
 - `components/TournamentSchedule.tsx` — `/pool` rail of upcoming tournaments
 - Each renders a card grid + below it an inline form. They share the **auto-scroll-on-select** behaviour described above.

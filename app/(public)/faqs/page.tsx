@@ -78,7 +78,7 @@ const SECTIONS: Section[] = [
               info@nodice.bar
             </a>{" "}
             and our team will arrange it directly, or see our{" "}
-            <Link href="/private-hire" className="underline-offset-4 hover:underline">
+            <Link href="/privatehire" className="underline-offset-4 hover:underline">
               private hire page
             </Link>{" "}
             for full venue takeovers.

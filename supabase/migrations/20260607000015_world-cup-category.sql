@@ -2,7 +2,7 @@
 -- Add 'world_cup' to events.category — match-night schedule
 -- =============================================================
 -- Each World Cup match is one row in the events table tagged
--- category='world_cup'. The public /world-cup page reads from
+-- category='world_cup'. The public /worldcup page reads from
 -- this filter and renders a roller-deck schedule (mirroring the
 -- pool tournament schedule). Each card links to /book/table with
 -- the match date prefilled so customers reserve a bar table for

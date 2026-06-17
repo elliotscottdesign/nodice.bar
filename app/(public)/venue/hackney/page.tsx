@@ -171,7 +171,7 @@ export default function HackneyPage() {
                   Book Hackney
                 </Link>
                 <Link
-                  href="/private-hire"
+                  href="/privatehire"
                   className="inline-flex items-center text-sm font-semibold uppercase tracking-wider text-cream/80 transition hover:text-cream"
                 >
                   Private hire →
@@ -207,7 +207,7 @@ export default function HackneyPage() {
             <FeatureCard kImage="venue.hackney.feature2.image" fallbackImage="" kTitle="venue.hackney.feature2.title" kBody="venue.hackney.feature2.body" title={f2Title} body={f2Body} />
             <FeatureCard kImage="venue.hackney.feature3.image" fallbackImage="" kTitle="venue.hackney.feature3.title" kBody="venue.hackney.feature3.body" title={f3Title} body={f3Body} />
             <FeatureCard kImage="venue.hackney.feature4.image" fallbackImage="" kTitle="venue.hackney.feature4.title" kBody="venue.hackney.feature4.body" title={f4Title} body={f4Body} />
-            <FeatureCard kImage="venue.hackney.feature5.image" fallbackImage="" kTitle="venue.hackney.feature5.title" kBody="venue.hackney.feature5.body" title={f5Title} body={f5Body} href="/snack-bar" hrefLabel="See the menu" />
+            <FeatureCard kImage="venue.hackney.feature5.image" fallbackImage="" kTitle="venue.hackney.feature5.title" kBody="venue.hackney.feature5.body" title={f5Title} body={f5Body} href="/snackbar" hrefLabel="See the menu" />
             <FeatureCard kImage="venue.hackney.feature6.image" fallbackImage="" kTitle="venue.hackney.feature6.title" kBody="venue.hackney.feature6.body" title={f6Title} body={f6Body} />
           </div>
         </div>

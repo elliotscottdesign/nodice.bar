@@ -146,7 +146,7 @@ export async function loadEventsForPoolSchedule(): Promise<DbEvent[]> {
   return (data ?? []) as DbEvent[];
 }
 
-// All upcoming events of a given category. Used by /world-cup
+// All upcoming events of a given category. Used by /worldcup
 // (category='world_cup') and any future category-led schedule
 // pages.
 export async function loadUpcomingEventsByCategory(

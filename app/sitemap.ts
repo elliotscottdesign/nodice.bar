@@ -23,20 +23,20 @@ export default function sitemap(): MetadataRoute.Sitemap {
     { path: "", priority: 1.0, changeFrequency: "weekly" },
     { path: "/bar", priority: 0.9, changeFrequency: "weekly" },
     { path: "/pool", priority: 0.9, changeFrequency: "weekly" },
-    { path: "/world-cup", priority: 0.9, changeFrequency: "daily" },
+    { path: "/worldcup", priority: 0.9, changeFrequency: "daily" },
     { path: "/events", priority: 0.9, changeFrequency: "daily" },
     { path: "/deals", priority: 0.8, changeFrequency: "weekly" },
-    { path: "/private-hire", priority: 0.7, changeFrequency: "monthly" },
+    { path: "/privatehire", priority: 0.7, changeFrequency: "monthly" },
     // Mini-golf coming-soon landing — replaces the previous external
     // Plonk Golf link in the header. Email-capture page until the
     // course opens.
-    { path: "/mini-golf", priority: 0.6, changeFrequency: "monthly" },
+    { path: "/minigolf", priority: 0.6, changeFrequency: "monthly" },
     { path: "/contact", priority: 0.7, changeFrequency: "monthly" },
     { path: "/book/pool", priority: 0.8, changeFrequency: "weekly" },
     { path: "/book/table", priority: 0.8, changeFrequency: "weekly" },
     { path: "/faqs", priority: 0.6, changeFrequency: "monthly" },
     { path: "/vouchers", priority: 0.6, changeFrequency: "monthly" },
-    { path: "/snack-bar", priority: 0.6, changeFrequency: "monthly" },
+    { path: "/snackbar", priority: 0.6, changeFrequency: "monthly" },
     { path: "/privacy", priority: 0.3, changeFrequency: "yearly" },
     { path: "/terms", priority: 0.3, changeFrequency: "yearly" },
   ];

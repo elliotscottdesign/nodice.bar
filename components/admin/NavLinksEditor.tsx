@@ -24,11 +24,11 @@ import { loadAllContent, saveContentValue } from "@/lib/db/content";
 const FALLBACK_NAV: NavRow[] = [
   { label: "Bar", href: "/bar" },
   { label: "Pool", href: "/pool" },
-  { label: "World Cup", href: "/world-cup" },
+  { label: "World Cup", href: "/worldcup" },
   { label: "Deals", href: "/deals" },
   { label: "DJs & Events", href: "/events" },
-  { label: "Mini Golf", href: "/mini-golf" },
-  { label: "Parties", href: "/private-hire" },
+  { label: "Mini Golf", href: "/minigolf" },
+  { label: "Parties", href: "/privatehire" },
   { label: "Contact", href: "/contact" },
 ];
 

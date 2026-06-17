@@ -1,12 +1,12 @@
 -- =============================================================
--- /private-hire copy clean-up: kill Plonk Golf + Borough leftovers
+-- /privatehire copy clean-up: kill Plonk Golf + Borough leftovers
 -- =============================================================
 -- The 20260101000008 seed migration originally populated this page
 -- with copy inherited from the Plonk Golf fork ("Two London venues",
 -- "nine-hole Polynesian course", "Take over a course"). No Dice
 -- Hackney is a single bar — fix the live copy to match the actual
 -- product. Falls back to the rephrased text only when the row hasn't
--- been hand-edited via /admin/content/private-hire since the bad
+-- been hand-edited via /admin/content/privatehire since the bad
 -- seed landed (we don't want to clobber the founder's edits).
 -- =============================================================
 

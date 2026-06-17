@@ -7,7 +7,7 @@ import { useEffect, useRef, useState } from "react";
 // =============================================================
 // Shared chrome for every horizontal "swipe-able cards" surface on
 // the public site so the UX is identical across:
-//   • /world-cup     — match fixtures (MatchSchedule)
+//   • /worldcup     — match fixtures (MatchSchedule)
 //   • /pool          — tournament sign-ups (TournamentSchedule)
 //   • /events        — DJ-night poster rail (EventsScroller)
 //   • Any future card rail — drop the children inside <RollerDeck>

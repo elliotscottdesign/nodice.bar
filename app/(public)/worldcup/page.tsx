@@ -5,7 +5,7 @@ import PageHero from "@/components/PageHero";
 import MatchSchedule from "@/components/MatchSchedule";
 import { useContent } from "@/lib/content";
 
-// /world-cup — mirrors /pool's structure (named with a hyphen
+// /worldcup — mirrors /pool's structure (named with a hyphen
 // because /worldcup is taken by the investor-deck strategy planner
 // on the same nodice.bar domain):
 //   • Hero  — slider-led, content editable via the CMS

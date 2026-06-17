@@ -3,11 +3,11 @@
 -- =============================================================
 -- Adds page_content rows for every editable text + image slot on:
 --   - /venue/borough-market (the 6 feature cards + find-us)
---   - /private-hire        (every section)
---   - /private-hire/hackney (popular-for, fact panels: capacity,
+--   - /privatehire        (every section)
+--   - /privatehire/hackney (popular-for, fact panels: capacity,
 --                            features, catering, licences, welcomes,
 --                            house rules)
---   - /private-hire/borough-market (same shape)
+--   - /privatehire/borough-market (same shape)
 -- Fact panel contents are stored as multi-line textarea values — one
 -- bullet per line — which the public page splits on \n to render.
 -- Safe to re-run.
@@ -46,7 +46,7 @@ values
   ('venue.borough.findus.access_heading', 'venue.borough', 'text',     'Accessibility heading', '',                              54, ''),
   ('venue.borough.findus.access_body',    'venue.borough', 'textarea', 'Accessibility body',    '',                              55, ''),
 
-  -- ===== /private-hire (overview) =====
+  -- ===== /privatehire (overview) =====
   ('privatehire.hero_image',  'privatehire', 'image',    'Hero image',       '',                                              1, ''),
   ('privatehire.eyebrow',     'privatehire', 'text',     'Hero eyebrow',     '',                                              2, ''),
   ('privatehire.reasons.heading', 'privatehire', 'text',     'Reasons — heading',  'Heading on the "why hire" grid.',         10, ''),
@@ -54,7 +54,7 @@ values
   ('privatehire.cta.heading', 'privatehire', 'text',     'Bottom CTA heading', '',                                            20, ''),
   ('privatehire.cta.body',    'privatehire', 'textarea', 'Bottom CTA body',    '',                                            21, ''),
 
-  -- ===== /private-hire/hackney =====
+  -- ===== /privatehire/hackney =====
   ('privatehire.hackney.hero_image', 'privatehire.hackney', 'image',    'Hero image',          '',                              1, ''),
   ('privatehire.hackney.eyebrow',    'privatehire.hackney', 'text',     'Hero eyebrow',        '',                              2, ''),
   ('privatehire.hackney.intro',      'privatehire.hackney', 'textarea', 'Hero intro',          '',                              3, ''),
@@ -71,7 +71,7 @@ values
   ('privatehire.hackney.email_heading',   'privatehire.hackney', 'text',     'Email CTA heading', '',                           30, ''),
   ('privatehire.hackney.email_body',      'privatehire.hackney', 'textarea', 'Email CTA body',    '',                           31, ''),
 
-  -- ===== /private-hire/borough-market =====
+  -- ===== /privatehire/borough-market =====
   ('privatehire.borough.hero_image', 'privatehire.borough', 'image',    'Hero image',          '',                              1, ''),
   ('privatehire.borough.eyebrow',    'privatehire.borough', 'text',     'Hero eyebrow',        '',                              2, ''),
   ('privatehire.borough.intro',      'privatehire.borough', 'textarea', 'Hero intro',          '',                              3, ''),
@@ -94,7 +94,7 @@ values
   ('venue.borough.gallery_heading', 'venue.borough', 'text',     'Gallery heading', '',                                          60, ''),
   ('venue.borough.gallery_intro',   'venue.borough', 'textarea', 'Gallery intro',   '',                                          61, ''),
 
-  -- ===== /private-hire (overview) reasons + venue picker =====
+  -- ===== /privatehire (overview) reasons + venue picker =====
   ('privatehire.reasons.eyebrow', 'privatehire', 'text',     'Reasons — eyebrow', '', 9,  ''),
   ('privatehire.reason1.title',   'privatehire', 'text',     'Reason 1 — title',  '', 30, ''),
   ('privatehire.reason1.body',    'privatehire', 'textarea', 'Reason 1 — body',   '', 31, ''),

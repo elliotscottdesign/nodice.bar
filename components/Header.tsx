@@ -13,14 +13,14 @@ import { Editable } from "./Editable";
 const FALLBACK_NAV = [
   "Bar | /bar",
   "Pool | /pool",
-  "World Cup | /world-cup",
+  "World Cup | /worldcup",
   "Deals | /deals",
   "DJs & Events | /events",
   // Mini Golf — coming-soon landing page (not yet bookable). Replaces
   // the previous external link to plonkgolf.co.uk; the customer site
-  // captures emails on /mini-golf for an opening announcement.
-  "Mini Golf | /mini-golf",
-  "Parties | /private-hire",
+  // captures emails on /minigolf for an opening announcement.
+  "Mini Golf | /minigolf",
+  "Parties | /privatehire",
   "Contact | /contact",
 ].join("\n");
 
