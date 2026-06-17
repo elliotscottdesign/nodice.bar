@@ -64,7 +64,7 @@ export default function Header() {
             width={140}
             height={56}
             priority
-            className="h-9 w-auto"
+            className="h-7 w-auto sm:h-9"
             unoptimized={logoImage.startsWith("http")}
           />
         </Link>
@@ -103,7 +103,7 @@ export default function Header() {
         <div className="flex items-center gap-2 lg:hidden">
           <Link
             href={ctaHref}
-            className="rounded-full bg-plonkPink px-4 py-2 text-[11px] font-bold uppercase tracking-wider text-white transition hover:bg-plonkPink/90"
+            className="rounded-full bg-plonkPink px-2.5 py-1 text-[10px] font-bold uppercase tracking-tight text-white transition hover:bg-plonkPink/90"
           >
             <Editable k="header.cta_label">{ctaLabel}</Editable>
           </Link>
