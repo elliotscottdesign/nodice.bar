@@ -144,20 +144,20 @@ const STRUCTURED_DATA = {
     {
       "@type": "OpeningHoursSpecification",
       dayOfWeek: ["Monday", "Tuesday", "Wednesday", "Thursday"],
-      opens: "16:00",
-      closes: "23:30",
+      opens: "15:00",
+      closes: "23:00",
     },
     {
       "@type": "OpeningHoursSpecification",
       dayOfWeek: ["Friday", "Saturday"],
-      opens: "16:00",
-      closes: "01:00",
+      opens: "12:00",
+      closes: "00:00",
     },
     {
       "@type": "OpeningHoursSpecification",
       dayOfWeek: "Sunday",
-      opens: "16:00",
-      closes: "22:30",
+      opens: "12:00",
+      closes: "23:00",
     },
   ],
   sameAs: [
