@@ -36,15 +36,20 @@ export type MatchWithTicket = {
 
 const WEEKDAYS = ["Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun"];
 
-// Current month + next 3 — same window as /events. Keeps the
-// scroller focused on what's coming up. World Cup runs Jun-Jul
-// 2026 so this window will cover the whole tournament when the
-// user lands close to it.
-function buildMonthRange(): { year: number; month: number }[] {
-  const now = new Date();
+// Months derived FROM the matches list — only months that actually
+// contain upcoming matches get a button. Stops the scroller offering
+// empty months (e.g. August after the World Cup Final on 19 July).
+// Founder rule: don't waste the customer's time on dead months.
+function buildMonthRangeFromMatches(
+  matches: MatchWithTicket[],
+): { year: number; month: number }[] {
+  const seen = new Set<string>();
   const out: { year: number; month: number }[] = [];
-  for (let i = 0; i <= 3; i++) {
-    const d = new Date(now.getFullYear(), now.getMonth() + i, 1);
+  for (const m of matches) {
+    const d = new Date(`${m.event.event_date}T00:00:00`);
+    const key = `${d.getFullYear()}-${d.getMonth()}`;
+    if (seen.has(key)) continue;
+    seen.add(key);
     out.push({ year: d.getFullYear(), month: d.getMonth() });
   }
   return out;
@@ -123,25 +128,31 @@ export default function MatchCalendar({
   expandedId: string | null;
   setExpandedId: (id: string | null) => void;
 }) {
-  const months = useMemo(buildMonthRange, []);
+  const months = useMemo(() => buildMonthRangeFromMatches(matches), [matches]);
   const today = useMemo(todayParts, []);
 
-  // Default the active month to the first month in the range that
-  // actually contains a match, so the calendar opens on something
-  // useful when the user lands months before the tournament.
+  // First UPCOMING match's month. `matches` is already filtered to
+  // event_date >= today server-side (loadUpcomingEventsByCategory),
+  // so matches[0] IS the next upcoming match. Landing the customer
+  // here means they never see a calendar full of past or empty days.
   const firstMonthWithMatches = useMemo(() => {
     if (matches.length === 0) return null;
     const firstDate = new Date(`${matches[0].event.event_date}T00:00:00`);
     return { year: firstDate.getFullYear(), month: firstDate.getMonth() };
   }, [matches]);
 
+  // Start the calendar on the next-upcoming month, not today's month.
+  // If matches haven't loaded yet, today is a safe placeholder; the
+  // useEffect below repoints to the first match's month once we have it.
   const [active, setActive] = useState<{ year: number; month: number }>({
     year: today.year,
     month: today.month,
   });
 
   // Once matches load, jump to the first month with matches if the
-  // current month is empty. Runs once per match-list change.
+  // current month is empty (or doesn't appear in `months` at all —
+  // happens whenever today's month has no fixtures, e.g. mid-August
+  // after the Final). Runs once per match-list change.
   useMemo(() => {
     if (!firstMonthWithMatches) return;
     const currentMonthHasMatches = matches.some((m) => {
