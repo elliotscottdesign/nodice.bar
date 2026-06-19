@@ -15,6 +15,7 @@ import InlineMatchBooking, {
 } from "./InlineMatchBooking";
 import RollerDeck from "./RollerDeck";
 import MatchCalendar from "./MatchCalendar";
+import { flagForTeam, hasFlagAlready } from "@/lib/teamFlags";
 
 // =============================================================
 // MatchSchedule — World Cup fixtures roller-deck
@@ -40,13 +41,25 @@ function formatTime(hhmmss: string | null): string {
   return hhmmss.slice(0, 5);
 }
 
+// "England vs Croatia" → { home: "🏴󠁧󠁢󠁥󠁮󠁧󠁿 England", away: "Croatia 🇭🇷" }.
+// Auto-attaches flags via lib/teamFlags so admin entries don't need
+// to remember to type the flag. See lib/teamFlags.ts for the full
+// 2026 World Cup nation list + common aliases.
 function splitMatchTitle(name: string): { home: string; away: string } | null {
   const sep = name.match(/\s+(?:vs?|v\.?|-|–)\s+/i);
   if (!sep) return null;
   const idx = name.indexOf(sep[0]);
-  const home = name.slice(0, idx).trim();
-  const away = name.slice(idx + sep[0].length).trim();
+  let home = name.slice(0, idx).trim();
+  let away = name.slice(idx + sep[0].length).trim();
   if (!home || !away) return null;
+  if (!hasFlagAlready(home)) {
+    const f = flagForTeam(home);
+    if (f) home = `${f} ${home}`;
+  }
+  if (!hasFlagAlready(away)) {
+    const f = flagForTeam(away);
+    if (f) away = `${away} ${f}`;
+  }
   return { home, away };
 }
 

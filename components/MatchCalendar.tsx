@@ -3,6 +3,7 @@
 import { useMemo, useState } from "react";
 import Link from "next/link";
 import type { DbEvent, DbTicketType } from "@/lib/db/eventsPlatform";
+import { flagForTeam, hasFlagAlready } from "@/lib/teamFlags";
 
 // =============================================================
 // MatchCalendar — month-grid view of World Cup matches
@@ -92,16 +93,31 @@ function formatTime(hhmmss: string | null): string {
   return hhmmss.slice(0, 5);
 }
 
-// "England vs Croatia" → { home: "England", away: "Croatia" }.
+// "England vs Croatia" → { home: "🏴󠁧󠁢󠁥󠁮󠁧󠁿 England", away: "Croatia 🇭🇷" }.
 // Returns null when the event name isn't a vs-style fixture (e.g.
 // "World Cup · Group Stage · Friday 12 June").
+//
+// Auto-attaches flags via lib/teamFlags so the admin can type
+// "England vs Italy" and customers still see "🏴󠁧󠁢󠁥󠁮󠁧󠁿 England vs Italy 🇮🇹".
+// If a flag is already present in the source string we leave it
+// alone — no double-prefixing.
 function splitMatchTitle(name: string): { home: string; away: string } | null {
   const sep = name.match(/\s+(?:vs?|v\.?|-|–)\s+/i);
   if (!sep) return null;
   const idx = name.indexOf(sep[0]);
-  const home = name.slice(0, idx).trim();
-  const away = name.slice(idx + sep[0].length).trim();
+  let home = name.slice(0, idx).trim();
+  let away = name.slice(idx + sep[0].length).trim();
   if (!home || !away) return null;
+  // Auto-attach flags. Home flag prepends, away flag appends — both
+  // visually pointing inward toward the "vs".
+  if (!hasFlagAlready(home)) {
+    const f = flagForTeam(home);
+    if (f) home = `${f} ${home}`;
+  }
+  if (!hasFlagAlready(away)) {
+    const f = flagForTeam(away);
+    if (f) away = `${away} ${f}`;
+  }
   return { home, away };
 }
 
