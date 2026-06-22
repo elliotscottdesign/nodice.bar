@@ -1,10 +1,46 @@
 "use client";
 
+import {
+  Cake,
+  Gift,
+  Briefcase,
+  Sun,
+  Trees,
+  Sparkles,
+  PartyPopper,
+  Music,
+  Camera,
+  Utensils,
+  Wine,
+  Users,
+  Tag,
+  type LucideIcon,
+} from "lucide-react";
 import PageHero from "@/components/PageHero";
 import Reveal from "@/components/Reveal";
 import BigEmailCta from "@/components/BigEmailCta";
 import { useContent, useImage } from "@/lib/content";
 import { Editable } from "@/components/Editable";
+
+// Pick an icon by keyword for a free-text "popular for" use-case.
+// CMS-editable — falls back to a generic Tag icon when nothing
+// matches so the grid never breaks on a custom string.
+function iconForUseCase(label: string): LucideIcon {
+  const t = label.toLowerCase();
+  if (/birthday/.test(t)) return Cake;
+  if (/christmas|xmas|festive|holiday/.test(t)) return Gift;
+  if (/corporate|office|work|company|team/.test(t)) return Briefcase;
+  if (/outdoor|garden|terrace|beer garden/.test(t)) return Sun;
+  if (/park|green/.test(t)) return Trees;
+  if (/unusual|unique|quirky|different/.test(t)) return Sparkles;
+  if (/party|club|night/.test(t)) return PartyPopper;
+  if (/music|dj|live/.test(t)) return Music;
+  if (/photo|shoot|brand|launch/.test(t)) return Camera;
+  if (/food|dinner|tasting/.test(t)) return Utensils;
+  if (/drink|cocktail|wine/.test(t)) return Wine;
+  if (/group|crowd|guest|hen|stag/.test(t)) return Users;
+  return Tag;
+}
 
 // =============================================================
 // /privatehire — single-venue private hire page
@@ -172,15 +208,25 @@ export default function PrivateHirePage() {
                 {popularHeading}
               </Editable>
             </p>
-            <div className="mt-4 flex flex-wrap gap-2">
-              {popularList.map((t) => (
-                <span
-                  key={t}
-                  className="rounded-full border border-plumLine/80 bg-plumDeep/60 px-4 py-1.5 text-sm text-cream/90"
-                >
-                  {t}
-                </span>
-              ))}
+            <div className="mt-6 grid grid-cols-2 gap-3 sm:grid-cols-3 sm:gap-4 md:grid-cols-6">
+              {popularList.map((t) => {
+                const Icon = iconForUseCase(t);
+                return (
+                  <div
+                    key={t}
+                    className="flex flex-col items-center gap-3 rounded-2xl border border-plumLine/80 bg-plumDeep/60 px-3 py-5 text-center transition hover:border-plonkTeal/40"
+                  >
+                    <Icon
+                      className="h-7 w-7 text-plonkTeal"
+                      strokeWidth={1.5}
+                      aria-hidden="true"
+                    />
+                    <span className="text-xs font-medium leading-tight text-cream/90 sm:text-sm">
+                      {t}
+                    </span>
+                  </div>
+                );
+              })}
             </div>
           </Reveal>
 
