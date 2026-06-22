@@ -28,7 +28,13 @@ import { supabase } from "@/lib/supabase";
 //   hero.minigolf — gallery key for the hero slider artwork
 // =============================================================
 
-const FALLBACK_HERO = [""];
+// Default hero artwork — the golf bitmap already in storage. Renders
+// until the founder uploads a slider via /admin/content/galleries
+// with gallery key "hero.minigolf". An empty string here would break
+// next/image; a real URL keeps the hero on screen even on a fresh DB.
+const FALLBACK_HERO = [
+  "https://rntcujcpsozvuxvmlejv.supabase.co/storage/v1/object/public/media/page/1781610983789-golf-rsaterized-300x-colour.png",
+];
 
 export default function MiniGolfPage() {
   const eyebrow = useContent(
