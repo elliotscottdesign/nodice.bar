@@ -3,9 +3,10 @@
 import { useEffect, useState } from "react";
 import { AdminCard } from "@/components/admin/AdminCard";
 import {
-  loadBarReservations,
-  setBarReservationStatus,
+  loadAllTableSurfaceReservations,
+  setUnifiedReservationStatus,
   type DbBarReservation,
+  type UnifiedReservation,
 } from "@/lib/db/barReservations";
 
 // Admin list view for /book/pool + /book/table reservations. The
@@ -50,7 +51,7 @@ export default function BarReservationsClient({
   // their own shift.
   kindFilter?: "pool" | "table" | "all";
 } = {}) {
-  const [rows, setRows] = useState<DbBarReservation[]>([]);
+  const [rows, setRows] = useState<UnifiedReservation[]>([]);
   const [loading, setLoading] = useState(true);
   const [err, setErr] = useState("");
   const [busyId, setBusyId] = useState<string | null>(null);
@@ -60,7 +61,10 @@ export default function BarReservationsClient({
     setLoading(true);
     setErr("");
     try {
-      setRows(await loadBarReservations());
+      // loadAllTableSurfaceReservations returns BOTH bar_reservations
+      // (table + pool rows) AND World Cup event_entries shaped as
+      // table rows. The kindFilter below decides which subset to show.
+      setRows(await loadAllTableSurfaceReservations());
     } catch (e) {
       setErr(describe(e, "Failed to load reservations"));
     } finally {
@@ -72,11 +76,14 @@ export default function BarReservationsClient({
     reload();
   }, []);
 
-  async function setStatus(id: string, status: DbBarReservation["status"]) {
-    setBusyId(id);
+  async function setStatus(
+    row: UnifiedReservation,
+    status: DbBarReservation["status"],
+  ) {
+    setBusyId(row.id);
     setErr("");
     try {
-      await setBarReservationStatus(id, status);
+      await setUnifiedReservationStatus(row, status);
       await reload();
     } catch (e) {
       setErr(describe(e, "Failed to update reservation"));
@@ -85,8 +92,16 @@ export default function BarReservationsClient({
     }
   }
 
+  // World Cup event_entries are always shown on the table surface
+  // (founder rule: staff need to see match-night holds alongside
+  // regular table bookings to spot clashes at a glance). Pool page
+  // never includes event_entries.
   const kindRows =
-    kindFilter === "all" ? rows : rows.filter((r) => r.kind === kindFilter);
+    kindFilter === "all"
+      ? rows
+      : kindFilter === "table"
+      ? rows.filter((r) => r.kind === "table" || r.source === "event")
+      : rows.filter((r) => r.kind === "pool" && r.source === "bar");
   const filtered =
     filter === "all" ? kindRows : kindRows.filter((r) => r.status === filter);
 
@@ -145,13 +160,24 @@ export default function BarReservationsClient({
                   <div className="flex items-center gap-3">
                     <span
                       className={`rounded-full px-2 py-0.5 text-[10px] font-bold uppercase tracking-[0.18em] ${
-                        r.kind === "pool"
+                        r.source === "event"
+                          ? "bg-plonkTeal/15 text-plonkTeal"
+                          : r.kind === "pool"
                           ? "bg-plonkPink/15 text-plonkPink"
                           : "bg-plonkYellow/15 text-plonkYellow"
                       }`}
                     >
-                      {r.kind === "pool" ? "Pool" : "Table"}
+                      {r.source === "event"
+                        ? "World Cup"
+                        : r.kind === "pool"
+                        ? "Pool"
+                        : "Table"}
                     </span>
+                    {r.match_name && (
+                      <span className="text-[11px] font-semibold uppercase tracking-wider text-cream/85">
+                        {r.match_name}
+                      </span>
+                    )}
                     <span
                       className={`rounded-full px-2 py-0.5 text-[10px] font-bold uppercase tracking-[0.18em] ${
                         r.status === "pending"
@@ -181,14 +207,14 @@ export default function BarReservationsClient({
                   <div className="flex gap-2">
                     <button
                       disabled={busyId === r.id}
-                      onClick={() => setStatus(r.id, "confirmed")}
+                      onClick={() => setStatus(r, "confirmed")}
                       className="rounded-full bg-plonkPink px-4 py-2 text-xs font-bold uppercase tracking-wider text-white transition hover:bg-plonkPink/90 disabled:opacity-50"
                     >
                       Confirm
                     </button>
                     <button
                       disabled={busyId === r.id}
-                      onClick={() => setStatus(r.id, "cancelled")}
+                      onClick={() => setStatus(r, "cancelled")}
                       className="rounded-full border border-cream/15 px-4 py-2 text-xs font-bold uppercase tracking-wider text-cream/75 transition hover:bg-cream/5 disabled:opacity-50"
                     >
                       Cancel
@@ -198,7 +224,7 @@ export default function BarReservationsClient({
                 {r.status === "confirmed" && (
                   <button
                     disabled={busyId === r.id}
-                    onClick={() => setStatus(r.id, "cancelled")}
+                    onClick={() => setStatus(r, "cancelled")}
                     className="rounded-full border border-cream/15 px-4 py-2 text-xs font-bold uppercase tracking-wider text-cream/75 transition hover:bg-cream/5 disabled:opacity-50"
                   >
                     Cancel
@@ -207,7 +233,7 @@ export default function BarReservationsClient({
                 {r.status === "cancelled" && (
                   <button
                     disabled={busyId === r.id}
-                    onClick={() => setStatus(r.id, "confirmed")}
+                    onClick={() => setStatus(r, "confirmed")}
                     className="rounded-full border border-cream/15 px-4 py-2 text-xs font-bold uppercase tracking-wider text-cream/75 transition hover:bg-cream/5 disabled:opacity-50"
                   >
                     Restore
