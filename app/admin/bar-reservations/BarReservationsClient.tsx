@@ -55,7 +55,17 @@ export default function BarReservationsClient({
   const [loading, setLoading] = useState(true);
   const [err, setErr] = useState("");
   const [busyId, setBusyId] = useState<string | null>(null);
-  const [filter, setFilter] = useState<Filter>("pending");
+  // Initial filter respects ?filter=all|pending|confirmed|cancelled in
+  // the URL so the founder can bookmark "all bookings" or land staff
+  // directly on the right tab via a shared link. Default stays
+  // "pending" so the page opens on what needs action.
+  const [filter, setFilter] = useState<Filter>(() => {
+    if (typeof window === "undefined") return "pending";
+    const q = new URLSearchParams(window.location.search).get("filter");
+    if (q === "all" || q === "pending" || q === "confirmed" || q === "cancelled")
+      return q;
+    return "pending";
+  });
 
   async function reload() {
     setLoading(true);
