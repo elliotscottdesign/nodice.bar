@@ -39,7 +39,17 @@ function formatTime(hhmm: string): string {
   return `${h12}${m === 0 ? "" : `:${String(m).padStart(2, "0")}`}${ampm}`;
 }
 
-export default function BarReservationsClient() {
+export default function BarReservationsClient({
+  kindFilter = "all",
+}: {
+  // Restrict visible rows to a single kind. /admin/bar-reservations
+  // (legacy combined URL) leaves this as "all"; /admin/table-reservations
+  // and /admin/pool-reservations pass the matching value so each page
+  // is focused on one product. Founder rule (2026-06-22): pool + table
+  // live on separate admin pages so staff don't have to filter to read
+  // their own shift.
+  kindFilter?: "pool" | "table" | "all";
+} = {}) {
   const [rows, setRows] = useState<DbBarReservation[]>([]);
   const [loading, setLoading] = useState(true);
   const [err, setErr] = useState("");
@@ -75,10 +85,12 @@ export default function BarReservationsClient() {
     }
   }
 
+  const kindRows =
+    kindFilter === "all" ? rows : rows.filter((r) => r.kind === kindFilter);
   const filtered =
-    filter === "all" ? rows : rows.filter((r) => r.status === filter);
+    filter === "all" ? kindRows : kindRows.filter((r) => r.status === filter);
 
-  const pendingCount = rows.filter((r) => r.status === "pending").length;
+  const pendingCount = kindRows.filter((r) => r.status === "pending").length;
 
   return (
     <div className="space-y-6">

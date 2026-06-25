@@ -7,7 +7,8 @@ import { logout } from "./AdminGate";
 const NAV: { label: string; href: string; group?: string }[] = [
   { label: "Dashboard", href: "/admin", group: "Overview" },
   { label: "Bookings (golf)", href: "/admin/bookings", group: "Overview" },
-  { label: "Reservations (pool + table)", href: "/admin/bar-reservations", group: "Overview" },
+  { label: "Table reservations", href: "/admin/table-reservations", group: "Overview" },
+  { label: "Pool reservations", href: "/admin/pool-reservations", group: "Overview" },
   { label: "Tournament entries", href: "/admin/tournament-entries", group: "Overview" },
   { label: "Events (new)", href: "/admin/events", group: "Overview" },
   { label: "Calendar events", href: "/admin/calendar-events", group: "Overview" },
