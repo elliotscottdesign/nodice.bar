@@ -575,14 +575,12 @@ function TableBookingPageInner() {
                 the slot grid is already filtered above. */}
             {!blockedFromBooking && !closed && (
             <>
-            <FormSection label="Party size">
-              <NumberPicker
-                value={partySize}
-                min={cfg?.product.min_party_size ?? 1}
-                max={cfg?.product.max_party_size ?? 12}
-                onChange={setPartySize}
-              />
-            </FormSection>
+            {/* Party-size selector removed by founder rule (2026-06-22):
+                a table is just a table — bring whoever, no need to
+                guess numbers up front. partySize=2 is still sent
+                server-side to satisfy the column's NOT NULL contract
+                (table is "good for 2" by default; founder shuffles
+                seating on the day). */}
 
             <div className="grid gap-6 sm:grid-cols-2">
               <FormSection label="Name">

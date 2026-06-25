@@ -491,14 +491,11 @@ function PoolBookingPageInner() {
               </FormSection>
             )}
 
-            <FormSection label="Party size">
-              <NumberPicker
-                value={partySize}
-                min={cfg?.product.min_party_size ?? 1}
-                max={cfg?.product.max_party_size ?? 8}
-                onChange={setPartySize}
-              />
-            </FormSection>
+            {/* Party-size selector removed by founder rule (2026-06-22):
+                a pool table is booked at a fixed per-table fee — bring
+                as many friends as you like, the price doesn't change.
+                We still send party_size=1 to the server to keep the
+                column's NOT NULL contract happy. */}
 
             <div className="grid gap-6 sm:grid-cols-2">
               <FormSection label="Name">

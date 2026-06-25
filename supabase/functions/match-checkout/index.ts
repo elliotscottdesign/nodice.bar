@@ -238,7 +238,14 @@ Deno.serve(async (req) => {
     );
   }
 
-  const amount = tt.price_pence * input.quantity;
+  // Match bookings are ONE TABLE PER BOOKING at a fixed fee — the
+  // ticket_type.price_pence is the per-table cost. Founder rule
+  // (2026-06-22): never multiply by party-size / quantity. If a
+  // customer wants multiple tables they place separate bookings.
+  // Hardcoded server-side so a tampered client payload can't bill a
+  // customer for multiple tables.
+  const quantityForBilling = 1;
+  const amount = tt.price_pence * quantityForBilling;
   if (amount <= 0) {
     return jsonResponse(
       { error: "Free tickets shouldn't go through Stripe — DB seed error" },

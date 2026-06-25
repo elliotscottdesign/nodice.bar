@@ -119,7 +119,10 @@ export default function InlineMatchBooking({
   const [clientSecret, setClientSecret] = useState<string | null>(null);
   const [submitting, setSubmitting] = useState(false);
 
-  const [quantity, setQuantity] = useState(2);
+  // One booking = one table at a fixed fee. Founder rule (2026-06-22):
+  // no "how many tables" stepper, no party-size multiplier — customer
+  // just reserves the table for the slot at the listed price.
+  const quantity = 1;
   const [name, setName] = useState("");
   const [email, setEmail] = useState("");
   const [phone, setPhone] = useState("");
@@ -127,8 +130,9 @@ export default function InlineMatchBooking({
   const [heardFrom, setHeardFrom] = useState("");
   const [marketingOptIn, setMarketingOptIn] = useState(false);
 
-  const totalPence = target.price_per_ticket_pence * quantity;
+  const totalPence = target.price_per_ticket_pence; // fixed per booking
   const maxQty = target.capacity_remaining ?? 10;
+  void quantity; // referenced via the request body — silences unused var warnings
 
   const elementsOptions = useMemo<StripeElementsOptions | null>(
     () =>
@@ -244,23 +248,26 @@ export default function InlineMatchBooking({
         </h3>
         <p className="mt-1 text-xs text-cream/55">
           {target.ticket_label} · {formatPounds(target.price_per_ticket_pence)}{" "}
-          bar tab spend per table
+          per table — good for 2 people
         </p>
       </div>
 
       {phase === "form" && (
         <form onSubmit={handleSubmit} className="mt-6 space-y-5">
-          <FormSection label="How many tables?">
-            <NumberPicker
-              value={quantity}
-              min={1}
-              max={maxQty}
-              onChange={setQuantity}
-            />
-            <p className="mt-2 text-xs text-cream/55">
-              Total · {formatPounds(totalPence)}
+          {/* No party-size / table-count selector — one booking is one
+              table at a fixed fee, regardless of how many people turn
+              up to use it. The static fee summary is below.  */}
+          <div className="rounded-2xl border border-cream/10 bg-ink/20 px-4 py-3 text-center">
+            <p className="text-xs uppercase tracking-widest text-cream/55">
+              Total
             </p>
-          </FormSection>
+            <p className="mt-1 font-display text-2xl text-cream">
+              {formatPounds(totalPence)}
+            </p>
+            <p className="mt-1 text-[11px] text-cream/55">
+              One table — good for 2 people
+            </p>
+          </div>
 
           <div className="grid gap-4 sm:grid-cols-2">
             <FormSection label="Name">
