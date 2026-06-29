@@ -22,9 +22,11 @@ import { supabase } from "@/lib/supabase";
 type Kind = "table" | "pool";
 
 // Default email when the founder doesn't have one — covers walk-ins
-// and phone bookings. Reservation still tracks who via `name`/`phone`
-// + the bar staff seeing it in the admin list.
-const WALK_IN_EMAIL = "walkin@nodice.bar";
+// and phone bookings. Routed to the real info@ mailbox (only info@
+// and elliot@ exist on nodice.bar — see CLAUDE.md). Reservation still
+// tracks who via `name`/`phone` + the bar staff seeing it in the
+// admin list.
+const WALK_IN_EMAIL = "info@nodice.bar";
 
 const inputCls =
   "w-full rounded-lg border border-cream/15 bg-ink/30 px-3 py-2 text-sm text-cream " +
