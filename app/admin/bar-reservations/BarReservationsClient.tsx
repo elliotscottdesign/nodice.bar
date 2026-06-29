@@ -2,6 +2,7 @@
 
 import { useEffect, useState } from "react";
 import { AdminCard } from "@/components/admin/AdminCard";
+import AddReservationForm from "@/components/admin/AddReservationForm";
 import {
   loadAllTableSurfaceReservations,
   setUnifiedReservationStatus,
@@ -117,12 +118,23 @@ export default function BarReservationsClient({
 
   const pendingCount = kindRows.filter((r) => r.status === "pending").length;
 
+  // Manual-entry surface is only meaningful on a kind-specific page.
+  // On the combined /admin/bar-reservations view we don't render a
+  // button (the founder would have to pick a kind anyway — easier
+  // to just go to the dedicated page).
+  const manualKind: "table" | "pool" | null =
+    kindFilter === "table" ? "table" : kindFilter === "pool" ? "pool" : null;
+
   return (
     <div className="space-y-6">
       {err && (
         <div className="rounded-lg border border-plonkPink/40 bg-plonkPink/10 px-4 py-3 text-sm text-plonkPink">
           {err}
         </div>
+      )}
+
+      {manualKind && (
+        <AddReservationForm kind={manualKind} onCreated={() => reload()} />
       )}
 
       <div className="flex flex-wrap gap-2">
