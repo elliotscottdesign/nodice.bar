@@ -9,6 +9,14 @@ import {
   type DbBarReservation,
   type UnifiedReservation,
 } from "@/lib/db/barReservations";
+import { supabase } from "@/lib/supabase";
+
+const STRIPE_PAYMENT_URL = (pi: string) =>
+  `https://dashboard.stripe.com/payments/${pi}`;
+
+const editInputCls =
+  "w-full rounded-lg border border-cream/15 bg-ink/30 px-3 py-2 text-sm text-cream " +
+  "placeholder:text-cream/40 focus:border-plonkPink focus:outline-none";
 
 // Admin list view for /book/pool + /book/table reservations. The
 // public booking forms drop rows in as 'pending' — the admin confirms
@@ -56,6 +64,18 @@ export default function BarReservationsClient({
   const [loading, setLoading] = useState(true);
   const [err, setErr] = useState("");
   const [busyId, setBusyId] = useState<string | null>(null);
+  // Inline-edit state — only one row open at a time.
+  const [editingId, setEditingId] = useState<string | null>(null);
+  const [editForm, setEditForm] = useState<{
+    reservation_date: string;
+    start_time: string;
+    duration_minutes: number;
+    party_size: number;
+    name: string;
+    email: string;
+    phone: string;
+    notes: string;
+  } | null>(null);
   // Initial filter respects ?filter=all|pending|confirmed|cancelled in
   // the URL so the founder can bookmark "all bookings" or land staff
   // directly on the right tab via a shared link. Default stays
@@ -98,6 +118,68 @@ export default function BarReservationsClient({
       await reload();
     } catch (e) {
       setErr(describe(e, "Failed to update reservation"));
+    } finally {
+      setBusyId(null);
+    }
+  }
+
+  function startEdit(r: UnifiedReservation) {
+    setEditingId(r.id);
+    setEditForm({
+      reservation_date: r.reservation_date,
+      start_time: r.start_time.slice(0, 5),
+      duration_minutes: r.duration_minutes,
+      party_size: r.party_size,
+      name: r.name,
+      email: r.email,
+      phone: r.phone ?? "",
+      notes: r.notes ?? "",
+    });
+  }
+
+  function cancelEdit() {
+    setEditingId(null);
+    setEditForm(null);
+  }
+
+  async function saveEdit(r: UnifiedReservation) {
+    if (!editForm) return;
+    setBusyId(r.id);
+    setErr("");
+    try {
+      if (r.source === "event") {
+        // event_entries rows are tied to a match — date/time/duration
+        // come from the parent event. Only customer fields editable.
+        const { error } = await supabase()
+          .from("event_entries")
+          .update({
+            attendee_name: editForm.name.trim(),
+            attendee_email: editForm.email.trim(),
+            attendee_phone: editForm.phone.trim(),
+            notes: editForm.notes.trim() || null,
+          })
+          .eq("id", r.id);
+        if (error) throw error;
+      } else {
+        const { error } = await supabase()
+          .from("bar_reservations")
+          .update({
+            reservation_date: editForm.reservation_date,
+            start_time: editForm.start_time + ":00",
+            duration_minutes: editForm.duration_minutes,
+            party_size: editForm.party_size,
+            name: editForm.name.trim(),
+            email: editForm.email.trim(),
+            phone: editForm.phone.trim() || null,
+            notes: editForm.notes.trim() || null,
+          })
+          .eq("id", r.id);
+        if (error) throw error;
+      }
+      cancelEdit();
+      await reload();
+    } catch (e) {
+      setErr(describe(e, "Failed to save changes"));
     } finally {
       setBusyId(null);
     }
@@ -290,6 +372,93 @@ export default function BarReservationsClient({
                   </div>
                 )}
               </div>
+
+              {/* Secondary action row — Edit + Refund. Shown beneath the
+                  contact panel so the primary Confirm/Cancel actions
+                  stay top-right. Refund opens Stripe in a new tab
+                  (only when there's a real payment intent to refund).
+                  Edit toggles the inline form below. */}
+              <div className="mt-4 flex flex-wrap gap-2">
+                <button
+                  type="button"
+                  onClick={() =>
+                    editingId === r.id ? cancelEdit() : startEdit(r)
+                  }
+                  className="rounded-full border border-cream/15 bg-ink/30 px-3 py-1 text-[11px] font-bold uppercase tracking-wider text-cream/85 transition hover:border-cream/40"
+                >
+                  {editingId === r.id ? "Close edit" : "Edit"}
+                </button>
+                {r.stripe_payment_intent_id && (
+                  <a
+                    href={STRIPE_PAYMENT_URL(r.stripe_payment_intent_id)}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="rounded-full border border-plonkPink/40 bg-plonkPink/10 px-3 py-1 text-[11px] font-bold uppercase tracking-wider text-plonkPink transition hover:bg-plonkPink/20"
+                  >
+                    Refund in Stripe ↗
+                  </a>
+                )}
+                {r.amount_pence !== null && r.amount_pence > 0 && (
+                  <span className="rounded-full bg-cream/5 px-3 py-1 text-[11px] font-bold uppercase tracking-wider text-cream/55">
+                    Paid £{(r.amount_pence / 100).toFixed(2)}
+                  </span>
+                )}
+              </div>
+
+              {editingId === r.id && editForm && (
+                <div className="mt-4 rounded-2xl border border-cream/10 bg-ink/30 p-4">
+                  <p className="mb-3 text-[10px] font-bold uppercase tracking-[0.22em] text-cream/55">
+                    Edit booking
+                    {r.source === "event" && " (match-tied — only contact details editable)"}
+                  </p>
+                  {r.source === "bar" && (
+                    <div className="mb-3 grid gap-3 sm:grid-cols-2">
+                      <div>
+                        <label className="text-[10px] font-bold uppercase tracking-widest text-cream/55">Date</label>
+                        <input type="date" value={editForm.reservation_date} onChange={(e) => setEditForm({ ...editForm, reservation_date: e.target.value })} className={editInputCls + " mt-1"} />
+                      </div>
+                      <div>
+                        <label className="text-[10px] font-bold uppercase tracking-widest text-cream/55">Start time</label>
+                        <input type="time" value={editForm.start_time} onChange={(e) => setEditForm({ ...editForm, start_time: e.target.value })} className={editInputCls + " mt-1"} />
+                      </div>
+                      <div>
+                        <label className="text-[10px] font-bold uppercase tracking-widest text-cream/55">Duration (min)</label>
+                        <input type="number" min={30} max={300} step={30} value={editForm.duration_minutes} onChange={(e) => setEditForm({ ...editForm, duration_minutes: parseInt(e.target.value, 10) || 60 })} className={editInputCls + " mt-1"} />
+                      </div>
+                      <div>
+                        <label className="text-[10px] font-bold uppercase tracking-widest text-cream/55">Party size</label>
+                        <input type="number" min={1} max={50} value={editForm.party_size} onChange={(e) => setEditForm({ ...editForm, party_size: parseInt(e.target.value, 10) || 2 })} className={editInputCls + " mt-1"} />
+                      </div>
+                    </div>
+                  )}
+                  <div className="grid gap-3 sm:grid-cols-2">
+                    <div>
+                      <label className="text-[10px] font-bold uppercase tracking-widest text-cream/55">Customer name</label>
+                      <input type="text" value={editForm.name} onChange={(e) => setEditForm({ ...editForm, name: e.target.value })} className={editInputCls + " mt-1"} />
+                    </div>
+                    <div>
+                      <label className="text-[10px] font-bold uppercase tracking-widest text-cream/55">Email</label>
+                      <input type="email" value={editForm.email} onChange={(e) => setEditForm({ ...editForm, email: e.target.value })} className={editInputCls + " mt-1"} />
+                    </div>
+                    <div>
+                      <label className="text-[10px] font-bold uppercase tracking-widest text-cream/55">Phone</label>
+                      <input type="tel" value={editForm.phone} onChange={(e) => setEditForm({ ...editForm, phone: e.target.value })} className={editInputCls + " mt-1"} />
+                    </div>
+                    <div className="sm:col-span-2">
+                      <label className="text-[10px] font-bold uppercase tracking-widest text-cream/55">Notes</label>
+                      <textarea rows={2} value={editForm.notes} onChange={(e) => setEditForm({ ...editForm, notes: e.target.value })} className={editInputCls + " mt-1"} />
+                    </div>
+                  </div>
+                  <div className="mt-3 flex justify-end gap-2">
+                    <button type="button" onClick={cancelEdit} disabled={busyId === r.id} className="rounded-full border border-cream/15 px-4 py-2 text-xs font-bold uppercase tracking-wider text-cream/75 hover:bg-cream/5 disabled:opacity-50">
+                      Cancel
+                    </button>
+                    <button type="button" onClick={() => saveEdit(r)} disabled={busyId === r.id} className="rounded-full bg-plonkPink px-4 py-2 text-xs font-bold uppercase tracking-wider text-white hover:bg-plonkPink/90 disabled:opacity-50">
+                      {busyId === r.id ? "Saving…" : "Save changes"}
+                    </button>
+                  </div>
+                </div>
+              )}
             </article>
           ))}
         </div>
