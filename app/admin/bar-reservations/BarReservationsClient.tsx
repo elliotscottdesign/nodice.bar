@@ -64,6 +64,15 @@ export default function BarReservationsClient({
   const [loading, setLoading] = useState(true);
   const [err, setErr] = useState("");
   const [busyId, setBusyId] = useState<string | null>(null);
+  // Source filter — distinguishes regular bar_reservations rows from
+  // World Cup match-night event_entries shown on the table surface.
+  // Only matters on the table page (and the combined /admin/bar-
+  // reservations view); the pool page never has event-sourced rows.
+  const [sourceFilter, setSourceFilter] = useState<"all" | "bar" | "event">(
+    "all",
+  );
+  // Search box — matches name / email / phone / notes / match name.
+  const [search, setSearch] = useState("");
   // Inline-edit state — only one row open at a time.
   const [editingId, setEditingId] = useState<string | null>(null);
   const [editForm, setEditForm] = useState<{
@@ -195,10 +204,28 @@ export default function BarReservationsClient({
       : kindFilter === "table"
       ? rows.filter((r) => r.kind === "table" || r.source === "event")
       : rows.filter((r) => r.kind === "pool" && r.source === "bar");
+  const sourceRows =
+    sourceFilter === "all"
+      ? kindRows
+      : kindRows.filter((r) => r.source === sourceFilter);
+  const q = search.trim().toLowerCase();
+  const searchedRows = !q
+    ? sourceRows
+    : sourceRows.filter((r) =>
+        [r.name, r.email, r.phone ?? "", r.notes ?? "", r.match_name ?? ""]
+          .some((v) => v.toLowerCase().includes(q)),
+      );
   const filtered =
-    filter === "all" ? kindRows : kindRows.filter((r) => r.status === filter);
+    filter === "all"
+      ? searchedRows
+      : searchedRows.filter((r) => r.status === filter);
 
   const pendingCount = kindRows.filter((r) => r.status === "pending").length;
+  // The source dropdown is only meaningful when event_entries can be
+  // mixed in — i.e. the table page or the combined view. On the pool
+  // page the dropdown would only ever have one option, so we hide it.
+  const showSourceFilter = kindFilter !== "pool";
+  const worldCupCount = kindRows.filter((r) => r.source === "event").length;
 
   // Manual-entry surface is only meaningful on a kind-specific page.
   // On the combined /admin/bar-reservations view we don't render a
@@ -218,6 +245,32 @@ export default function BarReservationsClient({
       {manualKind && (
         <AddReservationForm kind={manualKind} onCreated={() => reload()} />
       )}
+
+      <div className="flex flex-wrap gap-3">
+        {/* Search input — matches name, email, phone, notes, match name. */}
+        <input
+          type="search"
+          value={search}
+          onChange={(e) => setSearch(e.target.value)}
+          placeholder="Search name, email, phone, notes, match…"
+          className="min-w-[220px] flex-1 rounded-full border border-cream/15 bg-ink/40 px-4 py-1.5 text-xs text-cream placeholder:text-cream/40 focus:border-plonkPink focus:outline-none"
+        />
+        {showSourceFilter && (
+          <select
+            value={sourceFilter}
+            onChange={(e) =>
+              setSourceFilter(e.target.value as "all" | "bar" | "event")
+            }
+            className="rounded-full border border-cream/15 bg-ink/40 px-4 py-1.5 text-xs font-bold uppercase tracking-wider text-cream/85 focus:border-plonkPink focus:outline-none"
+          >
+            <option value="all">All sources</option>
+            <option value="bar">Regular tables only</option>
+            <option value="event">
+              World Cup only{worldCupCount > 0 ? ` (${worldCupCount})` : ""}
+            </option>
+          </select>
+        )}
+      </div>
 
       <div className="flex flex-wrap gap-2">
         {(
