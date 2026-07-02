@@ -241,7 +241,7 @@ export default function MediaPicker({
 
   return createPortal(
     <div
-      className="fixed inset-0 z-[110] flex items-stretch justify-center bg-ink/90 p-2 sm:p-6"
+      className="fixed inset-0 z-[130] flex items-stretch justify-center bg-ink/90 p-2 sm:p-6"
       // The click-outside-closes target — only on the backdrop, not
       // bubbled through the panel itself.
       onClick={(e) => {
