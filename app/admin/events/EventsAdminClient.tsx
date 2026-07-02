@@ -5,6 +5,32 @@ import { createPortal } from "react-dom";
 import MediaPicker from "@/components/admin/MediaPicker";
 import DatePickerInput from "@/components/admin/DatePickerInput";
 import { EVENT_TYPES } from "@/lib/db/calendarEvents";
+
+// Category colour swatches — used by the dropdown and list-row
+// left-stripe so the palette in the calendar view is discoverable
+// everywhere at once. Keep in sync with chipClass() inside
+// CalendarView below.
+function adminCategoryDot(cat: string): string {
+  if (cat.startsWith("pool"))    return "bg-plonkPink";
+  if (cat === "world_cup")       return "bg-plonkTeal";
+  if (cat === "dj_night")        return "bg-plonkPink";
+  if (cat === "food_event")      return "bg-orange-400";
+  if (cat === "drink_special")   return "bg-plonkYellow";
+  return "bg-cream/40";
+}
+function adminEventLeftStripe(ev: {
+  category: string;
+  subcategory: string | null;
+}): string {
+  const sub = ev.subcategory ?? "";
+  if (sub === "DJ Night")        return "bg-plonkPink";
+  if (sub === "Match Day")       return "bg-plonkTeal";
+  if (sub === "Pool Night")      return "bg-purple-400";
+  if (sub === "Food Night")      return "bg-orange-400";
+  if (sub === "Deals")           return "bg-plonkYellow";
+  if (sub === "Special Event")   return "bg-sky-400";
+  return adminCategoryDot(ev.category);
+}
 import {
   loadAllEvents,
   loadAllTicketTypes,
@@ -860,8 +886,17 @@ export default function EventsAdminClient() {
                 return (
                   <li
                     key={e.id}
-                    className="flex flex-wrap items-center justify-between gap-3 rounded-xl border border-cream/10 bg-ink/40 px-4 py-3"
+                    className="relative flex flex-wrap items-center justify-between gap-3 overflow-hidden rounded-xl border border-cream/10 bg-ink/40 px-4 py-3 pl-5"
                   >
+                    {/* Colour stripe down the left edge so list mode
+                        gets the same at-a-glance category coding as
+                        the calendar grid. */}
+                    <span
+                      aria-hidden
+                      className={`absolute inset-y-0 left-0 w-1.5 ${adminEventLeftStripe(
+                        e,
+                      )}`}
+                    />
                     <div className="min-w-0 flex-1">
                       <div className="text-sm font-bold text-cream">
                         {e.name}
@@ -1956,6 +1991,15 @@ function CategoryDropdown({
                       </svg>
                     )}
                   </span>
+                  {/* Category colour dot — matches the pill colour used
+                      in the calendar + list views so the founder can
+                      see the palette at a glance. */}
+                  <span
+                    aria-hidden
+                    className={`h-2 w-2 shrink-0 rounded-full ${adminCategoryDot(
+                      cat,
+                    )}`}
+                  />
                   <span className="flex-1">{CATEGORY_LABEL[cat]}</span>
                 </li>
               );
@@ -2061,14 +2105,26 @@ function CalendarView({
     onMonthChange({ year: d.getFullYear(), month: d.getMonth() });
   }
 
-  // Per-category accent colours so the chips read at a glance.
-  function chipClass(cat: string): string {
-    if (cat.startsWith("pool"))      return "bg-plonkPink/20 text-plonkPink border-plonkPink/40";
-    if (cat === "world_cup")         return "bg-plonkTeal/20 text-plonkTeal border-plonkTeal/40";
-    if (cat === "dj_night")          return "bg-plonkYellow/20 text-plonkYellow border-plonkYellow/40";
-    if (cat === "food_event")        return "bg-orange-400/15 text-orange-300 border-orange-400/30";
-    if (cat === "drink_special")     return "bg-purple-400/15 text-purple-300 border-purple-400/30";
-    return "bg-cream/10 text-cream/80 border-cream/20";
+  // Prefers subcategory (the calendar chip on /events) so admin
+  // colouring matches what customers see; falls back to category
+  // otherwise. Bumped opacity to /35 so the chips stand out cleanly
+  // against the dark cell background — the previous /20 was too
+  // washed out to read at speed.
+  function chipClass(ev: DbEvent): string {
+    const sub = ev.subcategory ?? "";
+    if (sub === "DJ Night")          return "bg-plonkPink/35 text-white border-plonkPink";
+    if (sub === "Match Day")         return "bg-plonkTeal/35 text-white border-plonkTeal";
+    if (sub === "Pool Night")        return "bg-purple-500/35 text-white border-purple-400";
+    if (sub === "Food Night")        return "bg-orange-500/35 text-white border-orange-400";
+    if (sub === "Deals")             return "bg-plonkYellow/35 text-ink border-plonkYellow";
+    if (sub === "Special Event")     return "bg-sky-500/35 text-white border-sky-400";
+    const cat = ev.category;
+    if (cat.startsWith("pool"))      return "bg-plonkPink/35 text-white border-plonkPink";
+    if (cat === "world_cup")         return "bg-plonkTeal/35 text-white border-plonkTeal";
+    if (cat === "dj_night")          return "bg-plonkPink/35 text-white border-plonkPink";
+    if (cat === "food_event")        return "bg-orange-500/35 text-white border-orange-400";
+    if (cat === "drink_special")     return "bg-plonkYellow/35 text-ink border-plonkYellow";
+    return "bg-cream/15 text-cream/90 border-cream/25";
   }
 
   return (
@@ -2144,7 +2200,7 @@ function CalendarView({
                     onClick={() => onEventClick(ev.id)}
                     title={`${ev.name}${ev.start_time ? ` · ${ev.start_time.slice(0, 5)}` : ""}`}
                     className={`block w-full truncate rounded border px-1.5 py-0.5 text-left text-[10px] font-bold uppercase tracking-wide ${chipClass(
-                      ev.category,
+                      ev,
                     )}`}
                   >
                     {ev.start_time ? `${ev.start_time.slice(0, 5)} ` : ""}
