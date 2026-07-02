@@ -4,6 +4,7 @@ import { useEffect, useMemo, useRef, useState } from "react";
 import { createPortal } from "react-dom";
 import MediaPicker from "@/components/admin/MediaPicker";
 import DatePickerInput from "@/components/admin/DatePickerInput";
+import { EVENT_TYPES } from "@/lib/db/calendarEvents";
 import {
   loadAllEvents,
   loadAllTicketTypes,
@@ -146,6 +147,11 @@ export default function EventsAdminClient() {
   const [posterUrl, setPosterUrl] = useState<string>("");
   const [showPicker, setShowPicker] = useState(false);
   const [category, setCategory] = useState<EventCategory>("dj_night");
+  // Subcategory drives the FILTER CHIPS on the public /events calendar
+  // (EVENT_TYPES: DJ Night, Match Day, Pool Night, Food Night, Deals,
+  // Special Event). Blank = no subcategory tag, event still shows on
+  // the calendar but doesn't count toward any chip.
+  const [subcategory, setSubcategory] = useState<string>("");
   // Auto-tick "Closes /book/table reservations" when the admin
   // picks a category that almost always needs the dining tables.
   // They can still untick manually for the rare exception.
@@ -178,6 +184,7 @@ export default function EventsAdminClient() {
     setExternalLink("");
     setPosterUrl("");
     setCategory("dj_night");
+    setSubcategory("");
     setEventDate(todayIso());
     setStartTime("19:00");
     setEndTime("");
@@ -340,6 +347,7 @@ export default function EventsAdminClient() {
           external_link: externalLink.trim() || null,
           poster_url: posterUrl || null,
           category,
+          subcategory: subcategory || null,
           event_date: d,
           start_time: startTime || null,
           end_time: endTime || null,
@@ -515,6 +523,23 @@ export default function EventsAdminClient() {
                 {CATEGORY_OPTIONS.map((c) => (
                   <option key={c} value={c}>
                     {CATEGORY_LABEL[c]}
+                  </option>
+                ))}
+              </select>
+            </Field>
+            {/* Subcategory drives the /events calendar filter chips.
+                Blank = untagged; the event still appears on the
+                calendar but doesn't match any chip. */}
+            <Field label="Subcategory (calendar chip)">
+              <select
+                value={subcategory}
+                onChange={(e) => setSubcategory(e.target.value)}
+                className={inputCls}
+              >
+                <option value="">— None —</option>
+                {EVENT_TYPES.map((t) => (
+                  <option key={t} value={t}>
+                    {t}
                   </option>
                 ))}
               </select>
@@ -983,6 +1008,10 @@ function EditEventModal({
     event.recurrence_type,
   );
   const [occurrences, setOccurrences] = useState<string>("8");
+  // Subcategory (calendar chip) — nullable, blank = untagged.
+  const [subcategory, setSubcategory] = useState<string>(
+    event.subcategory ?? "",
+  );
 
   // ---- Ticket types ----
   // Mirror state for each existing ticket type, plus a track of which
@@ -1045,6 +1074,7 @@ function EditEventModal({
         registration_open: registrationOpen,
         blocks_table_bookings: blocksTableBookings,
         poster_url: posterUrl || null,
+        subcategory: subcategory || null,
         // Only touch recurrence_type on the parent/standalone rows —
         // child instances leave it alone (read-only from this UI).
         ...(isChildInstance ? {} : { recurrence_type: recurrenceType }),
@@ -1074,6 +1104,7 @@ function EditEventModal({
             external_link: event.external_link ?? null,
             poster_url: posterUrl || null,
             category: event.category,
+            subcategory: subcategory || null,
             event_date: dates[i],
             start_time: startTime || null,
             end_time: endTime || null,
@@ -1271,6 +1302,24 @@ function EditEventModal({
                 )}
               </div>
             </div>
+          </ModalField>
+
+          {/* Subcategory — same list as the public /events calendar
+              filter chips. Blank keeps the event calendar-visible but
+              untagged. */}
+          <ModalField label="Subcategory (calendar chip)">
+            <select
+              value={subcategory}
+              onChange={(ev) => setSubcategory(ev.target.value)}
+              className={modalInputCls}
+            >
+              <option value="">— None —</option>
+              {EVENT_TYPES.map((t) => (
+                <option key={t} value={t}>
+                  {t}
+                </option>
+              ))}
+            </select>
           </ModalField>
 
           {/* Recurrence — offered on standalone events; noted as
