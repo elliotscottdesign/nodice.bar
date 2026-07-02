@@ -254,7 +254,7 @@ Deno.serve(async (req) => {
   // Master kill-switch — admin flips this in /admin/products/pool.
   const { data: product } = await db
     .from("bookable_products")
-    .select("enabled, closed_message")
+    .select("enabled, closed_message, capacity")
     .eq("id", "pool")
     .maybeSingle();
   if (product && product.enabled === false) {
@@ -266,6 +266,64 @@ Deno.serve(async (req) => {
       },
       { status: 423 },
     );
+  }
+
+  // ────────────────────────────────────────────────────────────
+  // Capacity check — reject if this booking would push the venue
+  // past its physical pool-table count for any overlapping minute.
+  // Prevents the "two customers pay for the same table" bug we
+  // couldn't defend against before.
+  //
+  // Load current pool-table count from bookable_products (falls
+  // back to POOL_TABLE_COUNT env var, then a hardcoded 4 if the
+  // config isn't present). Founder can bump the number by editing
+  // bookable_products.capacity via /admin/products/pool without a
+  // redeploy.
+  // ────────────────────────────────────────────────────────────
+  const HARDCODED_POOL_TABLES = 4;
+  const envCount = parseInt(Deno.env.get("POOL_TABLE_COUNT") ?? "", 10);
+  const poolTableCount =
+    (product && (product as { capacity?: number }).capacity) ||
+    (Number.isFinite(envCount) && envCount > 0 ? envCount : HARDCODED_POOL_TABLES);
+
+  // Compute the new booking's [start, end) window in minutes-of-day.
+  const [nsh, nsm] = input.start_time.split(":").map((s) => parseInt(s, 10));
+  const newStartMin = nsh * 60 + (nsm || 0);
+  const newEndMin = newStartMin + input.duration_minutes;
+
+  // Fetch every active pool booking on the same date. Filter
+  // client-side (small enough to be cheap) to find overlaps.
+  const { data: sameDayRows, error: overlapErr } = await db
+    .from("bar_reservations")
+    .select("start_time, duration_minutes, resource_count, status")
+    .eq("kind", "pool")
+    .eq("reservation_date", input.reservation_date)
+    .in("status", ["pending", "paid", "confirmed"]);
+  if (overlapErr) {
+    return jsonResponse(
+      { error: `Capacity lookup failed: ${overlapErr.message}` },
+      { status: 500 },
+    );
+  }
+  for (let m = newStartMin; m < newEndMin; m++) {
+    let concurrent = 0;
+    for (const r of sameDayRows ?? []) {
+      const [rh, rm] = String(r.start_time).split(":").map((s) => parseInt(s, 10));
+      const rStart = rh * 60 + (rm || 0);
+      const rEnd = rStart + (r.duration_minutes ?? 0);
+      if (m >= rStart && m < rEnd) concurrent += r.resource_count ?? 1;
+    }
+    if (concurrent + input.resource_count > poolTableCount) {
+      return jsonResponse(
+        {
+          error:
+            input.resource_count === 1
+              ? "That slot is fully booked. Try a different time or day."
+              : `Not enough pool tables free for ${input.resource_count} tables on this slot. Try a smaller booking or a different time.`,
+        },
+        { status: 409 },
+      );
+    }
   }
 
   const amount = await feeForBookingFromConfig(

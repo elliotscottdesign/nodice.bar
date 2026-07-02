@@ -22,7 +22,12 @@ jobs:
 
       - uses: actions/setup-node@v4
         with:
-          node-version: "20"
+          # Node 22 is the current active LTS. Bumped from 20 on
+          # 2026-07-02 after GitHub warned Node 20 is deprecated in
+          # the internal actions runtime (actions/checkout, setup-node,
+          # deploy-pages all target Node 24 now). Building on 22 keeps
+          # us aligned with GitHub's runtime and silences the warning.
+          node-version: "22"
 
       - name: Install dependencies
         run: npm install

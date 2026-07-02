@@ -287,6 +287,24 @@ function PoolBookingPageInner() {
         });
         if (!res.ok) {
           const txt = await res.text().catch(() => "");
+          // 409 = capacity check said this slot would overbook. Show
+          // the server's plain-English message instead of a scary
+          // "Couldn't start payment (409): …" wall of text.
+          if (res.status === 409) {
+            try {
+              const parsed = JSON.parse(txt) as { error?: string };
+              throw new Error(
+                parsed.error ??
+                  "That slot is fully booked. Try a different time or day.",
+              );
+            } catch (parseErr) {
+              // If body wasn't JSON, fall through to the generic message.
+              if (parseErr instanceof Error && parseErr.message) throw parseErr;
+              throw new Error(
+                "That slot is fully booked. Try a different time or day.",
+              );
+            }
+          }
           throw new Error(
             `Couldn't start payment (${res.status}): ${txt || "no detail"}`,
           );
