@@ -284,7 +284,7 @@ export default function CalendarEventModal({
                   <img
                     src={draft.image_url}
                     alt=""
-                    className="h-full w-full object-cover"
+                    className="h-full w-full object-contain"
                   />
                 ) : (
                   <div className="flex h-full w-full items-center justify-center text-[10px] uppercase tracking-widest text-cream/40">

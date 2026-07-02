@@ -615,7 +615,11 @@ function DayEventCard({
         aria-hidden="true"
         className={`pointer-events-none absolute inset-y-0 left-0 z-10 w-1 ${cc.stripe}`}
       />
-      {/* 4:5 artwork */}
+      {/* 4:5 artwork slot. object-contain (founder rule 2026-07-02)
+          so uploaded posters are shown WHOLE — portrait DJ flyers,
+          square Deals cards, landscape food shots all fit without
+          mid-image cropping. Any letterbox space fills against bg-ink
+          so the card still reads clean. */}
       <div className="relative aspect-[4/5] w-full overflow-hidden bg-ink">
         {src ? (
           // eslint-disable-next-line @next/next/no-img-element
@@ -623,7 +627,7 @@ function DayEventCard({
             src={src}
             alt={ev.title}
             loading="lazy"
-            className="h-full w-full object-cover"
+            className="h-full w-full object-contain"
           />
         ) : (
           <div className="flex h-full w-full items-center justify-center text-[10px] uppercase tracking-widest text-cream/40">
