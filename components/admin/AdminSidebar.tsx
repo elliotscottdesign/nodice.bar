@@ -4,45 +4,42 @@ import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
 import { logout } from "./AdminGate";
 
+// Sidebar organised into 5 groups (2026-07-02):
+//   Today     — what's happening now
+//   Bookings  — customer-facing reservations
+//   Events    — what appears on the site
+//   Money     — moving money in/out
+//   Setup     — venue configuration (rarely touched)
 const NAV: { label: string; href: string; group?: string }[] = [
-  { label: "Dashboard", href: "/admin", group: "Overview" },
-  { label: "Golf Bookings", href: "/admin/bookings", group: "Overview" },
-  { label: "Table reservations", href: "/admin/table-reservations", group: "Overview" },
-  { label: "Pool reservations", href: "/admin/pool-reservations", group: "Overview" },
-  { label: "Tournament entries", href: "/admin/tournament-entries", group: "Overview" },
-  { label: "Events (new)", href: "/admin/events", group: "Overview" },
-  { label: "Calendar events", href: "/admin/calendar-events", group: "Overview" },
-  { label: "Booking Calendar", href: "/admin/calendar", group: "Overview" },
-  { label: "Customers", href: "/admin/customers", group: "Overview" },
+  { label: "Dashboard", href: "/admin", group: "Today" },
+  { label: "Booking Calendar", href: "/admin/calendar", group: "Today" },
 
-  { label: "Site Content", href: "/admin/content", group: "Site" },
-  { label: "Header", href: "/admin/content/global/header", group: "Site" },
-  { label: "Footer", href: "/admin/content/global/footer", group: "Site" },
-  { label: "Galleries", href: "/admin/content/galleries", group: "Site" },
-  { label: "Media library", href: "/admin/media", group: "Site" },
+  { label: "Golf Bookings", href: "/admin/bookings", group: "Bookings" },
+  { label: "Table reservations", href: "/admin/table-reservations", group: "Bookings" },
+  { label: "Pool reservations", href: "/admin/pool-reservations", group: "Bookings" },
+  { label: "Tournament entries", href: "/admin/tournament-entries", group: "Bookings" },
 
-  { label: "Tickets & Prices", href: "/admin/tickets", group: "Catalogue" },
-  { label: "Add-ons", href: "/admin/addons", group: "Catalogue" },
+  { label: "Events", href: "/admin/events", group: "Events" },
+  { label: "Site Content", href: "/admin/content", group: "Events" },
+  { label: "Header", href: "/admin/content/global/header", group: "Events" },
+  { label: "Footer", href: "/admin/content/global/footer", group: "Events" },
+  { label: "Galleries", href: "/admin/content/galleries", group: "Events" },
+  { label: "Media library", href: "/admin/media", group: "Events" },
+  { label: "Email Templates", href: "/admin/emails", group: "Events" },
 
-  { label: "Opening Hours", href: "/admin/hours", group: "Availability" },
-  { label: "Closed Dates", href: "/admin/closed", group: "Availability" },
-  { label: "Slot Capacity", href: "/admin/slots", group: "Availability" },
+  { label: "Customers", href: "/admin/customers", group: "Money" },
+  { label: "Refunds", href: "/admin/refunds", group: "Money" },
+  { label: "Promo Codes", href: "/admin/promos", group: "Money" },
+  { label: "Vouchers", href: "/admin/vouchers", group: "Money" },
 
-  { label: "Vouchers", href: "/admin/vouchers", group: "Discounts" },
-  { label: "Promo Codes", href: "/admin/promos", group: "Discounts" },
-
-  { label: "Refunds", href: "/admin/refunds", group: "Operations" },
-  { label: "Email Templates", href: "/admin/emails", group: "Operations" },
+  { label: "Tickets & Prices", href: "/admin/tickets", group: "Setup" },
+  { label: "Add-ons", href: "/admin/addons", group: "Setup" },
+  { label: "Opening Hours", href: "/admin/hours", group: "Setup" },
+  { label: "Closed Dates", href: "/admin/closed", group: "Setup" },
+  { label: "Slot Capacity", href: "/admin/slots", group: "Setup" },
 ];
 
-const GROUPS = [
-  "Overview",
-  "Site",
-  "Catalogue",
-  "Availability",
-  "Discounts",
-  "Operations",
-];
+const GROUPS = ["Today", "Bookings", "Events", "Money", "Setup"];
 
 export default function AdminSidebar() {
   const pathname = usePathname() || "";

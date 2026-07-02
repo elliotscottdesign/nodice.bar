@@ -1,14 +1,20 @@
 import AdminPageHeader from "@/components/admin/AdminPageHeader";
-import EventsAdminClient from "./EventsAdminClient";
+import EventsAdminHub from "./EventsAdminHub";
 
 export const metadata = { title: "Events — No Dice Admin" };
 
-export default function EventsAdminPage() {
+export default function EventsAdminPage({
+  searchParams,
+}: {
+  searchParams: { tab?: string };
+}) {
+  const initialTab =
+    searchParams.tab === "posters" ? "posters" : "ticketed";
   return (
     <>
       <AdminPageHeader
         title="Events"
-        description="Create any event with one form — pool tournaments, DJ nights, food specials. Pick a category and which pages it should appear on; tickets auto-wire to the public booking flow."
+        description="Two tabs: ticketed events (customers book/pay) and calendar posters (artwork on /events). Everything event-shaped in one place."
         action={
           <a
             href={`${process.env.NEXT_PUBLIC_BASE_PATH || ""}/events`}
@@ -20,7 +26,7 @@ export default function EventsAdminPage() {
           </a>
         }
       />
-      <EventsAdminClient />
+      <EventsAdminHub initialTab={initialTab} />
     </>
   );
 }

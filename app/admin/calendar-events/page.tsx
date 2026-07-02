@@ -1,26 +1,20 @@
-import AdminPageHeader from "@/components/admin/AdminPageHeader";
-import CalendarEventsAdminClient from "./CalendarEventsAdminClient";
+"use client";
 
-export const metadata = { title: "Calendar events — No Dice Admin" };
+import { useEffect } from "react";
+import { useRouter } from "next/navigation";
 
-export default function CalendarEventsAdminPage() {
+// /admin/calendar-events retired 2026-07-02 in favour of the merged
+// /admin/events?tab=posters. Old bookmarks land here and get pushed
+// to the new URL client-side. Static export means we can't do a
+// server redirect, but this achieves the same effect.
+export default function LegacyCalendarEventsRedirect() {
+  const router = useRouter();
+  useEffect(() => {
+    router.replace("/admin/events?tab=posters");
+  }, [router]);
   return (
-    <>
-      <AdminPageHeader
-        title="Calendar events"
-        description="Every event on the /events calendar — including DJ nights fed automatically from the DJ booking system (marked with a 'DJ Feed' badge). Add or edit an event with a date, artwork, title, body, link and a Type/category. Every event has an editable category; DJ nights default to 'DJ Night' but you can change it here (their other details are managed in DJ Bookings). Note: if a DJ night is rescheduled in DJ Bookings, its category resets to 'DJ Night'."
-        action={
-          <a
-            href={`${process.env.NEXT_PUBLIC_BASE_PATH || ""}/events`}
-            target="_blank"
-            rel="noopener noreferrer"
-            className="rounded-full border border-cream/15 px-4 py-1.5 text-xs font-bold uppercase tracking-wider text-cream/85 hover:bg-cream/5"
-          >
-            View calendar ↗
-          </a>
-        }
-      />
-      <CalendarEventsAdminClient />
-    </>
+    <p className="px-6 py-10 text-sm text-cream/70">
+      Redirecting to the merged Events page…
+    </p>
   );
 }
