@@ -20,6 +20,81 @@ import InstagramFeed from "@/components/InstagramFeed";
 // Founder uploads artwork + copy via /admin/calendar-events.
 
 const WEEKDAYS = ["Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun"];
+const WEEKDAYS_FULL = [
+  "Monday",
+  "Tuesday",
+  "Wednesday",
+  "Thursday",
+  "Friday",
+  "Saturday",
+  "Sunday",
+];
+const MONTHS_SHORT = [
+  "Jan",
+  "Feb",
+  "Mar",
+  "Apr",
+  "May",
+  "Jun",
+  "Jul",
+  "Aug",
+  "Sep",
+  "Oct",
+  "Nov",
+  "Dec",
+];
+
+// One colour per event subcategory so the calendar reads at a glance
+// (founder rule 2026-07-02). Returns Tailwind classes for:
+//   - `stripe`  — a 3px accent bar down the left of the artwork
+//   - `pill`    — the top-right badge that already showed subcategory
+//   - `dot`     — a small round marker for lists/day-detail
+// Blank / unknown subcategory → neutral cream fallback so the grid
+// stays consistent for untagged events.
+const CATEGORY_COLOURS: Record<
+  string,
+  { stripe: string; pill: string; dot: string }
+> = {
+  "DJ Night": {
+    stripe: "bg-plonkPink",
+    pill: "bg-plonkPink/90 text-white",
+    dot: "bg-plonkPink",
+  },
+  "Match Day": {
+    stripe: "bg-plonkTeal",
+    pill: "bg-plonkTeal/90 text-ink",
+    dot: "bg-plonkTeal",
+  },
+  "Pool Night": {
+    stripe: "bg-purple-400",
+    pill: "bg-purple-500/90 text-white",
+    dot: "bg-purple-400",
+  },
+  "Food Night": {
+    stripe: "bg-orange-400",
+    pill: "bg-orange-500/90 text-white",
+    dot: "bg-orange-400",
+  },
+  Deals: {
+    stripe: "bg-plonkYellow",
+    pill: "bg-plonkYellow/90 text-ink",
+    dot: "bg-plonkYellow",
+  },
+  "Special Event": {
+    stripe: "bg-sky-400",
+    pill: "bg-sky-500/90 text-white",
+    dot: "bg-sky-400",
+  },
+};
+const CATEGORY_FALLBACK = {
+  stripe: "bg-cream/40",
+  pill: "bg-ink/80 text-cream/85",
+  dot: "bg-cream/50",
+};
+function categoryColours(subcategory: string | null | undefined) {
+  if (!subcategory) return CATEGORY_FALLBACK;
+  return CATEGORY_COLOURS[subcategory] ?? CATEGORY_FALLBACK;
+}
 
 // Show only the current month + next 3 — per founder direction,
 // the scroller stays focused on "what's coming up" rather than
@@ -338,22 +413,52 @@ export default function EventsPage() {
                     editing ? "ring-1 ring-cream/10" : ""
                   }`}
                 >
-                  {/* Day number badge — top-left corner, always visible. */}
+                  {/* Day-number badge — DESKTOP only. On mobile the
+                      dedicated header strip below carries the date;
+                      keeping this absolute badge visible there caused
+                      the day number to sit on top of the weekday label
+                      (founder bug 2026-07-02). */}
                   <div
-                    className={`absolute left-1 top-1 z-10 rounded-full px-1.5 py-0.5 text-[10px] font-bold sm:left-2 sm:top-2 sm:text-xs ${
+                    className={`absolute left-2 top-2 z-10 hidden rounded-full px-1.5 py-0.5 text-xs font-bold sm:block ${
                       isToday ? "bg-plonkPink text-white" : "bg-ink/80 text-cream/85"
                     }`}
                   >
                     {day}
                   </div>
 
-                  {/* Weekday label INSIDE the cell — only shown on
-                      mobile (single-column layout), where the sticky
-                      header above is hidden. On desktop the column
-                      header carries this, so we hide this label there. */}
-                  <div className="border-b border-cream/5 bg-ink/30 px-3 py-1.5 text-[10px] font-bold uppercase tracking-[0.22em] text-cream/60 sm:hidden">
-                    {WEEKDAYS[new Date(dayIso + "T00:00:00").getDay() === 0 ? 6 : new Date(dayIso + "T00:00:00").getDay() - 1]}
-                  </div>
+                  {/* Mobile date header — dedicated strip so the day
+                      number, full weekday name and month all get
+                      breathing room. Bigger + clearer per founder
+                      request; today's date highlights in plonkPink. */}
+                  {(() => {
+                    const dow =
+                      new Date(dayIso + "T00:00:00").getDay() === 0
+                        ? 6
+                        : new Date(dayIso + "T00:00:00").getDay() - 1;
+                    return (
+                      <div
+                        className={`flex items-baseline gap-3 border-b px-4 py-3 sm:hidden ${
+                          isToday
+                            ? "border-plonkPink/40 bg-plonkPink/10"
+                            : "border-cream/10 bg-ink/60"
+                        }`}
+                      >
+                        <span
+                          className={`font-display text-3xl leading-none ${
+                            isToday ? "text-plonkPink" : "text-cream"
+                          }`}
+                        >
+                          {day}
+                        </span>
+                        <span className="text-sm font-bold uppercase tracking-[0.22em] text-cream/80">
+                          {WEEKDAYS_FULL[dow]}
+                        </span>
+                        <span className="ml-auto text-xs font-bold uppercase tracking-widest text-cream/50">
+                          {MONTHS_SHORT[active.month]}
+                        </span>
+                      </div>
+                    );
+                  })()}
 
                   {/* In-cell "+ Add event" overlay button — visible only
                       in admin Edit mode, sits in the top-right corner so
@@ -498,8 +603,18 @@ function DayEventCard({
   // editable from this site's admin (the DJ system owns them).
   const dj = isDjEvent(ev);
 
+  const cc = categoryColours(ev.subcategory);
+
   const inner = (
-    <div className="flex h-full flex-col">
+    <div className="relative flex h-full flex-col">
+      {/* Left-edge accent stripe — instant visual signal of which
+          subcategory this event belongs to. Fully hidden for untagged
+          events (fallback stripe is cream/40 — subtle enough to feel
+          intentional). */}
+      <span
+        aria-hidden="true"
+        className={`pointer-events-none absolute inset-y-0 left-0 z-10 w-1 ${cc.stripe}`}
+      />
       {/* 4:5 artwork */}
       <div className="relative aspect-[4/5] w-full overflow-hidden bg-ink">
         {src ? (
@@ -521,9 +636,7 @@ function DayEventCard({
             category here so admin changes are visible publicly. */}
         {ev.subcategory && (
           <span
-            className={`absolute right-1 top-1 z-10 rounded-full px-1.5 py-0.5 text-[9px] font-bold uppercase tracking-wider ${
-              dj ? "bg-plonkPink/90 text-white" : "bg-ink/80 text-cream/85"
-            }`}
+            className={`absolute right-1 top-1 z-10 rounded-full px-1.5 py-0.5 text-[9px] font-bold uppercase tracking-wider ${cc.pill}`}
           >
             {ev.subcategory}
           </span>
@@ -641,11 +754,19 @@ function MultiEventStack({
       <div className="relative flex w-full gap-0.5 overflow-hidden bg-ink sm:hidden">
         {mobileThumbs.map((ev) => {
           const src = thumbSrc(ev);
+          const c = categoryColours(ev.subcategory);
           return (
             <div
               key={ev.id}
               className="relative aspect-square flex-1 overflow-hidden bg-ink"
             >
+              {/* Colour stripe across the top of each mini thumbnail
+                  so multi-event days read at a glance which subcategory
+                  is which without having to expand. */}
+              <span
+                aria-hidden="true"
+                className={`absolute inset-x-0 top-0 z-10 h-0.5 ${c.stripe}`}
+              />
               {src ? (
                 // eslint-disable-next-line @next/next/no-img-element
                 <img
@@ -696,23 +817,34 @@ function MultiEventStack({
       </div>
 
       {/* Chip stack — one chip per event. Limited to the first 4 so
-          the cell can't grow further; "+N more" if there are extras. */}
+          the cell can't grow further; "+N more" if there are extras.
+          A small subcategory-coloured dot leads each row so the
+          founder / customer can eyeball the day's mix at a glance. */}
       <div className="flex flex-col gap-0.5 px-1.5 py-1.5 sm:px-2 sm:py-2">
-        {events.slice(0, 4).map((ev) => (
-          <div
-            key={ev.id}
-            className="flex items-center justify-between gap-1.5 truncate"
-          >
-            <span className="line-clamp-1 text-[10px] font-bold uppercase tracking-wider text-cream sm:text-[11px]">
-              {ev.title}
-            </span>
-            {ev.start_time && (
-              <span className="shrink-0 text-[9px] font-bold uppercase tracking-[0.18em] text-plonkPink sm:text-[10px]">
-                {formatTime(ev.start_time)}
+        {events.slice(0, 4).map((ev) => {
+          const c = categoryColours(ev.subcategory);
+          return (
+            <div
+              key={ev.id}
+              className="flex items-center justify-between gap-1.5 truncate"
+            >
+              <span className="flex min-w-0 items-center gap-1.5">
+                <span
+                  aria-hidden="true"
+                  className={`h-1.5 w-1.5 shrink-0 rounded-full ${c.dot}`}
+                />
+                <span className="line-clamp-1 text-[10px] font-bold uppercase tracking-wider text-cream sm:text-[11px]">
+                  {ev.title}
+                </span>
               </span>
-            )}
-          </div>
-        ))}
+              {ev.start_time && (
+                <span className="shrink-0 text-[9px] font-bold uppercase tracking-[0.18em] text-plonkPink sm:text-[10px]">
+                  {formatTime(ev.start_time)}
+                </span>
+              )}
+            </div>
+          );
+        })}
         {events.length > 4 && (
           <span className="text-[9px] font-bold uppercase tracking-wider text-plonkPink sm:text-[10px]">
             + {events.length - 4} more
