@@ -10,19 +10,30 @@ import { EVENT_TYPES } from "@/lib/db/calendarEvents";
 // left-stripe so the palette in the calendar view is discoverable
 // everywhere at once. Keep in sync with chipClass() inside
 // CalendarView below.
+// 2026-07-02 palette rework: every category gets its own colour so
+// the filter dropdown, calendar chip, and list stripe all agree.
+// Previously three pool_* categories + dj_night ALL returned
+// bg-plonkPink and arcade/golf fell through to a grey fallback —
+// visually indistinguishable in the "Filter by category" dropdown.
 function adminCategoryDot(cat: string): string {
-  if (cat.startsWith("pool"))    return "bg-plonkPink";
-  if (cat === "world_cup")       return "bg-plonkTeal";
-  if (cat === "dj_night")        return "bg-plonkPink";
-  if (cat === "food_event")      return "bg-orange-400";
-  if (cat === "drink_special")   return "bg-plonkYellow";
-  return "bg-cream/40";
+  if (cat === "world_cup")               return "bg-plonkTeal";
+  if (cat === "dj_night")                return "bg-plonkPink";
+  if (cat === "pool_tournament_doubles") return "bg-red-500";
+  if (cat === "pool_tournament_singles") return "bg-rose-400";
+  if (cat === "pool_special")            return "bg-purple-400";
+  if (cat === "food_event")              return "bg-orange-400";
+  if (cat === "drink_special")           return "bg-plonkYellow";
+  if (cat === "arcade")                  return "bg-cyan-400";
+  if (cat === "golf")                    return "bg-emerald-500";
+  return "bg-cream/40"; // "other" / unknown
 }
 function adminEventLeftStripe(ev: {
   category: string;
   subcategory: string | null;
 }): string {
   const sub = ev.subcategory ?? "";
+  // Subcategory (calendar_events) wins because it's the artwork-level
+  // tag; category is the fallback for events-platform rows.
   if (sub === "DJ Night")        return "bg-plonkPink";
   if (sub === "Match Day")       return "bg-plonkTeal";
   if (sub === "Pool Night")      return "bg-purple-400";
@@ -2110,20 +2121,27 @@ function CalendarView({
   // otherwise. Bumped opacity to /35 so the chips stand out cleanly
   // against the dark cell background — the previous /20 was too
   // washed out to read at speed.
+  // Calendar chip palette — kept in lock-step with adminCategoryDot()
+  // and adminEventLeftStripe() above so the dropdown, list, and
+  // calendar all agree. Every category has its own hue now.
   function chipClass(ev: DbEvent): string {
     const sub = ev.subcategory ?? "";
-    if (sub === "DJ Night")          return "bg-plonkPink/35 text-white border-plonkPink";
-    if (sub === "Match Day")         return "bg-plonkTeal/35 text-white border-plonkTeal";
-    if (sub === "Pool Night")        return "bg-purple-500/35 text-white border-purple-400";
-    if (sub === "Food Night")        return "bg-orange-500/35 text-white border-orange-400";
-    if (sub === "Deals")             return "bg-plonkYellow/35 text-ink border-plonkYellow";
-    if (sub === "Special Event")     return "bg-sky-500/35 text-white border-sky-400";
+    if (sub === "DJ Night")                     return "bg-plonkPink/35 text-white border-plonkPink";
+    if (sub === "Match Day")                    return "bg-plonkTeal/35 text-white border-plonkTeal";
+    if (sub === "Pool Night")                   return "bg-purple-500/35 text-white border-purple-400";
+    if (sub === "Food Night")                   return "bg-orange-500/35 text-white border-orange-400";
+    if (sub === "Deals")                        return "bg-plonkYellow/35 text-ink border-plonkYellow";
+    if (sub === "Special Event")                return "bg-sky-500/35 text-white border-sky-400";
     const cat = ev.category;
-    if (cat.startsWith("pool"))      return "bg-plonkPink/35 text-white border-plonkPink";
-    if (cat === "world_cup")         return "bg-plonkTeal/35 text-white border-plonkTeal";
-    if (cat === "dj_night")          return "bg-plonkPink/35 text-white border-plonkPink";
-    if (cat === "food_event")        return "bg-orange-500/35 text-white border-orange-400";
-    if (cat === "drink_special")     return "bg-plonkYellow/35 text-ink border-plonkYellow";
+    if (cat === "world_cup")                    return "bg-plonkTeal/35 text-white border-plonkTeal";
+    if (cat === "dj_night")                     return "bg-plonkPink/35 text-white border-plonkPink";
+    if (cat === "pool_tournament_doubles")      return "bg-red-500/35 text-white border-red-400";
+    if (cat === "pool_tournament_singles")      return "bg-rose-400/35 text-white border-rose-300";
+    if (cat === "pool_special")                 return "bg-purple-500/35 text-white border-purple-400";
+    if (cat === "food_event")                   return "bg-orange-500/35 text-white border-orange-400";
+    if (cat === "drink_special")                return "bg-plonkYellow/35 text-ink border-plonkYellow";
+    if (cat === "arcade")                       return "bg-cyan-500/35 text-white border-cyan-400";
+    if (cat === "golf")                         return "bg-emerald-500/35 text-white border-emerald-400";
     return "bg-cream/15 text-cream/90 border-cream/25";
   }
 
