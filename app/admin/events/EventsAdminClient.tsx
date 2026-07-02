@@ -972,6 +972,17 @@ function EditEventModal({
   // poster; founder rule 2026-07-02 requires it.
   const [posterUrl, setPosterUrl] = useState<string>(event.poster_url ?? "");
   const [showEditPicker, setShowEditPicker] = useState(false);
+  // Recurrence editing — three modes based on this event's DB shape:
+  //   • child of a series (recurrence_parent_id set) → read-only note
+  //   • already a parent (recurrence_type != 'none') → allow bumping
+  //     the pattern; regenerating future dates is a separate action
+  //   • standalone (both null/none) → offer conversion to a series
+  const isChildInstance = !!event.recurrence_parent_id;
+  const isSeriesParent = event.recurrence_type !== "none";
+  const [recurrenceType, setRecurrenceType] = useState<RecurrenceType>(
+    event.recurrence_type,
+  );
+  const [occurrences, setOccurrences] = useState<string>("8");
 
   // ---- Ticket types ----
   // Mirror state for each existing ticket type, plus a track of which
@@ -1034,7 +1045,77 @@ function EditEventModal({
         registration_open: registrationOpen,
         blocks_table_bookings: blocksTableBookings,
         poster_url: posterUrl || null,
+        // Only touch recurrence_type on the parent/standalone rows —
+        // child instances leave it alone (read-only from this UI).
+        ...(isChildInstance ? {} : { recurrence_type: recurrenceType }),
       });
+
+      // 1a) Series creation: if this was a standalone and the founder
+      //     picked a recurrence, materialise future child instances
+      //     from this event's date forward. This event becomes the
+      //     parent (child rows point back at it).
+      if (
+        !isChildInstance &&
+        !isSeriesParent &&
+        recurrenceType !== "none"
+      ) {
+        const count = Math.max(2, Math.min(52, parseInt(occurrences, 10) || 8));
+        const dates = generateRecurrenceDates(
+          eventDate,
+          recurrenceType,
+          count,
+        );
+        // dates[0] is this event's own date; skip it. Only create
+        // the remaining child rows, each pointing at this event.
+        for (let i = 1; i < dates.length; i++) {
+          const child = await createEvent({
+            name: name.trim(),
+            description: description.trim() || null,
+            external_link: event.external_link ?? null,
+            poster_url: posterUrl || null,
+            category: event.category,
+            event_date: dates[i],
+            start_time: startTime || null,
+            end_time: endTime || null,
+            recurrence_type: "none",
+            recurrence_parent_id: event.id,
+            show_on_pool_schedule: showOnPool,
+            show_on_events_calendar: showOnCalendar,
+            show_on_bar_page: showOnBar,
+            requires_ticket: event.requires_ticket,
+            bookable: true,
+            max_attendees: event.max_attendees,
+            registration_open: true,
+            blocks_table_bookings: blocksTableBookings,
+          });
+          // Copy the ticket rows onto each child so bookings still
+          // flow. Deleted/new rows on the parent are handled by the
+          // ticket loop below — child rows just get whatever survives.
+          for (const r of ticketRows) {
+            if (r.deleted) continue;
+            const price_pence = Math.max(
+              0,
+              Math.round(
+                parseFloat(r.priceStr.replace(/[^0-9.]/g, "")) * 100,
+              ) || 0,
+            );
+            const capacity =
+              r.capacityStr.trim() === ""
+                ? null
+                : Math.max(0, parseInt(r.capacityStr, 10) || 0);
+            await createTicketType(child.id, {
+              name: r.name.trim() || "Ticket",
+              description: r.description.trim() || null,
+              price_pence,
+              capacity,
+              available_from: null,
+              available_until: null,
+              sort_order: 0,
+              active: true,
+            });
+          }
+        }
+      }
 
       // 2) Each ticket row → update / create / delete.
       for (const r of ticketRows) {
@@ -1190,6 +1271,53 @@ function EditEventModal({
                 )}
               </div>
             </div>
+          </ModalField>
+
+          {/* Recurrence — offered on standalone events; noted as
+              read-only on children of an existing series. */}
+          <ModalField label="Repeats">
+            {isChildInstance ? (
+              <p className="rounded-lg border border-cream/10 bg-ink/40 px-3 py-2 text-xs text-cream/70">
+                Part of a recurring series — this instance's pattern is
+                locked. Edit the series parent to change the frequency.
+              </p>
+            ) : (
+              <div className="flex flex-wrap items-center gap-3">
+                <select
+                  value={recurrenceType}
+                  onChange={(ev) =>
+                    setRecurrenceType(ev.target.value as RecurrenceType)
+                  }
+                  className={modalInputCls + " sm:max-w-xs"}
+                >
+                  <option value="none">One-off</option>
+                  <option value="weekly">Weekly</option>
+                  <option value="fortnightly">Fortnightly</option>
+                  <option value="monthly">Monthly</option>
+                </select>
+                {!isSeriesParent && recurrenceType !== "none" && (
+                  <div className="flex items-center gap-2 text-xs text-cream/70">
+                    <span>× how many occurrences?</span>
+                    <input
+                      type="number"
+                      min={2}
+                      max={52}
+                      value={occurrences}
+                      onChange={(ev) => setOccurrences(ev.target.value)}
+                      className={modalInputCls + " w-20"}
+                    />
+                  </div>
+                )}
+                {isSeriesParent && (
+                  <p className="text-xs text-cream/60">
+                    Existing series — changing the frequency here rewrites
+                    this parent only; future occurrences already in the DB
+                    aren't touched. To regenerate them, delete the future
+                    dates first, then save with the new pattern.
+                  </p>
+                )}
+              </div>
+            )}
           </ModalField>
 
           <div className="flex flex-wrap gap-4 text-xs">
