@@ -41,6 +41,11 @@ export type DbEvent = {
   external_link: string | null;
   poster_url: string | null;
   category: EventCategory;
+  /** Free-text tag used by the public /events calendar as the
+   *  filter chip (DJ Night, Match Day, Pool Night, Food Night,
+   *  Deals, Special Event). Null = untagged; the event still
+   *  renders on the calendar but doesn't match any chip. */
+  subcategory: string | null;
   event_date: string;
   start_time: string | null;
   end_time: string | null;
