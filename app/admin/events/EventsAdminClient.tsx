@@ -1075,20 +1075,23 @@ function EditEventModal({
         blocks_table_bookings: blocksTableBookings,
         poster_url: posterUrl || null,
         subcategory: subcategory || null,
-        // Only touch recurrence_type on the parent/standalone rows —
-        // child instances leave it alone (read-only from this UI).
-        ...(isChildInstance ? {} : { recurrence_type: recurrenceType }),
+        recurrence_type: recurrenceType,
+        // Detach a child instance when its recurrence changes so
+        // this row becomes standalone (or a new series parent
+        // depending on the picked value). Founder rule (2026-07-02):
+        // an instance's Repeats field must always be editable.
+        ...(isChildInstance &&
+        (recurrenceType !== "none" ||
+          event.recurrence_type !== recurrenceType)
+          ? { recurrence_parent_id: null }
+          : {}),
       });
 
-      // 1a) Series creation: if this was a standalone and the founder
-      //     picked a recurrence, materialise future child instances
-      //     from this event's date forward. This event becomes the
-      //     parent (child rows point back at it).
-      if (
-        !isChildInstance &&
-        !isSeriesParent &&
-        recurrenceType !== "none"
-      ) {
+      // 1a) Series creation: if this event wasn't yet a parent (or
+      //     was a child that just detached) and the founder picked a
+      //     recurrence, materialise future child instances from this
+      //     event's date forward. This event becomes the new parent.
+      if (!isSeriesParent && recurrenceType !== "none") {
         const count = Math.max(2, Math.min(52, parseInt(occurrences, 10) || 8));
         const dates = generateRecurrenceDates(
           eventDate,
@@ -1322,50 +1325,55 @@ function EditEventModal({
             </select>
           </ModalField>
 
-          {/* Recurrence — offered on standalone events; noted as
-              read-only on children of an existing series. */}
+          {/* Recurrence — editable on every event, including children
+              of an existing series. Founder rule (2026-07-02): the
+              Repeats field must always be editable. Saving a change
+              on a child DETACHES it from its parent (recurrence_parent_id
+              cleared) so it becomes standalone or a new series in its
+              own right. */}
           <ModalField label="Repeats">
-            {isChildInstance ? (
-              <p className="rounded-lg border border-cream/10 bg-ink/40 px-3 py-2 text-xs text-cream/70">
-                Part of a recurring series — this instance's pattern is
-                locked. Edit the series parent to change the frequency.
+            <div className="flex flex-wrap items-center gap-3">
+              <select
+                value={recurrenceType}
+                onChange={(ev) =>
+                  setRecurrenceType(ev.target.value as RecurrenceType)
+                }
+                className={modalInputCls + " sm:max-w-xs"}
+              >
+                <option value="none">One-off</option>
+                <option value="weekly">Weekly</option>
+                <option value="fortnightly">Fortnightly</option>
+                <option value="monthly">Monthly</option>
+              </select>
+              {!isSeriesParent && recurrenceType !== "none" && (
+                <div className="flex items-center gap-2 text-xs text-cream/70">
+                  <span>× how many occurrences?</span>
+                  <input
+                    type="number"
+                    min={2}
+                    max={52}
+                    value={occurrences}
+                    onChange={(ev) => setOccurrences(ev.target.value)}
+                    className={modalInputCls + " w-20"}
+                  />
+                </div>
+              )}
+            </div>
+            {isChildInstance && (
+              <p className="mt-2 text-[11px] text-cream/60">
+                This instance is currently part of a recurring series.
+                Saving a different pattern here <strong>detaches this
+                date from the series</strong> — the other future dates
+                in the original series are left alone.
               </p>
-            ) : (
-              <div className="flex flex-wrap items-center gap-3">
-                <select
-                  value={recurrenceType}
-                  onChange={(ev) =>
-                    setRecurrenceType(ev.target.value as RecurrenceType)
-                  }
-                  className={modalInputCls + " sm:max-w-xs"}
-                >
-                  <option value="none">One-off</option>
-                  <option value="weekly">Weekly</option>
-                  <option value="fortnightly">Fortnightly</option>
-                  <option value="monthly">Monthly</option>
-                </select>
-                {!isSeriesParent && recurrenceType !== "none" && (
-                  <div className="flex items-center gap-2 text-xs text-cream/70">
-                    <span>× how many occurrences?</span>
-                    <input
-                      type="number"
-                      min={2}
-                      max={52}
-                      value={occurrences}
-                      onChange={(ev) => setOccurrences(ev.target.value)}
-                      className={modalInputCls + " w-20"}
-                    />
-                  </div>
-                )}
-                {isSeriesParent && (
-                  <p className="text-xs text-cream/60">
-                    Existing series — changing the frequency here rewrites
-                    this parent only; future occurrences already in the DB
-                    aren't touched. To regenerate them, delete the future
-                    dates first, then save with the new pattern.
-                  </p>
-                )}
-              </div>
+            )}
+            {isSeriesParent && (
+              <p className="mt-2 text-[11px] text-cream/60">
+                Existing series parent — changing the frequency here
+                rewrites this row only; future occurrences already in
+                the DB aren't touched. To regenerate them, delete the
+                future dates first, then save with the new pattern.
+              </p>
             )}
           </ModalField>
 
