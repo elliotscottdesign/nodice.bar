@@ -322,12 +322,21 @@ export default function EventsPage() {
               const dayEvents = byDay[day] ?? [];
               const dayIso = isoFor(active.year, active.month, day);
 
+              // Mobile FOMO rule (founder 2026-07-02): dead dates
+              // create a massive black void on phones. Skip empty
+              // days entirely on mobile so the calendar scrolls
+              // straight to the next real event. Desktop keeps
+              // empty cells so the 7-col grid alignment stays.
+              // Edit mode always shows every day so admin can add.
+              const skipOnMobile = dayEvents.length === 0 && !editing;
               return (
                 <article
                   key={`d-${day}`}
-                  className={`group relative flex flex-col overflow-hidden rounded-md border bg-ink/40 sm:rounded-xl ${
-                    isToday ? "border-plonkPink" : "border-cream/10"
-                  } ${editing ? "ring-1 ring-cream/10" : ""}`}
+                  className={`group relative flex-col overflow-hidden rounded-md border bg-ink/40 sm:flex sm:rounded-xl ${
+                    skipOnMobile ? "hidden" : "flex"
+                  } ${isToday ? "border-plonkPink" : "border-cream/10"} ${
+                    editing ? "ring-1 ring-cream/10" : ""
+                  }`}
                 >
                   {/* Day number badge — top-left corner, always visible. */}
                   <div
@@ -605,6 +614,19 @@ function MultiEventStack({
     headlineRaw && headlineRaw.startsWith("/")
       ? `${base}${headlineRaw}`
       : headlineRaw;
+  // Founder 2026-07-02: on mobile, show every event's thumbnail side-
+  // by-side so DJs / food residencies / promos get visible artwork
+  // instead of being buried under a single headline. Cap at 4 so a
+  // busy day doesn't shrink each poster to nothing; overflow becomes
+  // "+N more".
+  const MOBILE_THUMB_CAP = 4;
+  const mobileThumbs = events.slice(0, MOBILE_THUMB_CAP);
+  const mobileOverflow = Math.max(0, events.length - MOBILE_THUMB_CAP);
+  function thumbSrc(ev: DbCalendarEvent): string {
+    const raw = ev.image_url || defaultPosterFor(ev.subcategory);
+    if (!raw) return "";
+    return raw.startsWith("/") ? `${base}${raw}` : raw;
+  }
 
   return (
     <button
@@ -613,12 +635,47 @@ function MultiEventStack({
       aria-label={`Open ${events.length} events on this day`}
       className="group flex flex-1 cursor-pointer flex-col overflow-hidden text-left transition hover:opacity-90"
     >
-      {/* Headline artwork — SQUARE thumbnail so portrait posters
-          (most of them — DJ flyers, food residency artwork) fit
-          without weird middle-crops. object-contain shows the whole
-          poster; the bg-ink fills any letterbox space cleanly.
-          Falls back to a stack icon when no artwork is set. */}
-      <div className="relative aspect-square w-full overflow-hidden bg-ink">
+      {/* MOBILE — every poster shown side-by-side. object-contain so
+          portrait posters aren't cropped weirdly. Founder rule: no
+          hidden DJ artwork behind a "tap to expand". */}
+      <div className="relative flex w-full gap-0.5 overflow-hidden bg-ink sm:hidden">
+        {mobileThumbs.map((ev) => {
+          const src = thumbSrc(ev);
+          return (
+            <div
+              key={ev.id}
+              className="relative aspect-square flex-1 overflow-hidden bg-ink"
+            >
+              {src ? (
+                // eslint-disable-next-line @next/next/no-img-element
+                <img
+                  src={src}
+                  alt={ev.title}
+                  loading="lazy"
+                  className="h-full w-full object-contain"
+                />
+              ) : (
+                <div className="flex h-full w-full items-center justify-center text-[9px] uppercase tracking-widest text-cream/40">
+                  {ev.title.slice(0, 3)}
+                </div>
+              )}
+            </div>
+          );
+        })}
+        {mobileOverflow > 0 && (
+          <div className="flex aspect-square w-10 shrink-0 items-center justify-center bg-ink/70 text-[11px] font-bold uppercase tracking-widest text-plonkPink">
+            +{mobileOverflow}
+          </div>
+        )}
+        <span className="absolute right-1 top-1 rounded-full bg-plonkPink px-2 py-0.5 text-[9px] font-bold uppercase tracking-wider text-white shadow-md">
+          {events.length} events
+        </span>
+      </div>
+
+      {/* DESKTOP — original single headline poster + count pill. The
+          founder specifically said desktop is fine as-is. Kept
+          hidden on mobile via `hidden sm:block`. */}
+      <div className="relative hidden aspect-square w-full overflow-hidden bg-ink sm:block">
         {headlineSrc ? (
           // eslint-disable-next-line @next/next/no-img-element
           <img
@@ -632,15 +689,9 @@ function MultiEventStack({
             multi-event
           </div>
         )}
-
-        {/* Count pill — top-right corner so it doesn't clash with the
-            day-number badge top-left. */}
         <span className="absolute right-1 top-1 rounded-full bg-plonkPink px-2 py-0.5 text-[9px] font-bold uppercase tracking-wider text-white shadow-md">
           {events.length} events
         </span>
-
-        {/* Subtle bottom gradient so the chips below read clearly even
-            when artwork is busy. */}
         <div className="pointer-events-none absolute inset-x-0 bottom-0 h-6 bg-gradient-to-b from-transparent to-ink/80" />
       </div>
 
