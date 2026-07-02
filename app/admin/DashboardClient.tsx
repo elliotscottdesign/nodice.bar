@@ -160,7 +160,7 @@ export default function DashboardClient() {
                   { label: "Block a date (private hire / holiday)", href: "/admin/closed" },
                   { label: "Create a promo code", href: "/admin/promos" },
                   { label: "Issue a gift voucher", href: "/admin/vouchers" },
-                  { label: "View calendar of bookings", href: "/admin/bookings/calendar" },
+                  { label: "View calendar of bookings", href: "/admin/calendar" },
                 ].map((a) => (
                   <li key={a.href}>
                     <Link
