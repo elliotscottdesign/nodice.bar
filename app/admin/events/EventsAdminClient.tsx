@@ -967,6 +967,11 @@ function EditEventModal({
   const [blocksTableBookings, setBlocksTableBookings] = useState(
     event.blocks_table_bookings ?? false,
   );
+  // Poster artwork — same MediaPicker as the create form. Editing an
+  // existing event previously had no way to attach or change the
+  // poster; founder rule 2026-07-02 requires it.
+  const [posterUrl, setPosterUrl] = useState<string>(event.poster_url ?? "");
+  const [showEditPicker, setShowEditPicker] = useState(false);
 
   // ---- Ticket types ----
   // Mirror state for each existing ticket type, plus a track of which
@@ -1028,6 +1033,7 @@ function EditEventModal({
         show_on_bar_page: showOnBar,
         registration_open: registrationOpen,
         blocks_table_bookings: blocksTableBookings,
+        poster_url: posterUrl || null,
       });
 
       // 2) Each ticket row → update / create / delete.
@@ -1144,6 +1150,46 @@ function EditEventModal({
               rows={3}
               className={modalInputCls}
             />
+          </ModalField>
+
+          {/* Poster artwork — parity with the create form so the
+              founder can attach or swap the image without deleting
+              and re-creating the event. */}
+          <ModalField label="Poster artwork">
+            <div className="flex items-start gap-3">
+              <div className="h-24 w-20 shrink-0 overflow-hidden rounded-lg border border-cream/10 bg-ink">
+                {posterUrl ? (
+                  // eslint-disable-next-line @next/next/no-img-element
+                  <img
+                    src={posterUrl}
+                    alt="Poster preview"
+                    className="h-full w-full object-cover"
+                  />
+                ) : (
+                  <div className="flex h-full w-full items-center justify-center text-[9px] uppercase tracking-widest text-cream/40">
+                    None
+                  </div>
+                )}
+              </div>
+              <div className="flex flex-col gap-2">
+                <button
+                  type="button"
+                  onClick={() => setShowEditPicker(true)}
+                  className="rounded-full border border-plonkTeal/40 px-3 py-1 text-[11px] font-bold uppercase tracking-wider text-plonkTeal hover:bg-plonkTeal/10"
+                >
+                  {posterUrl ? "Change artwork" : "Pick / upload artwork"}
+                </button>
+                {posterUrl && (
+                  <button
+                    type="button"
+                    onClick={() => setPosterUrl("")}
+                    className="text-left text-[10px] font-bold uppercase tracking-wider text-cream/55 hover:text-cream"
+                  >
+                    Remove
+                  </button>
+                )}
+              </div>
+            </div>
           </ModalField>
 
           <div className="flex flex-wrap gap-4 text-xs">
@@ -1298,6 +1344,19 @@ function EditEventModal({
           </button>
         </div>
       </div>
+
+      {/* Poster picker overlay — MediaPicker handles its own portal
+          so it sits above this modal cleanly. */}
+      {showEditPicker && (
+        <MediaPicker
+          onClose={() => setShowEditPicker(false)}
+          onPick={(picked) => {
+            const url = typeof picked === "string" ? picked : picked.src;
+            setPosterUrl(url);
+            setShowEditPicker(false);
+          }}
+        />
+      )}
     </div>,
     document.body,
   );
