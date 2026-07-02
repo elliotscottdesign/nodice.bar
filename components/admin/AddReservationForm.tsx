@@ -49,9 +49,15 @@ export default function AddReservationForm({
   const today = new Date().toISOString().slice(0, 10);
   const [date, setDate] = useState(today);
   const [time, setTime] = useState(kind === "pool" ? "18:00" : "19:00");
-  const [duration, setDuration] = useState<number>(kind === "pool" ? 60 : 90);
-  const [partySize, setPartySize] = useState<number>(2);
-  const [resourceCount, setResourceCount] = useState<number>(1);
+  // Number-input state kept as string so the founder can clear the
+  // field and type any value — a `useState<number>` snapshot would
+  // snap back to the default the moment the input goes empty (see
+  // 2026-07-02 bug report). Parsed to int on submit below.
+  const [duration, setDuration] = useState<string>(
+    kind === "pool" ? "60" : "90",
+  );
+  const [partySize, setPartySize] = useState<string>("2");
+  const [resourceCount, setResourceCount] = useState<string>("1");
   const [name, setName] = useState("");
   const [email, setEmail] = useState("");
   const [phone, setPhone] = useState("");
@@ -62,9 +68,9 @@ export default function AddReservationForm({
     setEmail("");
     setPhone("");
     setNotes("");
-    setPartySize(2);
-    setResourceCount(1);
-    setDuration(kind === "pool" ? 60 : 90);
+    setPartySize("2");
+    setResourceCount("1");
+    setDuration(kind === "pool" ? "60" : "90");
     setTime(kind === "pool" ? "18:00" : "19:00");
     setDate(new Date().toISOString().slice(0, 10));
     setErr("");
@@ -79,6 +85,15 @@ export default function AddReservationForm({
       setErr("Customer name is required.");
       return;
     }
+    // Coerce string inputs to safe integers. Empty / gibberish
+    // defaults to a sensible fallback rather than blocking submit —
+    // the founder is often mid-thought when hitting save.
+    const partySizeInt = Math.max(1, Math.min(50, parseInt(partySize, 10) || 2));
+    const durationInt = Math.max(30, Math.min(300, parseInt(duration, 10) || 60));
+    const resourceCountInt = Math.max(
+      1,
+      Math.min(10, parseInt(resourceCount, 10) || 1),
+    );
     setBusy(true);
     try {
       const { error } = await supabase()
@@ -87,9 +102,9 @@ export default function AddReservationForm({
           kind,
           reservation_date: date,
           start_time: time + ":00",
-          duration_minutes: duration,
-          party_size: partySize,
-          resource_count: kind === "pool" ? resourceCount : 1,
+          duration_minutes: durationInt,
+          party_size: partySizeInt,
+          resource_count: kind === "pool" ? resourceCountInt : 1,
           name: name.trim(),
           email: email.trim() || WALK_IN_EMAIL,
           phone: phone.trim() || null,
@@ -165,7 +180,7 @@ export default function AddReservationForm({
               max={300}
               step={30}
               value={duration}
-              onChange={(e) => setDuration(parseInt(e.target.value, 10) || 60)}
+              onChange={(e) => setDuration(e.target.value)}
               className={inputCls + " mt-1"}
             />
           </div>
@@ -179,7 +194,7 @@ export default function AddReservationForm({
               min={1}
               max={50}
               value={partySize}
-              onChange={(e) => setPartySize(parseInt(e.target.value, 10) || 2)}
+              onChange={(e) => setPartySize(e.target.value)}
               className={inputCls + " mt-1"}
             />
           </div>
@@ -194,9 +209,7 @@ export default function AddReservationForm({
                 min={1}
                 max={6}
                 value={resourceCount}
-                onChange={(e) =>
-                  setResourceCount(parseInt(e.target.value, 10) || 1)
-                }
+                onChange={(e) => setResourceCount(e.target.value)}
                 className={inputCls + " mt-1"}
               />
             </div>

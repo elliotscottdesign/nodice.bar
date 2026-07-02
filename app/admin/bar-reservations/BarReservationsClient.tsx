@@ -75,11 +75,14 @@ export default function BarReservationsClient({
   const [search, setSearch] = useState("");
   // Inline-edit state — only one row open at a time.
   const [editingId, setEditingId] = useState<string | null>(null);
+  // Number fields kept as strings so the founder can clear the box
+  // and type a new value — a raw number state coerces empty back to
+  // the default the instant the input goes blank.
   const [editForm, setEditForm] = useState<{
     reservation_date: string;
     start_time: string;
-    duration_minutes: number;
-    party_size: number;
+    duration_minutes: string;
+    party_size: string;
     name: string;
     email: string;
     phone: string;
@@ -137,8 +140,8 @@ export default function BarReservationsClient({
     setEditForm({
       reservation_date: r.reservation_date,
       start_time: r.start_time.slice(0, 5),
-      duration_minutes: r.duration_minutes,
-      party_size: r.party_size,
+      duration_minutes: String(r.duration_minutes),
+      party_size: String(r.party_size),
       name: r.name,
       email: r.email,
       phone: r.phone ?? "",
@@ -170,13 +173,21 @@ export default function BarReservationsClient({
           .eq("id", r.id);
         if (error) throw error;
       } else {
+        const duration = Math.max(
+          30,
+          Math.min(300, parseInt(editForm.duration_minutes, 10) || 60),
+        );
+        const party = Math.max(
+          1,
+          Math.min(50, parseInt(editForm.party_size, 10) || 2),
+        );
         const { error } = await supabase()
           .from("bar_reservations")
           .update({
             reservation_date: editForm.reservation_date,
             start_time: editForm.start_time + ":00",
-            duration_minutes: editForm.duration_minutes,
-            party_size: editForm.party_size,
+            duration_minutes: duration,
+            party_size: party,
             name: editForm.name.trim(),
             email: editForm.email.trim(),
             phone: editForm.phone.trim() || null,
@@ -476,11 +487,11 @@ export default function BarReservationsClient({
                       </div>
                       <div>
                         <label className="text-[10px] font-bold uppercase tracking-widest text-cream/55">Duration (min)</label>
-                        <input type="number" min={30} max={300} step={30} value={editForm.duration_minutes} onChange={(e) => setEditForm({ ...editForm, duration_minutes: parseInt(e.target.value, 10) || 60 })} className={editInputCls + " mt-1"} />
+                        <input type="number" min={30} max={300} step={30} value={editForm.duration_minutes} onChange={(e) => setEditForm({ ...editForm, duration_minutes: e.target.value })} className={editInputCls + " mt-1"} />
                       </div>
                       <div>
                         <label className="text-[10px] font-bold uppercase tracking-widest text-cream/55">Party size</label>
-                        <input type="number" min={1} max={50} value={editForm.party_size} onChange={(e) => setEditForm({ ...editForm, party_size: parseInt(e.target.value, 10) || 2 })} className={editInputCls + " mt-1"} />
+                        <input type="number" min={1} max={50} value={editForm.party_size} onChange={(e) => setEditForm({ ...editForm, party_size: e.target.value })} className={editInputCls + " mt-1"} />
                       </div>
                     </div>
                   )}
