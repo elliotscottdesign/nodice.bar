@@ -3,13 +3,10 @@ import EventsAdminHub from "./EventsAdminHub";
 
 export const metadata = { title: "Events — No Dice Admin" };
 
-export default function EventsAdminPage({
-  searchParams,
-}: {
-  searchParams: { tab?: string };
-}) {
-  const initialTab =
-    searchParams.tab === "posters" ? "posters" : "ticketed";
+// Note: server-side `searchParams` can't be used in a static export
+// (Next.js bails out of prerender). The hub reads ?tab=posters from
+// window.location.search on mount instead — same effect, no bail-out.
+export default function EventsAdminPage() {
   return (
     <>
       <AdminPageHeader
@@ -26,7 +23,7 @@ export default function EventsAdminPage({
           </a>
         }
       />
-      <EventsAdminHub initialTab={initialTab} />
+      <EventsAdminHub />
     </>
   );
 }

@@ -15,12 +15,14 @@ import CalendarEventsAdminClient from "@/app/admin/calendar-events/CalendarEvent
 
 type Tab = "ticketed" | "posters";
 
-export default function EventsAdminHub({
-  initialTab,
-}: {
-  initialTab: Tab;
-}) {
-  const [tab, setTab] = useState<Tab>(initialTab);
+export default function EventsAdminHub() {
+  // Read ?tab=posters from the URL client-side. Server-side reads
+  // bail Next.js out of the static export.
+  const [tab, setTab] = useState<Tab>(() => {
+    if (typeof window === "undefined") return "ticketed";
+    const q = new URLSearchParams(window.location.search).get("tab");
+    return q === "posters" ? "posters" : "ticketed";
+  });
 
   return (
     <div className="space-y-6">
