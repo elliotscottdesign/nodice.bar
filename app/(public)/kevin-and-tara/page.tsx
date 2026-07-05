@@ -197,10 +197,11 @@ export default function KevinAndTaraWeddingPage() {
 
           <TimeStop time="9:00 pm" title="Cheese course">
             <p>
-              A whole wheel of{" "}
+              Two large wheels of{" "}
               <strong className="text-cream">Gubbeen</strong> from Fermoy, West
-              Cork — a milky, hazelnut-edged washed-rind cheese. Set out on a
-              proper board and cut through the room from 9 until 10.
+              Cork — a milky, hazelnut-edged washed-rind cheese. About{" "}
+              <strong className="text-cream">80g per guest</strong>, cut through
+              the room from 9 until 10 on proper boards.
             </p>
             <ul className="list-inside list-[square] space-y-1 marker:text-[#c6a664]">
               <li>
@@ -234,16 +235,18 @@ export default function KevinAndTaraWeddingPage() {
             </ul>
           </TimeStop>
 
-          <TimeStop time="12:00 am" title="Late bites">
+          <TimeStop time="12:00 am" title="Late bites · Cancale sandwiches">
             <p>
-              Trays of simple, please-god-more-food handhelds circulate for
-              the last stretch:
+              A tray-service round of{" "}
+              <strong className="text-cream">Cancale sandwiches</strong> — the
+              Breton oyster-town classic, quietly bookending the round Joe
+              shucked six hours earlier. Cold, salted, sharp — the perfect
+              please-god-more-food handheld for the last stretch.
             </p>
-            <ul className="list-inside list-[square] space-y-1 marker:text-[#c6a664]">
-              <li>Ham &amp; cheese toasties</li>
-              <li>Veggie toasties</li>
-            </ul>
-            <p>Cold water refills go out at the same time.</p>
+            <p>
+              A veggie version goes out at the same time so nobody's left
+              short. Cold water refills alongside.
+            </p>
           </TimeStop>
         </div>
       </section>
@@ -253,49 +256,70 @@ export default function KevinAndTaraWeddingPage() {
       </div>
 
       {/* ────────────────────────────────────────────────────────
-          SIGNATURE BAR
+          SLUSHIE STATION — new drinks anchor. Self-serve slushies
+          with fresh-fruit toppings; boozy toppers from a small
+          spirit rail behind the bar.
           ──────────────────────────────────────────────────────── */}
       <section className="px-6 py-20 sm:py-28">
         <div className="mx-auto max-w-3xl text-center">
-          <p className={eyebrow}>Signature Bar</p>
+          <p className={eyebrow}>Slushie Station</p>
           <h2 className="mt-4 font-display text-4xl leading-tight text-cream sm:text-5xl">
-            Two <span className={`italic ${gold}`}>house pours</span> for the
-            room
+            Two <span className={`italic ${gold}`}>slushie bases</span>, fresh
+            fruit, an optional shot on top
           </h2>
           <p className="mx-auto mt-6 max-w-2xl text-[1.02rem] leading-relaxed text-cream/85 sm:text-lg">
-            The full bar is open for anyone who wants a bespoke drink, but two
-            easy-serve signatures are pre-batched and ready to pour so nobody's
-            waiting. One boozy, one soft — both proper.
+            A self-serve slushie machine runs all night with two bases — one
+            grown-up, one for anyone who wants to keep their head. Fresh fruit
+            on the counter, and a small spirit rail behind the bar for a shot
+            on top when you want it. The full No Dice bar is open the whole
+            time for anything bespoke.
           </p>
         </div>
 
         <div className="mx-auto mt-14 grid max-w-3xl gap-8 sm:grid-cols-2">
           <div className={`rounded-2xl ${BG_PANEL} p-8`}>
             <p className="text-[10px] font-bold uppercase tracking-[0.32em] text-[#e6c98a]">
-              House pour · boozy
+              Slushie · house punch
             </p>
             <h3 className="mt-3 font-display text-3xl leading-tight text-cream">
               <span className={`italic ${gold}`}>Kevin &amp; Tara</span> Punch
             </h3>
             <p className="mt-4 text-sm leading-relaxed text-cream/85">
-              Aged rum + amaro, pressed lemon, honey, a touch of oloroso and a
-              strong hit of ripe stone fruit. Batched cold and served in jugs
-              with a slab of ice, mint sprig on top. Whiskey version on
-              request — same shape, bourbon in place of rum.
+              Aged rum, amaro, pressed lemon, honey, a touch of oloroso, ripe
+              stone fruit. Frozen down as a slushie — pour a cup, add fresh
+              fruit, top with a shot of rum, bourbon, or leave it as-is.
+              Whiskey lovers, ask behind the bar for the punch built with
+              bourbon instead of rum.
             </p>
           </div>
 
           <div className={`rounded-2xl ${BG_PANEL} p-8`}>
             <p className="text-[10px] font-bold uppercase tracking-[0.32em] text-[#e6c98a]">
-              House pour · non-alcoholic
+              Slushie · non-alcoholic
             </p>
             <h3 className="mt-3 font-display text-3xl leading-tight text-cream">
               <span className={`italic ${gold}`}>Garden Mint</span> Iced Tea
             </h3>
             <p className="mt-4 text-sm leading-relaxed text-cream/85">
               Cold-brewed jasmine + green tea, muddled fresh mint, lemon, a
-              whisper of honey. Served long over crushed ice with cucumber. As
-              good as the punch — no compromise.
+              whisper of honey — frozen down the same way. Fresh cucumber and
+              berries on the counter to top. As good as the punch, no
+              compromise.
+            </p>
+          </div>
+        </div>
+
+        <div className="mx-auto mt-10 max-w-3xl">
+          <div className={`rounded-2xl ${BG_PANEL} p-6 text-center`}>
+            <p className="text-[10px] font-bold uppercase tracking-[0.32em] text-[#e6c98a]">
+              On the counter
+            </p>
+            <p className="mt-3 text-[0.95rem] leading-relaxed text-cream/85">
+              <strong className="text-cream">Fruit</strong> · fresh
+              strawberries, raspberries, sliced peach, orange wheels, muddled
+              mint, lime · <strong className="text-cream">Rail</strong> · aged
+              rum, bourbon, tequila blanco, gin · A shot on top of any slushie
+              turns it into a proper cocktail.
             </p>
           </div>
         </div>
