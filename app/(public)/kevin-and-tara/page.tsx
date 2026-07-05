@@ -120,12 +120,14 @@ export default function KevinAndTaraWeddingPage() {
                 team so nobody's stuck queueing at the bar for a first drink.
               </p>
               <p>
-                <strong className="text-cream">120 Maldon oysters</strong>,
-                shucked live by Joe. Two per guest, served on trays with two
-                dressings on the side — an apple &amp; dill vinaigrette (bright
-                and grassy) and a classic lemon &amp; Tabasco mignonette. On the
-                same round, small plates of <em>gildas</em> (anchovy, guindilla,
-                Manzanilla olive on a skewer) for the "one more bite" moment.
+                <strong className="text-cream">120 Maldon oysters</strong> from
+                Fin and Flounder, our local fishmongers — shucked live by Joe.
+                Two per guest, served on trays with two dressings on the side —
+                an apple &amp; dill vinaigrette (bright and grassy) and a
+                classic lemon &amp; Tabasco mignonette. On the same round,
+                small plates of <em>gildas</em> (anchovy, guindilla, Manzanilla
+                olive on a skewer) and <strong className="text-cream">Thai
+                spring rolls</strong> (veggie) for the "one more bite" moment.
               </p>
             </TimeStop>
 
@@ -160,9 +162,8 @@ export default function KevinAndTaraWeddingPage() {
                 </li>
               </ul>
               <p>
-                On the side: charred padrón peppers, potato salad, and a plate
-                of Josie's spring rolls (veggie). The station stays out — pick
-                back up whenever.
+                On the side: charred padrón peppers and a proper potato salad.
+                The station stays out — pick back up whenever.
               </p>
             </TimeStop>
 
