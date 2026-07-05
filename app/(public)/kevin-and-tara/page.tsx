@@ -3,8 +3,11 @@ import type { Metadata } from "next";
 // Private wedding page — Kevin & Tara, 29 August 2026.
 // Unlisted (noindex, not in sitemap, no in-site nav link). Founder
 // shares the URL with the couple + guests + floor staff. Everything
-// on the page is a static snapshot of the timeline the founder read
-// out on 2026-07-02; edit here to change anything.
+// on the page is a static snapshot; edit here to change anything.
+//
+// Palette: mid-sage green base with cream + antique-gold (plonkYellow)
+// accents. Warm and romantic — closer to a wedding-invite feel than
+// the sharper cocktail-bar palette used elsewhere on the site.
 export const metadata: Metadata = {
   title: "Kevin & Tara · 29 August 2026 — No Dice",
   description:
@@ -16,16 +19,26 @@ export const metadata: Metadata = {
   },
 };
 
-const PALETTE = {
-  section: "px-6 py-16 sm:py-20",
-  container: "mx-auto max-w-3xl",
-  eyebrow:
-    "text-xs font-bold uppercase tracking-[0.3em] text-plonkYellow",
-  h2: "font-display text-4xl leading-tight text-cream sm:text-5xl",
-  body: "text-base leading-relaxed text-cream/80 sm:text-lg",
-  divider:
-    "mx-auto my-16 h-px w-24 bg-gradient-to-r from-transparent via-cream/40 to-transparent",
-};
+// ─── shared styles ────────────────────────────────────────────
+// Everything hangs off one warm-sage palette so the sections read
+// as one romantic surface, not a stack of unrelated cards.
+const BG_SECTION = "bg-[#2f3f2a] text-cream";
+const BG_PANEL = "bg-[#243128]/70 border border-[#c6a664]/25";
+const eyebrow =
+  "text-[11px] font-bold uppercase tracking-[0.38em] text-[#e6c98a]";
+const gold = "text-[#e6c98a]";
+
+function OrnDivider() {
+  // Antique-gold hairline with a filled diamond at its centre —
+  // acts as an elegant course-break rather than a hard section rule.
+  return (
+    <div className="my-14 flex items-center justify-center gap-3">
+      <span className="h-px w-16 bg-gradient-to-r from-transparent to-[#c6a664]/70 sm:w-24" />
+      <span className="h-1.5 w-1.5 rotate-45 bg-[#c6a664]" />
+      <span className="h-px w-16 bg-gradient-to-l from-transparent to-[#c6a664]/70 sm:w-24" />
+    </div>
+  );
+}
 
 function TimeStop({
   time,
@@ -37,17 +50,17 @@ function TimeStop({
   children: React.ReactNode;
 }) {
   return (
-    <div className="grid gap-3 border-l border-cream/15 pl-6 sm:grid-cols-[6rem_1fr] sm:gap-8 sm:border-none sm:pl-0">
-      <div>
-        <p className="text-xs font-bold uppercase tracking-[0.3em] text-plonkPink">
+    <div className="grid gap-3 border-l border-[#c6a664]/25 pl-6 sm:grid-cols-[7rem_1fr] sm:gap-10 sm:border-none sm:pl-0">
+      <div className="sm:text-right">
+        <p className="text-[11px] font-bold uppercase tracking-[0.32em] text-[#e6c98a]">
           {time}
         </p>
       </div>
       <div>
-        <h3 className="font-display text-2xl leading-tight text-cream sm:text-3xl">
+        <h3 className="font-display text-2xl leading-tight text-cream sm:text-[2rem]">
           {title}
         </h3>
-        <div className="mt-3 space-y-2 text-base leading-relaxed text-cream/80">
+        <div className="mt-3 space-y-3 text-[0.98rem] leading-relaxed text-cream/85">
           {children}
         </div>
       </div>
@@ -55,265 +68,312 @@ function TimeStop({
   );
 }
 
-function MenuItem({
-  name,
-  detail,
-}: {
-  name: string;
-  detail?: string;
-}) {
-  return (
-    <div>
-      <p className="font-display text-xl text-cream sm:text-2xl">{name}</p>
-      {detail && (
-        <p className="mt-1 text-sm text-cream/70 sm:text-base">{detail}</p>
-      )}
-    </div>
-  );
-}
-
 export default function KevinAndTaraWeddingPage() {
   return (
-    <main className="min-h-screen bg-ink text-cream">
+    <main className={`min-h-screen ${BG_SECTION}`}>
       {/* ────────────────────────────────────────────────────────
-          HERO
+          HERO — deep-green gradient stand-in for the park view. The
+          real venue photos on the live site are all illustrations, so
+          rather than reference a broken path, layered gradients here
+          suggest greenery + gold light at dusk. Founder can drop in
+          a real park photo later (swap the two gradients for an <img
+          className="absolute inset-0 h-full w-full object-cover" /> +
+          overlay).
           ──────────────────────────────────────────────────────── */}
-      <section className="relative overflow-hidden bg-forest px-6 pb-24 pt-24 text-center sm:pt-32">
-        <div className="mx-auto max-w-3xl">
-          <p className="text-xs font-bold uppercase tracking-[0.35em] text-plonkYellow">
-            Saturday · 29 August 2026 · No Dice, Hackney
-          </p>
-          <h1 className="mt-6 font-display text-6xl leading-[1.05] text-cream sm:text-7xl md:text-8xl">
-            Kevin
-            <span className="italic text-plonkYellow"> &amp; </span>
-            Tara
-          </h1>
-          <p className="mx-auto mt-8 max-w-xl text-lg leading-relaxed text-cream/85 sm:text-xl">
-            A private evening at the arches — bubbles, oysters, tacos, decks,
-            cake, and more of the same until late. Sixty of your favourite
-            people, all in the same room, dancing.
-          </p>
-          <p className="mt-6 text-sm uppercase tracking-[0.28em] text-cream/60">
-            Doors 6pm · Private party from arrival
-          </p>
+      <section className="relative isolate overflow-hidden bg-[#1e2b1c]">
+        <div className="absolute inset-0 bg-gradient-to-b from-[#131c11] via-[#2f3f2a] to-[#2f3f2a]" />
+        <div className="pointer-events-none absolute inset-0 bg-[radial-gradient(ellipse_at_top,_rgba(230,201,138,0.18),_transparent_65%)]" />
+        <div className="pointer-events-none absolute inset-0 bg-[radial-gradient(ellipse_at_bottom_left,_rgba(94,140,73,0.28),_transparent_60%)]" />
+
+        <div className="relative px-6 pb-28 pt-28 text-center sm:pb-36 sm:pt-40">
+          <div className="mx-auto max-w-3xl">
+            <p className={eyebrow}>
+              Saturday · 29 August 2026
+            </p>
+            <h1 className="mt-8 font-display text-[3.6rem] leading-[0.95] text-cream sm:text-[6rem] md:text-[7rem]">
+              Kevin
+              <span className={`block font-display italic ${gold} sm:my-2`}>
+                &amp;
+              </span>
+              Tara
+            </h1>
+            <p className="mx-auto mt-10 max-w-xl font-display text-xl italic text-cream/90 sm:text-2xl">
+              An evening at the arches — under the vines, over London Fields.
+            </p>
+            <div className="mt-10 flex flex-wrap items-center justify-center gap-x-6 gap-y-2 text-[11px] uppercase tracking-[0.32em] text-cream/70">
+              <span>Doors 6pm</span>
+              <span className="text-[#c6a664]/60">•</span>
+              <span>Whole venue, private</span>
+              <span className="text-[#c6a664]/60">•</span>
+              <span>Reception with park views</span>
+            </div>
+          </div>
         </div>
       </section>
 
       {/* ────────────────────────────────────────────────────────
           THE EVENING
           ──────────────────────────────────────────────────────── */}
-      <section className={PALETTE.section}>
-        <div className={PALETTE.container}>
-          <p className={PALETTE.eyebrow}>The Evening</p>
-          <h2 className={`${PALETTE.h2} mt-3`}>How the night runs</h2>
-          <p className={`${PALETTE.body} mt-5`}>
-            The timeline below is what the No Dice floor team is working
-            towards. Everything is served — no one's queuing for food. Music
-            runs across two DJs; the whole space is yours from 6pm.
+      <section className="px-6 py-20 sm:py-28">
+        <div className="mx-auto max-w-3xl text-center">
+          <p className={eyebrow}>The Evening</p>
+          <h2 className="mt-4 font-display text-4xl leading-tight text-cream sm:text-5xl">
+            <span className={`italic ${gold}`}>How</span> the night runs
+          </h2>
+          <p className="mx-auto mt-6 max-w-2xl text-[1.02rem] leading-relaxed text-cream/85 sm:text-lg">
+            Everything is served to you — no queues, no scrambles. Two DJs
+            across the evening. The whole space is yours from 6pm. Sixty of
+            your favourite people, all in the same room, dancing.
           </p>
+        </div>
 
-          <div className="mt-14 space-y-14">
-            <TimeStop time="6:00 pm" title="Bubbles &amp; Oysters">
-              <p>
-                Guests welcomed at the door with a glass of sparkling — Prosecco
-                or English fizz, poured on arrival. Passed around by the floor
-                team so nobody's stuck queueing at the bar for a first drink.
-              </p>
-              <p>
-                <strong className="text-cream">120 Maldon oysters</strong> from
-                Fin and Flounder, our local fishmongers — shucked live by Joe.
-                Two per guest, served on trays with two dressings on the side —
-                an apple &amp; dill vinaigrette (bright and grassy) and a
-                classic lemon &amp; Tabasco mignonette. On the same round,
-                small plates of <em>gildas</em> (anchovy, guindilla, Manzanilla
-                olive on a skewer) and <strong className="text-cream">Thai
-                spring rolls</strong> (veggie) for the "one more bite" moment.
-              </p>
-            </TimeStop>
+        <div className="mx-auto mt-16 max-w-3xl space-y-14">
+          <TimeStop time="6:00 pm" title="Bubbles & oysters">
+            <p>
+              Guests welcomed at the door with a glass of sparkling — Prosecco
+              or English fizz, poured on arrival. Passed around by the floor
+              team so nobody's stuck waiting at the bar for a first drink.
+            </p>
+            <p>
+              <strong className="text-cream">120 Maldon oysters</strong> from
+              <span className={gold}> Fin and Flounder</span>, our local
+              fishmongers — shucked live by Joe. Two per guest, served on trays
+              with two dressings on the side: an apple &amp; dill vinaigrette
+              (bright and grassy) and a classic lemon &amp; Tabasco mignonette.
+              On the same round, small plates of <em>gildas</em> (anchovy,
+              guindilla, Manzanilla olive on a skewer) and{" "}
+              <strong className="text-cream">Thai spring rolls</strong>{" "}
+              (veggie) for the "one more bite" moment.
+            </p>
+          </TimeStop>
 
-            <TimeStop time="6:00 pm" title="Charlie on the decks">
-              <p>
-                Warm-up set. 80s disco, big pop, easy-listening bangers.
-                Everyone-can-sing-along music while the room fills up and the
-                bubbles do their thing.
-              </p>
-            </TimeStop>
+          <TimeStop time="6:00 pm" title="Charlie on the decks">
+            <p>
+              Warm-up set. 80s disco, big pop, easy-listening bangers.
+              Everyone-can-sing-along music while the room fills up and the
+              bubbles do their thing.
+            </p>
+          </TimeStop>
 
-            <TimeStop time="6:45 pm" title="Build-your-own tacos">
-              <p>
-                Central taco station opens. Everything is gluten-free, nut-free,
-                and sesame-free — no allergen dance for anyone.
-              </p>
-              <ul className="mt-2 list-inside list-disc space-y-1 text-cream/80">
-                <li>
-                  <strong className="text-cream">Smoked brisket</strong>{" "}
-                  <em className="text-cream/60">— slow-cooked at Smoky Lokos,
-                  Spitalfields, delivered ready to serve.</em>
-                </li>
-                <li>
-                  <strong className="text-cream">Smoked chicken</strong>{" "}
-                  <em className="text-cream/60">— same shop, same treatment,
-                  pulled and warm.</em>
-                </li>
-                <li>
-                  <strong className="text-cream">Vegan / veggie option</strong>{" "}
-                  <em className="text-cream/60">— from the Fabián's-birthday
-                  menu we ran last summer. Same crowd-favourite spread.</em>
-                </li>
-              </ul>
-              <p>
-                On the side: charred padrón peppers and a proper potato salad.
-                The station stays out — pick back up whenever.
-              </p>
-            </TimeStop>
+          <TimeStop time="6:45 pm" title="Build-your-own tacos">
+            <p>
+              Central taco station opens. Everything is gluten-free, nut-free,
+              and sesame-free — no allergen dance for anyone.
+            </p>
+            <ul className="list-inside list-[square] space-y-1 marker:text-[#c6a664]">
+              <li>
+                <strong className="text-cream">Smoked brisket</strong>{" "}
+                <em className="text-cream/60">
+                  — slow-cooked at Smoky Lokos, Spitalfields, delivered ready
+                  to serve.
+                </em>
+              </li>
+              <li>
+                <strong className="text-cream">Smoked chicken</strong>{" "}
+                <em className="text-cream/60">
+                  — same shop, same treatment, pulled and warm.
+                </em>
+              </li>
+              <li>
+                <strong className="text-cream">Vegan / veggie option</strong>{" "}
+                <em className="text-cream/60">
+                  — from the Fabián's-birthday menu we ran last summer. Same
+                  crowd-favourite spread.
+                </em>
+              </li>
+            </ul>
+            <p>
+              On the side: charred padrón peppers and a proper potato salad.
+              The station stays out — pick back up whenever.
+            </p>
+          </TimeStop>
 
-            <TimeStop time="7:45 pm" title="Josh on the decks">
-              <p>
-                Room-goes-up shift change. Josh takes over and pushes the
-                energy up — dancing officially begins.
-              </p>
-            </TimeStop>
+          <TimeStop time="7:45 pm" title="Josh on the decks">
+            <p>
+              Room-goes-up shift change. Josh takes over and pushes the energy
+              up — dancing officially begins.
+            </p>
+          </TimeStop>
 
-            <TimeStop time="10:00 pm" title="Wedding cake">
-              <p>
-                Cake moment. Cut and served by the couple. Cake stand set up
-                near the DJ booth; floor team clears and hands out portions
-                once the ceremony bit is done.
-              </p>
-            </TimeStop>
+          <TimeStop time="9:00 pm" title="Cheese course">
+            <p>
+              A whole wheel of{" "}
+              <strong className="text-cream">Gubbeen</strong> from Fermoy, West
+              Cork — a milky, hazelnut-edged washed-rind cheese. Set out on a
+              proper board and cut through the room from 9 until 10.
+            </p>
+            <ul className="list-inside list-[square] space-y-1 marker:text-[#c6a664]">
+              <li>
+                <strong className="text-cream">Nairn's rough oatcakes</strong>{" "}
+                <em className="text-cream/60">
+                  — earthy and honest, traditional Irish pairing.
+                </em>
+              </li>
+              <li>
+                <strong className="text-cream">
+                  Peter's Yard sourdough crispbreads
+                </strong>{" "}
+                <em className="text-cream/60">
+                  — light and neutral, lets the cheese lead.
+                </em>
+              </li>
+              <li>
+                <strong className="text-cream">
+                  Fresh black figs, split and drizzled with wildflower honey
+                </strong>{" "}
+                <em className="text-cream/60">— August is peak fig.</em>
+              </li>
+              <li>
+                <strong className="text-cream">
+                  Egremont Russet apple, thin-sliced
+                </strong>{" "}
+                <em className="text-cream/60">
+                  — bookends the apple &amp; dill from the oyster round.
+                </em>
+              </li>
+            </ul>
+          </TimeStop>
 
-            <TimeStop time="12:00 am" title="Late bites">
-              <p>
-                Trays of simple, please-god-more-food handhelds circulate for
-                the last stretch:
-              </p>
-              <ul className="mt-2 list-inside list-disc space-y-1 text-cream/80">
-                <li>Ham &amp; cheese toasties</li>
-                <li>Veggie toasties</li>
-              </ul>
-              <p>Cold water refills go out at the same time.</p>
-            </TimeStop>
-          </div>
+          <TimeStop time="12:00 am" title="Late bites">
+            <p>
+              Trays of simple, please-god-more-food handhelds circulate for
+              the last stretch:
+            </p>
+            <ul className="list-inside list-[square] space-y-1 marker:text-[#c6a664]">
+              <li>Ham &amp; cheese toasties</li>
+              <li>Veggie toasties</li>
+            </ul>
+            <p>Cold water refills go out at the same time.</p>
+          </TimeStop>
         </div>
       </section>
 
-      <div className={PALETTE.divider} />
+      <div className="mx-auto max-w-3xl px-6">
+        <OrnDivider />
+      </div>
 
       {/* ────────────────────────────────────────────────────────
-          BAR — SIGNATURE DRINKS
+          SIGNATURE BAR
           ──────────────────────────────────────────────────────── */}
-      <section className={PALETTE.section}>
-        <div className={PALETTE.container}>
-          <p className={PALETTE.eyebrow}>Signature Bar</p>
-          <h2 className={`${PALETTE.h2} mt-3`}>
-            Two drinks for the room, all night
+      <section className="px-6 py-20 sm:py-28">
+        <div className="mx-auto max-w-3xl text-center">
+          <p className={eyebrow}>Signature Bar</p>
+          <h2 className="mt-4 font-display text-4xl leading-tight text-cream sm:text-5xl">
+            Two <span className={`italic ${gold}`}>house pours</span> for the
+            room
           </h2>
-          <p className={`${PALETTE.body} mt-5`}>
-            The full No Dice bar is open for anyone who wants a bespoke drink,
-            but two easy-serve signatures are pre-batched and ready to pour so
-            nobody's waiting. One boozy, one soft — both proper.
+          <p className="mx-auto mt-6 max-w-2xl text-[1.02rem] leading-relaxed text-cream/85 sm:text-lg">
+            The full bar is open for anyone who wants a bespoke drink, but two
+            easy-serve signatures are pre-batched and ready to pour so nobody's
+            waiting. One boozy, one soft — both proper.
           </p>
+        </div>
 
-          <div className="mt-12 grid gap-8 sm:grid-cols-2">
-            <div className="rounded-2xl border border-cream/10 bg-ink/40 p-8">
-              <p className="text-[10px] font-bold uppercase tracking-[0.28em] text-plonkPink">
-                Boozy · house pour
-              </p>
-              <h3 className="mt-3 font-display text-3xl leading-tight text-cream">
-                Kevin &amp; Tara Punch
-              </h3>
-              <p className="mt-4 text-sm leading-relaxed text-cream/80">
-                Aged rum + amaro, pressed lemon, honey, a touch of oloroso and
-                a strong hit of ripe stone fruit. Batched cold and served in
-                jugs with a slab of ice, mint sprig on top. Whiskey version on
-                request — same shape, bourbon in place of rum.
-              </p>
-            </div>
+        <div className="mx-auto mt-14 grid max-w-3xl gap-8 sm:grid-cols-2">
+          <div className={`rounded-2xl ${BG_PANEL} p-8`}>
+            <p className="text-[10px] font-bold uppercase tracking-[0.32em] text-[#e6c98a]">
+              House pour · boozy
+            </p>
+            <h3 className="mt-3 font-display text-3xl leading-tight text-cream">
+              <span className={`italic ${gold}`}>Kevin &amp; Tara</span> Punch
+            </h3>
+            <p className="mt-4 text-sm leading-relaxed text-cream/85">
+              Aged rum + amaro, pressed lemon, honey, a touch of oloroso and a
+              strong hit of ripe stone fruit. Batched cold and served in jugs
+              with a slab of ice, mint sprig on top. Whiskey version on
+              request — same shape, bourbon in place of rum.
+            </p>
+          </div>
 
-            <div className="rounded-2xl border border-cream/10 bg-ink/40 p-8">
-              <p className="text-[10px] font-bold uppercase tracking-[0.28em] text-plonkTeal">
-                Non-alcoholic · house pour
-              </p>
-              <h3 className="mt-3 font-display text-3xl leading-tight text-cream">
-                Garden Mint Iced Tea
-              </h3>
-              <p className="mt-4 text-sm leading-relaxed text-cream/80">
-                Cold-brewed jasmine + green tea, muddled fresh mint, lemon,
-                a whisper of honey. Served long over crushed ice with cucumber.
-                As good as the punch — no compromise.
-              </p>
-            </div>
+          <div className={`rounded-2xl ${BG_PANEL} p-8`}>
+            <p className="text-[10px] font-bold uppercase tracking-[0.32em] text-[#e6c98a]">
+              House pour · non-alcoholic
+            </p>
+            <h3 className="mt-3 font-display text-3xl leading-tight text-cream">
+              <span className={`italic ${gold}`}>Garden Mint</span> Iced Tea
+            </h3>
+            <p className="mt-4 text-sm leading-relaxed text-cream/85">
+              Cold-brewed jasmine + green tea, muddled fresh mint, lemon, a
+              whisper of honey. Served long over crushed ice with cucumber. As
+              good as the punch — no compromise.
+            </p>
           </div>
         </div>
       </section>
 
-      <div className={PALETTE.divider} />
+      <div className="mx-auto max-w-3xl px-6">
+        <OrnDivider />
+      </div>
 
       {/* ────────────────────────────────────────────────────────
           THE ROOM
           ──────────────────────────────────────────────────────── */}
-      <section className={PALETTE.section}>
-        <div className={PALETTE.container}>
-          <p className={PALETTE.eyebrow}>Logistics</p>
-          <h2 className={`${PALETTE.h2} mt-3`}>The room</h2>
-
-          <dl className="mt-12 grid gap-6 sm:grid-cols-2">
-            <div>
-              <dt className="text-[10px] font-bold uppercase tracking-[0.28em] text-cream/55">
-                Where
-              </dt>
-              <dd className="mt-2 text-cream">
-                No Dice
-                <br />
-                Arch 407, Mentmore Terrace
-                <br />
-                London Fields, Hackney
-                <br />
-                E8 3PH
-              </dd>
-            </div>
-            <div>
-              <dt className="text-[10px] font-bold uppercase tracking-[0.28em] text-cream/55">
-                When
-              </dt>
-              <dd className="mt-2 text-cream">
-                Saturday 29 August 2026
-                <br />
-                6pm — late
-              </dd>
-            </div>
-            <div>
-              <dt className="text-[10px] font-bold uppercase tracking-[0.28em] text-cream/55">
-                Room
-              </dt>
-              <dd className="mt-2 text-cream">
-                Whole venue, private hire.
-                <br />
-                Approx. 60 guests. Adults only.
-              </dd>
-            </div>
-            <div>
-              <dt className="text-[10px] font-bold uppercase tracking-[0.28em] text-cream/55">
-                Getting there
-              </dt>
-              <dd className="mt-2 text-cream">
-                Two minutes from London Fields station.
-                <br />
-                Under the arches behind the park.
-              </dd>
-            </div>
-          </dl>
+      <section className="px-6 py-20 sm:py-28">
+        <div className="mx-auto max-w-3xl text-center">
+          <p className={eyebrow}>Logistics</p>
+          <h2 className="mt-4 font-display text-4xl leading-tight text-cream sm:text-5xl">
+            The <span className={`italic ${gold}`}>room</span>
+          </h2>
         </div>
+
+        <dl className="mx-auto mt-14 grid max-w-3xl gap-8 sm:grid-cols-2">
+          <div className={`rounded-2xl ${BG_PANEL} p-7`}>
+            <dt className="text-[10px] font-bold uppercase tracking-[0.32em] text-[#e6c98a]">
+              Where
+            </dt>
+            <dd className="mt-3 leading-relaxed text-cream">
+              No Dice
+              <br />
+              Arch 407, Mentmore Terrace
+              <br />
+              London Fields, Hackney
+              <br />
+              E8 3PH
+            </dd>
+          </div>
+          <div className={`rounded-2xl ${BG_PANEL} p-7`}>
+            <dt className="text-[10px] font-bold uppercase tracking-[0.32em] text-[#e6c98a]">
+              When
+            </dt>
+            <dd className="mt-3 leading-relaxed text-cream">
+              Saturday 29 August 2026
+              <br />
+              6pm — late
+            </dd>
+          </div>
+          <div className={`rounded-2xl ${BG_PANEL} p-7`}>
+            <dt className="text-[10px] font-bold uppercase tracking-[0.32em] text-[#e6c98a]">
+              Room
+            </dt>
+            <dd className="mt-3 leading-relaxed text-cream">
+              Whole venue, private hire.
+              <br />
+              Approx. 60 guests. Adults only.
+              <br />
+              Reception with London Fields views.
+            </dd>
+          </div>
+          <div className={`rounded-2xl ${BG_PANEL} p-7`}>
+            <dt className="text-[10px] font-bold uppercase tracking-[0.32em] text-[#e6c98a]">
+              Getting there
+            </dt>
+            <dd className="mt-3 leading-relaxed text-cream">
+              Two minutes from London Fields station.
+              <br />
+              Under the arches behind the park.
+            </dd>
+          </div>
+        </dl>
       </section>
 
       {/* ────────────────────────────────────────────────────────
-          FOOTER — small, warm
+          FOOTER
           ──────────────────────────────────────────────────────── */}
-      <footer className="border-t border-cream/10 px-6 py-12 text-center">
-        <p className="font-display text-2xl italic text-plonkYellow">
+      <footer className="border-t border-[#c6a664]/20 px-6 py-16 text-center">
+        <p className="font-display text-3xl italic text-[#e6c98a] sm:text-4xl">
           Congratulations, Kevin &amp; Tara.
         </p>
-        <p className="mt-2 text-xs uppercase tracking-[0.28em] text-cream/50">
+        <p className="mt-4 text-[11px] uppercase tracking-[0.32em] text-cream/60">
           No Dice · Hackney · 2026
         </p>
       </footer>
