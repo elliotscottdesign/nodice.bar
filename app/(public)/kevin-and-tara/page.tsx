@@ -22,10 +22,14 @@ export const metadata: Metadata = {
 // ─── shared styles ────────────────────────────────────────────
 // Everything hangs off one warm-sage palette so the sections read
 // as one romantic surface, not a stack of unrelated cards.
+//
+// Phone-first sizing: eyebrow letter-spacing eases from 0.28em on
+// small screens to 0.38em on sm+ so labels don't stretch off the
+// edge on a 320px iPhone SE.
 const BG_SECTION = "bg-[#2f3f2a] text-cream";
 const BG_PANEL = "bg-[#243128]/70 border border-[#c6a664]/25";
 const eyebrow =
-  "text-[11px] font-bold uppercase tracking-[0.38em] text-[#e6c98a]";
+  "text-[11px] font-bold uppercase tracking-[0.28em] text-[#e6c98a] sm:tracking-[0.38em]";
 const gold = "text-[#e6c98a]";
 
 function OrnDivider() {
@@ -49,18 +53,21 @@ function TimeStop({
   title: string;
   children: React.ReactNode;
 }) {
+  // Phone: a slim gold rail on the left with the time badge nudged
+  // slightly forward; content sits close to the rail. Desktop: time
+  // moves to a fixed right-aligned column and the rail vanishes.
   return (
-    <div className="grid gap-3 border-l border-[#c6a664]/25 pl-6 sm:grid-cols-[7rem_1fr] sm:gap-10 sm:border-none sm:pl-0">
+    <div className="grid gap-2 border-l border-[#c6a664]/30 pl-5 sm:grid-cols-[7rem_1fr] sm:gap-10 sm:border-none sm:pl-0">
       <div className="sm:text-right">
-        <p className="text-[11px] font-bold uppercase tracking-[0.32em] text-[#e6c98a]">
+        <p className="text-[10px] font-bold uppercase tracking-[0.24em] text-[#e6c98a] sm:text-[11px] sm:tracking-[0.32em]">
           {time}
         </p>
       </div>
       <div>
-        <h3 className="font-display text-2xl leading-tight text-cream sm:text-[2rem]">
+        <h3 className="mt-1 font-display text-[1.6rem] leading-tight text-cream sm:mt-0 sm:text-[2rem]">
           {title}
         </h3>
-        <div className="mt-3 space-y-3 text-[0.98rem] leading-relaxed text-cream/85">
+        <div className="mt-3 space-y-3 text-[0.95rem] leading-relaxed text-cream/85 sm:text-[0.98rem]">
           {children}
         </div>
       </div>
@@ -85,22 +92,22 @@ export default function KevinAndTaraWeddingPage() {
         <div className="pointer-events-none absolute inset-0 bg-[radial-gradient(ellipse_at_top,_rgba(230,201,138,0.18),_transparent_65%)]" />
         <div className="pointer-events-none absolute inset-0 bg-[radial-gradient(ellipse_at_bottom_left,_rgba(94,140,73,0.28),_transparent_60%)]" />
 
-        <div className="relative px-6 pb-28 pt-28 text-center sm:pb-36 sm:pt-40">
+        <div className="relative px-5 pb-24 pt-24 text-center sm:px-6 sm:pb-36 sm:pt-40">
           <div className="mx-auto max-w-3xl">
             <p className={eyebrow}>
               Saturday · 29 August 2026
             </p>
-            <h1 className="mt-8 font-display text-[3.6rem] leading-[0.95] text-cream sm:text-[6rem] md:text-[7rem]">
+            <h1 className="mt-6 font-display text-[3rem] leading-[0.95] text-cream sm:mt-8 sm:text-[6rem] md:text-[7rem]">
               Kevin
-              <span className={`block font-display italic ${gold} sm:my-2`}>
+              <span className={`my-1 block font-display italic ${gold} sm:my-2`}>
                 &amp;
               </span>
               Tara
             </h1>
-            <p className="mx-auto mt-10 max-w-xl font-display text-xl italic text-cream/90 sm:text-2xl">
+            <p className="mx-auto mt-8 max-w-xl font-display text-lg italic leading-snug text-cream/90 sm:mt-10 sm:text-2xl">
               An evening at the arches — under the vines, over London Fields.
             </p>
-            <div className="mt-10 flex flex-wrap items-center justify-center gap-x-6 gap-y-2 text-[11px] uppercase tracking-[0.32em] text-cream/70">
+            <div className="mt-8 flex flex-wrap items-center justify-center gap-x-4 gap-y-2 text-[10px] uppercase tracking-[0.24em] text-cream/70 sm:mt-10 sm:gap-x-6 sm:text-[11px] sm:tracking-[0.32em]">
               <span>Doors 6pm</span>
               <span className="text-[#c6a664]/60">•</span>
               <span>Whole venue, private</span>
@@ -114,7 +121,7 @@ export default function KevinAndTaraWeddingPage() {
       {/* ────────────────────────────────────────────────────────
           THE EVENING
           ──────────────────────────────────────────────────────── */}
-      <section className="px-6 py-20 sm:py-28">
+      <section className="px-5 py-16 sm:px-6 sm:py-28">
         <div className="mx-auto max-w-3xl text-center">
           <p className={eyebrow}>The Evening</p>
           <h2 className="mt-4 font-display text-4xl leading-tight text-cream sm:text-5xl">
@@ -260,7 +267,7 @@ export default function KevinAndTaraWeddingPage() {
           with fresh-fruit toppings; boozy toppers from a small
           spirit rail behind the bar.
           ──────────────────────────────────────────────────────── */}
-      <section className="px-6 py-20 sm:py-28">
+      <section className="px-5 py-16 sm:px-6 sm:py-28">
         <div className="mx-auto max-w-3xl text-center">
           <p className={eyebrow}>Slushie Station</p>
           <h2 className="mt-4 font-display text-4xl leading-tight text-cream sm:text-5xl">
@@ -277,7 +284,7 @@ export default function KevinAndTaraWeddingPage() {
         </div>
 
         <div className="mx-auto mt-14 grid max-w-3xl gap-8 sm:grid-cols-2">
-          <div className={`rounded-2xl ${BG_PANEL} p-8`}>
+          <div className={`rounded-2xl ${BG_PANEL} p-6 sm:p-8`}>
             <p className="text-[10px] font-bold uppercase tracking-[0.32em] text-[#e6c98a]">
               Slushie · house punch
             </p>
@@ -293,7 +300,7 @@ export default function KevinAndTaraWeddingPage() {
             </p>
           </div>
 
-          <div className={`rounded-2xl ${BG_PANEL} p-8`}>
+          <div className={`rounded-2xl ${BG_PANEL} p-6 sm:p-8`}>
             <p className="text-[10px] font-bold uppercase tracking-[0.32em] text-[#e6c98a]">
               Slushie · non-alcoholic
             </p>
@@ -309,18 +316,26 @@ export default function KevinAndTaraWeddingPage() {
           </div>
         </div>
 
-        <div className="mx-auto mt-10 max-w-3xl">
-          <div className={`rounded-2xl ${BG_PANEL} p-6 text-center`}>
-            <p className="text-[10px] font-bold uppercase tracking-[0.32em] text-[#e6c98a]">
+        <div className="mx-auto mt-8 max-w-3xl sm:mt-10">
+          <div
+            className={`rounded-2xl ${BG_PANEL} p-5 text-center sm:p-6`}
+          >
+            <p className="text-[10px] font-bold uppercase tracking-[0.24em] text-[#e6c98a] sm:tracking-[0.32em]">
               On the counter
             </p>
-            <p className="mt-3 text-[0.95rem] leading-relaxed text-cream/85">
-              <strong className="text-cream">Fruit</strong> · fresh
-              strawberries, raspberries, sliced peach, orange wheels, muddled
-              mint, lime · <strong className="text-cream">Rail</strong> · aged
-              rum, bourbon, tequila blanco, gin · A shot on top of any slushie
-              turns it into a proper cocktail.
-            </p>
+            <div className="mt-4 space-y-3 text-[0.95rem] leading-relaxed text-cream/85 sm:space-y-2">
+              <p>
+                <strong className="text-cream">Fruit</strong> — strawberries,
+                raspberries, sliced peach, orange wheels, muddled mint, lime.
+              </p>
+              <p>
+                <strong className="text-cream">Rail</strong> — aged rum,
+                bourbon, tequila blanco, gin.
+              </p>
+              <p className="italic text-cream/70">
+                A shot on top of any slushie turns it into a proper cocktail.
+              </p>
+            </div>
           </div>
         </div>
       </section>
@@ -332,7 +347,7 @@ export default function KevinAndTaraWeddingPage() {
       {/* ────────────────────────────────────────────────────────
           THE ROOM
           ──────────────────────────────────────────────────────── */}
-      <section className="px-6 py-20 sm:py-28">
+      <section className="px-5 py-16 sm:px-6 sm:py-28">
         <div className="mx-auto max-w-3xl text-center">
           <p className={eyebrow}>Logistics</p>
           <h2 className="mt-4 font-display text-4xl leading-tight text-cream sm:text-5xl">
@@ -341,7 +356,7 @@ export default function KevinAndTaraWeddingPage() {
         </div>
 
         <dl className="mx-auto mt-14 grid max-w-3xl gap-8 sm:grid-cols-2">
-          <div className={`rounded-2xl ${BG_PANEL} p-7`}>
+          <div className={`rounded-2xl ${BG_PANEL} p-5 sm:p-7`}>
             <dt className="text-[10px] font-bold uppercase tracking-[0.32em] text-[#e6c98a]">
               Where
             </dt>
@@ -355,7 +370,7 @@ export default function KevinAndTaraWeddingPage() {
               E8 3PH
             </dd>
           </div>
-          <div className={`rounded-2xl ${BG_PANEL} p-7`}>
+          <div className={`rounded-2xl ${BG_PANEL} p-5 sm:p-7`}>
             <dt className="text-[10px] font-bold uppercase tracking-[0.32em] text-[#e6c98a]">
               When
             </dt>
@@ -365,7 +380,7 @@ export default function KevinAndTaraWeddingPage() {
               6pm — late
             </dd>
           </div>
-          <div className={`rounded-2xl ${BG_PANEL} p-7`}>
+          <div className={`rounded-2xl ${BG_PANEL} p-5 sm:p-7`}>
             <dt className="text-[10px] font-bold uppercase tracking-[0.32em] text-[#e6c98a]">
               Room
             </dt>
@@ -377,7 +392,7 @@ export default function KevinAndTaraWeddingPage() {
               Reception with London Fields views.
             </dd>
           </div>
-          <div className={`rounded-2xl ${BG_PANEL} p-7`}>
+          <div className={`rounded-2xl ${BG_PANEL} p-5 sm:p-7`}>
             <dt className="text-[10px] font-bold uppercase tracking-[0.32em] text-[#e6c98a]">
               Getting there
             </dt>
@@ -393,11 +408,11 @@ export default function KevinAndTaraWeddingPage() {
       {/* ────────────────────────────────────────────────────────
           FOOTER
           ──────────────────────────────────────────────────────── */}
-      <footer className="border-t border-[#c6a664]/20 px-6 py-16 text-center">
-        <p className="font-display text-3xl italic text-[#e6c98a] sm:text-4xl">
+      <footer className="border-t border-[#c6a664]/20 px-5 py-12 text-center sm:px-6 sm:py-16">
+        <p className="font-display text-2xl italic leading-tight text-[#e6c98a] sm:text-4xl">
           Congratulations, Kevin &amp; Tara.
         </p>
-        <p className="mt-4 text-[11px] uppercase tracking-[0.32em] text-cream/60">
+        <p className="mt-4 text-[10px] uppercase tracking-[0.24em] text-cream/60 sm:text-[11px] sm:tracking-[0.32em]">
           No Dice · Hackney · 2026
         </p>
       </footer>
