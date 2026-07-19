@@ -55,9 +55,9 @@ const FALLBACK_CARDS = [
   // launches, admin can repoint this card's href in /admin/content/info/book.
   {
     id: "minigolf",
-    name: "Mini Golf",
-    tagline: "9 holes · Hackney · Book a tee time",
-    blurb: "Polynesian-themed course at London Fields. Pick a date, time and party size.",
+    name: "Plonk Hackney",
+    tagline: "Mini golf · 9 holes · London Fields",
+    blurb: "Plonk's Polynesian-themed crazy golf course, next door to No Dice. Book a tee time.",
     image: "",
     href: "/book/hackney",
   },

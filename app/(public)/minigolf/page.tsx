@@ -32,11 +32,11 @@ const FALLBACK_HERO = [
 ];
 
 export default function MiniGolfPage() {
-  const eyebrow = useContent("minigolf.eyebrow", "Hackney · London Fields");
-  const title = useContent("minigolf.title", "Mini Golf at No Dice");
+  const eyebrow = useContent("minigolf.eyebrow", "Plonk · Hackney · London Fields");
+  const title = useContent("minigolf.title", "Plonk Hackney — Mini Golf");
   const intro = useContent(
     "minigolf.intro",
-    "Nine holes of Polynesian-themed crazy golf, drinks in hand, tacos on the side. Book a tee time below.",
+    "Plonk's Polynesian-themed 9-hole crazy golf course, right next door to No Dice. Drinks in hand, tacos on the side. Book a tee time below.",
   );
   const ctaLabel = useContent("minigolf.cta_label", "Book a tee time");
   const newsletterPrompt = useContent(
