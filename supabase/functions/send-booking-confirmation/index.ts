@@ -55,7 +55,9 @@ const SMTP_PASSWORD = Deno.env.get("SMTP_PASSWORD") ?? "";
 
 // Gmail App Passwords must send `From:` matching the authenticated user,
 // so FROM_EMAIL is always SMTP_USERNAME — no override.
-const FROM_NAME = "Plonk Golf";
+// FROM_NAME is derived per-booking from the venue name ("Plonk Hackney",
+// and when future venues open, "Plonk Borough" etc.) — matches the
+// signage / Google Business Profile the customer sees at the door.
 const REPLY_TO = "bookings@plonkgolf.co.uk";
 
 const db = createClient(SUPABASE_URL, SUPABASE_SERVICE_ROLE_KEY, {
@@ -114,6 +116,7 @@ function composeEmail(booking: Booking): {
   subject: string;
   text: string;
   html: string;
+  fromName: string;
 } {
   const venueName = booking.venue.name;
   const slots = [...booking.slots].sort((a, b) =>
@@ -157,7 +160,7 @@ function composeEmail(booking: Booking): {
   const text = [
     `Hi ${firstName},`,
     ``,
-    `Your booking at Plonk Golf — ${venueName} is confirmed.`,
+    `Your booking at ${venueName} is confirmed.`,
     ``,
     `Date: ${date}`,
     `Time${slots.length > 1 ? "s" : ""}: ${timesLine}`,
@@ -178,7 +181,7 @@ function composeEmail(booking: Booking): {
     `  • Need to change something? Just reply to this email.`,
     ``,
     `See you soon,`,
-    `The Plonk Golf team`,
+    `The ${venueName} team`,
   ].join("\n");
 
   // ---------- HTML ----------
@@ -196,7 +199,7 @@ function composeEmail(booking: Booking): {
     <p style="color:#4a5d52;margin:0 0 28px;font-size:14px;letter-spacing:0.02em;">Reference <strong>${booking.reference}</strong></p>
 
     <p style="margin:0 0 12px;">Hi ${firstName},</p>
-    <p style="margin:0 0 20px;">Your booking at <strong>Plonk Golf — ${venueName}</strong> is confirmed.</p>
+    <p style="margin:0 0 20px;">Your booking at <strong>${venueName}</strong> is confirmed.</p>
 
     <div style="background:#ffffff;border-left:4px solid #E8C547;padding:16px 20px;margin:20px 0;border-radius:2px;">
       <p style="margin:0 0 6px;"><strong>Date:</strong> ${date}</p>
@@ -229,12 +232,12 @@ function composeEmail(booking: Booking): {
       <li style="margin:4px 0;">Need to change something? Just reply to this email.</li>
     </ul>
 
-    <p style="margin-top:32px;">See you soon,<br><strong>The Plonk Golf team</strong></p>
+    <p style="margin-top:32px;">See you soon,<br><strong>The ${venueName} team</strong></p>
   </div>
 </body>
 </html>`;
 
-  return { subject, text, html };
+  return { subject, text, html, fromName: venueName };
 }
 
 // ---------- handler ----------
@@ -291,7 +294,7 @@ Deno.serve(async (req) => {
     );
   }
 
-  const { subject, text, html } = composeEmail(booking as unknown as Booking);
+  const { subject, text, html, fromName } = composeEmail(booking as unknown as Booking);
 
   // Strip trailing whitespace from every line. Without this, blank lines that
   // contain only indentation spaces get quoted-printable-encoded as `=20` and
@@ -313,7 +316,7 @@ Deno.serve(async (req) => {
 
   try {
     await client.send({
-      from: `${FROM_NAME} <${SMTP_USERNAME}>`,
+      from: `${fromName} <${SMTP_USERNAME}>`,
       to: booking.customer_email,
       replyTo: REPLY_TO,
       subject,
