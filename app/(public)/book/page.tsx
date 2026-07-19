@@ -49,9 +49,18 @@ const FALLBACK_CARDS = [
     image: "",
     href: "/privatehire",
   },
-  // Golf card removed at launch — mini golf course is not open yet.
-  // The /minigolf coming-soon page captures interest via newsletter
-  // signup with source='minigolf' until we're ready to sell tickets.
+  // Mini Golf restored 2026-07-19: the standalone plonkgolf.co.uk site
+  // is still being finished, so tee times are being sold on nodice.bar
+  // via the interim /book/hackney flow until then. When plonkgolf.co.uk
+  // launches, admin can repoint this card's href in /admin/content/info/book.
+  {
+    id: "minigolf",
+    name: "Mini Golf",
+    tagline: "9 holes · Hackney · Book a tee time",
+    blurb: "Polynesian-themed course at London Fields. Pick a date, time and party size.",
+    image: "",
+    href: "/book/hackney",
+  },
   {
     id: "contact",
     name: "Get in touch",

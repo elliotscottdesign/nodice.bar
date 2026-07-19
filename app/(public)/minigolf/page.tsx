@@ -1,59 +1,56 @@
 "use client";
 
+import Link from "next/link";
 import { useState } from "react";
 import PageHero from "@/components/PageHero";
 import { useContent } from "@/lib/content";
 import { supabase } from "@/lib/supabase";
 
 // =============================================================
-// /minigolf — coming-soon landing
+// /minigolf — landing page for Plonk Hackney mini golf
 // =============================================================
-// Took over from the old external "Plonk Golf" link in the header
-// when we decided the mini-golf course wouldn't be ready for launch.
-// Single screen: hero + heading + body copy + email capture form.
+// 2026-07-19: switched from "coming soon" email capture to a live
+// booking CTA now that the interim /book/hackney flow is running on
+// nodice.bar. The standalone plonkgolf.co.uk site is still being
+// built; until then this page routes customers into the in-tree
+// BookingFlow (venue = hackney, catalogue.category = 'golf').
 //
-// Newsletter signups land in the public.newsletter_signups table
-// with source='minigolf' so the founder can pull a list when the
-// course is ready to announce. RLS already allows anon inserts (see
-// migration 20260608000001_newsletter-and-welcome-promo.sql) — no
-// new Edge Function needed, no welcome email fires.
+// The newsletter signup is kept as a secondary "Not ready to book?"
+// option so we still capture interest from browsers who aren't
+// converting today — same public.newsletter_signups table, still
+// tagged source='minigolf' so the founder can pull that list.
 //
 // CMS-editable copy (every line below uses a useContent fallback):
-//   minigolf.eyebrow
-//   minigolf.title
-//   minigolf.intro
-//   minigolf.signup_label
-//   minigolf.signup_button
-//   minigolf.signup_success
-//   hero.minigolf — gallery key for the hero slider artwork
+//   minigolf.eyebrow · minigolf.title · minigolf.intro
+//   minigolf.cta_label · minigolf.newsletter_prompt
+//   minigolf.signup_label · minigolf.signup_button
+//   minigolf.signup_success · hero.minigolf (gallery)
 // =============================================================
 
-// Default hero artwork — the golf bitmap already in storage. Renders
-// until the founder uploads a slider via /admin/content/galleries
-// with gallery key "hero.minigolf". An empty string here would break
-// next/image; a real URL keeps the hero on screen even on a fresh DB.
 const FALLBACK_HERO = [
   "https://rntcujcpsozvuxvmlejv.supabase.co/storage/v1/object/public/media/page/1781610983789-golf-rsaterized-300x-colour.png",
 ];
 
 export default function MiniGolfPage() {
-  const eyebrow = useContent(
-    "minigolf.eyebrow",
-    "Coming soon · Hackney",
-  );
-  const title = useContent("minigolf.title", "Mini Golf — Coming Soon");
+  const eyebrow = useContent("minigolf.eyebrow", "Hackney · London Fields");
+  const title = useContent("minigolf.title", "Mini Golf at No Dice");
   const intro = useContent(
     "minigolf.intro",
-    "Our crazy-golf course at No Dice isn't open yet — but it's on the way. Drop your email and we'll let you know the moment doors swing open.",
+    "Nine holes of Polynesian-themed crazy golf, drinks in hand, tacos on the side. Book a tee time below.",
+  );
+  const ctaLabel = useContent("minigolf.cta_label", "Book a tee time");
+  const newsletterPrompt = useContent(
+    "minigolf.newsletter_prompt",
+    "Not ready to book? Drop your email — we'll send openings, deals and event nights.",
   );
   const signupLabel = useContent(
     "minigolf.signup_label",
-    "Get the opening night details",
+    "Get updates + offers",
   );
   const signupButton = useContent("minigolf.signup_button", "Notify me");
   const signupSuccess = useContent(
     "minigolf.signup_success",
-    "You're on the list — we'll be in touch the moment the course is ready.",
+    "You're on the list — we'll be in touch with openings and offers.",
   );
 
   const [email, setEmail] = useState("");
@@ -68,12 +65,6 @@ export default function MiniGolfPage() {
     setBusy(true);
     setErr("");
     try {
-      // Direct INSERT via the anon key. RLS on newsletter_signups
-      // permits inserts from `anon` (the policy in the
-      // 20260608000001 migration) but blocks reads, so the list can
-      // never be scraped by the public. Source='minigolf' tags this
-      // capture surface so the founder can pull a list separately
-      // from the homepage popup signups when the course opens.
       const { error } = await supabase()
         .from("newsletter_signups")
         .insert({
@@ -81,8 +72,6 @@ export default function MiniGolfPage() {
           source: "minigolf",
           consent: true,
         });
-      // Duplicate (already signed up with same source) — treat as
-      // success so the customer doesn't get re-prompted.
       if (error && !/duplicate|unique/i.test(error.message)) {
         throw error;
       }
@@ -111,8 +100,22 @@ export default function MiniGolfPage() {
         sliderKey="hero.minigolf"
       />
 
-      <section className="px-6 pb-24 pt-4">
-        <div className="mx-auto max-w-xl">
+      <section className="px-6 pb-10 pt-4">
+        <div className="mx-auto max-w-xl text-center">
+          <Link
+            href="/book/hackney"
+            className="inline-block rounded-full bg-plonkPink px-10 py-4 text-sm font-bold uppercase tracking-widest text-white transition hover:bg-plonkPink/90"
+          >
+            {ctaLabel}
+          </Link>
+          <p className="mt-4 text-[11px] uppercase tracking-[0.2em] text-cream/50">
+            Pick date · time · party size · pay by card
+          </p>
+        </div>
+      </section>
+
+      <section className="px-6 pb-24">
+        <div className="mx-auto max-w-xl border-t border-cream/10 pt-10">
           {done ? (
             <div className="rounded-2xl border border-plonkTeal/40 bg-plonkTeal/10 px-6 py-7 text-center">
               <div className="text-[11px] font-bold uppercase tracking-[0.28em] text-plonkTeal">
@@ -122,6 +125,9 @@ export default function MiniGolfPage() {
             </div>
           ) : (
             <form onSubmit={submit} className="space-y-4 text-center">
+              <p className="mx-auto max-w-md text-sm text-cream/70">
+                {newsletterPrompt}
+              </p>
               <label className="block">
                 <span className="mb-2 block text-[11px] font-bold uppercase tracking-[0.28em] text-plonkPink">
                   {signupLabel}
@@ -139,7 +145,7 @@ export default function MiniGolfPage() {
               <button
                 type="submit"
                 disabled={busy || !email.trim()}
-                className="rounded-full bg-plonkPink px-8 py-3 text-xs font-bold uppercase tracking-widest text-white transition hover:bg-plonkPink/90 disabled:opacity-50"
+                className="rounded-full border border-cream/25 bg-transparent px-8 py-3 text-xs font-bold uppercase tracking-widest text-cream transition hover:bg-cream/10 disabled:opacity-50"
               >
                 {busy ? "Adding you…" : signupButton}
               </button>

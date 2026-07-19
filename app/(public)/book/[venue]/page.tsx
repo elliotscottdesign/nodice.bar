@@ -1,28 +1,43 @@
-import RedirectToBook from "@/components/RedirectToBook";
+import { Suspense } from "react";
+import CatalogueLoader from "./CatalogueLoader";
 
-// Legacy Plonk-Golf venue catalogue page (used to render BookingFlow
-// for a per-venue golf ticket basket: "BOOK PLONK HACKNEY", date /
-// time / tickets / basket / checkout). Golf bookings now live
-// externally at plonkgolf.co.uk (linked from the Golf card on /book);
-// Tables and Pool have their own dedicated dedicated pages
-// (/book/table and /book/pool). This URL no longer has a purpose on
-// the No Dice site — redirect to /book so any stale bookmark or
-// Google result lands somewhere useful instead of a confusing
-// half-Plonk-half-No-Dice page.
+// /book/hackney — mini-golf booking flow.
+// Reactivated 2026-07-19: the standalone plonkgolf.co.uk site isn't
+// live yet, so in the meantime customers book Plonk Hackney tee times
+// on nodice.bar via the existing 955-line BookingFlow that was already
+// in-tree (originally forked from the Plonk Golf site). CatalogueLoader
+// pulls venue + golf tickets from Supabase (venues/tickets tables) and
+// hands them to BookingFlow. Checkout is /book/checkout, which hits
+// the create-payment-intent Edge Function → Stripe → get-booking.
 //
-// Kept generateStaticParams so the route is still pre-rendered at
-// build time (static export). When the founder is comfortable, the
-// whole [venue] folder, CatalogueLoader and BookingFlow can be
-// deleted outright.
+// When plonkgolf.co.uk goes live, either revert this page to the
+// RedirectToBook stub or repoint the /minigolf "Book Now" button and
+// the /book Mini Golf card to plonkgolf.co.uk instead.
+
 export function generateStaticParams() {
   return [{ venue: "hackney" }];
 }
 
-export const metadata = {
-  title: "Book — No Dice",
-  description: "Pick a date, time and party size.",
+const VENUE_NAMES: Record<string, string> = {
+  hackney: "Plonk Hackney",
 };
 
-export default function VenueBookingPage() {
-  return <RedirectToBook />;
+export function generateMetadata({ params }: { params: { venue: string } }) {
+  const name = VENUE_NAMES[params.venue];
+  return {
+    title: name ? `Book ${name} — No Dice` : "Book — No Dice",
+    description: "Pick a date, time and party size.",
+  };
+}
+
+export default function VenueBookingPage({
+  params,
+}: {
+  params: { venue: string };
+}) {
+  return (
+    <Suspense fallback={null}>
+      <CatalogueLoader venueSlug={params.venue} />
+    </Suspense>
+  );
 }
