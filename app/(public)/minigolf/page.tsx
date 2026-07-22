@@ -52,6 +52,11 @@ export default function MiniGolfPage() {
     "minigolf.signup_success",
     "You're on the list — we'll be in touch with openings and offers.",
   );
+  const aboutTitle = useContent("minigolf.about_title", "About Plonk");
+  const aboutBody = useContent(
+    "minigolf.about_body",
+    "Plonk is London's original crazy-golf brand — 14 years running mini-golf courses across the city, back at London Fields with a new 9-hole Polynesian-themed course. Plonk shares the venue with No Dice bar: one address, two doors, two brands.",
+  );
 
   const [email, setEmail] = useState("");
   const [busy, setBusy] = useState(false);
@@ -111,6 +116,15 @@ export default function MiniGolfPage() {
           <p className="mt-4 text-[11px] uppercase tracking-[0.2em] text-cream/50">
             Pick date · time · party size · pay by card
           </p>
+        </div>
+      </section>
+
+      <section className="px-6 pb-10">
+        <div className="mx-auto max-w-xl text-center">
+          <div className="mb-3 text-[11px] font-bold uppercase tracking-[0.28em] text-plonkPink">
+            {aboutTitle}
+          </div>
+          <p className="text-sm text-cream/75">{aboutBody}</p>
         </div>
       </section>
 
