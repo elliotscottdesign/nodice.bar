@@ -2,6 +2,7 @@
 
 import { createContext, useCallback, useContext, useEffect, useState } from "react";
 import { supabase } from "@/lib/supabase";
+import { SITE } from "@/lib/site";
 
 // Map of editable-slot key → saved value (only slots the admin has
 // actually edited will be in here; everything else falls back to the
@@ -37,7 +38,8 @@ export function ContentProvider({ children }: { children: React.ReactNode }) {
     try {
       const { data, error } = await supabase()
         .from("page_content")
-        .select("key, value");
+        .select("key, value")
+        .eq("site", SITE);
       if (error) return;
       const next: ContentMap = new Map();
       for (const row of (data ?? []) as { key: string; value: string }[]) {
@@ -262,6 +264,7 @@ export function useGallery<T extends { src: string; alt?: string | null }>(
           .select(
             "src, alt, sort_order, active, position_x, position_y, position_zoom, position_fit",
           )
+          .eq("site", SITE)
           .eq("gallery_key", galleryKey)
           .eq("active", true)
           .order("sort_order");

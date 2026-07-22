@@ -1,6 +1,7 @@
 "use client";
 
 import { supabase } from "@/lib/supabase";
+import { SITE } from "@/lib/site";
 
 export type DbGalleryImage = {
   id: string;
@@ -31,6 +32,7 @@ export async function loadGallery(galleryKey: string): Promise<DbGalleryImage[]>
   const { data, error } = await supabase()
     .from("gallery_images")
     .select(GALLERY_SELECT)
+    .eq("site", SITE)
     .eq("gallery_key", galleryKey)
     .order("sort_order");
   if (error) throw error;
@@ -43,6 +45,7 @@ export async function loadAllGalleryImages(): Promise<DbGalleryImage[]> {
   const { data, error } = await supabase()
     .from("gallery_images")
     .select(GALLERY_SELECT)
+    .eq("site", SITE)
     .order("gallery_key")
     .order("sort_order");
   if (error) throw error;
@@ -54,7 +57,7 @@ export async function createGalleryImage(
 ): Promise<DbGalleryImage> {
   const { data, error } = await supabase()
     .from("gallery_images")
-    .insert(row)
+    .insert({ ...row, site: SITE })
     .select()
     .single();
   if (error) throw error;

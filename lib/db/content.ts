@@ -1,6 +1,7 @@
 "use client";
 
 import { supabase } from "@/lib/supabase";
+import { SITE } from "@/lib/site";
 
 export type FieldKind = "text" | "textarea" | "html" | "image" | "url";
 
@@ -22,6 +23,7 @@ export async function loadAllContent(): Promise<DbContentRow[]> {
   const { data, error } = await supabase()
     .from("page_content")
     .select("key, value, page, field_kind, label, helper, sort_order, updated_at")
+    .eq("site", SITE)
     .order("page")
     .order("sort_order");
   if (error) throw error;
@@ -32,6 +34,7 @@ export async function loadPageContent(page: string): Promise<DbContentRow[]> {
   const { data, error } = await supabase()
     .from("page_content")
     .select("key, value, page, field_kind, label, helper, sort_order, updated_at")
+    .eq("site", SITE)
     .eq("page", page)
     .order("sort_order");
   if (error) throw error;
@@ -91,6 +94,7 @@ export async function saveContentValue(
   const { data, error } = await sb
     .from("page_content")
     .update({ value })
+    .eq("site", SITE)
     .eq("key", key)
     .select("key");
   if (error) throw error;
@@ -100,6 +104,7 @@ export async function saveContentValue(
   const lastDot = key.lastIndexOf(".");
   const label = lastDot > 0 ? key.slice(lastDot + 1) : key;
   const { error: insertErr } = await sb.from("page_content").insert({
+    site: SITE,
     key,
     value,
     page: derivePage(key),
@@ -117,6 +122,7 @@ export async function saveContentValue(
       const retry = await sb
         .from("page_content")
         .update({ value })
+        .eq("site", SITE)
         .eq("key", key);
       if (retry.error) throw retry.error;
       return;
