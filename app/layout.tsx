@@ -48,7 +48,6 @@ export const metadata: Metadata = {
     "pool table Hackney",
     "American pool London",
     "sports bar Hackney",
-    "World Cup bar London",
     "DJ nights Hackney",
     "Mentmore Terrace",
     "No Dice",

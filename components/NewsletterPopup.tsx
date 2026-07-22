@@ -254,7 +254,7 @@ export default function NewsletterPopup() {
               <p className="mx-auto mt-4 max-w-xs text-center text-sm leading-relaxed text-cream/65">
                 Drop your email and we'll send the code for 20% off your first
                 event ticket at No Dice! Pool sessions, tournament nights,
-                World Cup matches, DJ sessions or even golf!
+                DJ sessions or even golf!
               </p>
 
               <form onSubmit={submit} className="mt-7 space-y-4" noValidate>

@@ -13,7 +13,9 @@ import { Editable } from "./Editable";
 const FALLBACK_NAV = [
   "Bar | /bar",
   "Pool | /pool",
-  "World Cup | /worldcup",
+  // World Cup archived 2026-07-23 — page redirects to /book, nav entry
+  // removed. Restore this line to un-archive:
+  //   "World Cup | /worldcup",
   "Deals | /deals",
   "DJs & Events | /events",
   // Plonk — the mini-golf brand at the London Fields venue. Plonk has

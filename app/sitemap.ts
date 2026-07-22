@@ -23,7 +23,8 @@ export default function sitemap(): MetadataRoute.Sitemap {
     { path: "", priority: 1.0, changeFrequency: "weekly" },
     { path: "/bar", priority: 0.9, changeFrequency: "weekly" },
     { path: "/pool", priority: 0.9, changeFrequency: "weekly" },
-    { path: "/worldcup", priority: 0.9, changeFrequency: "daily" },
+    // /worldcup archived 2026-07-23 — page redirects to /book, no longer
+    // in the sitemap so search engines can drop it.
     { path: "/events", priority: 0.9, changeFrequency: "daily" },
     { path: "/deals", priority: 0.8, changeFrequency: "weekly" },
     { path: "/privatehire", priority: 0.7, changeFrequency: "monthly" },

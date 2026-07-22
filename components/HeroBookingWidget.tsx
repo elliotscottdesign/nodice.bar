@@ -21,14 +21,15 @@ import {
 // Item-routing table:
 //   pool       /book/pool   — 30-min slots on the hour, pool tables
 //   table      /book/table  — 15-min granularity, restaurant tables
-//   worldcup   /worldcup   — match-anchored reservations
 //   golf       (external)   — Plonk Golf's own booking site
+// World Cup archived 2026-07-23 — kept in the ItemId union as dormant
+// scaffolding so the routing switch below still compiles, but dropped
+// from the ITEMS picker so customers no longer see it as an option.
 type ItemId = "pool" | "table" | "worldcup" | "golf";
 
 const ITEMS: { id: ItemId; label: string; description: string }[] = [
   { id: "pool",     label: "Pool table",   description: "30 min slots · on the hour" },
   { id: "table",    label: "Table",        description: "Drinks · dinner · groups" },
-  { id: "worldcup", label: "World Cup",    description: "Reserve a spot for a match" },
   { id: "golf",     label: "Golf",         description: "Plonk Golf — Hackney" },
 ];
 
