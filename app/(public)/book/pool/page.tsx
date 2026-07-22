@@ -424,6 +424,28 @@ function PoolBookingPageInner() {
               )}
             </FormSection>
 
+            {!closed && dayOfWeek(date) === 3 && (
+              // Wednesday = pool tournament night. Show a prominent nudge
+              // so casual pool bookers don't turn up expecting a quiet
+              // hourly table — they either book earlier, or switch to the
+              // tournament entry which lives on /pool#tournaments.
+              <div className="rounded-2xl border border-plonkYellow/40 bg-plonkYellow/10 p-5">
+                <div className="text-[10px] font-bold uppercase tracking-[0.28em] text-plonkYellow">
+                  Heads up · Wednesday is tournament night
+                </div>
+                <p className="mt-2 text-sm text-cream/85">
+                  Casual pool tables get busy from 8pm — book an earlier
+                  slot below, or come for the tournament itself.
+                </p>
+                <a
+                  href="/pool#tournaments"
+                  className="mt-4 inline-block rounded-full bg-plonkYellow px-5 py-2 text-xs font-bold uppercase tracking-widest text-ink hover:bg-plonkYellow/90"
+                >
+                  Sign up for the tournament →
+                </a>
+              </div>
+            )}
+
             {!closed && (
               <FormSection label="Time">
                 {slots.length === 0 ? (
