@@ -3,7 +3,10 @@
 import Link from "next/link";
 import PageHero from "@/components/PageHero";
 import TournamentSchedule from "@/components/TournamentSchedule";
-import { useContent } from "@/lib/content";
+import { useContent, useGallery } from "@/lib/content";
+
+const POOL_BG =
+  "https://rntcujcpsozvuxvmlejv.supabase.co/storage/v1/object/public/media/gallery/hero.pool/1780752253680-pool-bitmap.png";
 
 // /pool — slider-led page. Hero IS the slider; below it sits a single
 // "book a table" CTA so the page reads as a phone-friendly poster
@@ -26,9 +29,18 @@ export default function PoolPage() {
   );
   const ctaLabel = useContent("pool.cta_label", "Book a pool table");
   const ctaHref = useContent("pool.cta_href", "/book/pool");
+  const heroImgs = useGallery("hero.pool", [{ src: POOL_BG, alt: null }]);
+  const bg = heroImgs?.[0]?.src || POOL_BG;
 
   return (
-    <main>
+    <main className="relative">
+      {/* The pool header image as a fixed, deep-purple-washed page background */}
+      <div className="fixed inset-0 -z-10">
+        <div className="absolute inset-0 bg-cover bg-center" style={{ backgroundImage: `url(${bg})` }} />
+        <div className="absolute inset-0 bg-[#4c1d95]/40 mix-blend-multiply" />
+        <div className="absolute inset-0 bg-gradient-to-b from-black/40 via-[#1a0f2e]/72 to-black/90" />
+      </div>
+
       <PageHero
         eyebrow={eyebrow}
         title={title}
@@ -43,7 +55,7 @@ export default function PoolPage() {
       <section className="px-6 pb-20 pt-4 text-center">
         <Link
           href={ctaHref}
-          className="inline-block rounded-full bg-plonkPink px-10 py-4 text-sm font-bold uppercase tracking-widest text-white transition hover:bg-plonkPink/90"
+          className="inline-block rounded-full bg-violet-500 px-10 py-4 text-sm font-bold uppercase tracking-widest text-white shadow-lg shadow-violet-500/30 transition hover:bg-violet-400"
         >
           {ctaLabel}
         </Link>

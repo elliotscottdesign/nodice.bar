@@ -186,7 +186,7 @@ export default function TournamentSchedule() {
   return (
     <section id="tournaments" className="bg-ink/40 px-6 py-20 scroll-mt-24">
       <div className="mx-auto max-w-3xl">
-        <div className="mb-3 text-center text-xs font-bold uppercase tracking-[0.3em] text-plonkPink">
+        <div className="mb-3 text-center text-xs font-bold uppercase tracking-[0.3em] text-violet-300">
           <Editable k="pool.tournaments.eyebrow">{eyebrow}</Editable>
         </div>
         <h2 className="text-center font-display text-4xl uppercase tracking-wider sm:text-5xl">
@@ -207,10 +207,10 @@ export default function TournamentSchedule() {
                   key={t}
                   type="button"
                   onClick={() => setActiveType(t)}
-                  className={`rounded-full border px-5 py-2.5 text-xs font-bold uppercase tracking-widest transition ${
+                  className={`rounded-full border px-6 py-3 text-sm font-bold uppercase tracking-widest transition ${
                     active
-                      ? "border-plonkPink bg-plonkPink text-white shadow-lg shadow-plonkPink/20"
-                      : "border-cream/15 bg-ink/40 text-cream/85 hover:border-cream/40"
+                      ? "border-violet-400 bg-violet-500 text-white shadow-lg shadow-violet-500/30 ring-1 ring-violet-300/40"
+                      : "border-violet-300/25 bg-white/5 text-violet-100/80 hover:border-violet-300/60 hover:bg-white/10 hover:text-white"
                   }`}
                 >
                   {TYPE_LABELS[t]}
@@ -223,6 +223,15 @@ export default function TournamentSchedule() {
         <p className="mx-auto mt-4 max-w-md text-center text-xs uppercase tracking-widest text-cream/55">
           <Editable k={TYPE_TAGLINE_KEYS[type]}>{currentTagline}</Editable>
         </p>
+
+        <div className="mt-6 text-center">
+          <a
+            href="/league"
+            className="inline-flex items-center gap-2 rounded-full border border-violet-300/30 bg-violet-500/10 px-6 py-3 text-xs font-bold uppercase tracking-widest text-violet-100 transition hover:border-violet-300/70 hover:bg-violet-500/20 hover:text-white"
+          >
+            🏆 Live league table
+          </a>
+        </div>
 
         <div className="mt-10">
           {loading && (
@@ -300,8 +309,8 @@ export default function TournamentSchedule() {
                         isSoldOut
                           ? "cursor-not-allowed border-cream/10 bg-ink/20 opacity-60"
                           : isExpanded
-                            ? "border-plonkPink bg-plonkPink/10"
-                            : "border-cream/10 bg-ink/40 hover:border-plonkPink/60 hover:bg-plonkPink/10"
+                            ? "border-violet-400 bg-violet-500/15 ring-1 ring-violet-400/30"
+                            : "border-violet-300/15 bg-white/5 hover:border-violet-300/60 hover:bg-violet-500/10"
                       }`}
                     >
                       {/* Day-of-week eyebrow */}
