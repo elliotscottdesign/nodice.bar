@@ -108,13 +108,42 @@ export default function LeagueTable() {
         )}
       </div>
 
-      <p className="mt-5 text-center text-xs text-violet-100/50">
-        <span className="text-violet-300">✦</span> = top 8 · qualifies for the grand final
-        {data && data.nights > 0 ? ` · ${data.nights} night${data.nights === 1 ? "" : "s"} counted` : ""}
-      </p>
-      <p className="mx-auto mt-2 max-w-md text-center text-[11px] leading-relaxed text-violet-100/40">
-        1st <b className="text-violet-200/70">5</b> · 2nd <b className="text-violet-200/70">4</b> · 3rd <b className="text-violet-200/70">3</b> · turn up <b className="text-violet-200/70">1</b> · top the rounds table <b className="text-violet-200/70">+1</b>. Level on points → season frame difference.
-      </p>
+      {/* How points work — on its own legible card so it reads over the hero image */}
+      <div className="mx-auto mt-6 max-w-xl rounded-2xl border border-violet-400/30 bg-[#160e24]/90 px-5 py-5 shadow-xl shadow-violet-950/40 backdrop-blur-md">
+        <p className="mb-3 text-center text-[11px] font-bold uppercase tracking-[0.16em] text-violet-300">
+          🎱 How points work
+        </p>
+        <div className="flex flex-wrap justify-center gap-2">
+          {[
+            ["🥇", "1st", "+5"],
+            ["🥈", "2nd", "+4"],
+            ["🥉", "3rd", "+3"],
+            ["🙋", "Turn up", "+1"],
+            ["📊", "Top the rounds", "+1"],
+          ].map(([emoji, label, pts]) => (
+            <span
+              key={label}
+              className="inline-flex items-center gap-1.5 rounded-full border border-violet-400/30 bg-violet-500/15 px-3 py-1.5 text-sm text-violet-50"
+            >
+              <span>{emoji}</span>
+              <span className="text-violet-100/85">{label}</span>
+              <b className="font-extrabold text-white">{pts}</b>
+            </span>
+          ))}
+        </div>
+        <p className="mt-4 text-center text-xs leading-relaxed text-violet-100/80">
+          <span className="font-extrabold text-violet-300">✦ Top 8</span> go through to the grand final. Level on points?{" "}
+          <b className="text-white">Best season frame difference</b> wins.
+          {data && data.nights > 0 ? (
+            <>
+              {" · "}
+              <span className="text-violet-200/70">
+                🗓️ {data.nights} night{data.nights === 1 ? "" : "s"} counted so far
+              </span>
+            </>
+          ) : null}
+        </p>
+      </div>
     </div>
   );
 }
