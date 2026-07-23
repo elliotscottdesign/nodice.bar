@@ -58,7 +58,10 @@ const FALLBACK_CARDS = [
     name: "Plonk Hackney",
     tagline: "Mini golf · 9 holes · London Fields",
     blurb: "Plonk's Polynesian-themed crazy golf course, next door to No Dice. Book a tee time.",
-    image: "",
+    // Same fallback image the /minigolf hero uses so the card matches
+    // the landing page visually. Founder can override per-card via the
+    // CMS ("book.minigolf.image") without touching this file.
+    image: "https://rntcujcpsozvuxvmlejv.supabase.co/storage/v1/object/public/media/page/1781610983789-golf-rsaterized-300x-colour.png",
     href: "/book/hackney",
   },
   {
