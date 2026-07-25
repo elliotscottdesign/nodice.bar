@@ -4,14 +4,36 @@ import { useState } from "react";
 import { AdminCard } from "@/components/admin/AdminCard";
 import { supabase } from "@/lib/supabase";
 
+const SUPABASE_URL =
+  process.env.NEXT_PUBLIC_SUPABASE_URL ??
+  "https://rntcujcpsozvuxvmlejv.supabase.co";
+const SUPABASE_ANON_KEY = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY ?? "";
+const SEND_CONFIRMATION_URL =
+  `${SUPABASE_URL}/functions/v1/send-pool-confirmation`;
+
+// A "real-looking" email — has an @, a dot in the domain, and isn't the
+// info@ walk-in placeholder. Used to decide whether to default the
+// "Send confirmation email" checkbox to on.
+function looksLikeRealEmail(raw: string): boolean {
+  const s = raw.trim().toLowerCase();
+  if (!s || s === "info@nodice.bar") return false;
+  return /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(s);
+}
+
 // =============================================================
 // AddReservationForm — manual admin booking creation
 // =============================================================
 // Inline "+ Add booking" form at the top of /admin/table-reservations
 // and /admin/pool-reservations. Founder takes a phone reservation /
 // walk-in / staff hold and types it straight in; row goes to the
-// database with status='confirmed' (no payment, no customer email
-// goes out — it's already locked in).
+// database with status='confirmed'.
+//
+// 2026-07-23 — added the "Send confirmation email" checkbox (defaults
+// on if a real-looking email is present) and the "Include staff notes
+// in email" checkbox (defaults off so internal notes stay internal
+// unless the founder ticks it). On save, if the first box is on we
+// call the send-pool-confirmation Edge Function (which now handles
+// both pool AND table kinds — see the function header for detail).
 //
 // Why direct supabase().from(...).insert() and not an Edge Function:
 // bar_reservations has RLS disabled by design (see migration
@@ -62,6 +84,12 @@ export default function AddReservationForm({
   const [email, setEmail] = useState("");
   const [phone, setPhone] = useState("");
   const [notes, setNotes] = useState("");
+  // Send-confirmation defaults to true — the founder will manually
+  // untick if it's a walk-in with a placeholder email. Include-notes
+  // defaults to false so internal notes (e.g. "kicked out last time")
+  // don't accidentally reach the customer.
+  const [sendConfirmation, setSendConfirmation] = useState(true);
+  const [includeNotesInEmail, setIncludeNotesInEmail] = useState(false);
 
   function reset() {
     setName("");
@@ -72,7 +100,8 @@ export default function AddReservationForm({
     setResourceCount("1");
     setDuration(kind === "pool" ? "60" : "90");
     setTime(kind === "pool" ? "18:00" : "19:00");
-    setDate(new Date().toISOString().slice(0, 10));
+    setSendConfirmation(true);
+    setIncludeNotesInEmail(false);
     setErr("");
     setOk("");
   }
@@ -96,7 +125,8 @@ export default function AddReservationForm({
     );
     setBusy(true);
     try {
-      const { error } = await supabase()
+      const finalEmail = email.trim() || WALK_IN_EMAIL;
+      const { data: inserted, error } = await supabase()
         .from("bar_reservations")
         .insert({
           kind,
@@ -106,15 +136,56 @@ export default function AddReservationForm({
           party_size: partySizeInt,
           resource_count: kind === "pool" ? resourceCountInt : 1,
           name: name.trim(),
-          email: email.trim() || WALK_IN_EMAIL,
+          email: finalEmail,
           phone: phone.trim() || null,
           notes: notes.trim() || null,
           heard_from: "Manual admin entry",
           marketing_opt_in: false,
           status: "confirmed", // founder-created = already locked in
-        });
+        })
+        .select("id")
+        .single();
       if (error) throw error;
-      setOk(`Booking added for ${name.trim()}.`);
+
+      // Fire the customer confirmation email if the founder ticked the
+      // box AND we have a real email (never send to the walk-in
+      // placeholder — that would land in the shared info@ mailbox).
+      let emailMessage = "";
+      const wantsEmail = sendConfirmation && looksLikeRealEmail(finalEmail);
+      if (wantsEmail) {
+        try {
+          const res = await fetch(SEND_CONFIRMATION_URL, {
+            method: "POST",
+            headers: {
+              "Content-Type": "application/json",
+              apikey: SUPABASE_ANON_KEY,
+              Authorization: `Bearer ${SUPABASE_ANON_KEY}`,
+            },
+            body: JSON.stringify({
+              reservation_id: inserted.id,
+              include_notes: includeNotesInEmail,
+            }),
+          });
+          if (res.ok) {
+            emailMessage = includeNotesInEmail
+              ? " Confirmation email sent (with notes)."
+              : " Confirmation email sent.";
+          } else {
+            const detail = await res.text().catch(() => "");
+            emailMessage =
+              ` Booking saved but confirmation email failed (HTTP ${res.status}). ${detail.slice(0, 140)}`;
+          }
+        } catch (err) {
+          emailMessage = ` Booking saved but confirmation email errored: ${
+            err instanceof Error ? err.message : String(err)
+          }`;
+        }
+      } else if (sendConfirmation) {
+        // Founder wanted an email but the address wasn't real enough.
+        emailMessage = " (No email sent — the address looks like a placeholder.)";
+      }
+
+      setOk(`Booking added for ${name.trim()}.${emailMessage}`);
       reset();
       onCreated();
     } catch (e) {
@@ -268,6 +339,59 @@ export default function AddReservationForm({
             placeholder="Dietary, allergies, special occasion, anything staff should know"
             className={inputCls + " mt-1"}
           />
+        </div>
+
+        {/* Confirmation-email toggles. Rendered as a small block so it
+            visually groups the two settings that control what the
+            customer receives once you hit Save. */}
+        <div className="space-y-2 rounded-lg border border-cream/10 bg-ink/30 px-4 py-3">
+          <label className="flex items-start gap-3 text-sm text-cream/90">
+            <input
+              type="checkbox"
+              checked={sendConfirmation}
+              onChange={(e) => setSendConfirmation(e.target.checked)}
+              className="mt-0.5 h-4 w-4 accent-plonkPink"
+            />
+            <span>
+              <span className="font-semibold">Send confirmation email</span>
+              <span className="ml-2 text-[11px] uppercase tracking-widest text-cream/50">
+                {looksLikeRealEmail(email)
+                  ? "recommended"
+                  : "email looks like a placeholder"}
+              </span>
+              <span className="mt-1 block text-xs text-cream/60">
+                Standard No Dice confirmation with the date, time, party
+                size and venue address. Skipped automatically if the
+                email is blank or set to info@nodice.bar.
+              </span>
+            </span>
+          </label>
+
+          <label className="flex items-start gap-3 text-sm text-cream/90">
+            <input
+              type="checkbox"
+              checked={includeNotesInEmail}
+              onChange={(e) => setIncludeNotesInEmail(e.target.checked)}
+              disabled={!sendConfirmation || !notes.trim()}
+              className="mt-0.5 h-4 w-4 accent-plonkPink disabled:opacity-40"
+            />
+            <span
+              className={
+                !sendConfirmation || !notes.trim()
+                  ? "opacity-50"
+                  : undefined
+              }
+            >
+              <span className="font-semibold">
+                Include the notes in the customer email
+              </span>
+              <span className="mt-1 block text-xs text-cream/60">
+                Tick only if the note is something the customer should
+                see (e.g. "high chair reserved"). Leave off for
+                internal-only notes.
+              </span>
+            </span>
+          </label>
         </div>
 
         {err && (

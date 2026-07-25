@@ -2,16 +2,29 @@
 // No Dice — send-pool-confirmation
 // =============================================================
 // POST /functions/v1/send-pool-confirmation
-// Body: { reservation_id: string }
+// Body: { reservation_id: string, include_notes?: boolean }
 //
 // Sends the customer a No Dice-branded confirmation email after
-// their pool table reservation is paid. Called by the stripe-webhook
-// the moment a bar_reservations row transitions to status='paid'.
-// Idempotent in spirit — calling again just sends another copy.
+// a bar_reservations row (kind = 'pool' OR 'table') is confirmed.
+//
+// Called from two paths:
+//  1. stripe-webhook — customer-side paid pool booking → include_notes
+//     defaults to true so any notes the customer typed in themselves
+//     come back to them.
+//  2. AddReservationForm (admin manual entry) — staff types in a phone
+//     booking; if the "Send confirmation email" box is ticked, this
+//     function fires. include_notes is only true if the admin also
+//     ticks the "Include staff notes in email" box (default off), so
+//     internal notes stay internal by default.
+//
+// Kept the historic function name send-pool-confirmation for
+// backwards compatibility with the existing stripe-webhook wiring.
+// It also handles table reservations now — the copy branches on
+// bar_reservations.kind.
 //
 // Sender: info@nodice.bar via Resend HTTP API.
-// Auth:   JWT verification ON. The webhook calls us with the
-//         service-role key, which Supabase accepts as a JWT.
+// Auth:   JWT verification ON. The webhook calls with the service-
+//         role key, admin calls with the admin's own JWT.
 // =============================================================
 
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2.45.4";
@@ -80,6 +93,7 @@ function formatDuration(min: number): string {
 }
 
 function renderEmailHtml(o: {
+  kind: "pool" | "table";
   firstName: string;
   bookingDate: string;
   startTime: string;
@@ -88,8 +102,16 @@ function renderEmailHtml(o: {
   amountPaid: string;
   notes: string | null;
 }): string {
+  const isPool = o.kind === "pool";
+  const kicker = isPool ? "Pool table confirmed" : "Table confirmed";
+  const headline = isPool
+    ? `${o.firstName}, your pool table's locked in.`
+    : `${o.firstName}, your table's locked in.`;
+  const introLine = o.amountPaid && o.amountPaid !== "£0"
+    ? "Payment landed — see you on the night. Bring this email or just show up with your name at the door."
+    : "See you on the night. Bring this email or just show up with your name at the door.";
   return `<!DOCTYPE html>
-<html><head><meta charset="utf-8"><title>Pool table confirmed</title></head>
+<html><head><meta charset="utf-8"><title>${kicker}</title></head>
 <body style="margin:0;padding:0;background:#000;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Helvetica,Arial,sans-serif;color:#f5efe3;">
   <table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0" style="background:#000;">
     <tr>
@@ -102,10 +124,10 @@ function renderEmailHtml(o: {
             <div style="font-size:11px;font-weight:700;letter-spacing:0.32em;text-transform:uppercase;color:#DA1B33;">London Fields · Hackney</div>
           </td></tr>
           <tr><td style="background:#0c0c0c;border:1px solid rgba(245,239,227,0.1);border-radius:16px;padding:32px;">
-            <div style="font-size:10px;font-weight:700;letter-spacing:0.3em;text-transform:uppercase;color:#DA1B33;margin-bottom:12px;">Table confirmed</div>
-            <h1 style="margin:0 0 16px;font-size:28px;line-height:1.1;letter-spacing:0.02em;font-weight:900;color:#f5efe3;">${o.firstName}, your pool table's locked in.</h1>
+            <div style="font-size:10px;font-weight:700;letter-spacing:0.3em;text-transform:uppercase;color:#DA1B33;margin-bottom:12px;">${kicker}</div>
+            <h1 style="margin:0 0 16px;font-size:28px;line-height:1.1;letter-spacing:0.02em;font-weight:900;color:#f5efe3;">${headline}</h1>
             <p style="margin:0 0 24px;font-size:15px;line-height:1.55;color:rgba(245,239,227,0.85);">
-              Payment landed — see you on the night. Bring this email or just show up with your name at the door.
+              ${introLine}
             </p>
             <table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0" style="margin:24px 0;">
               <tr>
@@ -124,10 +146,14 @@ function renderEmailHtml(o: {
                 <td style="padding:14px 0;border-top:1px solid rgba(245,239,227,0.12);font-size:11px;font-weight:700;letter-spacing:0.22em;text-transform:uppercase;color:rgba(245,239,227,0.55);vertical-align:top;">Party size</td>
                 <td style="padding:14px 0;border-top:1px solid rgba(245,239,227,0.12);font-size:15px;color:#f5efe3;">${o.partySize}</td>
               </tr>
-              <tr>
+              ${
+                o.amountPaid && o.amountPaid !== "£0"
+                  ? `<tr>
                 <td style="padding:14px 0;border-top:1px solid rgba(245,239,227,0.12);font-size:11px;font-weight:700;letter-spacing:0.22em;text-transform:uppercase;color:rgba(245,239,227,0.55);vertical-align:top;">Paid</td>
                 <td style="padding:14px 0;border-top:1px solid rgba(245,239,227,0.12);font-size:15px;color:#f5efe3;">${o.amountPaid}</td>
-              </tr>
+              </tr>`
+                  : ""
+              }
               ${
                 o.notes
                   ? `<tr>
@@ -144,7 +170,11 @@ function renderEmailHtml(o: {
             <div style="margin-top:24px;padding-top:24px;border-top:1px solid rgba(245,239,227,0.12);">
               <div style="font-size:10px;font-weight:700;letter-spacing:0.3em;text-transform:uppercase;color:#DA1B33;margin-bottom:8px;">On the night</div>
               <div style="font-size:14px;color:rgba(245,239,227,0.85);line-height:1.6;">
-                We hold the table for 15 minutes past your slot. After that we may give it to walk-ins, so please arrive on time. The table's set up and chalked when you get there — just say your name at the bar.
+                ${
+                  isPool
+                    ? "We hold the table for 15 minutes past your slot. After that we may give it to walk-ins, so please arrive on time. The table's set up and chalked when you get there — just say your name at the bar."
+                    : "We hold your table for 15 minutes past your slot. After that we may give it to walk-ins, so please arrive on time. Just say your name at the door and the team will bring you over."
+                }
               </div>
             </div>
             <div style="margin-top:24px;padding-top:24px;border-top:1px solid rgba(245,239,227,0.12);font-size:13px;color:rgba(245,239,227,0.7);line-height:1.55;">
@@ -165,6 +195,7 @@ function renderEmailHtml(o: {
 }
 
 function renderEmailText(o: {
+  kind: "pool" | "table";
   firstName: string;
   bookingDate: string;
   startTime: string;
@@ -173,20 +204,32 @@ function renderEmailText(o: {
   amountPaid: string;
   notes: string | null;
 }): string {
+  const isPool = o.kind === "pool";
+  const kicker = isPool ? "POOL TABLE CONFIRMED" : "TABLE CONFIRMED";
+  const headline = isPool
+    ? `${o.firstName}, your pool table's locked in.`
+    : `${o.firstName}, your table's locked in.`;
+  const paid = o.amountPaid && o.amountPaid !== "£0";
+  const introLine = paid
+    ? "Payment landed — see you on the night. Bring this email or just show up with your name at the door."
+    : "See you on the night. Bring this email or just show up with your name at the door.";
+  const onTheNight = isPool
+    ? "We hold the table for 15 minutes past your slot. After that we may give it to walk-ins, so please arrive on time. The table's set up and chalked when you get there — just say your name at the bar."
+    : "We hold your table for 15 minutes past your slot. After that we may give it to walk-ins, so please arrive on time. Just say your name at the door and the team will bring you over.";
   return [
     `NO DICE — LONDON FIELDS, HACKNEY`,
     ``,
-    `TABLE CONFIRMED`,
+    kicker,
     ``,
-    `${o.firstName}, your pool table's locked in.`,
+    headline,
     ``,
-    `Payment landed — see you on the night. Bring this email or just show up with your name at the door.`,
+    introLine,
     ``,
     `Date:       ${o.bookingDate}`,
     `Start time: ${o.startTime}`,
     `Length:     ${o.duration}`,
     `Party size: ${o.partySize}`,
-    `Paid:       ${o.amountPaid}`,
+    paid ? `Paid:       ${o.amountPaid}` : "",
     o.notes ? `Your notes: ${o.notes}` : "",
     ``,
     `WHERE`,
@@ -194,7 +237,7 @@ function renderEmailText(o: {
     `${VENUE_ADDRESS}`,
     ``,
     `ON THE NIGHT`,
-    `We hold the table for 15 minutes past your slot. After that we may give it to walk-ins, so please arrive on time. The table's set up and chalked when you get there — just say your name at the bar.`,
+    onTheNight,
     ``,
     `Need to change or cancel? Reply to this email.`,
     ``,
@@ -217,13 +260,20 @@ Deno.serve(async (req) => {
     );
   }
 
-  let body: { reservation_id?: string };
+  let body: { reservation_id?: string; include_notes?: boolean };
   try {
     body = await req.json();
   } catch {
     return jsonResponse({ error: "Invalid JSON body" }, { status: 400 });
   }
   const { reservation_id } = body;
+  // include_notes defaults to true for backwards compatibility with the
+  // existing stripe-webhook call — customer-side "notes" are the
+  // customer's own instructions (e.g. wheelchair access) that they
+  // expect to see in their confirmation. Admin manual entry passes
+  // include_notes: false unless the staff ticks "Include staff notes
+  // in email" (default off) — internal notes stay internal.
+  const includeNotes = body.include_notes !== false;
   if (!reservation_id) {
     return jsonResponse(
       { error: "Missing reservation_id" },
@@ -247,23 +297,29 @@ Deno.serve(async (req) => {
   if (!r) {
     return jsonResponse({ error: "Reservation not found" }, { status: 404 });
   }
-  if (r.kind !== "pool") {
+  if (r.kind !== "pool" && r.kind !== "table") {
     return jsonResponse(
-      { error: "Not a pool reservation" },
+      { error: `Unsupported reservation kind: ${r.kind}` },
       { status: 400 },
     );
   }
 
+  const kind = r.kind as "pool" | "table";
   const firstName = (r.name ?? "").split(" ")[0] || r.name || "there";
   const opts = {
+    kind,
     firstName,
     bookingDate: formatDate(r.reservation_date),
     startTime: formatTime(r.start_time),
     duration: formatDuration(r.duration_minutes),
     partySize: r.party_size,
     amountPaid: formatPounds(r.amount_pence ?? 0),
-    notes: r.notes,
+    notes: includeNotes ? r.notes : null,
   };
+
+  const subject = kind === "pool"
+    ? `Pool table confirmed — ${opts.bookingDate} ${opts.startTime}`
+    : `Table confirmed — ${opts.bookingDate} ${opts.startTime}`;
 
   const res = await fetch("https://api.resend.com/emails", {
     method: "POST",
@@ -275,7 +331,7 @@ Deno.serve(async (req) => {
       from: SENDER,
       to: r.email,
       reply_to: REPLY_TO,
-      subject: `Pool table confirmed — ${opts.bookingDate} ${opts.startTime}`,
+      subject,
       html: renderEmailHtml(opts),
       text: renderEmailText(opts),
     }),
