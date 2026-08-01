@@ -334,7 +334,11 @@ export default function EventsPage() {
           </span>
           <button
             type="button"
-            onClick={() => setSelectedCats(new Set(EVENT_TYPES))}
+            // True toggle: on → clears every category (empty calendar); off →
+            // re-selects everything. Founder direction 2026-07-31.
+            onClick={() =>
+              setSelectedCats(allCatsOn ? new Set() : new Set(EVENT_TYPES))
+            }
             aria-pressed={allCatsOn}
             className={`shrink-0 rounded-full border px-3.5 py-1.5 text-[11px] font-bold uppercase tracking-[0.14em] transition ${
               allCatsOn
