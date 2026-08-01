@@ -322,12 +322,29 @@ export default function EventsPage() {
         </div>
       </section>
 
-      {/* CATEGORY FILTER — tick which kinds of event to show. */}
+      {/* CATEGORY FILTER — SHOW ALL is a master toggle at the front. When
+          it's on, every category pill lights up; unticking any category
+          drops SHOW ALL out of its active state automatically (since not
+          everything is selected any more). Tapping SHOW ALL again re-selects
+          the full set. Founder direction 2026-07-31. */}
       <section className="px-6 pb-2">
         <div className="mx-auto flex max-w-6xl flex-wrap items-center gap-2">
           <span className="mr-1 text-[11px] font-bold uppercase tracking-[0.18em] text-cream/45">
             Show
           </span>
+          <button
+            type="button"
+            onClick={() => setSelectedCats(new Set(EVENT_TYPES))}
+            aria-pressed={allCatsOn}
+            className={`shrink-0 rounded-full border px-3.5 py-1.5 text-[11px] font-bold uppercase tracking-[0.14em] transition ${
+              allCatsOn
+                ? "border-cream bg-cream text-ink"
+                : "border-cream/25 text-cream/70 hover:border-cream/60 hover:text-cream"
+            }`}
+          >
+            {allCatsOn ? "✓ " : ""}
+            Show all
+          </button>
           {EVENT_TYPES.map((c) => {
             const on = selectedCats.has(c);
             return (
@@ -347,15 +364,6 @@ export default function EventsPage() {
               </button>
             );
           })}
-          {!allCatsOn && (
-            <button
-              type="button"
-              onClick={() => setSelectedCats(new Set(EVENT_TYPES))}
-              className="ml-1 text-[11px] font-bold uppercase tracking-[0.14em] text-cream/45 underline-offset-2 transition hover:text-cream hover:underline"
-            >
-              Show all
-            </button>
-          )}
         </div>
       </section>
 
