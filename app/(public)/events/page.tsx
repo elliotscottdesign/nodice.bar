@@ -296,6 +296,29 @@ export default function EventsPage() {
         sliderKey="hero.events"
       />
 
+      {/* Open call — top of the calendar so any DJ can put themselves forward to
+          play. The DJ portal lives on the team hub, so this links out to
+          team.nodice.bar/dj/join (a code-gated profile form, not a booking). */}
+      <section className="px-6 pt-4">
+        <div className="mx-auto flex max-w-6xl flex-wrap items-center gap-4 rounded-2xl border border-plonkPink/30 bg-plonkPink/10 px-5 py-4 sm:px-6 sm:py-5">
+          <div className="min-w-[200px] flex-1">
+            <p className="font-display text-lg uppercase tracking-wide text-cream sm:text-xl">
+              Want to play at No Dice?
+            </p>
+            <p className="mt-1 text-sm leading-snug text-cream/70">
+              Set up a DJ profile and our booking team will be in touch — no need to
+              know anyone.
+            </p>
+          </div>
+          <a
+            href="https://team.nodice.bar/dj/join"
+            className="shrink-0 rounded-full border border-plonkPink bg-plonkPink px-6 py-3 text-xs font-bold uppercase tracking-[0.18em] text-white transition hover:opacity-90"
+          >
+            Become a No Dice DJ
+          </a>
+        </div>
+      </section>
+
       {/* MONTH SCROLLER — horizontal scroll strip of month buttons.
           Active month highlighted; tap any other to switch. */}
       <section className="px-6 py-6">
