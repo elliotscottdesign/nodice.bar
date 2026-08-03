@@ -309,7 +309,37 @@ async function handlePoolReservationPaymentIntent(
     );
   });
 
+  // Big-booking alert to the founder's inbox — 12+ covers gets kitchen +
+  // management a heads-up in time to plan for the extra load. Also fire-
+  // and-forget for the same reason as the confirmation email.
+  if ((r.party_size ?? 0) >= 12) {
+    fireBigBookingAlert(r.id).catch((e) => {
+      console.error(
+        `Big-booking alert failed for reservation ${r!.id}:`,
+        e,
+      );
+    });
+  }
+
   return new Response("ok", { status: 200 });
+}
+
+async function fireBigBookingAlert(reservationId: string): Promise<void> {
+  const res = await fetch(
+    `${SUPABASE_URL}/functions/v1/notify-big-booking`,
+    {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        Authorization: `Bearer ${SUPABASE_SERVICE_ROLE_KEY}`,
+      },
+      body: JSON.stringify({ reservation_id: reservationId }),
+    },
+  );
+  if (!res.ok) {
+    const txt = await res.text().catch(() => "");
+    throw new Error(`HTTP ${res.status}: ${txt}`);
+  }
 }
 
 async function firePoolConfirmationEmail(reservationId: string): Promise<void> {

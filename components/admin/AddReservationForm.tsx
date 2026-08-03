@@ -10,6 +10,11 @@ const SUPABASE_URL =
 const SUPABASE_ANON_KEY = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY ?? "";
 const SEND_CONFIRMATION_URL =
   `${SUPABASE_URL}/functions/v1/send-pool-confirmation`;
+const NOTIFY_BIG_BOOKING_URL =
+  `${SUPABASE_URL}/functions/v1/notify-big-booking`;
+// 12+ covers pings the founder inbox so kitchen + management can plan for
+// the extra load. Matches BIG_THRESHOLD in the edge function.
+const BIG_BOOKING_THRESHOLD = 12;
 
 // A "real-looking" email — has an @, a dot in the domain, and isn't the
 // info@ walk-in placeholder. Used to decide whether to default the
@@ -185,7 +190,30 @@ export default function AddReservationForm({
         emailMessage = " (No email sent — the address looks like a placeholder.)";
       }
 
-      setOk(`Booking added for ${name.trim()}.${emailMessage}`);
+      // Big-booking alert to the founder's inbox — fire-and-forget so a
+      // Resend hiccup can't block the save. Matches the stripe-webhook
+      // path so paid AND manual entries both trigger it consistently.
+      let bigMessage = "";
+      if (partySizeInt >= BIG_BOOKING_THRESHOLD) {
+        try {
+          const res = await fetch(NOTIFY_BIG_BOOKING_URL, {
+            method: "POST",
+            headers: {
+              "Content-Type": "application/json",
+              apikey: SUPABASE_ANON_KEY,
+              Authorization: `Bearer ${SUPABASE_ANON_KEY}`,
+            },
+            body: JSON.stringify({ reservation_id: inserted.id }),
+          });
+          bigMessage = res.ok
+            ? " Founder alerted (12+ covers)."
+            : ` (Big-booking alert failed: HTTP ${res.status}.)`;
+        } catch (err) {
+          bigMessage = ` (Big-booking alert errored: ${err instanceof Error ? err.message : String(err)})`;
+        }
+      }
+
+      setOk(`Booking added for ${name.trim()}.${emailMessage}${bigMessage}`);
       reset();
       onCreated();
     } catch (e) {
