@@ -4,8 +4,12 @@
 // POST /functions/v1/send-booking-confirmation
 // Body: { booking_id: string }
 //
-// Sends the customer's booking-confirmation email via Gmail SMTP
-// (using a Google App Password for bookings@plonkgolf.co.uk).
+// Sends the customer's booking-confirmation email via Resend from
+// info@nodice.bar — same channel as every other email in the project.
+// (2026-08-06: converted from Gmail SMTP. The SMTP credentials the fork
+// expected — a bookings@plonkgolf.co.uk App Password — were never set in
+// this Supabase project, so golf confirmations silently never sent.
+// Resend's key IS configured and battle-tested by send-pool-confirmation.)
 //
 // Called from `stripe-webhook` the moment a booking transitions
 // to `confirmed`. Can also be re-invoked from an admin "resend"
@@ -20,7 +24,6 @@
 // =============================================================
 
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2.45.4";
-import { SMTPClient } from "https://deno.land/x/denomailer@1.6.0/mod.ts";
 
 // ---------- inlined CORS helpers (kept here so the function is self-
 //            contained for the Supabase Dashboard paste-and-deploy flow) ----
@@ -50,15 +53,15 @@ function handlePreflight(req: Request): Response | null {
 
 const SUPABASE_URL = Deno.env.get("SUPABASE_URL") ?? "";
 const SUPABASE_SERVICE_ROLE_KEY = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY") ?? "";
-const SMTP_USERNAME = Deno.env.get("SMTP_USERNAME") ?? "";
-const SMTP_PASSWORD = Deno.env.get("SMTP_PASSWORD") ?? "";
+const RESEND_API_KEY = Deno.env.get("RESEND_API_KEY") ?? "";
 
-// Gmail App Passwords must send `From:` matching the authenticated user,
-// so FROM_EMAIL is always SMTP_USERNAME — no override.
 // FROM_NAME is derived per-booking from the venue name ("Plonk Hackney",
 // and when future venues open, "Plonk Borough" etc.) — matches the
 // signage / Google Business Profile the customer sees at the door.
-const REPLY_TO = "bookings@plonkgolf.co.uk";
+// Sends from info@nodice.bar (the Resend-verified domain; only info@ and
+// elliot@ are real mailboxes — never invent another local-part).
+const FROM_EMAIL = "info@nodice.bar";
+const REPLY_TO = "info@nodice.bar";
 
 const db = createClient(SUPABASE_URL, SUPABASE_SERVICE_ROLE_KEY, {
   auth: { persistSession: false },
@@ -248,9 +251,9 @@ Deno.serve(async (req) => {
     return jsonResponse({ error: "POST only" }, { status: 405 });
   }
 
-  if (!SMTP_USERNAME || !SMTP_PASSWORD) {
+  if (!RESEND_API_KEY) {
     return jsonResponse(
-      { error: "SMTP_USERNAME / SMTP_PASSWORD not configured" },
+      { error: "RESEND_API_KEY not configured" },
       { status: 500 },
     );
   }
@@ -296,43 +299,31 @@ Deno.serve(async (req) => {
 
   const { subject, text, html, fromName } = composeEmail(booking as unknown as Booking);
 
-  // Strip trailing whitespace from every line. Without this, blank lines that
-  // contain only indentation spaces get quoted-printable-encoded as `=20` and
-  // some mail clients (Gmail, Outlook) render the `=20` literally instead of
-  // decoding it back to a space.
-  const stripTrailingWs = (s: string) =>
-    s.split("\n").map((line) => line.replace(/[ \t]+$/g, "")).join("\n");
-  const cleanText = stripTrailingWs(text);
-  const cleanHtml = stripTrailingWs(html);
-
-  const client = new SMTPClient({
-    connection: {
-      hostname: "smtp.gmail.com",
-      port: 465,
-      tls: true,
-      auth: { username: SMTP_USERNAME, password: SMTP_PASSWORD },
+  const res = await fetch("https://api.resend.com/emails", {
+    method: "POST",
+    headers: {
+      Authorization: `Bearer ${RESEND_API_KEY}`,
+      "Content-Type": "application/json",
     },
-  });
-
-  try {
-    await client.send({
-      from: `${fromName} <${SMTP_USERNAME}>`,
+    body: JSON.stringify({
+      from: `${fromName} <${FROM_EMAIL}>`,
       to: booking.customer_email,
-      replyTo: REPLY_TO,
+      reply_to: REPLY_TO,
       subject,
-      content: cleanText,
-      html: cleanHtml,
-    });
-  } catch (e) {
-    const msg = e instanceof Error ? e.message : String(e);
-    try {
-      await client.close();
-    } catch { /* ignore */ }
-    console.error(`SMTP send failed for booking ${bookingId}: ${msg}`);
-    return jsonResponse({ error: `SMTP send failed: ${msg}` }, { status: 502 });
+      html,
+      text,
+    }),
+  });
+  if (!res.ok) {
+    const txt = await res.text().catch(() => "");
+    console.error(
+      `Resend send failed for booking ${bookingId}: HTTP ${res.status} ${txt}`,
+    );
+    return jsonResponse(
+      { error: `Resend send failed: HTTP ${res.status} ${txt}` },
+      { status: 502 },
+    );
   }
-
-  await client.close();
 
   console.log(
     `Confirmation email sent for booking ${booking.reference} → ${booking.customer_email}`,
