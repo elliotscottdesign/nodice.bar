@@ -166,18 +166,25 @@ export default function PingPongPage() {
         <div className="absolute inset-0 bg-gradient-to-b from-black/30 via-black/62 to-black/92" />
       </div>
 
-      {/* ── Hero ── */}
+      {/* ── Hero — founder copy 6 Aug 2026 ── */}
       <section className="px-6 pb-14 pt-28 text-center sm:pt-36">
         <div className="text-xs font-bold uppercase tracking-[0.3em] text-pongLight">
-          Sundays from 6pm · London Fields
+          Free to play · London Fields
         </div>
         <h1 className="mt-4 font-display text-5xl uppercase tracking-wider text-cream sm:text-7xl">
-          Team Ping Pong
+          Ping Pong
         </h1>
         <p className="mx-auto mt-5 max-w-xl text-base text-cream/80">
-          Grab a partner and take on the room. Swiss rounds into a knockout,
-          bar-tab prizes for both players, and a season league crowning
-          Hackney&apos;s best pair.
+          Our ping pong table is <strong className="text-cream">free to play
+          for all customers</strong> at the bar — a professional-standard
+          Cornilleau outdoor table outside, bats and balls provided, and a
+          host of local talent ready to beat you if you&apos;re looking for
+          some singles action.
+        </p>
+        <p className="mx-auto mt-4 max-w-xl text-base text-cream/80">
+          We also run a <strong className="text-cream">Sunday ping pong
+          tournament every week from 6pm</strong> — rounds, then knockouts,
+          with bar-tab prizes to be won. Sign up below.
         </p>
         <a
           href="#sundays"
