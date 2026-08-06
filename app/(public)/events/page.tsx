@@ -1014,19 +1014,23 @@ const RECORD_STORES: {
   { name: "The BBE Store", handle: "the_bbe_store", area: "Helmsley Place, London Fields", note: "Practically neighbours. BBE releases plus second-hand soul, disco, jazz, rap, breaks, reggae." },
   { name: "Tome Records", handle: "tomerecords", area: "234 Graham Rd, Hackney Central", note: "All genres, new and used, vinyl and cassettes. Open seven days." },
   { name: "Atlantis Records", handle: "atlantis_records_hackney", area: "8 Clarence Rd, Lower Clapton", note: "Collectible second-hand. They buy collections too." },
+  { name: "Yoyo Records", handle: "yoyorecordslondon", area: "501 Cambridge Heath Rd, E2", note: "Soul, funk, jazz and hip hop — US original pressings a speciality. Split off Cosmos Records in 2020." },
+  { name: "Caravan Records", handle: "caravan_worldwide", area: "260 Globe Rd, Bethnal Green", note: "Japanese vintage record and book shop — every record hand-cleaned, plus art mags and zines." },
   { name: "Rough Trade East", handle: "roughtradeeast", area: "Brick Lane", note: "The flagship. Big new-release racks, venue and bar attached." },
   { name: "Next Door Records", handle: "nextdoorrecords_", area: "W12 and N16", flag: "N16 site is the close one", note: "Contemporary, jazz, broken beat, dub, reggae, house, techno, garage. Shop, bar and venue." },
   { name: "Cigarette Records", handle: "cigarette_records", area: "Old Street Records, 350 Old St", flag: "Residency — check IG before you go", note: "Currently set up inside Old Street Records. Strong on afro, reggae and soul rarities." },
 ];
 
-// The record-shop cycle crawl — an efficient one-way ride through every
-// fixed-address shop on the list. Starts at BBE (one minute from the No
-// Dice door), sweeps London Fields → Hackney Central → Clapton → Dalston
-// → Stokey, drops to Brick Lane and ends at Rook in Hackney Wick, a
-// 10-minute ride back to the bar. Next Door (multiple sites) and
-// Cigarette (no fixed shop) are on the list but off the route.
-// Google Maps URL API caps waypoints at 9 — origin + 8 waypoints +
-// destination covers exactly our 10 fixed-address shops.
+// The record-shop cycle crawl — an efficient one-way ride through the
+// fixed-address shops. Starts at BBE (one minute from the No Dice door),
+// sweeps London Fields → Hackney Central → Clapton → Dalston → Stokey,
+// rolls back south through Cambridge Heath (Yoyo) and Bethnal Green
+// (Caravan) and ends at Rook in Hackney Wick, a 10-minute ride back to
+// the bar. Next Door (multiple sites) and Cigarette (residency) are on
+// the list but off the route; Rough Trade East is off the mapped route
+// too — Google's URL API caps at 9 waypoints and Brick Lane is an
+// out-and-back spur, so it gets a note instead (it's the one shop
+// everyone can find anyway).
 const CRAWL_URL = (() => {
   const wp = [
     "Stranger Than Paradise Records, Mare Street Market, London",
@@ -1036,7 +1040,8 @@ const CRAWL_URL = (() => {
     "Kingsland Records, 492 Kingsland Road, London",
     "Hidden Sounds, 89 Ridley Road, London",
     "Kristina Records, Stoke Newington Road, London",
-    "Rough Trade East, Brick Lane, London",
+    "Yoyo Records, 501 Cambridge Heath Road, London",
+    "Caravan Records, 260 Globe Road, London",
   ];
   const p = new URLSearchParams({
     api: "1",
@@ -1049,7 +1054,7 @@ const CRAWL_URL = (() => {
 })();
 
 // Approximate ride times between consecutive stops, in minutes. Shown as
-// a leg-by-leg strip under the Plan-a-trip button. ~63 min riding total.
+// a leg-by-leg strip under the Plan-a-trip button. ~57 min riding total.
 const CRAWL_LEGS: { stop: string; mins?: number }[] = [
   { stop: "BBE", mins: 3 },
   { stop: "Stranger Than Paradise", mins: 4 },
@@ -1058,8 +1063,9 @@ const CRAWL_LEGS: { stop: string; mins?: number }[] = [
   { stop: "Eldica", mins: 2 },
   { stop: "Kingsland", mins: 2 },
   { stop: "Hidden Sounds", mins: 4 },
-  { stop: "Kristina", mins: 15 },
-  { stop: "Rough Trade East", mins: 20 },
+  { stop: "Kristina", mins: 12 },
+  { stop: "Yoyo", mins: 4 },
+  { stop: "Caravan", mins: 13 },
   { stop: "Rook" },
 ];
 
@@ -1114,7 +1120,9 @@ function RecordStores() {
             <p className="mt-2 text-[11px] text-cream/45">
               ~1 hr riding, one way. Starts 1 min from our door, ends in
               Hackney Wick — a 10-minute roll back to the bar for a pint.
-              Times are estimates; check shop opening hours before setting off.
+              Fancy Rough Trade East too? It&apos;s a 7-minute spur from
+              Caravan down to Brick Lane. Times are estimates; check shop
+              opening hours before setting off.
             </p>
           </div>
         )}
