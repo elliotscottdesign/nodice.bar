@@ -56,6 +56,12 @@ const config: Config = {
         plonkYellow: "#DA1B33",
         plonkTeal:   "#1ec8b8",
 
+        // Ping pong green — sampled from the founder's /pingpong halftone
+        // header artwork (6 Aug 2026). pong = fills/CTAs, pongLight = text
+        // accents that need to read on the dark bed.
+        pong:      "#2C8E1E",
+        pongLight: "#5ED14A",
+
         // Explicit No Dice tokens — use for new UI to avoid relying
         // on the legacy plonk* aliases.
         nodiceRed:        "#DA1B33",

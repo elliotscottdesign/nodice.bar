@@ -139,7 +139,9 @@ export default function InlineTournamentBooking({
   // Doubles collect BOTH players (founder rule 6 Aug 2026): the prize tab
   // splits half-and-half, and each player's half is emailed to their own
   // address — so player 2's name + email are required at booking.
-  const isDoubles = tournament.tournament_type === "doubles";
+  const isDoubles =
+    tournament.tournament_type === "doubles" ||
+    tournament.tournament_type === "teams";   // ping pong teams = pairs too
 
   const [teamName, setTeamName] = useState("");
   const [captainName, setCaptainName] = useState("");

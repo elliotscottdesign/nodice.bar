@@ -22,7 +22,7 @@ export type TournamentEntryStatus =
   | "refunded"
   | "cancelled";
 
-export type TournamentType = "singles" | "doubles" | "special";
+export type TournamentType = "singles" | "doubles" | "special" | "teams";
 
 export type DbTournament = {
   id: string;
@@ -171,6 +171,23 @@ export async function loadOpenTournaments(): Promise<DbTournament[]> {
     created_at: e.created_at,
     updated_at: e.updated_at,
   }));
+}
+
+// =========================================================
+// Ping pong Sunday team nights live in the legacy `tournaments` table
+// (tournament_type='teams') rather than the events platform — the public
+// /pingpong page reads them here. RLS exposes registration_open rows only.
+// =========================================================
+export async function loadPingPongNights(): Promise<DbTournament[]> {
+  const today = new Date().toISOString().slice(0, 10);
+  const { data, error } = await supabase()
+    .from("tournaments")
+    .select("*")
+    .eq("tournament_type", "teams")
+    .gte("event_date", today)
+    .order("event_date", { ascending: true });
+  if (error) throw error;
+  return (data ?? []) as DbTournament[];
 }
 
 // =========================================================

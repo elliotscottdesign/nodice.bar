@@ -190,7 +190,7 @@ Deno.serve(async (req) => {
   // migration moved tournament metadata here; ticket_types now holds
   // the entry fee). The id equals the legacy tournaments.id for
   // backfilled tournaments, so this works for both old and new.
-  const { data: ev, error: evErr } = await db
+  const { data: evRow, error: evErr } = await db
     .from("events")
     .select(
       "id, name, category, registration_open, bookable, max_attendees, paid_entries_count",
@@ -203,8 +203,36 @@ Deno.serve(async (req) => {
       { status: 500 },
     );
   }
+  // Ping pong Sunday team nights live in the legacy `tournaments` table
+  // (tournament_type='teams'), not the events platform — fall back there when
+  // the events lookup misses (public /pingpong page, founder 6 Aug 2026).
+  let ev = evRow as {
+    id: string; name: string; category: string; registration_open: boolean;
+    bookable: boolean; max_attendees: number | null; paid_entries_count: number;
+  } | null;
+  let fallbackFee: number | null = null;
   if (!ev) {
-    return jsonResponse({ error: "Tournament not found" }, { status: 404 });
+    const { data: tRow, error: tErr } = await db
+      .from("tournaments")
+      .select("id, name, tournament_type, registration_open, bookable, max_teams, paid_entries_count, entry_fee_pence")
+      .eq("id", input.tournament_id)
+      .eq("tournament_type", "teams")
+      .maybeSingle();
+    if (tErr) {
+      return jsonResponse(
+        { error: `DB error on tournament lookup: ${tErr.message}` },
+        { status: 500 },
+      );
+    }
+    if (!tRow) {
+      return jsonResponse({ error: "Tournament not found" }, { status: 404 });
+    }
+    ev = {
+      id: tRow.id, name: tRow.name, category: "pingpong_tournament_teams",
+      registration_open: tRow.registration_open, bookable: tRow.bookable,
+      max_attendees: tRow.max_teams, paid_entries_count: tRow.paid_entries_count,
+    };
+    fallbackFee = tRow.entry_fee_pence;
   }
   if (!ev.registration_open) {
     return jsonResponse(
@@ -221,7 +249,8 @@ Deno.serve(async (req) => {
   if (
     ev.category !== "pool_tournament_doubles" &&
     ev.category !== "pool_tournament_singles" &&
-    ev.category !== "pool_special"
+    ev.category !== "pool_special" &&
+    ev.category !== "pingpong_tournament_teams"
   ) {
     return jsonResponse(
       { error: "Event is not a tournament" },
@@ -231,29 +260,38 @@ Deno.serve(async (req) => {
   // Doubles need BOTH players' details — the prize tab splits half-and-half
   // and each player's half is emailed to their own address (founder rule
   // 6 Aug 2026).
-  if (ev.category === "pool_tournament_doubles" && !input.partner_email) {
+  if (
+    (ev.category === "pool_tournament_doubles" ||
+      ev.category === "pingpong_tournament_teams") &&
+    !input.partner_email
+  ) {
     return jsonResponse(
-      { error: "Doubles entries need your partner's name and email too" },
+      { error: "Team entries need your partner's name and email too" },
       { status: 400 },
     );
   }
 
-  // First active ticket = the entry fee. Mirrors loadOpenTournaments.
-  const { data: tt, error: ttErr } = await db
-    .from("ticket_types")
-    .select("id, price_pence, active")
-    .eq("event_id", input.tournament_id)
-    .eq("active", true)
-    .order("sort_order", { ascending: true })
-    .limit(1)
-    .maybeSingle();
-  if (ttErr) {
-    return jsonResponse(
-      { error: `DB error on ticket lookup: ${ttErr.message}` },
-      { status: 500 },
-    );
+  // Entry fee: teams nights carry it on the tournaments row; events-platform
+  // nights read the first active ticket type (mirrors loadOpenTournaments).
+  let feePence: number | null = fallbackFee;
+  if (feePence == null) {
+    const { data: tt, error: ttErr } = await db
+      .from("ticket_types")
+      .select("id, price_pence, active")
+      .eq("event_id", input.tournament_id)
+      .eq("active", true)
+      .order("sort_order", { ascending: true })
+      .limit(1)
+      .maybeSingle();
+    if (ttErr) {
+      return jsonResponse(
+        { error: `DB error on ticket lookup: ${ttErr.message}` },
+        { status: 500 },
+      );
+    }
+    feePence = tt?.price_pence ?? null;
   }
-  if (!tt || !tt.price_pence || tt.price_pence <= 0) {
+  if (!feePence || feePence <= 0) {
     return jsonResponse(
       { error: "Tournament has no entry fee configured" },
       { status: 500 },
@@ -290,7 +328,7 @@ Deno.serve(async (req) => {
   let intent: Stripe.PaymentIntent;
   try {
     intent = await stripe.paymentIntents.create({
-      amount: tt.price_pence,
+      amount: feePence,
       currency: "gbp",
       receipt_email: input.captain_email,
       description: `${ev.name} — entry for team "${input.team_name}"`,

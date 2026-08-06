@@ -36,6 +36,7 @@ const TYPE_LABELS: Record<TournamentType, string> = {
   doubles: "Doubles",
   singles: "Singles",
   special: "Special events",
+  teams: "Teams",   // ping pong — lives on /pingpong, never listed here
 };
 
 // Fallback taglines — overridden by CMS via `pool.tournaments.tagline_*`.
@@ -43,12 +44,14 @@ const TYPE_TAGLINES_FALLBACK: Record<TournamentType, string> = {
   doubles: "Teams of two. Every other Wednesday.",
   singles: "Solo entry. Every other Wednesday.",
   special: "One-off tournaments and seasonal showdowns.",
+  teams: "Teams of two. Sundays from 6pm.",
 };
 
 const TYPE_TAGLINE_KEYS: Record<TournamentType, string> = {
   doubles: "pool.tournaments.tagline_doubles",
   singles: "pool.tournaments.tagline_singles",
   special: "pool.tournaments.tagline_special",
+  teams: "pingpong.tournaments.tagline_teams",
 };
 
 function formatDate(iso: string): string {
