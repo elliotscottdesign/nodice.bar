@@ -130,10 +130,23 @@ export default function InlineTournamentBooking({
   const [error, setError] = useState("");
   const [clientSecret, setClientSecret] = useState<string | null>(null);
 
+  // Singles nights have no teams — the form asks only for the player's own
+  // details (founder rule 3 Aug 2026). No "Team name" field; behind the scenes
+  // the player's name doubles as team_name so the checkout function, admin
+  // pages, confirmation emails and the /ops roster all keep working unchanged.
+  // The cardholder ("name on card") is collected by Stripe's own payment box.
+  const isSingles = tournament.tournament_type === "singles";
+  // Doubles collect BOTH players (founder rule 6 Aug 2026): the prize tab
+  // splits half-and-half, and each player's half is emailed to their own
+  // address — so player 2's name + email are required at booking.
+  const isDoubles = tournament.tournament_type === "doubles";
+
   const [teamName, setTeamName] = useState("");
   const [captainName, setCaptainName] = useState("");
   const [captainEmail, setCaptainEmail] = useState("");
   const [captainPhone, setCaptainPhone] = useState("");
+  const [partnerName, setPartnerName] = useState("");
+  const [partnerEmail, setPartnerEmail] = useState("");
   const [heardFrom, setHeardFrom] = useState("");
   const [marketingOptIn, setMarketingOptIn] = useState(false);
   const [submitting, setSubmitting] = useState(false);
@@ -170,10 +183,15 @@ export default function InlineTournamentBooking({
           },
           body: JSON.stringify({
             tournament_id: tournament.id,
-            team_name: teamName.trim(),
+            // Singles: the player's name stands in for the team name.
+            team_name: (isSingles ? captainName : teamName).trim(),
             captain_name: captainName.trim(),
             captain_email: captainEmail.trim(),
             captain_phone: captainPhone.trim(),
+            // Doubles: player 2's details — their half of any prize goes
+            // straight to their own inbox.
+            partner_name: isDoubles ? partnerName.trim() : null,
+            partner_email: isDoubles ? partnerEmail.trim() : null,
             player_count: null,
             notes: null,
             heard_from: heardFrom || null,
@@ -213,6 +231,10 @@ export default function InlineTournamentBooking({
       captainName,
       captainEmail,
       captainPhone,
+      isSingles,
+      isDoubles,
+      partnerName,
+      partnerEmail,
       heardFrom,
       marketingOptIn,
     ],
@@ -246,28 +268,32 @@ export default function InlineTournamentBooking({
     <div className="mt-3 rounded-xl border border-plonkPink/30 bg-plonkPink/5 p-6">
       {phase === "form" && (
         <form onSubmit={handleSubmit} className="space-y-5">
-          <div>
-            <label className="mb-2 block text-[10px] font-bold uppercase tracking-[0.28em] text-plonkPink">
-              Team name
-            </label>
-            <input
-              type="text"
-              required
-              maxLength={80}
-              placeholder="e.g. The Cue Tips"
-              value={teamName}
-              onChange={(e) => setTeamName(e.target.value)}
-              className="w-full rounded-lg border border-cream/15 bg-ink/40 px-4 py-3 text-base text-cream focus:border-plonkPink focus:outline-none"
-            />
-            <p className="mt-1.5 text-[11px] text-cream/50">
-              Can be changed later.
-            </p>
-          </div>
+          {/* Team name only exists on team/doubles nights — a singles entrant
+              just gives their own name. */}
+          {!isSingles && (
+            <div>
+              <label className="mb-2 block text-[10px] font-bold uppercase tracking-[0.28em] text-plonkPink">
+                Team name
+              </label>
+              <input
+                type="text"
+                required
+                maxLength={80}
+                placeholder="e.g. The Cue Tips"
+                value={teamName}
+                onChange={(e) => setTeamName(e.target.value)}
+                className="w-full rounded-lg border border-cream/15 bg-ink/40 px-4 py-3 text-base text-cream focus:border-plonkPink focus:outline-none"
+              />
+              <p className="mt-1.5 text-[11px] text-cream/50">
+                Can be changed later.
+              </p>
+            </div>
+          )}
 
           <div className="grid gap-4 sm:grid-cols-2">
             <div>
               <label className="mb-2 block text-[10px] font-bold uppercase tracking-[0.28em] text-plonkPink">
-                Captain name
+                {isSingles ? "Your name" : "Captain name"}
               </label>
               <input
                 type="text"
@@ -279,7 +305,7 @@ export default function InlineTournamentBooking({
             </div>
             <div>
               <label className="mb-2 block text-[10px] font-bold uppercase tracking-[0.28em] text-plonkPink">
-                Captain email
+                {isSingles ? "Email" : "Captain email"}
               </label>
               <input
                 type="email"
@@ -291,9 +317,46 @@ export default function InlineTournamentBooking({
             </div>
           </div>
 
+          {/* Doubles: player 2's details — prizes split half-and-half and each
+              player's half is emailed to their own address. */}
+          {isDoubles && (
+            <div>
+              <div className="grid gap-4 sm:grid-cols-2">
+                <div>
+                  <label className="mb-2 block text-[10px] font-bold uppercase tracking-[0.28em] text-plonkPink">
+                    Player 2 name
+                  </label>
+                  <input
+                    type="text"
+                    required
+                    value={partnerName}
+                    onChange={(e) => setPartnerName(e.target.value)}
+                    className="w-full rounded-lg border border-cream/15 bg-ink/40 px-4 py-3 text-base text-cream focus:border-plonkPink focus:outline-none"
+                  />
+                </div>
+                <div>
+                  <label className="mb-2 block text-[10px] font-bold uppercase tracking-[0.28em] text-plonkPink">
+                    Player 2 email
+                  </label>
+                  <input
+                    type="email"
+                    required
+                    value={partnerEmail}
+                    onChange={(e) => setPartnerEmail(e.target.value)}
+                    className="w-full rounded-lg border border-cream/15 bg-ink/40 px-4 py-3 text-base text-cream focus:border-plonkPink focus:outline-none"
+                  />
+                </div>
+              </div>
+              <p className="mt-1.5 text-[11px] text-cream/50">
+                Win and the bar-tab prize splits between you — each player gets
+                their half by email.
+              </p>
+            </div>
+          )}
+
           <div>
             <label className="mb-2 block text-[10px] font-bold uppercase tracking-[0.28em] text-plonkPink">
-              Captain phone
+              {isSingles ? "Phone" : "Captain phone"}
             </label>
             <input
               type="tel"
@@ -370,8 +433,16 @@ export default function InlineTournamentBooking({
               Pay {formatPounds(tournament.entry_fee_pence)} to confirm
             </h3>
             <p className="mt-1 text-xs text-cream/55">
-              Team: <strong>{teamName}</strong> · Captain:{" "}
-              <strong>{captainName}</strong>
+              {isSingles ? (
+                <>
+                  Player: <strong>{captainName}</strong>
+                </>
+              ) : (
+                <>
+                  Team: <strong>{teamName}</strong> · Captain:{" "}
+                  <strong>{captainName}</strong>
+                </>
+              )}
             </p>
           </div>
           {/* Stripe Payment Element mounted inside our themed wrapper.

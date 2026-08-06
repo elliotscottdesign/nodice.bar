@@ -85,6 +85,10 @@ type TournamentEntryInput = {
   captain_name: string;
   captain_email: string;
   captain_phone: string;
+  // Doubles collect BOTH players (founder rule 6 Aug 2026): the prize tab
+  // splits half-and-half and each half is emailed separately.
+  partner_name?: string | null;
+  partner_email?: string | null;
   player_count?: number | null;
   notes?: string | null;
   heard_from?: string | null;
@@ -129,6 +133,13 @@ function validate(body: Partial<TournamentEntryInput>): {
   ) {
     return { ok: false, error: "captain_phone is required" };
   }
+  if (
+    body.partner_email != null &&
+    body.partner_email !== "" &&
+    (typeof body.partner_email !== "string" || !EMAIL_RE.test(body.partner_email))
+  ) {
+    return { ok: false, error: "partner_email must be a valid email" };
+  }
   return {
     ok: true,
     input: {
@@ -137,6 +148,10 @@ function validate(body: Partial<TournamentEntryInput>): {
       captain_name: body.captain_name.trim(),
       captain_email: body.captain_email.trim(),
       captain_phone: body.captain_phone.trim(),
+      partner_name:
+        typeof body.partner_name === "string" ? body.partner_name.trim() || null : null,
+      partner_email:
+        typeof body.partner_email === "string" ? body.partner_email.trim() || null : null,
       player_count:
         typeof body.player_count === "number" ? body.player_count : null,
       notes: typeof body.notes === "string" ? body.notes.trim() || null : null,
@@ -210,6 +225,15 @@ Deno.serve(async (req) => {
   ) {
     return jsonResponse(
       { error: "Event is not a tournament" },
+      { status: 400 },
+    );
+  }
+  // Doubles need BOTH players' details — the prize tab splits half-and-half
+  // and each player's half is emailed to their own address (founder rule
+  // 6 Aug 2026).
+  if (ev.category === "pool_tournament_doubles" && !input.partner_email) {
+    return jsonResponse(
+      { error: "Doubles entries need your partner's name and email too" },
       { status: 400 },
     );
   }
@@ -301,6 +325,8 @@ Deno.serve(async (req) => {
       captain_name: input.captain_name,
       captain_email: input.captain_email,
       captain_phone: input.captain_phone,
+      partner_name: input.partner_name,
+      partner_email: input.partner_email,
       player_count: input.player_count,
       notes: input.notes,
       heard_from: input.heard_from,
