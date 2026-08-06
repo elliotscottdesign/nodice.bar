@@ -314,6 +314,13 @@ export default function InlineTournamentBooking({
                 onChange={(e) => setCaptainEmail(e.target.value)}
                 className="w-full rounded-lg border border-cream/15 bg-ink/40 px-4 py-3 text-base text-cream focus:border-plonkPink focus:outline-none"
               />
+              {/* League identity follows this email (founder rule 6 Aug 2026) —
+                  changing it between nights would split the season record. */}
+              <p className="mt-1.5 text-[11px] text-cream/50">
+                {isSingles
+                  ? "Use the same email every time you enter — your league points follow it."
+                  : "Use the same captain email every night — that's how your team's league points add up."}
+              </p>
             </div>
           </div>
 
