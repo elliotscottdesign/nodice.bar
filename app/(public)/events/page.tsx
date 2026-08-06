@@ -571,6 +571,12 @@ export default function EventsPage() {
         </div>
       </section>
 
+      {/* Record stores we love — founder-curated list of local digging
+          spots for the DJ-night crowd (6 Aug 2026). Collapsed by default
+          so it doesn't push the Instagram feed down for people who just
+          came for the calendar. */}
+      <RecordStores />
+
       {/* Live @nodice.bar feed under the calendar. Same Behold widget
           as the homepage; copy is independently editable via its own
           CMS keys so the wording can vary between pages. */}
@@ -982,5 +988,94 @@ function DayEventsPopup({
         </div>
       </div>
     </div>
+  );
+}
+
+// =============================================================
+// Record Stores We Love — founder-curated digging list
+// =============================================================
+// Collapsible section between the calendar and the Instagram feed.
+// 12 shops with Instagram handles; Hackney/East London first, then
+// two flagged worth-the-trip entries. Collapsed by default so the
+// page length stays calendar-first. (Founder list, 6 Aug 2026.)
+const RECORD_STORES: {
+  name: string;
+  handle: string;
+  area: string;
+  note: string;
+  flag?: string;
+}[] = [
+  { name: "Rook Records", handle: "rookrecords", area: "Hackney Wick, E3", note: "Jazz, soul, disco into house. Reggae and hip hop. Heavy on US and Japanese second-hand imports." },
+  { name: "Stranger Than Paradise", handle: "strangerthanparadiserecords", area: "Mare Street Market, E8", note: "New releases and leftfield. The tastemaker shop." },
+  { name: "Kingsland Records", handle: "kingsland_records", area: "492 Kingsland Rd, E8", note: "Reggae, jazz, African, Latin, highlife, soukous, funk, soul, jungle, hip hop. Custom soundsystem in store." },
+  { name: "Eldica Records", handle: "eldica_records", area: "Bradbury St, Dalston", note: "Funk, soul, hip hop, jazz, calypso, African grooves. Second-hand, running since 2001." },
+  { name: "Kristina Records", handle: "kristinarecords", area: "Stoke Newington Rd", note: "New and used across most genres, plus coffee, wine and in-store events." },
+  { name: "Hidden Sounds", handle: "hiddensounds_london", area: "89 Ridley Rd, first floor, E8", note: "House, techno, ambient, experimental, disco, synth and proper obscurities." },
+  { name: "The BBE Store", handle: "the_bbe_store", area: "Helmsley Place, London Fields", note: "Practically neighbours. BBE releases plus second-hand soul, disco, jazz, rap, breaks, reggae." },
+  { name: "Tome Records", handle: "tomerecords", area: "234 Graham Rd, Hackney Central", note: "All genres, new and used, vinyl and cassettes. Open seven days." },
+  { name: "Atlantis Records", handle: "atlantis_records_hackney", area: "8 Clarence Rd, Lower Clapton", note: "Collectible second-hand. They buy collections too." },
+  { name: "Rough Trade East", handle: "roughtradeeast", area: "Brick Lane", note: "The flagship. Big new-release racks, venue and bar attached." },
+  { name: "Next Door Records", handle: "nextdoorrecords_", area: "W12 and N16", flag: "N16 site is the close one", note: "Contemporary, jazz, broken beat, dub, reggae, house, techno, garage. Shop, bar and venue." },
+  { name: "Cigarette Records", handle: "cigarette_records", area: "South London", flag: "No fixed shop right now", note: "Trading through Deptford and market events. Strong on afro, reggae and soul rarities." },
+];
+
+function RecordStores() {
+  const [open, setOpen] = useState(false);
+  return (
+    <section className="px-6 pb-4">
+      <div className="mx-auto max-w-3xl">
+        <button
+          type="button"
+          onClick={() => setOpen((v) => !v)}
+          aria-expanded={open}
+          className="flex w-full items-center gap-3 rounded-2xl border border-cream/10 bg-ink/40 px-5 py-4 text-left transition hover:border-cream/25"
+        >
+          <span
+            className={`inline-block text-xs text-plonkPink transition-transform ${open ? "rotate-90" : ""}`}
+            aria-hidden
+          >
+            ▶
+          </span>
+          <span className="flex-1">
+            <span className="block text-[11px] font-bold uppercase tracking-[0.28em] text-plonkPink">
+              For the diggers
+            </span>
+            <span className="mt-1 block font-display text-2xl uppercase tracking-wider text-cream">
+              Record Stores We Love
+            </span>
+          </span>
+          <span className="text-xs text-cream/40">{RECORD_STORES.length} shops</span>
+        </button>
+
+        {open && (
+          <div className="mt-3 overflow-hidden rounded-2xl border border-cream/10">
+            {RECORD_STORES.map((s) => (
+              <a
+                key={s.handle}
+                href={`https://www.instagram.com/${s.handle}/`}
+                target="_blank"
+                rel="noopener noreferrer"
+                className="group block border-b border-cream/10 bg-ink/30 px-5 py-4 transition last:border-b-0 hover:bg-ink/60"
+              >
+                <div className="flex flex-wrap items-baseline gap-x-3 gap-y-1">
+                  <span className="text-[15px] font-bold text-cream">{s.name}</span>
+                  <span className="font-mono text-[13px] text-plonkPink group-hover:underline">
+                    @{s.handle}
+                  </span>
+                  {s.flag && (
+                    <span className="rounded border border-plonkPink/50 px-1.5 py-0.5 text-[10px] font-bold uppercase tracking-wider text-plonkPink">
+                      {s.flag}
+                    </span>
+                  )}
+                </div>
+                <div className="mt-1 text-[13px] text-cream/60">
+                  <span className="text-cream/80">{s.area}</span> — {s.note}
+                </div>
+              </a>
+            ))}
+          </div>
+        )}
+      </div>
+    </section>
   );
 }
