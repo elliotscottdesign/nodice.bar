@@ -1016,7 +1016,7 @@ const RECORD_STORES: {
   { name: "Atlantis Records", handle: "atlantis_records_hackney", area: "8 Clarence Rd, Lower Clapton", note: "Collectible second-hand. They buy collections too." },
   { name: "Rough Trade East", handle: "roughtradeeast", area: "Brick Lane", note: "The flagship. Big new-release racks, venue and bar attached." },
   { name: "Next Door Records", handle: "nextdoorrecords_", area: "W12 and N16", flag: "N16 site is the close one", note: "Contemporary, jazz, broken beat, dub, reggae, house, techno, garage. Shop, bar and venue." },
-  { name: "Cigarette Records", handle: "cigarette_records", area: "South London", flag: "No fixed shop right now", note: "Trading through Deptford and market events. Strong on afro, reggae and soul rarities." },
+  { name: "Cigarette Records", handle: "cigarette_records", area: "Old Street Records, 350 Old St", flag: "Residency — check IG before you go", note: "Currently set up inside Old Street Records. Strong on afro, reggae and soul rarities." },
 ];
 
 // The record-shop cycle crawl — an efficient one-way ride through every
