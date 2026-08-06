@@ -1019,6 +1019,50 @@ const RECORD_STORES: {
   { name: "Cigarette Records", handle: "cigarette_records", area: "South London", flag: "No fixed shop right now", note: "Trading through Deptford and market events. Strong on afro, reggae and soul rarities." },
 ];
 
+// The record-shop cycle crawl — an efficient one-way ride through every
+// fixed-address shop on the list. Starts at BBE (one minute from the No
+// Dice door), sweeps London Fields → Hackney Central → Clapton → Dalston
+// → Stokey, drops to Brick Lane and ends at Rook in Hackney Wick, a
+// 10-minute ride back to the bar. Next Door (multiple sites) and
+// Cigarette (no fixed shop) are on the list but off the route.
+// Google Maps URL API caps waypoints at 9 — origin + 8 waypoints +
+// destination covers exactly our 10 fixed-address shops.
+const CRAWL_URL = (() => {
+  const wp = [
+    "Stranger Than Paradise Records, Mare Street Market, London",
+    "Tome Records, 234 Graham Road, London",
+    "Atlantis Records, 8 Clarence Road, London",
+    "Eldica Records, Bradbury Street, London",
+    "Kingsland Records, 492 Kingsland Road, London",
+    "Hidden Sounds, 89 Ridley Road, London",
+    "Kristina Records, Stoke Newington Road, London",
+    "Rough Trade East, Brick Lane, London",
+  ];
+  const p = new URLSearchParams({
+    api: "1",
+    origin: "The BBE Store, Helmsley Place, London",
+    destination: "Rook Records, Hackney Wick, London",
+    travelmode: "bicycling",
+    waypoints: wp.join("|"),
+  });
+  return `https://www.google.com/maps/dir/?${p.toString()}`;
+})();
+
+// Approximate ride times between consecutive stops, in minutes. Shown as
+// a leg-by-leg strip under the Plan-a-trip button. ~63 min riding total.
+const CRAWL_LEGS: { stop: string; mins?: number }[] = [
+  { stop: "BBE", mins: 3 },
+  { stop: "Stranger Than Paradise", mins: 4 },
+  { stop: "Tome", mins: 5 },
+  { stop: "Atlantis", mins: 8 },
+  { stop: "Eldica", mins: 2 },
+  { stop: "Kingsland", mins: 2 },
+  { stop: "Hidden Sounds", mins: 4 },
+  { stop: "Kristina", mins: 15 },
+  { stop: "Rough Trade East", mins: 20 },
+  { stop: "Rook" },
+];
+
 function RecordStores() {
   const [open, setOpen] = useState(false);
   return (
@@ -1046,6 +1090,34 @@ function RecordStores() {
           </span>
           <span className="text-xs text-cream/40">{RECORD_STORES.length} shops</span>
         </button>
+
+        {open && (
+          <div className="mt-3 rounded-2xl border border-plonkPink/30 bg-plonkPink/5 px-5 py-4">
+            <a
+              href={CRAWL_URL}
+              target="_blank"
+              rel="noopener noreferrer"
+              className="inline-block rounded-full bg-plonkPink px-5 py-2.5 text-xs font-bold uppercase tracking-widest text-white transition hover:bg-plonkPink/90"
+            >
+              🚲 Plan a trip — cycle route in Google Maps
+            </a>
+            <p className="mt-3 font-mono text-[11px] leading-relaxed text-cream/60">
+              {CRAWL_LEGS.map((l, i) => (
+                <span key={l.stop}>
+                  <span className="text-cream/85">{l.stop}</span>
+                  {l.mins != null && (
+                    <span className="text-plonkPink"> →{l.mins}m→ </span>
+                  )}
+                </span>
+              ))}
+            </p>
+            <p className="mt-2 text-[11px] text-cream/45">
+              ~1 hr riding, one way. Starts 1 min from our door, ends in
+              Hackney Wick — a 10-minute roll back to the bar for a pint.
+              Times are estimates; check shop opening hours before setting off.
+            </p>
+          </div>
+        )}
 
         {open && (
           <div className="mt-3 overflow-hidden rounded-2xl border border-cream/10">
