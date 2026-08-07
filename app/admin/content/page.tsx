@@ -50,6 +50,13 @@ const PAGES: { label: string; href: string; description: string; group: string }
   },
   {
     group: "Nav pages",
+    label: "Ping Pong",
+    href: "/admin/content/info/pingpong",
+    description:
+      "Hero and copy on /pingpong. Header image lives under Galleries ('hero.pingpong').",
+  },
+  {
+    group: "Nav pages",
     label: "World Cup",
     href: "/admin/content/info/worldcup",
     description:

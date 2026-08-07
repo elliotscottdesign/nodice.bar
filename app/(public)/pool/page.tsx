@@ -33,7 +33,7 @@ export default function PoolPage() {
   const bg = heroImgs?.[0]?.src || POOL_BG;
 
   return (
-    <main className="relative">
+    <main className="relative isolate">
       {/* The pool header image as a fixed, deep-purple-washed page background */}
       <div className="fixed inset-0 -z-10">
         <div className="absolute inset-0 bg-cover bg-center" style={{ backgroundImage: `url(${bg})` }} />

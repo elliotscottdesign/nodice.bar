@@ -1,34 +1,39 @@
 "use client";
 
 import { useEffect, useMemo, useRef, useState } from "react";
+import PageHero from "@/components/PageHero";
 import RollerDeck from "@/components/RollerDeck";
 import InlineTournamentBooking from "@/components/InlineTournamentBooking";
+import { useContent } from "@/lib/content";
+import { Editable } from "@/components/Editable";
 import {
   loadPingPongNights,
   type DbTournament,
 } from "@/lib/db/tournaments";
 
 // =============================================================
-// /pingpong — Team Ping Pong Tournaments (Sundays from 6pm)
+// /pingpong — Ping Pong at No Dice (+ Sunday team tournaments)
 // =============================================================
-// Public sign-up page for the Sunday team ping pong nights. Mirrors
-// the /pool page's journey (date rail → inline form → Stripe pay in
-// place) but with its own identity: the founder's green halftone
-// header artwork (public/pingpong-header.jpg, accent #2C8E1E =
-// `pong` / `pongLight` in tailwind.config).
+// Follows the standard nav-page pattern (/bar /pool /deals): PageHero
+// with the header image as a full-width banner (founder's green
+// halftone artwork, public/pingpong-header.jpg) and the copy band
+// beneath, everything click-to-edit in admin Edit mode. Copy lives in
+// page_content under pingpong.* (admin form: /admin/content/info/pingpong,
+// seeded by supabase/migrations/20260807000001_cms-rows-pingpong.sql);
+// hero images are gallery-managed via "hero.pingpong" like every other
+// page hero, falling back to the shipped artwork until then.
 //
-// Data: the Sunday nights live in the legacy `tournaments` table
-// (tournament_type='teams') — loadPingPongNights() reads them via
-// anon RLS. Booking reuses InlineTournamentBooking (teams behaves
-// like doubles: both players' names + emails, prize splits half-
-// and-half) and the tournament-checkout fn, which falls back to the
-// tournaments table for teams nights.
-// League: the `pingpong` edge fn's public getLeague action.
+// Below the hero: how-it-works cards, the Sundays rail → inline
+// booking (teams = doubles shape: both players' names + emails), the
+// live team league (public getLeague on the pingpong engine), FAQ.
+// Accent colour stays the artwork's green (`pong` / `pongLight`).
 // =============================================================
 
 const SUPABASE_URL =
   process.env.NEXT_PUBLIC_SUPABASE_URL ??
   "https://rntcujcpsozvuxvmlejv.supabase.co";
+
+const HERO_FALLBACK = "/pingpong-header.jpg";
 
 type LeagueRow = {
   rank: number;
@@ -91,6 +96,25 @@ const FAQS: Array<{ q: string; a: string }> = [
 ];
 
 export default function PingPongPage() {
+  // CMS copy — hardcoded fallbacks render until the founder edits the
+  // fields in /admin/content/info/pingpong (or on-page in Edit mode).
+  const eyebrow = useContent("pingpong.eyebrow", "Free to play · London Fields");
+  const title = useContent("pingpong.title", "Ping Pong");
+  const intro = useContent(
+    "pingpong.intro",
+    "Our ping pong table is free to play for all customers at the bar — a professional-standard Cornilleau outdoor table outside, bats and balls provided, and a host of local talent ready to beat you if you're looking for some singles action.",
+  );
+  const tournamentLine = useContent(
+    "pingpong.tournament_line",
+    "We also run a Sunday ping pong tournament every week from 6pm — rounds, then knockouts, with bar-tab prizes to be won. Sign up below.",
+  );
+  const ctaLabel = useContent("pingpong.cta_label", "Book your team in · £12");
+  const sundaysTitle = useContent("pingpong.sundays_title", "Pick your Sunday");
+  const sundaysIntro = useContent(
+    "pingpong.sundays_intro",
+    "£12 a team, paid by the captain. Both players' names and emails at sign-up — any prize you win splits between you.",
+  );
+
   const [nights, setNights] = useState<DbTournament[]>([]);
   const [loading, setLoading] = useState(true);
   const [err, setErr] = useState("");
@@ -155,52 +179,42 @@ export default function PingPongPage() {
   const selected = upcoming.find((t) => t.id === expandedId) ?? null;
 
   return (
-    <main className="relative isolate">
-      {/* Founder's green halftone artwork as a fixed page background,
-          washed dark so content stays readable (same pattern as /pool). */}
-      <div className="fixed inset-0 -z-10">
-        <div
-          className="absolute inset-0 bg-cover bg-center"
-          style={{ backgroundImage: "url(/pingpong-header.jpg)" }}
-        />
-        <div className="absolute inset-0 bg-gradient-to-b from-black/30 via-black/62 to-black/92" />
-      </div>
+    <main>
+      {/* Header image reads exactly like /bar and /deals: full-width
+          banner up top via PageHero, copy band beneath. Swappable from
+          admin Galleries → "hero.pingpong"; falls back to the founder's
+          shipped artwork. */}
+      <PageHero
+        eyebrow={eyebrow}
+        title={title}
+        intro={intro}
+        image={HERO_FALLBACK}
+        eyebrowKey="pingpong.eyebrow"
+        titleKey="pingpong.title"
+        introKey="pingpong.intro"
+        sliderKey="hero.pingpong"
+      />
 
-      {/* ── Hero — founder copy 6 Aug 2026 ── */}
-      <section className="px-6 pb-14 pt-28 text-center sm:pt-36">
-        <div className="text-xs font-bold uppercase tracking-[0.3em] text-pongLight">
-          Free to play · London Fields
-        </div>
-        <h1 className="mt-4 font-display text-5xl uppercase tracking-wider text-cream sm:text-7xl">
-          Ping Pong
-        </h1>
-        <p className="mx-auto mt-5 max-w-xl text-base text-cream/80">
-          Our ping pong table is <strong className="text-cream">free to play
-          for all customers</strong> at the bar — a professional-standard
-          Cornilleau outdoor table outside, bats and balls provided, and a
-          host of local talent ready to beat you if you&apos;re looking for
-          some singles action.
-        </p>
-        <p className="mx-auto mt-4 max-w-xl text-base text-cream/80">
-          We also run a <strong className="text-cream">Sunday ping pong
-          tournament every week from 6pm</strong> — rounds, then knockouts,
-          with bar-tab prizes to be won. Sign up below.
+      {/* Tournament line + CTA directly under the hero copy band */}
+      <section className="px-6 pb-16 pt-2 text-center">
+        <p className="mx-auto max-w-xl text-base text-cream/80">
+          <Editable k="pingpong.tournament_line">{tournamentLine}</Editable>
         </p>
         <a
           href="#sundays"
-          className="mt-8 inline-block rounded-full bg-pong px-10 py-4 text-sm font-bold uppercase tracking-widest text-white shadow-lg shadow-pong/40 transition hover:bg-pongLight hover:text-black"
+          className="mt-7 inline-block rounded-full bg-pong px-10 py-4 text-sm font-bold uppercase tracking-widest text-white shadow-lg shadow-pong/40 transition hover:bg-pongLight hover:text-black"
         >
-          Book your team in · £12
+          <Editable k="pingpong.cta_label">{ctaLabel}</Editable>
         </a>
       </section>
 
       {/* ── How it works ── */}
-      <section className="px-6 py-14">
+      <section className="px-6 pb-14">
         <div className="mx-auto grid max-w-5xl gap-4 sm:grid-cols-2 lg:grid-cols-4">
           {HOW_IT_WORKS.map((c) => (
             <div
               key={c.title}
-              className="rounded-2xl border border-pong/25 bg-black/45 p-6 backdrop-blur-sm"
+              className="rounded-2xl border border-pong/25 bg-white/[0.03] p-6"
             >
               <div className="text-2xl">{c.icon}</div>
               <div className="mt-3 font-display text-lg uppercase tracking-wider text-pongLight">
@@ -213,17 +227,16 @@ export default function PingPongPage() {
       </section>
 
       {/* ── Upcoming Sundays + inline booking ── */}
-      <section id="sundays" className="scroll-mt-24 bg-black/50 px-6 py-16">
+      <section id="sundays" className="scroll-mt-24 bg-white/[0.02] px-6 py-16">
         <div className="mx-auto max-w-3xl">
           <div className="mb-3 text-center text-xs font-bold uppercase tracking-[0.3em] text-pongLight">
             Upcoming Sundays
           </div>
           <h2 className="text-center font-display text-4xl uppercase tracking-wider text-cream">
-            Pick your Sunday
+            <Editable k="pingpong.sundays_title">{sundaysTitle}</Editable>
           </h2>
           <p className="mx-auto mt-4 max-w-xl text-center text-base text-cream/75">
-            £12 a team, paid by the captain. Both players&apos; names and emails
-            at sign-up — any prize you win splits between you.
+            <Editable k="pingpong.sundays_intro">{sundaysIntro}</Editable>
           </p>
 
           <div className="mt-10">
@@ -342,7 +355,7 @@ export default function PingPongPage() {
               ` ${leagueNights} night${leagueNights === 1 ? "" : "s"} played so far.`}
           </p>
 
-          <div className="mt-8 overflow-x-auto rounded-2xl border border-pong/25 bg-black/55 p-5 backdrop-blur-sm">
+          <div className="mt-8 overflow-x-auto rounded-2xl border border-pong/25 bg-white/[0.03] p-5">
             {!league || league.length === 0 ? (
               <p className="py-6 text-center text-sm text-cream/55">
                 The league starts with the first Sunday — your team could be
@@ -393,7 +406,7 @@ export default function PingPongPage() {
       </section>
 
       {/* ── FAQ ── */}
-      <section className="bg-black/60 px-6 py-16">
+      <section className="bg-white/[0.02] px-6 py-16">
         <div className="mx-auto max-w-2xl">
           <h2 className="text-center font-display text-3xl uppercase tracking-wider text-cream">
             Good to know
@@ -402,7 +415,7 @@ export default function PingPongPage() {
             {FAQS.map((f) => (
               <div
                 key={f.q}
-                className="rounded-2xl border border-pong/20 bg-black/45 p-5"
+                className="rounded-2xl border border-pong/20 bg-white/[0.03] p-5"
               >
                 <div className="font-bold text-pongLight">{f.q}</div>
                 <p className="mt-2 text-sm leading-relaxed text-cream/75">{f.a}</p>

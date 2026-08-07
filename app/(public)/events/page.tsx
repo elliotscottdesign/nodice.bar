@@ -1031,6 +1031,10 @@ const RECORD_STORES: {
 // too — Google's URL API caps at 9 waypoints and Brick Lane is an
 // out-and-back spur, so it gets a note instead (it's the one shop
 // everyone can find anyway).
+// Hidden per founder direction 7 Aug 2026 — flip to true to restore the
+// Plan-a-trip cycle-route block inside the Record Stores dropdown.
+const SHOW_CRAWL = false;
+
 const CRAWL_URL = (() => {
   const wp = [
     "Stranger Than Paradise Records, Mare Street Market, London",
@@ -1097,7 +1101,10 @@ function RecordStores() {
           <span className="text-xs text-cream/40">{RECORD_STORES.length} shops</span>
         </button>
 
-        {open && (
+        {/* Plan-a-trip cycle crawl — HIDDEN per founder direction 7 Aug 2026.
+            The route URL + leg times (CRAWL_URL / CRAWL_LEGS above) are kept
+            intact; flip SHOW_CRAWL to true to bring the block back. */}
+        {SHOW_CRAWL && open && (
           <div className="mt-3 rounded-2xl border border-plonkPink/30 bg-plonkPink/5 px-5 py-4">
             <a
               href={CRAWL_URL}
