@@ -114,6 +114,63 @@ export default function PingPongPage() {
     "pingpong.sundays_intro",
     "£12 a team, paid by the captain. Both players' names and emails at sign-up — any prize you win splits between you.",
   );
+  // How-it-works cards + FAQ + league copy — every visible sentence on the
+  // page is CMS-editable (founder hit the wall on the static cards, 7 Aug 2026).
+  const cardTexts = [
+    {
+      icon: "🏓",
+      titleKey: "pingpong.card1_title",
+      title: useContent("pingpong.card1_title", HOW_IT_WORKS[0].title),
+      bodyKey: "pingpong.card1_body",
+      body: useContent("pingpong.card1_body", HOW_IT_WORKS[0].body),
+    },
+    {
+      icon: "🎯",
+      titleKey: "pingpong.card2_title",
+      title: useContent("pingpong.card2_title", HOW_IT_WORKS[1].title),
+      bodyKey: "pingpong.card2_body",
+      body: useContent("pingpong.card2_body", HOW_IT_WORKS[1].body),
+    },
+    {
+      icon: "🍻",
+      titleKey: "pingpong.card3_title",
+      title: useContent("pingpong.card3_title", HOW_IT_WORKS[2].title),
+      bodyKey: "pingpong.card3_body",
+      body: useContent("pingpong.card3_body", HOW_IT_WORKS[2].body),
+    },
+    {
+      icon: "🏆",
+      titleKey: "pingpong.card4_title",
+      title: useContent("pingpong.card4_title", HOW_IT_WORKS[3].title),
+      bodyKey: "pingpong.card4_body",
+      body: useContent("pingpong.card4_body", HOW_IT_WORKS[3].body),
+    },
+  ];
+  const faqTexts = [
+    {
+      qKey: "pingpong.faq1_q",
+      q: useContent("pingpong.faq1_q", FAQS[0].q),
+      aKey: "pingpong.faq1_a",
+      a: useContent("pingpong.faq1_a", FAQS[0].a),
+    },
+    {
+      qKey: "pingpong.faq2_q",
+      q: useContent("pingpong.faq2_q", FAQS[1].q),
+      aKey: "pingpong.faq2_a",
+      a: useContent("pingpong.faq2_a", FAQS[1].a),
+    },
+    {
+      qKey: "pingpong.faq3_q",
+      q: useContent("pingpong.faq3_q", FAQS[2].q),
+      aKey: "pingpong.faq3_a",
+      a: useContent("pingpong.faq3_a", FAQS[2].a),
+    },
+  ];
+  const leagueIntro = useContent(
+    "pingpong.league_intro",
+    "Every Sunday earns points. Top 8 teams (✦) reach the Grand Final.",
+  );
+  const faqTitle = useContent("pingpong.faq_title", "Good to know");
 
   const [nights, setNights] = useState<DbTournament[]>([]);
   const [loading, setLoading] = useState(true);
@@ -219,16 +276,18 @@ export default function PingPongPage() {
       {/* ── How it works ── */}
       <section className="px-6 pb-14">
         <div className="mx-auto grid max-w-5xl gap-4 sm:grid-cols-2 lg:grid-cols-4">
-          {HOW_IT_WORKS.map((c) => (
+          {cardTexts.map((c) => (
             <div
-              key={c.title}
+              key={c.titleKey}
               className="rounded-2xl border border-pong/25 bg-white/[0.03] p-6"
             >
               <div className="text-2xl">{c.icon}</div>
               <div className="mt-3 font-display text-lg uppercase tracking-wider text-pongLight">
-                {c.title}
+                <Editable k={c.titleKey}>{c.title}</Editable>
               </div>
-              <p className="mt-2 text-sm leading-relaxed text-cream/75">{c.body}</p>
+              <p className="mt-2 text-sm leading-relaxed text-cream/75">
+                <Editable k={c.bodyKey}>{c.body}</Editable>
+              </p>
             </div>
           ))}
         </div>
@@ -358,7 +417,7 @@ export default function PingPongPage() {
             Team League
           </h2>
           <p className="mx-auto mt-4 max-w-xl text-center text-sm text-cream/70">
-            Every Sunday earns points. Top 8 teams (✦) reach the Grand Final.
+            <Editable k="pingpong.league_intro">{leagueIntro}</Editable>
             {leagueNights > 0 &&
               ` ${leagueNights} night${leagueNights === 1 ? "" : "s"} played so far.`}
           </p>
@@ -417,16 +476,20 @@ export default function PingPongPage() {
       <section className="bg-white/[0.02] px-6 py-16">
         <div className="mx-auto max-w-2xl">
           <h2 className="text-center font-display text-3xl uppercase tracking-wider text-cream">
-            Good to know
+            <Editable k="pingpong.faq_title">{faqTitle}</Editable>
           </h2>
           <div className="mt-8 space-y-4">
-            {FAQS.map((f) => (
+            {faqTexts.map((f) => (
               <div
-                key={f.q}
+                key={f.qKey}
                 className="rounded-2xl border border-pong/20 bg-white/[0.03] p-5"
               >
-                <div className="font-bold text-pongLight">{f.q}</div>
-                <p className="mt-2 text-sm leading-relaxed text-cream/75">{f.a}</p>
+                <div className="font-bold text-pongLight">
+                  <Editable k={f.qKey}>{f.q}</Editable>
+                </div>
+                <p className="mt-2 text-sm leading-relaxed text-cream/75">
+                  <Editable k={f.aKey}>{f.a}</Editable>
+                </p>
               </div>
             ))}
           </div>

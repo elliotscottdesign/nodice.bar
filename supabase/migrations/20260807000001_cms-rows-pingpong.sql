@@ -24,3 +24,29 @@ from (values
 where not exists (
   select 1 from public.page_content pc where pc.key = v.key
 );
+
+-- Cards + FAQ + league copy (added 7 Aug 2026 — founder needs every
+-- visible sentence editable). Same NOT EXISTS guard.
+insert into public.page_content (key, page, field_kind, label, helper, sort_order, value)
+select v.key, v.page, v.field_kind, v.label, v.helper, v.sort_order, v.value
+from (values
+  ('pingpong.card1_title', 'info.pingpong', 'text',     'Card 1 — title', 'First how-it-works card heading.',   8,  ''),
+  ('pingpong.card1_body',  'info.pingpong', 'textarea', 'Card 1 — body',  'First card text.',                   9,  ''),
+  ('pingpong.card2_title', 'info.pingpong', 'text',     'Card 2 — title', 'Second card heading.',               10, ''),
+  ('pingpong.card2_body',  'info.pingpong', 'textarea', 'Card 2 — body',  'Second card text.',                  11, ''),
+  ('pingpong.card3_title', 'info.pingpong', 'text',     'Card 3 — title', 'Third card heading.',                12, ''),
+  ('pingpong.card3_body',  'info.pingpong', 'textarea', 'Card 3 — body',  'Third card text.',                   13, ''),
+  ('pingpong.card4_title', 'info.pingpong', 'text',     'Card 4 — title', 'Fourth card heading.',               14, ''),
+  ('pingpong.card4_body',  'info.pingpong', 'textarea', 'Card 4 — body',  'Fourth card text.',                  15, ''),
+  ('pingpong.league_intro','info.pingpong', 'textarea', 'League — intro', 'Sentence above the league table.',   16, ''),
+  ('pingpong.faq_title',   'info.pingpong', 'text',     'FAQ — heading',  'Heading above the FAQ cards.',       17, ''),
+  ('pingpong.faq1_q',      'info.pingpong', 'text',     'FAQ 1 — question','First FAQ question.',               18, ''),
+  ('pingpong.faq1_a',      'info.pingpong', 'textarea', 'FAQ 1 — answer', 'First FAQ answer.',                  19, ''),
+  ('pingpong.faq2_q',      'info.pingpong', 'text',     'FAQ 2 — question','Second FAQ question.',              20, ''),
+  ('pingpong.faq2_a',      'info.pingpong', 'textarea', 'FAQ 2 — answer', 'Second FAQ answer.',                 21, ''),
+  ('pingpong.faq3_q',      'info.pingpong', 'text',     'FAQ 3 — question','Third FAQ question.',               22, ''),
+  ('pingpong.faq3_a',      'info.pingpong', 'textarea', 'FAQ 3 — answer', 'Third FAQ answer.',                  23, '')
+) as v(key, page, field_kind, label, helper, sort_order, value)
+where not exists (
+  select 1 from public.page_content pc where pc.key = v.key
+);
