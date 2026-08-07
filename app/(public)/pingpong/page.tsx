@@ -206,6 +206,14 @@ export default function PingPongPage() {
         >
           <Editable k="pingpong.cta_label">{ctaLabel}</Editable>
         </a>
+        <div className="mt-4">
+          <a
+            href="#league"
+            className="inline-flex items-center gap-2 rounded-full border border-pong/40 bg-pong/10 px-6 py-3 text-xs font-bold uppercase tracking-widest text-pongLight transition hover:border-pongLight/70 hover:bg-pong/20 hover:text-white"
+          >
+            🏆 Team league table
+          </a>
+        </div>
       </section>
 
       {/* ── How it works ── */}
@@ -341,7 +349,7 @@ export default function PingPongPage() {
       </section>
 
       {/* ── Team league ── */}
-      <section className="px-6 py-16">
+      <section id="league" className="scroll-mt-24 px-6 py-16">
         <div className="mx-auto max-w-2xl">
           <div className="mb-3 text-center text-xs font-bold uppercase tracking-[0.3em] text-pongLight">
             Season league
