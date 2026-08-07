@@ -155,7 +155,7 @@ export default function PingPongPage() {
   const selected = upcoming.find((t) => t.id === expandedId) ?? null;
 
   return (
-    <main className="relative">
+    <main className="relative isolate">
       {/* Founder's green halftone artwork as a fixed page background,
           washed dark so content stays readable (same pattern as /pool). */}
       <div className="fixed inset-0 -z-10">
