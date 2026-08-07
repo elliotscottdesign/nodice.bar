@@ -29,11 +29,11 @@ export default function PlonkPage() {
   );
   const instagram = useContent(
     "plonk.instagram",
-    "https://www.instagram.com/nodicelondon/",
+    "https://www.instagram.com/nodice.bar/",
   );
   const instagramLabel = useContent(
     "plonk.instagram_label",
-    "@nodicelondon",
+    "@nodice.bar",
   );
 
   return (
