@@ -337,16 +337,19 @@ export function generateRecurrenceDates(
   if (recurrenceType === "none" || occurrenceCount < 1) {
     return [startDateIso];
   }
-  const start = new Date(`${startDateIso}T00:00:00`);
+  // All date maths in UTC so a "T00:00:00" local parse can't roll back a day when
+  // serialized with toISOString() in British Summer Time (that shifted every
+  // Monday recurrence onto the Sunday). Parse UTC, step UTC, format UTC.
+  const start = new Date(`${startDateIso}T00:00:00Z`);
   const out: string[] = [];
   for (let i = 0; i < occurrenceCount; i++) {
     const d = new Date(start);
     if (recurrenceType === "weekly") {
-      d.setDate(start.getDate() + 7 * i);
+      d.setUTCDate(start.getUTCDate() + 7 * i);
     } else if (recurrenceType === "fortnightly") {
-      d.setDate(start.getDate() + 14 * i);
+      d.setUTCDate(start.getUTCDate() + 14 * i);
     } else if (recurrenceType === "monthly") {
-      d.setMonth(start.getMonth() + i);
+      d.setUTCMonth(start.getUTCMonth() + i);
     }
     out.push(d.toISOString().slice(0, 10));
   }
