@@ -361,6 +361,57 @@ async function firePoolConfirmationEmail(reservationId: string): Promise<void> {
 }
 
 // =============================================================
+// On A Roll food-order Payment Element handler
+// =============================================================
+// Row lives in food_orders (created as status='pending', paid=false by
+// food-order-checkout). On payment_intent.succeeded we flip it to
+// status='new' + paid=true, which is what makes it appear on the kitchen
+// display. No email/SMS here — the kitchen's "Ready" tap sends the SMS.
+// =============================================================
+async function handleFoodOrderPaymentIntent(
+  pi: Stripe.PaymentIntent,
+  eventType: string,
+): Promise<Response> {
+  const orderId = pi.metadata?.order_id;
+  if (eventType !== "payment_intent.succeeded") {
+    console.log(`food_order webhook ${eventType}: order ${orderId ?? "?"} — non-success, leaving pending`);
+    return new Response("ok (non-success)", { status: 200 });
+  }
+
+  // Locate the row by id (metadata) then fall back to payment_ref (pi.id).
+  let r: { id: string; status: string; paid: boolean } | null = null;
+  if (orderId) {
+    const { data, error } = await db
+      .from("food_orders")
+      .select("id, status, paid")
+      .eq("id", orderId)
+      .maybeSingle();
+    if (error) return new Response(`DB lookup error: ${error.message}`, { status: 500 });
+    r = data;
+  }
+  if (!r) {
+    const { data, error } = await db
+      .from("food_orders")
+      .select("id, status, paid")
+      .eq("payment_ref", pi.id)
+      .maybeSingle();
+    if (error) return new Response(`DB lookup error: ${error.message}`, { status: 500 });
+    r = data;
+  }
+  if (!r) return new Response("food order not found (will retry)", { status: 200 });
+  if (r.paid) return new Response("already settled", { status: 200 });
+
+  const { error: updErr } = await db
+    .from("food_orders")
+    .update({ paid: true, status: "new", payment_ref: pi.id })
+    .eq("id", r.id);
+  if (updErr) return new Response(`DB update error: ${updErr.message}`, { status: 500 });
+
+  console.log(`food_order webhook payment_intent.succeeded: order ${r.id} → paid/new (pi=${pi.id})`);
+  return new Response("ok", { status: 200 });
+}
+
+// =============================================================
 // Event-entry Payment Element handler
 // =============================================================
 // Powers the World Cup ticketed-match flow (and any future
@@ -541,6 +592,14 @@ Deno.serve(async (req) => {
   // events) — row lives in event_entries.
   if (pi.metadata?.kind === "event_entry") {
     return await handleEventEntryPaymentIntent(pi, event.type);
+  }
+
+  // On A Roll food orders — Payment Element, row lives in food_orders
+  // (same Supabase project). On success the order flips 'pending' → 'new'
+  // and shows up on the kitchen screen; the kitchen tapping "Ready" is
+  // what texts the customer, not this webhook.
+  if (pi.metadata?.kind === "food_order") {
+    return await handleFoodOrderPaymentIntent(pi, event.type);
   }
 
   // We always update by PaymentIntent ID (which we wrote when creating the
