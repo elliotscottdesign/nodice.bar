@@ -1,7 +1,6 @@
 import type { Metadata, Viewport } from "next";
 import "./globals.css";
 import CookieConsent from "@/components/CookieConsent";
-import NewsletterPopup from "@/components/NewsletterPopup";
 
 // =============================================================
 // Canonical site URL — used by metadataBase + structured data
@@ -202,7 +201,6 @@ export default function RootLayout({
       <body>
         {children}
         <CookieConsent />
-        <NewsletterPopup />
       </body>
     </html>
   );
