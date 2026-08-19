@@ -136,16 +136,6 @@ export default function OnARollClient() {
     finally { setBusy(false); }
   };
 
-  // ── shell ──────────────────────────────────────────────────────────────────
-  const Shell = ({ children }: { children: React.ReactNode }) => (
-    <div style={{ minHeight: "100vh", background: CREAM, color: INK, fontFamily: "'DM Sans', system-ui, sans-serif" }}>
-      <div style={{ background: CREAM, padding: "16px 16px 14px", textAlign: "center", borderBottom: `3px solid ${BLUE}` }}>
-        <img src={LOGO} alt="On A Roll" style={{ height: 60, maxWidth: "72%" }} />
-      </div>
-      <div style={{ maxWidth: 560, margin: "0 auto", padding: "16px 14px 140px" }}>{children}</div>
-    </div>
-  );
-
   if (err && !sections) return <Shell><Note>Couldn't load the menu — {err}</Note><button onClick={() => load()} style={btn(RED, "#fff")}>Try again</button></Shell>;
   if (!sections || !status) return <Shell><div style={{ color: MUTED, padding: "40px 0", textAlign: "center" }}>Loading the menu…</div></Shell>;
 
@@ -192,15 +182,17 @@ export default function OnARollClient() {
       <Shell>
         <Back onClick={() => setPhase("allergy")} />
         <Head>Almost there</Head>
-        <Label>Your name</Label>
-        <input value={name} onChange={(e) => setName(e.target.value)} placeholder="First name" style={field} />
-        <Label>Mobile number</Label>
-        <input value={phone} onChange={(e) => setPhone(e.target.value)} inputMode="tel" placeholder="07…" style={field} />
-        <p style={{ fontSize: 12.5, color: MUTED, margin: "6px 2px 16px" }}>We only use this to text you when your food's ready.</p>
-        {err && <Note>{err}</Note>}
-        <button disabled={!ok || busy} onClick={startPayment} style={{ ...btn(ok ? RED : LINE, "#fff"), opacity: ok ? 1 : 0.6 }}>
-          {busy ? "One sec…" : `Continue to pay ${gbp(total)}`}
-        </button>
+        <form onSubmit={(e) => { e.preventDefault(); if (ok && !busy) startPayment(); }}>
+          <Label>Your name</Label>
+          <input name="name" type="text" autoComplete="given-name" value={name} onChange={(e) => setName(e.target.value)} placeholder="First name" style={field} />
+          <Label>Mobile number</Label>
+          <input name="phone" type="tel" autoComplete="tel" inputMode="tel" value={phone} onChange={(e) => setPhone(e.target.value)} placeholder="07…" style={field} />
+          <p style={{ fontSize: 12.5, color: MUTED, margin: "6px 2px 16px" }}>We only use this to text you when your food's ready.</p>
+          {err && <Note>{err}</Note>}
+          <button type="submit" disabled={!ok || busy} style={{ ...btn(ok ? RED : LINE, "#fff"), opacity: ok ? 1 : 0.6 }}>
+            {busy ? "One sec…" : `Continue to pay ${gbp(total)}`}
+          </button>
+        </form>
       </Shell>
     );
   }
@@ -433,15 +425,28 @@ function Paused({ waiting }: { waiting?: number }) {
       <p style={{ fontSize: 15, lineHeight: 1.5, maxWidth: 340, margin: "10px auto 18px", color: INK }}>
         We're slammed right now{typeof waiting === "number" && waiting > 0 ? ` (${waiting} waiting)` : ""}. Leave your number and we'll <b>text you the second you can order again</b>.
       </p>
-      <input value={name} onChange={(ev) => setName(ev.target.value)} placeholder="First name" style={field} />
-      <input value={phone} onChange={(ev) => setPhone(ev.target.value)} inputMode="tel" placeholder="07…" style={field} />
-      {e && <Note>{e}</Note>}
-      <button disabled={busy || phone.replace(/\D/g, "").length < 10} onClick={join} style={btn(RED, "#fff")}>{busy ? "…" : "Text me when it's my turn"}</button>
+      <form onSubmit={(ev) => { ev.preventDefault(); if (!busy && phone.replace(/\D/g, "").length >= 10) join(); }}>
+        <input name="name" type="text" autoComplete="given-name" value={name} onChange={(ev) => setName(ev.target.value)} placeholder="First name" style={field} />
+        <input name="phone" type="tel" autoComplete="tel" inputMode="tel" value={phone} onChange={(ev) => setPhone(ev.target.value)} placeholder="07…" style={field} />
+        {e && <Note>{e}</Note>}
+        <button type="submit" disabled={busy || phone.replace(/\D/g, "").length < 10} style={btn(RED, "#fff")}>{busy ? "…" : "Text me when it's my turn"}</button>
+      </form>
     </div>
   );
 }
 
 // ── little pieces ──────────────────────────────────────────────────────────
+// Shell MUST be module-scope (not defined inside OnARollClient) — otherwise it
+// is a new component type on every render, so React remounts the whole subtree
+// on each keystroke and inputs lose focus / can't be autofilled.
+const Shell = ({ children }: { children: React.ReactNode }) => (
+  <div style={{ minHeight: "100vh", background: CREAM, color: INK, fontFamily: "'DM Sans', system-ui, sans-serif" }}>
+    <div style={{ background: CREAM, padding: "16px 16px 14px", textAlign: "center", borderBottom: `3px solid ${BLUE}` }}>
+      <img src={LOGO} alt="On A Roll" style={{ height: 60, maxWidth: "72%" }} />
+    </div>
+    <div style={{ maxWidth: 560, margin: "0 auto", padding: "16px 14px 140px" }}>{children}</div>
+  </div>
+);
 const Head = ({ children }: { children: React.ReactNode }) => <h1 style={{ fontFamily: HEAVY, fontSize: 30, color: INK, margin: "2px 0 12px", letterSpacing: "0.5px" }}>{children}</h1>;
 const Label = ({ children }: { children: React.ReactNode }) => <div style={{ fontSize: 12.5, color: MUTED, textTransform: "uppercase", letterSpacing: "0.06em", margin: "10px 2px 5px" }}>{children}</div>;
 const Note = ({ children }: { children: React.ReactNode }) => <div style={{ background: "#fff", border: `1px solid ${RED}`, color: RED, borderRadius: 10, padding: "10px 12px", fontSize: 13.5, margin: "10px 0", lineHeight: 1.4 }}>{children}</div>;
