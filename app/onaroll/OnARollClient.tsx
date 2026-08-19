@@ -208,9 +208,9 @@ export default function OnARollClient() {
         <p style={{ fontSize: 14, lineHeight: 1.5, color: INK, margin: "0 0 14px" }}>
           We cook in one small kitchen with a <b>shared fryer and shared surfaces</b>, handling gluten, milk, egg, mustard, celery, soya, sesame and nuts every day — so we <b>cannot guarantee</b> any dish is completely free from any allergen, even if it isn't listed.
         </p>
-        <button onClick={() => { setNoAllergies(true); setDeclared(new Set()); setAccepted(false); }}
+        <button onClick={() => setNoAllergies((v) => { const nv = !v; if (nv) { setDeclared(new Set()); setAccepted(false); } return nv; })}
           style={{ ...chip(noAllergies, GREEN), width: "100%", padding: "12px", fontSize: 15, marginBottom: 14 }}>
-          {noAllergies ? "✓ " : ""}No allergies — I'm good to order
+          {noAllergies ? "✓ No allergies — tap to change" : "No allergies — I'm good to order"}
         </button>
         <div style={{ fontSize: 12.5, color: MUTED, textTransform: "uppercase", letterSpacing: "0.06em", margin: "4px 2px 8px" }}>…or tell us what to flag</div>
         <div style={{ display: "flex", flexWrap: "wrap", gap: 7, marginBottom: 16 }}>
