@@ -72,20 +72,25 @@ export default function OnARollClient() {
   const [orderNo, setOrderNo] = useState<number | null>(null);
   const [busy, setBusy] = useState(false);
 
+  const load = async (retry = true) => {
+    setErr("");
+    try {
+      const [m, s] = await Promise.all([api("menu", { action: "getMenu" }), api("food-order", { action: "getStatus" })]);
+      setSections((m.sections || []).filter((sec: Section) => (sec.items || []).some((it) => it.name)));
+      setStatus({ open: !!s.open, waiting: s.waiting });
+    } catch (e) {
+      if (retry) { setTimeout(() => load(false), 1200); return; }   // one silent retry for flaky wifi
+      setErr((e as Error).message);
+    }
+  };
   useEffect(() => {
     // Returned from a 3-D Secure redirect? Stripe appends redirect_status.
     try {
       const p = new URLSearchParams(window.location.search);
       if (p.get("redirect_status") === "succeeded") setPhase("done");
     } catch { /* ignore */ }
-    (async () => {
-      try {
-        const [m, s] = await Promise.all([api("menu", { action: "getMenu" }), api("food-order", { action: "getStatus" })]);
-        setSections((m.sections || []).filter((sec: Section) => (sec.items || []).some((it) => it.name)));
-        setStatus({ open: !!s.open, waiting: s.waiting });
-      } catch (e) { setErr((e as Error).message); }
-    })();
-  }, []);
+    load();
+  }, []);   // eslint-disable-line react-hooks/exhaustive-deps
 
   const total = useMemo(() => cart.reduce((s, l) => s + lineTotal(l), 0), [cart]);
   const count = useMemo(() => cart.reduce((s, l) => s + l.qty, 0), [cart]);
@@ -141,7 +146,7 @@ export default function OnARollClient() {
     </div>
   );
 
-  if (err && !sections) return <Shell><Note>Couldn't load the menu — {err}</Note></Shell>;
+  if (err && !sections) return <Shell><Note>Couldn't load the menu — {err}</Note><button onClick={() => load()} style={btn(RED, "#fff")}>Try again</button></Shell>;
   if (!sections || !status) return <Shell><div style={{ color: MUTED, padding: "40px 0", textAlign: "center" }}>Loading the menu…</div></Shell>;
 
   // Paused → waitlist
