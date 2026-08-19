@@ -149,6 +149,7 @@ export default function InlineTournamentBooking({
   const [captainPhone, setCaptainPhone] = useState("");
   const [partnerName, setPartnerName] = useState("");
   const [partnerEmail, setPartnerEmail] = useState("");
+  const [partnerPhone, setPartnerPhone] = useState("");
   const [heardFrom, setHeardFrom] = useState("");
   const [marketingOptIn, setMarketingOptIn] = useState(false);
   const [submitting, setSubmitting] = useState(false);
@@ -169,6 +170,17 @@ export default function InlineTournamentBooking({
     async (e: React.FormEvent) => {
       e.preventDefault();
       setError("");
+      // UK mobiles only — 11 digits starting 07 (founder rule 19 Aug 2026).
+      // Up-next texts, pay links and prize codes all go to this number.
+      const ukMobile = (v: string) => /^07\d{9}$/.test(v.replace(/\s+/g, ""));
+      if (!ukMobile(captainPhone)) {
+        setError("Please enter a UK mobile — 11 digits starting 07 (we text you when you're up to play).");
+        return;
+      }
+      if (isDoubles && !ukMobile(partnerPhone)) {
+        setError("Please enter your partner's UK mobile too — 11 digits starting 07.");
+        return;
+      }
       setSubmitting(true);
       try {
         // Single round-trip: tournament-checkout validates, looks
@@ -194,6 +206,7 @@ export default function InlineTournamentBooking({
             // straight to their own inbox.
             partner_name: isDoubles ? partnerName.trim() : null,
             partner_email: isDoubles ? partnerEmail.trim() : null,
+            partner_phone: isDoubles ? partnerPhone.replace(/\s+/g, "") : null,
             player_count: null,
             notes: null,
             heard_from: heardFrom || null,
@@ -354,6 +367,15 @@ export default function InlineTournamentBooking({
                     onChange={(e) => setPartnerEmail(e.target.value)}
                     className="w-full rounded-lg border border-cream/15 bg-ink/40 px-4 py-3 text-base text-cream focus:border-plonkPink focus:outline-none"
                   />
+                  <input
+                    type="tel"
+                    required
+                    value={partnerPhone}
+                    onChange={(e) => setPartnerPhone(e.target.value.replace(/[^0-9 ]/g, ""))}
+                    inputMode="tel"
+                    className="mt-2 w-full rounded-lg border border-cream/15 bg-ink/40 px-4 py-3 text-base text-cream focus:border-plonkPink focus:outline-none"
+                    placeholder="Partner's UK mobile (07…)"
+                  />
                 </div>
               </div>
               <p className="mt-1.5 text-[11px] text-cream/50">
@@ -371,9 +393,10 @@ export default function InlineTournamentBooking({
               type="tel"
               required
               value={captainPhone}
-              onChange={(e) => setCaptainPhone(e.target.value)}
+              onChange={(e) => setCaptainPhone(e.target.value.replace(/[^0-9 ]/g, ""))}
+              inputMode="tel"
               className="w-full rounded-lg border border-cream/15 bg-ink/40 px-4 py-3 text-base text-cream focus:border-plonkPink focus:outline-none"
-              placeholder="We'll text you about any updates"
+              placeholder="UK mobile, starts 07 — we text you when you're up"
             />
           </div>
 

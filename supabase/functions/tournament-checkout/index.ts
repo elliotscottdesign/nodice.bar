@@ -89,6 +89,7 @@ type TournamentEntryInput = {
   // splits half-and-half and each half is emailed separately.
   partner_name?: string | null;
   partner_email?: string | null;
+  partner_phone?: string | null;
   player_count?: number | null;
   notes?: string | null;
   heard_from?: string | null;
@@ -140,6 +141,13 @@ function validate(body: Partial<TournamentEntryInput>): {
   ) {
     return { ok: false, error: "partner_email must be a valid email" };
   }
+  if (
+    body.partner_phone != null &&
+    body.partner_phone !== "" &&
+    (typeof body.partner_phone !== "string" || !/^07\d{9}$/.test(body.partner_phone.replace(/\s+/g, "")))
+  ) {
+    return { ok: false, error: "partner_phone must be a UK mobile — 11 digits starting 07." };
+  }
   return {
     ok: true,
     input: {
@@ -152,6 +160,8 @@ function validate(body: Partial<TournamentEntryInput>): {
         typeof body.partner_name === "string" ? body.partner_name.trim() || null : null,
       partner_email:
         typeof body.partner_email === "string" ? body.partner_email.trim() || null : null,
+      partner_phone:
+        typeof body.partner_phone === "string" ? body.partner_phone.replace(/\s+/g, "") || null : null,
       player_count:
         typeof body.player_count === "number" ? body.player_count : null,
       notes: typeof body.notes === "string" ? body.notes.trim() || null : null,
@@ -365,6 +375,7 @@ Deno.serve(async (req) => {
       captain_phone: input.captain_phone,
       partner_name: input.partner_name,
       partner_email: input.partner_email,
+      partner_phone: input.partner_phone,
       player_count: input.player_count,
       notes: input.notes,
       heard_from: input.heard_from,

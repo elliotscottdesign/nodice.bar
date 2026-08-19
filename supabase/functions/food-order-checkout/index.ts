@@ -96,6 +96,10 @@ Deno.serve(async (req) => {
   const phone = normalisePhone(String(b.phone || ""));
   const allergen_note = b.allergen_note ? String(b.allergen_note).trim().slice(0, 500) : null;
   const cart = Array.isArray(b.cart) ? b.cart.slice(0, 50) : [];
+  // Tip (100% goes to the kitchen team): a preset % (5/10) computed on the subtotal,
+  // or a custom amount in pence (capped £500). Never trusts a client-computed % amount.
+  const tipPct = [5, 10].includes(parseInt(String(b.tip_pct), 10)) ? parseInt(String(b.tip_pct), 10) : 0;
+  const tipCustomPence = Math.max(0, Math.min(50000, parseInt(String(b.tip_pence), 10) || 0));
 
   if (name.length < 2) return json({ error: "Please enter your name." }, { status: 400 });
   if (phone.replace(/\D/g, "").length < 10) return json({ error: "Please enter a valid mobile number so we can text you when it's ready." }, { status: 400 });
@@ -127,13 +131,17 @@ Deno.serve(async (req) => {
   }
   if (total <= 0) return json({ error: "Could not price this order — please refresh and try again." }, { status: 400 });
 
+  // Tip computed server-side on the true subtotal (kitchen keeps 100%).
+  const tip = tipPct > 0 ? Math.round(total * tipPct / 100) : tipCustomPence;
+  const grand = total + tip;
+
   // Stripe FIRST — if Stripe rejects, no half-baked order row is written.
   let intent: Stripe.PaymentIntent;
   try {
     intent = await stripe.paymentIntents.create({
-      amount: total,
+      amount: grand,
       currency: "gbp",
-      description: `On A Roll — ${lineItems.reduce((n, l) => n + l.qty, 0)} item(s)`,
+      description: `On A Roll — ${lineItems.reduce((n, l) => n + l.qty, 0)} item(s)${tip > 0 ? ` + £${(tip / 100).toFixed(2)} tip` : ""}`,
       automatic_payment_methods: { enabled: true },
       metadata: { kind: "food_order", name },
     });
@@ -150,7 +158,8 @@ Deno.serve(async (req) => {
       customer_name: name,
       customer_phone: phone,
       items: lineItems,
-      total_pence: total,
+      total_pence: grand,
+      tip_pence: tip,
       status: "pending",
       paid: false,
       payment_ref: intent.id,

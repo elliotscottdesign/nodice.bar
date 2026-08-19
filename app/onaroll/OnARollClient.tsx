@@ -68,6 +68,8 @@ export default function OnARollClient() {
   const [declared, setDeclared] = useState<Set<string>>(new Set());
   const [noAllergies, setNoAllergies] = useState(false);
   const [accepted, setAccepted] = useState(false);
+  const [tipChoice, setTipChoice] = useState<"none" | "5" | "10" | "custom">("none");
+  const [tipCustom, setTipCustom] = useState("");
   const [clientSecret, setClientSecret] = useState<string | null>(null);
   const [orderNo, setOrderNo] = useState<number | null>(null);
   const [busy, setBusy] = useState(false);
@@ -94,6 +96,8 @@ export default function OnARollClient() {
 
   const total = useMemo(() => cart.reduce((s, l) => s + lineTotal(l), 0), [cart]);
   const count = useMemo(() => cart.reduce((s, l) => s + l.qty, 0), [cart]);
+  const tipPence = tipChoice === "5" ? Math.round(total * 0.05) : tipChoice === "10" ? Math.round(total * 0.1) : tipChoice === "custom" ? Math.max(0, Math.round((parseFloat(tipCustom) || 0) * 100)) : 0;
+  const grand = total + tipPence;
 
   // Which cart items flag a declared allergen (for the allergy gate).
   const flagged = useMemo(() => {
@@ -129,6 +133,8 @@ export default function OnARollClient() {
     try {
       const r = await api("food-order-checkout", {
         name: name.trim(), phone: phone.trim(), allergen_note: allergyNote(),
+        tip_pct: tipChoice === "5" ? 5 : tipChoice === "10" ? 10 : 0,
+        tip_pence: tipChoice === "custom" ? tipPence : 0,
         cart: cart.map((l) => ({ id: l.item.id, qty: l.qty, addon_ids: l.addons.map((a) => a.id) })),
       }, true);
       setClientSecret(r.client_secret); setOrderNo(r.order_no); setPhase("pay");
@@ -151,7 +157,7 @@ export default function OnARollClient() {
         <p style={{ fontSize: 16, lineHeight: 1.5, color: INK, maxWidth: 340, margin: "10px auto" }}>
           Thanks{name.trim() ? " " + name.split(" ")[0] : ""}! We're on it. <b>We'll text you the second it's ready to collect{phone.trim() ? ` (${phone})` : ""}.</b> Keep an eye on your phone.
         </p>
-        <button onClick={() => { setCart([]); setPhase("menu"); setClientSecret(null); setOrderNo(null); setDeclared(new Set()); setNoAllergies(false); setAccepted(false); setName(""); setPhone(""); }}
+        <button onClick={() => { setCart([]); setPhase("menu"); setClientSecret(null); setOrderNo(null); setDeclared(new Set()); setNoAllergies(false); setAccepted(false); setName(""); setPhone(""); setTipChoice("none"); setTipCustom(""); }}
           style={btn(BLUE, "#fff")}>Order something else</button>
       </div>
     </Shell>
@@ -165,10 +171,10 @@ export default function OnARollClient() {
     };
     return (
       <Shell>
-        <Head>Pay {gbp(total)}</Head>
-        <p style={{ fontSize: 13.5, color: MUTED, margin: "0 0 12px" }}>{count} item{count > 1 ? "s" : ""} · we'll text you when it's ready.</p>
+        <Head>Pay {gbp(grand)}</Head>
+        <p style={{ fontSize: 13.5, color: MUTED, margin: "0 0 12px" }}>{count} item{count > 1 ? "s" : ""}{tipPence > 0 ? ` + ${gbp(tipPence)} tip` : ""} · we'll text you when it's ready.</p>
         <Elements stripe={getStripe()} options={options}>
-          <PayForm total={total} onSuccess={() => setPhase("done")} onBack={() => setPhase("details")} onError={setErr} />
+          <PayForm total={grand} onSuccess={() => setPhase("done")} onBack={() => setPhase("details")} onError={setErr} />
         </Elements>
         {err && <Note>{err}</Note>}
       </Shell>
@@ -188,9 +194,33 @@ export default function OnARollClient() {
           <Label>Mobile number</Label>
           <input name="phone" type="tel" autoComplete="tel" inputMode="tel" value={phone} onChange={(e) => setPhone(e.target.value)} placeholder="07…" style={field} />
           <p style={{ fontSize: 12.5, color: MUTED, margin: "6px 2px 16px", lineHeight: 1.5 }}>🔒 Your number is used <b>only to text you about this order</b> — never for marketing, and it's not shared, sold, or added to any list.</p>
+
+          <div style={{ border: `1.5px solid ${LINE}`, borderRadius: 12, padding: "13px", marginBottom: 16, background: "#fff" }}>
+            <div style={{ fontFamily: HEAVY, fontSize: 18, color: INK }}>Tip the kitchen? 💛</div>
+            <div style={{ fontSize: 12.5, color: MUTED, margin: "2px 0 10px" }}>100% goes straight to the kitchen team.</div>
+            <div style={{ display: "flex", gap: 7, flexWrap: "wrap" }}>
+              {([["none", "No tip"], ["5", "5%"], ["10", "10%"], ["custom", "Custom"]] as const).map(([k, lbl]) => {
+                const on = tipChoice === k;
+                const amt = k === "5" ? Math.round(total * 0.05) : k === "10" ? Math.round(total * 0.1) : 0;
+                return (
+                  <button key={k} type="button" onClick={() => setTipChoice(k)} style={{ ...chip(on, RED), flex: k === "custom" ? "1 1 90px" : "0 0 auto" }}>
+                    {on ? "✓ " : ""}{lbl}{(k === "5" || k === "10") ? ` · ${gbp(amt)}` : ""}
+                  </button>
+                );
+              })}
+            </div>
+            {tipChoice === "custom" && (
+              <div style={{ display: "flex", alignItems: "center", gap: 6, marginTop: 10 }}>
+                <span style={{ fontFamily: HEAVY, fontSize: 18, color: INK }}>£</span>
+                <input type="text" inputMode="decimal" value={tipCustom} onChange={(e) => setTipCustom(e.target.value.replace(/[^0-9.]/g, ""))} placeholder="0.00" style={{ ...field, marginBottom: 0, maxWidth: 120 }} />
+              </div>
+            )}
+            {tipPence > 0 && <div style={{ fontSize: 13, color: GREEN, fontWeight: 700, marginTop: 9 }}>Thank you! {gbp(tipPence)} tip for the team 🙌</div>}
+          </div>
+
           {err && <Note>{err}</Note>}
           <button type="submit" disabled={!ok || busy} style={{ ...btn(ok ? RED : LINE, "#fff"), opacity: ok ? 1 : 0.6 }}>
-            {busy ? "One sec…" : `Continue to pay ${gbp(total)}`}
+            {busy ? "One sec…" : `Continue to pay ${gbp(grand)}`}
           </button>
         </form>
       </Shell>
