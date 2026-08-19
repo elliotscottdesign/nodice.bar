@@ -187,7 +187,7 @@ export default function OnARollClient() {
           <input name="name" type="text" autoComplete="given-name" value={name} onChange={(e) => setName(e.target.value)} placeholder="First name" style={field} />
           <Label>Mobile number</Label>
           <input name="phone" type="tel" autoComplete="tel" inputMode="tel" value={phone} onChange={(e) => setPhone(e.target.value)} placeholder="07…" style={field} />
-          <p style={{ fontSize: 12.5, color: MUTED, margin: "6px 2px 16px" }}>We only use this to text you when your food's ready.</p>
+          <p style={{ fontSize: 12.5, color: MUTED, margin: "6px 2px 16px", lineHeight: 1.5 }}>🔒 Your number is used <b>only to text you about this order</b> — never for marketing, and it's not shared, sold, or added to any list.</p>
           {err && <Note>{err}</Note>}
           <button type="submit" disabled={!ok || busy} style={{ ...btn(ok ? RED : LINE, "#fff"), opacity: ok ? 1 : 0.6 }}>
             {busy ? "One sec…" : `Continue to pay ${gbp(total)}`}

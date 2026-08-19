@@ -77,7 +77,7 @@ async function orderingOpen(): Promise<{ open: boolean }> {
     .select("id", { count: "exact", head: true })
     .in("status", ["new", "preparing", "ready"]);
   const active = count || 0;
-  return { open: !(paused || (auto && active >= threshold)) };
+  return { open: !(paused || (auto && threshold >= 1 && active >= threshold)) };   // threshold 0 = auto-pause off
 }
 
 type CartLine = { id: string; qty: number; addon_ids?: string[] };
