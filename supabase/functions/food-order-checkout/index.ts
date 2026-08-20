@@ -127,9 +127,24 @@ Deno.serve(async (req) => {
     const options = chosen.map((a: any) => ({ name: a.name, price_pence: parseInt(a.price_pence, 10) || 0 }));
     const unit = (parseInt(it.sell_pence, 10) || 0) + options.reduce((s: number, o: any) => s + o.price_pence, 0);
     total += unit * qty;
-    lineItems.push({ name: it.name, qty, price_pence: parseInt(it.sell_pence, 10) || 0, options });
+    lineItems.push({ name: it.name, qty, price_pence: parseInt(it.sell_pence, 10) || 0, options, stock: Array.isArray(it.stock) ? it.stock : [] });
   }
   if (total <= 0) return json({ error: "Could not price this order — please refresh and try again." }, { status: 400 });
+
+  // ── Never oversell: check the cart's limiting ingredients against live stock ──
+  const need: Record<string, number> = {};
+  for (const line of lineItems) for (const ing of (line.stock || [])) need[ing] = (need[ing] || 0) + line.qty;
+  if (Object.keys(need).length) {
+    const { data: levelRows } = await db.from("kitchen_stock_levels").select("*");
+    const lvl: Record<string, any> = Object.fromEntries((levelRows || []).map((r: any) => [r.ingredient, r]));
+    for (const [ing, qty] of Object.entries(need)) {
+      const r = lvl[ing];
+      if (!r) continue;
+      const soldOut = r.override === "sold_out" || (r.override !== "available" && r.count <= 0);
+      const avail = r.override === "available" ? Infinity : r.count;
+      if (soldOut || qty > avail) return json({ error: `Sorry — we've just run low on ${r.label || ing}. Please refresh the menu and adjust your order.`, sold_out: ing }, { status: 409 });
+    }
+  }
 
   // Tip computed server-side on the true subtotal (kitchen keeps 100%).
   const tip = tipPct > 0 ? Math.round(total * tipPct / 100) : tipCustomPence;

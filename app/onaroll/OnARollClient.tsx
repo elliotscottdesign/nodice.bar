@@ -35,8 +35,9 @@ const gbp = (pence: number) => "£" + (pence % 100 === 0 ? String(pence / 100) :
 type Addon = { id: string; name: string; price_pence: number };
 type Item = {
   id: string; name: string; sell_pence: number; desc?: string; img?: string;
-  addons?: Addon[]; allergens?: Record<string, "contains" | "trace">;
+  addons?: Addon[]; allergens?: Record<string, "contains" | "trace">; stock?: string[];
 };
+type StockLevel = { count: number; override: string | null; soldOut: boolean; label?: string };
 type Section = { id: string; name: string; items: Item[] };
 type CartLine = { uid: string; item: Item; qty: number; addons: Addon[] };
 
@@ -57,6 +58,7 @@ const lineTotal = (l: CartLine) => lineUnit(l) * l.qty;
 export default function OnARollClient() {
   const [sections, setSections] = useState<Section[] | null>(null);
   const [status, setStatus] = useState<{ open: boolean; waiting?: number } | null>(null);
+  const [levels, setLevels] = useState<Record<string, StockLevel>>({});
   const [err, setErr] = useState("");
   const [cart, setCart] = useState<CartLine[]>([]);
   const [picking, setPicking] = useState<Item | null>(null);   // item add-on sheet
@@ -77,9 +79,10 @@ export default function OnARollClient() {
   const load = async (retry = true) => {
     setErr("");
     try {
-      const [m, s] = await Promise.all([api("menu", { action: "getMenu" }), api("food-order", { action: "getStatus" })]);
+      const [m, s, st] = await Promise.all([api("menu", { action: "getMenu" }), api("food-order", { action: "getStatus" }), api("food-order", { action: "getStock" })]);
       setSections((m.sections || []).filter((sec: Section) => (sec.items || []).some((it) => it.name)));
       setStatus({ open: !!s.open, waiting: s.waiting });
+      setLevels(st.levels || {});
     } catch (e) {
       if (retry) { setTimeout(() => load(false), 1200); return; }   // one silent retry for flaky wifi
       setErr((e as Error).message);
@@ -92,7 +95,25 @@ export default function OnARollClient() {
       if (p.get("redirect_status") === "succeeded") setPhase("done");
     } catch { /* ignore */ }
     load();
+    const t = setInterval(() => { api("food-order", { action: "getStock" }).then((r) => setLevels(r.levels || {})).catch(() => {}); }, 15000);
+    return () => clearInterval(t);
   }, []);   // eslint-disable-line react-hooks/exhaustive-deps
+
+  // Live availability for a menu item = the min stock across its limiting
+  // ingredients (buns gate every roll). Infinity = not stock-tracked (always on).
+  const avail = (it: Item): number => {
+    const keys = it.stock || [];
+    if (!keys.length) return Infinity;
+    let min = Infinity;
+    for (const k of keys) {
+      const lv = levels[k];
+      if (!lv) continue;
+      if (lv.soldOut) return 0;
+      const c = lv.override === "available" ? Infinity : lv.count;
+      if (c < min) min = c;
+    }
+    return min;
+  };
 
   const total = useMemo(() => cart.reduce((s, l) => s + lineTotal(l), 0), [cart]);
   const count = useMemo(() => cart.reduce((s, l) => s + l.qty, 0), [cart]);
@@ -328,9 +349,13 @@ export default function OnARollClient() {
       {sections.map((sec) => (
         <div key={sec.id} style={{ marginBottom: 22 }}>
           <div style={{ fontFamily: HEAVY, fontSize: 24, color: BLUE, borderBottom: `2px solid ${BLUE}`, paddingBottom: 4, marginBottom: 10, textTransform: "uppercase", letterSpacing: "0.5px" }}>{sec.name}</div>
-          {sec.items.filter((it) => it.name).map((it) => (
-            <div key={it.id} style={{ display: "flex", gap: 12, padding: "10px 0", borderBottom: `1px solid ${LINE}` }}>
-              {it.img ? <img src={it.img} alt="" style={{ width: 66, height: 66, borderRadius: 10, objectFit: "cover", flexShrink: 0 }} /> : null}
+          {sec.items.filter((it) => it.name).map((it) => {
+            const left = avail(it);
+            const soldOut = left <= 0;
+            const lowLeft = !soldOut && left !== Infinity && left <= 6;
+            return (
+            <div key={it.id} style={{ display: "flex", gap: 12, padding: "10px 0", borderBottom: `1px solid ${LINE}`, opacity: soldOut ? 0.55 : 1 }}>
+              {it.img ? <img src={it.img} alt="" style={{ width: 66, height: 66, borderRadius: 10, objectFit: "cover", flexShrink: 0, filter: soldOut ? "grayscale(1)" : "none" }} /> : null}
               <div style={{ flex: 1, minWidth: 0 }}>
                 <div style={{ display: "flex", justifyContent: "space-between", gap: 8 }}>
                   <span style={{ fontWeight: 800, fontSize: 16 }}>{it.name}</span>
@@ -338,12 +363,18 @@ export default function OnARollClient() {
                 </div>
                 {it.desc && <div style={{ fontSize: 13, color: MUTED, lineHeight: 1.4, margin: "3px 0" }}>{it.desc}</div>}
                 <AllergenTags allergens={it.allergens} />
-                <button onClick={() => (it.addons && it.addons.length ? setPicking(it) : addToCart(it, [], 1))} style={{ ...btn(BLUE, "#fff"), padding: "8px 16px", marginTop: 7, width: "auto", display: "inline-block" }}>
-                  Add{it.addons && it.addons.length ? " +" : ""}
-                </button>
+                {soldOut
+                  ? <div style={{ display: "inline-block", marginTop: 7, padding: "8px 16px", borderRadius: 10, background: "#efe6cf", color: "#8a7f63", fontFamily: HEAVY, fontSize: 15, textTransform: "uppercase", letterSpacing: "0.5px" }}>Sold out</div>
+                  : <>
+                      {lowLeft && <span style={{ display: "inline-block", marginTop: 7, marginRight: 8, padding: "3px 9px", borderRadius: 999, background: RED, color: "#fff", fontSize: 12, fontWeight: 800 }}>Only {left} left</span>}
+                      <button onClick={() => (it.addons && it.addons.length ? setPicking(it) : addToCart(it, [], 1))} style={{ ...btn(BLUE, "#fff"), padding: "8px 16px", marginTop: 7, width: "auto", display: "inline-block" }}>
+                        Add{it.addons && it.addons.length ? " +" : ""}
+                      </button>
+                    </>}
               </div>
             </div>
-          ))}
+            );
+          })}
         </div>
       ))}
       {count > 0 && (

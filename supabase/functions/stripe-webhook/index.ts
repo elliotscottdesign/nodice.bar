@@ -379,11 +379,11 @@ async function handleFoodOrderPaymentIntent(
   }
 
   // Locate the row by id (metadata) then fall back to payment_ref (pi.id).
-  let r: { id: string; status: string; paid: boolean } | null = null;
+  let r: { id: string; status: string; paid: boolean; items: any } | null = null;
   if (orderId) {
     const { data, error } = await db
       .from("food_orders")
-      .select("id, status, paid")
+      .select("id, status, paid, items")
       .eq("id", orderId)
       .maybeSingle();
     if (error) return new Response(`DB lookup error: ${error.message}`, { status: 500 });
@@ -392,7 +392,7 @@ async function handleFoodOrderPaymentIntent(
   if (!r) {
     const { data, error } = await db
       .from("food_orders")
-      .select("id, status, paid")
+      .select("id, status, paid, items")
       .eq("payment_ref", pi.id)
       .maybeSingle();
     if (error) return new Response(`DB lookup error: ${error.message}`, { status: 500 });
@@ -406,6 +406,19 @@ async function handleFoodOrderPaymentIntent(
     .update({ paid: true, status: "new", payment_ref: pi.id })
     .eq("id", r.id);
   if (updErr) return new Response(`DB update error: ${updErr.message}`, { status: 500 });
+
+  // Draw down live stock for the limiting ingredients this order consumed, so the
+  // menu counts stay accurate (idempotent: the r.paid guard above runs this once).
+  try {
+    const need: Record<string, number> = {};
+    for (const line of (Array.isArray(r.items) ? r.items : [])) {
+      for (const ing of (Array.isArray(line.stock) ? line.stock : [])) need[ing] = (need[ing] || 0) + (line.qty || 1);
+    }
+    for (const [ing, qty] of Object.entries(need)) {
+      const { data: cur } = await db.from("kitchen_stock_levels").select("count").eq("ingredient", ing).maybeSingle();
+      if (cur) await db.from("kitchen_stock_levels").update({ count: Math.max(0, cur.count - qty), updated_at: new Date().toISOString() }).eq("ingredient", ing);
+    }
+  } catch (e) { console.error(`stock decrement failed for order ${r.id}:`, e); }
 
   console.log(`food_order webhook payment_intent.succeeded: order ${r.id} → paid/new (pi=${pi.id})`);
   return new Response("ok", { status: 200 });
