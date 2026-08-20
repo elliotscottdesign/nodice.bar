@@ -420,6 +420,18 @@ async function handleFoodOrderPaymentIntent(
     }
   } catch (e) { console.error(`stock decrement failed for order ${r.id}:`, e); }
 
+  // Fire-and-forget "order received" reassurance text (one message; the kitchen's
+  // "Ready" tap sends the second). Never fail the webhook if it doesn't send.
+  try {
+    const secret = Deno.env.get("SEND_SECRET");
+    if (secret) {
+      fetch(`${SUPABASE_URL}/functions/v1/food-order`, {
+        method: "POST", headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ action: "notifyReceived", secret, id: r.id }),
+      }).catch(() => {});
+    }
+  } catch { /* ignore */ }
+
   console.log(`food_order webhook payment_intent.succeeded: order ${r.id} → paid/new (pi=${pi.id})`);
   return new Response("ok", { status: 200 });
 }

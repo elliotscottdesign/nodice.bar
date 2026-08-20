@@ -97,6 +97,7 @@ Deno.serve(async (req) => {
   const emailRaw = String(b.email || "").trim().slice(0, 120);
   const email = /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(emailRaw) ? emailRaw : null;   // optional, for a Stripe receipt
   const allergen_note = b.allergen_note ? String(b.allergen_note).trim().slice(0, 500) : null;
+  const customer_note = b.note ? String(b.note).trim().slice(0, 300) : null;   // "no pickles" etc.
   const cart = Array.isArray(b.cart) ? b.cart.slice(0, 50) : [];
   // Tip (100% goes to the kitchen team): a preset % (5/10) computed on the subtotal,
   // or a custom amount in pence (capped £500). Never trusts a client-computed % amount.
@@ -176,6 +177,7 @@ Deno.serve(async (req) => {
       customer_name: name,
       customer_phone: phone,
       customer_email: email,
+      customer_note,
       items: lineItems,
       total_pence: grand,
       tip_pence: tip,
