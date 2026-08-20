@@ -67,6 +67,7 @@ export default function OnARollClient() {
   // checkout details
   const [name, setName] = useState("");
   const [phone, setPhone] = useState("");
+  const [email, setEmail] = useState("");
   const [declared, setDeclared] = useState<Set<string>>(new Set());
   const [noAllergies, setNoAllergies] = useState(false);
   const [accepted, setAccepted] = useState(false);
@@ -153,7 +154,7 @@ export default function OnARollClient() {
     setBusy(true); setErr("");
     try {
       const r = await api("food-order-checkout", {
-        name: name.trim(), phone: phone.trim(), allergen_note: allergyNote(),
+        name: name.trim(), phone: phone.trim(), email: email.trim(), allergen_note: allergyNote(),
         tip_pct: tipChoice === "5" ? 5 : tipChoice === "10" ? 10 : 0,
         tip_pence: tipChoice === "custom" ? tipPence : 0,
         cart: cart.map((l) => ({ id: l.item.id, qty: l.qty, addon_ids: l.addons.map((a) => a.id) })),
@@ -214,7 +215,9 @@ export default function OnARollClient() {
           <input name="name" type="text" autoComplete="given-name" value={name} onChange={(e) => setName(e.target.value)} placeholder="First name" style={field} />
           <Label>Mobile number</Label>
           <input name="phone" type="tel" autoComplete="tel" inputMode="tel" value={phone} onChange={(e) => setPhone(e.target.value)} placeholder="07…" style={field} />
-          <p style={{ fontSize: 12.5, color: MUTED, margin: "6px 2px 16px", lineHeight: 1.5 }}>🔒 Your number is used <b>only to text you about this order</b> — never for marketing, and it's not shared, sold, or added to any list.</p>
+          <Label>Email — for a receipt (optional)</Label>
+          <input name="email" type="email" autoComplete="email" inputMode="email" value={email} onChange={(e) => setEmail(e.target.value)} placeholder="you@email.com" style={field} />
+          <p style={{ fontSize: 12.5, color: MUTED, margin: "6px 2px 16px", lineHeight: 1.5 }}>🔒 Used <b>only for this order</b> — your number to text you when it's ready, your email to send a receipt. Never for marketing, never shared or sold.</p>
 
           <div style={{ border: `1.5px solid ${LINE}`, borderRadius: 12, padding: "13px", marginBottom: 16, background: "#fff" }}>
             <div style={{ fontFamily: HEAVY, fontSize: 18, color: INK }}>Tip the kitchen? 💛</div>

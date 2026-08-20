@@ -94,6 +94,8 @@ Deno.serve(async (req) => {
 
   const name = String(b.name || "").trim();
   const phone = normalisePhone(String(b.phone || ""));
+  const emailRaw = String(b.email || "").trim().slice(0, 120);
+  const email = /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(emailRaw) ? emailRaw : null;   // optional, for a Stripe receipt
   const allergen_note = b.allergen_note ? String(b.allergen_note).trim().slice(0, 500) : null;
   const cart = Array.isArray(b.cart) ? b.cart.slice(0, 50) : [];
   // Tip (100% goes to the kitchen team): a preset % (5/10) computed on the subtotal,
@@ -157,6 +159,7 @@ Deno.serve(async (req) => {
       amount: grand,
       currency: "gbp",
       description: `On A Roll — ${lineItems.reduce((n, l) => n + l.qty, 0)} item(s)${tip > 0 ? ` + £${(tip / 100).toFixed(2)} tip` : ""}`,
+      ...(email ? { receipt_email: email } : {}),   // Stripe emails a receipt (business details from the account)
       automatic_payment_methods: { enabled: true },
       metadata: { kind: "food_order", name },
     });
@@ -172,6 +175,7 @@ Deno.serve(async (req) => {
     .insert({
       customer_name: name,
       customer_phone: phone,
+      customer_email: email,
       items: lineItems,
       total_pence: grand,
       tip_pence: tip,
