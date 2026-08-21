@@ -374,7 +374,13 @@ async function handleFoodOrderPaymentIntent(
 ): Promise<Response> {
   const orderId = pi.metadata?.order_id;
   if (eventType !== "payment_intent.succeeded") {
-    console.log(`food_order webhook ${eventType}: order ${orderId ?? "?"} — non-success, leaving pending`);
+    // Card declined/failed → flag the order so the kitchen can help the customer
+    // (they think they've ordered). Only touch unpaid rows; a later success clears it.
+    if (eventType === "payment_intent.payment_failed") {
+      const q = db.from("food_orders").update({ status: "card_failed" }).eq("paid", false).neq("status", "new");
+      if (orderId) await q.eq("id", orderId); else await q.eq("payment_ref", pi.id);
+      console.log(`food_order webhook payment_failed: order ${orderId ?? pi.id} → card_failed`);
+    }
     return new Response("ok (non-success)", { status: 200 });
   }
 
