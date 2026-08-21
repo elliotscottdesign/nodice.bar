@@ -444,9 +444,14 @@ export default function EventsPage() {
                   key={`d-${day}`}
                   className={`group relative flex-col overflow-hidden rounded-md border bg-ink/40 sm:flex sm:rounded-xl ${
                     skipOnMobile ? "hidden" : "flex"
-                  } ${isToday ? "border-plonkPink" : "border-cream/10"} ${
-                    editing ? "ring-1 ring-cream/10" : ""
-                  }`}
+                  } ${
+                    /* Today = a clear WHITE ring (founder 7 Aug 2026) — the
+                       old thin pink border vanished against a page full of
+                       pink event chrome. */
+                    isToday
+                      ? "border-cream ring-2 ring-cream"
+                      : "border-cream/10"
+                  } ${editing && !isToday ? "ring-1 ring-cream/10" : ""}`}
                 >
                   {/* Day-number badge — DESKTOP only. On mobile the
                       dedicated header strip below carries the date;
@@ -455,7 +460,7 @@ export default function EventsPage() {
                       (founder bug 2026-07-02). */}
                   <div
                     className={`absolute left-2 top-2 z-10 hidden rounded-full px-1.5 py-0.5 text-xs font-bold sm:block ${
-                      isToday ? "bg-plonkPink text-white" : "bg-ink/80 text-cream/85"
+                      isToday ? "bg-cream text-ink" : "bg-ink/80 text-cream/85"
                     }`}
                   >
                     {day}
@@ -474,13 +479,13 @@ export default function EventsPage() {
                       <div
                         className={`flex items-baseline gap-3 border-b px-4 py-3 sm:hidden ${
                           isToday
-                            ? "border-plonkPink/40 bg-plonkPink/10"
+                            ? "border-cream/50 bg-cream/10"
                             : "border-cream/10 bg-ink/60"
                         }`}
                       >
                         <span
                           className={`font-display text-3xl leading-none ${
-                            isToday ? "text-plonkPink" : "text-cream"
+                            isToday ? "text-cream" : "text-cream"
                           }`}
                         >
                           {day}
