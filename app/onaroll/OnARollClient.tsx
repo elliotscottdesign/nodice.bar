@@ -62,7 +62,9 @@ export default function OnARollClient() {
   const [err, setErr] = useState("");
   const [cart, setCart] = useState<CartLine[]>([]);
   const [picking, setPicking] = useState<Item | null>(null);   // item add-on sheet
-  const [phase, setPhase] = useState<"menu" | "cart" | "allergy" | "details" | "pay" | "done">("menu");
+  const [phase, setPhase] = useState<"menu" | "cart" | "allergy" | "details" | "pay" | "code" | "done">("menu");
+  const [codeInput, setCodeInput] = useState("");
+  const [codeErr, setCodeErr] = useState("");
 
   // checkout details
   const [name, setName] = useState("");
@@ -165,6 +167,19 @@ export default function OnARollClient() {
     finally { setBusy(false); }
   };
 
+  const placeCodedOrder = async () => {
+    setBusy(true); setCodeErr("");
+    try {
+      const r = await api("food-order", {
+        action: "createCodedOrder", code: codeInput.trim(), name: name.trim(), phone: phone.trim(),
+        note: note.trim(), allergen_note: allergyNote(),
+        cart: cart.map((l) => ({ id: l.item.id, qty: l.qty, addon_ids: l.addons.map((a) => a.id) })),
+      });
+      setOrderNo(r.order_no); setPhase("done");
+    } catch (e) { setCodeErr((e as Error).message); }
+    finally { setBusy(false); }
+  };
+
   if (err && !sections) return <Shell><Note>Couldn't load the menu — {err}</Note><button onClick={() => load()} style={btn(RED, "#fff")}>Try again</button></Shell>;
   if (!sections || !status) return <Shell><div style={{ color: MUTED, padding: "40px 0", textAlign: "center" }}>Loading the menu…</div></Shell>;
 
@@ -180,7 +195,7 @@ export default function OnARollClient() {
         <p style={{ fontSize: 16, lineHeight: 1.5, color: INK, maxWidth: 340, margin: "10px auto" }}>
           Thanks{name.trim() ? " " + name.split(" ")[0] : ""}! We're on it. <b>We'll text you the second it's ready to collect{phone.trim() ? ` (${phone})` : ""}.</b> Keep an eye on your phone.
         </p>
-        <button onClick={() => { setCart([]); setPhase("menu"); setClientSecret(null); setOrderNo(null); setDeclared(new Set()); setNoAllergies(false); setAccepted(false); setName(""); setPhone(""); setEmail(""); setNote(""); setTipChoice("none"); setTipCustom(""); }}
+        <button onClick={() => { setCart([]); setPhase("menu"); setClientSecret(null); setOrderNo(null); setDeclared(new Set()); setNoAllergies(false); setAccepted(false); setName(""); setPhone(""); setEmail(""); setNote(""); setTipChoice("none"); setTipCustom(""); setCodeInput(""); setCodeErr(""); }}
           style={btn(BLUE, "#fff")}>Order something else</button>
       </div>
     </Shell>
@@ -200,6 +215,27 @@ export default function OnARollClient() {
           <PayForm total={grand} onSuccess={() => setPhase("done")} onBack={() => setPhase("details")} onError={setErr} />
         </Elements>
         {err && <Note>{err}</Note>}
+      </Shell>
+    );
+  }
+
+  // ── PAY WITH CODE (party tab / staff — no card) ──────────────────────────
+  if (phase === "code") {
+    const okCode = codeInput.trim().length >= 3;
+    return (
+      <Shell>
+        <Back onClick={() => setPhase("details")} />
+        <Head>Order on a code</Head>
+        <p style={{ fontSize: 14, lineHeight: 1.5, color: INK, margin: "0 0 14px" }}>
+          Enter your <b>party or staff code</b> — no card needed. The <b>{gbp(total)}</b> goes on the tab to settle at the bar.
+        </p>
+        <input value={codeInput} onChange={(e) => { setCodeInput(e.target.value.toUpperCase().replace(/\s+/g, "")); setCodeErr(""); }}
+          placeholder="ENTER CODE" autoCapitalize="characters"
+          style={{ ...field, textTransform: "uppercase", fontFamily: HEAVY, fontSize: 24, textAlign: "center", letterSpacing: "2px" }} />
+        {codeErr && <Note>{codeErr}</Note>}
+        <button disabled={busy || !okCode} onClick={placeCodedOrder} style={{ ...btn(okCode ? RED : LINE, "#fff"), opacity: okCode ? 1 : 0.6 }}>
+          {busy ? "Placing…" : `Place order on code · ${gbp(total)}`}
+        </button>
       </Shell>
     );
   }
@@ -250,6 +286,10 @@ export default function OnARollClient() {
             {busy ? "One sec…" : `Continue to pay ${gbp(grand)}`}
           </button>
         </form>
+        <button onClick={() => { if (name.trim().length >= 2 && phone.replace(/\D/g, "").length >= 10) setPhase("code"); else setErr("Enter your name and mobile first."); }}
+          style={{ width: "100%", marginTop: 12, background: "none", border: `1.5px solid ${BLUE}`, color: BLUE, borderRadius: 11, padding: "12px", fontWeight: 700, fontSize: 14, cursor: "pointer" }}>
+          🎟 Paying with a code? (party / staff)
+        </button>
       </Shell>
     );
   }
