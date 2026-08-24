@@ -250,8 +250,11 @@ export default function OnARollClient() {
         <form onSubmit={(e) => { e.preventDefault(); if (ok && !busy) startPayment(); }}>
           <Label>Your name</Label>
           <input name="name" type="text" autoComplete="given-name" value={name} onChange={(e) => setName(e.target.value)} placeholder="First name" style={field} />
-          <Label>Mobile number</Label>
-          <input name="phone" type="tel" autoComplete="tel" inputMode="tel" value={phone} onChange={(e) => setPhone(e.target.value)} placeholder="07…" style={field} />
+          <Label>Mobile number — we text you when it's ready 📲</Label>
+          <input name="phone" type="tel" autoComplete="tel" inputMode="tel" value={phone} onChange={(e) => setPhone(e.target.value)} placeholder="07… (UK) · +33 6… (other countries)" style={field} />
+          <p style={{ fontSize: 12.5, color: INK, margin: "-2px 2px 12px", lineHeight: 1.5, background: "#fff4d6", border: "1px solid #e6c766", borderRadius: 8, padding: "8px 10px" }}>
+            ⚠️ <b>The text is the only way we tell you your food's ready</b> — use a phone you'll have on you and watch for it. <b>Not a UK number?</b> Enter it in full with your country code, starting with <b>+</b>.
+          </p>
           <Label>Email — for a receipt (optional)</Label>
           <input name="email" type="email" autoComplete="email" inputMode="email" value={email} onChange={(e) => setEmail(e.target.value)} placeholder="you@email.com" style={field} />
           <Label>Anything we should know? (optional)</Label>
