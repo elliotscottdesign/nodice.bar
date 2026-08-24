@@ -1010,6 +1010,7 @@ const RECORD_STORES: {
   note: string;
   flag?: string;
 }[] = [
+  { name: "Oca Records", handle: "oca_records_ldn", area: "115 High St, Walthamstow E17", note: "The E17 stop — right on Walthamstow High Street, mid-market. Make a day of it with the stalls." },
   { name: "Rook Records", handle: "rookrecords", area: "Hackney Wick, E3", note: "Jazz, soul, disco into house. Reggae and hip hop. Heavy on US and Japanese second-hand imports." },
   { name: "Stranger Than Paradise", handle: "strangerthanparadiserecords", area: "Mare Street Market, E8", note: "New releases and leftfield. The tastemaker shop." },
   { name: "Kingsland Records", handle: "kingsland_records", area: "492 Kingsland Rd, E8", note: "Reggae, jazz, African, Latin, highlife, soukous, funk, soul, jungle, hip hop. Custom soundsystem in store." },
