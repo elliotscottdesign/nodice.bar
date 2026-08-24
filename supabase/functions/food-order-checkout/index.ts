@@ -105,7 +105,8 @@ Deno.serve(async (req) => {
   const tipCustomPence = Math.max(0, Math.min(50000, parseInt(String(b.tip_pence), 10) || 0));
 
   if (name.length < 2) return json({ error: "Please enter your name." }, { status: 400 });
-  if (phone.replace(/\D/g, "").length < 10) return json({ error: "Please enter a valid mobile number so we can text you when it's ready." }, { status: 400 });
+  if (!phone && !email) return json({ error: "Leave a mobile or an email so we can tell you when it's ready." }, { status: 400 });
+  if (phone && phone.replace(/\D/g, "").length < 10) return json({ error: "That mobile doesn't look right — check it, or leave an email instead." }, { status: 400 });
   if (!cart.length) return json({ error: "Your order is empty." }, { status: 400 });
 
   // Ordering paused? (manual or auto). Match the kitchen rule so we never

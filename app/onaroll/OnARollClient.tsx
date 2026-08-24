@@ -171,7 +171,7 @@ export default function OnARollClient() {
     setBusy(true); setCodeErr("");
     try {
       const r = await api("food-order", {
-        action: "createCodedOrder", code: codeInput.trim(), name: name.trim(), phone: phone.trim(),
+        action: "createCodedOrder", code: codeInput.trim(), name: name.trim(), phone: phone.trim(), email: email.trim(),
         note: note.trim(), allergen_note: allergyNote(),
         cart: cart.map((l) => ({ id: l.item.id, qty: l.qty, addon_ids: l.addons.map((a) => a.id) })),
       });
@@ -193,7 +193,9 @@ export default function OnARollClient() {
         <div style={{ fontFamily: HEAVY, fontSize: 30, color: GREEN }}>✓ Order in!</div>
         {orderNo != null && <div style={{ fontFamily: HEAVY, fontSize: 64, color: RED, lineHeight: 1.1, margin: "6px 0" }}>#{orderNo}</div>}
         <p style={{ fontSize: 16, lineHeight: 1.5, color: INK, maxWidth: 340, margin: "10px auto" }}>
-          Thanks{name.trim() ? " " + name.split(" ")[0] : ""}! We're on it. <b>We'll text you the second it's ready to collect{phone.trim() ? ` (${phone})` : ""}.</b> Keep an eye on your phone.
+          Thanks{name.trim() ? " " + name.split(" ")[0] : ""}! We're on it. {phone.trim()
+            ? <><b>We'll text you the second it's ready to collect ({phone}).</b> Keep an eye on your phone.</>
+            : <><b>We'll email you the second it's ready to collect{email.trim() ? ` (${email})` : ""}.</b> Keep an eye on your inbox.</>}
         </p>
         <button onClick={() => { setCart([]); setPhase("menu"); setClientSecret(null); setOrderNo(null); setDeclared(new Set()); setNoAllergies(false); setAccepted(false); setName(""); setPhone(""); setEmail(""); setNote(""); setTipChoice("none"); setTipCustom(""); setCodeInput(""); setCodeErr(""); }}
           style={btn(BLUE, "#fff")}>Order something else</button>
@@ -242,7 +244,8 @@ export default function OnARollClient() {
 
   // ── DETAILS ──────────────────────────────────────────────────────────────
   if (phase === "details") {
-    const ok = name.trim().length >= 2 && phone.replace(/\D/g, "").length >= 10;
+    const emailValid = /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email.trim());
+    const ok = name.trim().length >= 2 && (phone.replace(/\D/g, "").length >= 10 || emailValid);
     return (
       <Shell>
         <Back onClick={() => setPhase("allergy")} />
@@ -253,9 +256,9 @@ export default function OnARollClient() {
           <Label>Mobile number — we text you when it's ready 📲</Label>
           <input name="phone" type="tel" autoComplete="tel" inputMode="tel" value={phone} onChange={(e) => setPhone(e.target.value)} placeholder="07… (UK) · +33 6… (other countries)" style={field} />
           <p style={{ fontSize: 12.5, color: INK, margin: "-2px 2px 12px", lineHeight: 1.5, background: "#fff4d6", border: "1px solid #e6c766", borderRadius: 8, padding: "8px 10px" }}>
-            ⚠️ <b>The text is the only way we tell you your food's ready</b> — use a phone you'll have on you and watch for it. <b>Not a UK number?</b> Enter it in full with your country code, starting with <b>+</b>.
+            ⚠️ This is how we tell you your food's ready — use a phone you'll have on you and watch for it. <b>Not a UK number?</b> Enter it in full with your country code (start with <b>+</b>). <b>No phone?</b> Leave your <b>email</b> below and we'll email you instead.
           </p>
-          <Label>Email — for a receipt (optional)</Label>
+          <Label>Email — {phone.trim() ? "for a receipt (optional)" : "we'll email you when it's ready"}</Label>
           <input name="email" type="email" autoComplete="email" inputMode="email" value={email} onChange={(e) => setEmail(e.target.value)} placeholder="you@email.com" style={field} />
           <Label>Anything we should know? (optional)</Label>
           <textarea value={note} onChange={(e) => setNote(e.target.value.slice(0, 300))} rows={2} placeholder="e.g. no pickles, no onions…" style={{ ...field, resize: "vertical", fontFamily: "inherit" }} />
