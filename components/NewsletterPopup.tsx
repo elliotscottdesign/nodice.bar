@@ -4,13 +4,11 @@ import { useEffect, useState } from "react";
 import { usePathname } from "next/navigation";
 
 // =============================================================
-// NewsletterPopup — 20% off first booking, one per visitor
+// NewsletterPopup — join-the-list, one per visitor
 // =============================================================
 // Pops once per browser (localStorage key) after the visitor's seen
-// the cookie banner. Offers a 20% discount code for any No Dice
-// event ticket. The code itself (WELCOME20 by default) is created
-// in /admin/promos so the founder can swap, disable, or expire it
-// without us pushing.
+// the cookie banner. Plain email capture — the 20%-off WELCOME20
+// incentive was retired 26 Aug 2026 (founder: "0 deals for emails").
 //
 // Re-open programmatically with `window.dispatchEvent(new
 // CustomEvent("plonk:newsletter:open"))` — wired to the footer link.
@@ -22,16 +20,15 @@ import { usePathname } from "next/navigation";
 const STORAGE_KEY = "nd_newsletter_v1";
 const COOKIES_KEY = "plonk_cookie_consent_v1";
 const SHOW_DELAY_MS = 4000;
-const DISCOUNT_CODE = "WELCOME20";
 
-// Edge Function endpoint that records the signup + emails the code.
-// Browser auth is the public anon key which Supabase accepts as a
-// valid JWT for this function. (See send-welcome-discount/index.ts.)
+// Signups insert straight into newsletter_signups with the anon key
+// (RLS permits anon INSERT, blocks reads). The old send-welcome-discount
+// Edge Function is no longer called — the WELCOME20 bribe was retired
+// 26 Aug 2026 ("0 deals for emails", founder).
 const SUPABASE_URL =
   process.env.NEXT_PUBLIC_SUPABASE_URL ??
   "https://rntcujcpsozvuxvmlejv.supabase.co";
 const SUPABASE_ANON_KEY = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY ?? "";
-const SEND_FN_URL = `${SUPABASE_URL}/functions/v1/send-welcome-discount`;
 
 type StoredState =
   | { status: "dismissed"; ts: string }
@@ -72,10 +69,9 @@ export default function NewsletterPopup() {
   const [optIn, setOptIn] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [submitted, setSubmitted] = useState(false);
-  const [copied, setCopied] = useState(false);
 
   // Suppress on admin pages — staff doing back-of-house work shouldn't
-  // see the customer-facing 10%-off prompt.
+  // see the customer-facing signup prompt.
   const pathname = usePathname() ?? "";
   const isAdmin = pathname.startsWith("/admin");
 
@@ -137,30 +133,34 @@ export default function NewsletterPopup() {
       return;
     }
     if (!optIn) {
-      setError("Tick the box so we can email you the code.");
+      setError("Tick the box so we can email you.");
       return;
     }
     setError(null);
 
-    // Fire the welcome email + record the signup. Best-effort —
-    // even if the network blip fails, we still show the success
-    // screen so the customer has the code in front of them. The
-    // localStorage state below ensures we won't pester them again.
+    // Record the signup only — no discount email. (Founder direction
+    // 26 Aug 2026: "0 deals for emails" — the WELCOME20 bribe is dead.
+    // Direct insert with the anon key, same RLS-permitted pattern the
+    // /minigolf capture uses; send-welcome-discount is no longer called.)
+    // Best-effort — a network blip still shows the success screen, and
+    // the localStorage state below ensures we won't pester them again.
     try {
-      await fetch(SEND_FN_URL, {
+      await fetch(`${SUPABASE_URL}/rest/v1/newsletter_signups`, {
         method: "POST",
         headers: {
           "Content-Type": "application/json",
           apikey: SUPABASE_ANON_KEY,
           Authorization: `Bearer ${SUPABASE_ANON_KEY}`,
+          Prefer: "resolution=merge-duplicates",
         },
         body: JSON.stringify({
           email: email.trim().toLowerCase(),
           source: "popup",
+          consent: true,
         }),
       });
     } catch {
-      /* network blip — customer still sees the code below */
+      /* network blip — customer still sees the success screen */
     }
 
     save({
@@ -176,16 +176,6 @@ export default function NewsletterPopup() {
         detail: { email: email.trim() },
       }),
     );
-  }
-
-  async function copyCode() {
-    try {
-      await navigator.clipboard.writeText(DISCOUNT_CODE);
-      setCopied(true);
-      window.setTimeout(() => setCopied(false), 2000);
-    } catch {
-      /* clipboard may be blocked — visitor can still read the code */
-    }
   }
 
   if (isAdmin || !visible) return null;
@@ -249,12 +239,12 @@ export default function NewsletterPopup() {
                 id="newsletter-title"
                 className="mt-3 text-center font-display text-4xl uppercase leading-none tracking-wider text-cream sm:text-5xl"
               >
-                20% off your<br />first event
+                Stay in<br />the loop
               </h2>
               <p className="mx-auto mt-4 max-w-xs text-center text-sm leading-relaxed text-cream/65">
-                Drop your email and we'll send the code for 20% off your first
-                event ticket at No Dice! Pool sessions, tournament nights,
-                DJ sessions or even golf!
+                The occasional email on what's on at No Dice — pool
+                tournaments, DJ nights, food residencies and golf.
+                Unsubscribe anytime.
               </p>
 
               <form onSubmit={submit} className="mt-7 space-y-4" noValidate>
@@ -282,8 +272,8 @@ export default function NewsletterPopup() {
                     className="mt-0.5 h-4 w-4 shrink-0 accent-plonkPink"
                   />
                   <span>
-                    Email me the code, plus the occasional update on what's
-                    on. Unsubscribe anytime.
+                    Email me the occasional update on what's on.
+                    Unsubscribe anytime.
                   </span>
                 </label>
 
@@ -297,7 +287,7 @@ export default function NewsletterPopup() {
                   type="submit"
                   className="w-full rounded-full bg-plonkPink py-3.5 text-xs font-bold uppercase tracking-[0.22em] text-white shadow-lg shadow-plonkPink/20 transition hover:bg-plonkPink/90"
                 >
-                  Send me the code
+                  Join the list
                 </button>
 
                 <button
@@ -315,24 +305,11 @@ export default function NewsletterPopup() {
                 You're in
               </p>
               <h2 className="mt-3 font-display text-4xl uppercase leading-none tracking-wider text-cream sm:text-5xl">
-                Here's your code
+                See you soon
               </h2>
-              <button
-                type="button"
-                onClick={copyCode}
-                className="mx-auto mt-6 flex w-full max-w-[260px] items-center justify-between gap-3 rounded-lg border border-dashed border-plonkPink/60 bg-plonkPink/10 px-4 py-3 text-left transition hover:bg-plonkPink/15"
-              >
-                <span className="font-display text-2xl tracking-[0.18em] text-plonkPink">
-                  {DISCOUNT_CODE}
-                </span>
-                <span className="text-[10px] font-bold uppercase tracking-widest text-cream/55">
-                  {copied ? "Copied" : "Tap to copy"}
-                </span>
-              </button>
               <p className="mx-auto mt-5 max-w-xs text-sm leading-relaxed text-cream/65">
-                20% off your first event ticket — applies at checkout. We've
-                also sent it to <strong className="text-cream">{email}</strong>{" "}
-                so you don't lose it.
+                We'll keep <strong className="text-cream">{email}</strong>{" "}
+                posted on what's coming up. No spam.
               </p>
               <button
                 type="button"

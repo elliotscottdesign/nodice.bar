@@ -75,6 +75,19 @@ const db = createClient(SUPABASE_URL, SUPABASE_SERVICE_ROLE_KEY, {
   auth: { persistSession: false },
 });
 
+
+// Accepts any real spelling of a UK mobile and returns canonical 07 form, or
+// null when it isn't one (landlines, foreign numbers, typos). Founder rule:
+// texts, pay links and prize codes go to this number — but never block a
+// legitimate +44 spelling of it (that blocked real customers, 20 Aug 2026).
+function normUkMobile(v: unknown): string | null {
+  let n = String(v ?? "").replace(/[^0-9+]/g, "");
+  if (n.startsWith("+")) n = n.slice(1);
+  if (n.startsWith("00")) n = n.slice(2);
+  if (n.startsWith("44")) n = "0" + n.slice(2);
+  return /^07\d{9}$/.test(n) ? n : null;
+}
+
 const EMAIL_RE = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
 const UUID_RE =
   /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
@@ -89,6 +102,7 @@ type TournamentEntryInput = {
   // splits half-and-half and each half is emailed separately.
   partner_name?: string | null;
   partner_email?: string | null;
+  partner_phone?: string | null;
   partner_phone?: string | null;
   player_count?: number | null;
   notes?: string | null;
@@ -130,9 +144,9 @@ function validate(body: Partial<TournamentEntryInput>): {
   if (
     !body.captain_phone ||
     typeof body.captain_phone !== "string" ||
-    body.captain_phone.trim().length < 5
+    !normUkMobile(body.captain_phone)
   ) {
-    return { ok: false, error: "captain_phone is required" };
+    return { ok: false, error: "A UK mobile number is required (starting 07 or +44 7)." };
   }
   if (
     body.partner_email != null &&
@@ -140,6 +154,13 @@ function validate(body: Partial<TournamentEntryInput>): {
     (typeof body.partner_email !== "string" || !EMAIL_RE.test(body.partner_email))
   ) {
     return { ok: false, error: "partner_email must be a valid email" };
+  }
+  if (
+    body.partner_phone != null &&
+    body.partner_phone !== "" &&
+    (typeof body.partner_phone !== "string" || !normUkMobile(body.partner_phone))
+  ) {
+    return { ok: false, error: "Partner's number must be a UK mobile (starting 07 or +44 7)." };
   }
   if (
     body.partner_phone != null &&
@@ -155,11 +176,13 @@ function validate(body: Partial<TournamentEntryInput>): {
       team_name: body.team_name.trim(),
       captain_name: body.captain_name.trim(),
       captain_email: body.captain_email.trim(),
-      captain_phone: body.captain_phone.trim(),
+      captain_phone: normUkMobile(body.captain_phone)!,
       partner_name:
         typeof body.partner_name === "string" ? body.partner_name.trim() || null : null,
       partner_email:
         typeof body.partner_email === "string" ? body.partner_email.trim() || null : null,
+      partner_phone:
+        typeof body.partner_phone === "string" ? normUkMobile(body.partner_phone) : null,
       partner_phone:
         typeof body.partner_phone === "string" ? body.partner_phone.replace(/\s+/g, "") || null : null,
       player_count:
@@ -375,6 +398,7 @@ Deno.serve(async (req) => {
       captain_phone: input.captain_phone,
       partner_name: input.partner_name,
       partner_email: input.partner_email,
+      partner_phone: input.partner_phone,
       partner_phone: input.partner_phone,
       player_count: input.player_count,
       notes: input.notes,

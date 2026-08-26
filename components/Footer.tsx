@@ -5,15 +5,15 @@ import Link from "next/link";
 import { useContent } from "@/lib/content";
 import { Editable } from "./Editable";
 
-// Newsletter signup endpoint — same Edge Function the popup uses,
-// so footer + popup signups both land in newsletter_signups and
-// both trigger the branded WELCOME20 welcome email. Source tag
-// lets the founder distinguish in the table.
+// Newsletter signup — footer + popup both insert straight into
+// newsletter_signups (source tag distinguishes them in the table).
+// No welcome email, no discount: WELCOME20 retired 26 Aug 2026.
 const SUPABASE_URL =
   process.env.NEXT_PUBLIC_SUPABASE_URL ??
   "https://rntcujcpsozvuxvmlejv.supabase.co";
 const SUPABASE_ANON_KEY = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY ?? "";
-const SIGNUP_FN_URL = `${SUPABASE_URL}/functions/v1/send-welcome-discount`;
+// (send-welcome-discount no longer called — signups insert straight into
+// newsletter_signups; the WELCOME20 incentive was retired 26 Aug 2026.)
 
 function isValidEmail(v: string): boolean {
   return /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(v.trim());
@@ -152,7 +152,7 @@ export default function Footer() {
 }
 
 // =============================================================
-// FooterNewsletter — compact email signup with WELCOME20 hook
+// FooterNewsletter — compact join-the-list email signup
 // =============================================================
 // Posts to the same Edge Function the popup uses, tagged with
 // source='footer' so the founder can tell where signups originate.
@@ -173,16 +173,21 @@ function FooterNewsletter() {
     setError("");
     setState("sending");
     try {
-      const res = await fetch(SIGNUP_FN_URL, {
+      // Record-only — no discount email (WELCOME20 retired 26 Aug 2026,
+      // founder: "0 deals for emails"). Direct RLS-permitted anon insert,
+      // same pattern as the /minigolf capture.
+      const res = await fetch(`${SUPABASE_URL}/rest/v1/newsletter_signups`, {
         method: "POST",
         headers: {
           "Content-Type": "application/json",
           apikey: SUPABASE_ANON_KEY,
           Authorization: `Bearer ${SUPABASE_ANON_KEY}`,
+          Prefer: "resolution=merge-duplicates",
         },
         body: JSON.stringify({
           email: email.trim().toLowerCase(),
           source: "footer",
+          consent: true,
         }),
       });
       if (!res.ok) {
@@ -204,14 +209,13 @@ function FooterNewsletter() {
       </h4>
       {state === "ok" ? (
         <div className="mt-3 rounded-xl border border-plonkPink/40 bg-plonkPink/5 px-4 py-3 text-sm leading-relaxed text-cream/85">
-          <strong className="text-plonkPink">You're in.</strong> Check your inbox
-          for the WELCOME20 code — 20% off your first event ticket.
+          <strong className="text-plonkPink">You're in.</strong> We'll keep you
+          posted on what's on. No spam.
         </div>
       ) : (
         <>
           <p className="mt-3 text-sm leading-relaxed text-cream/65">
-            <strong className="text-cream">20% off your first event</strong> —
-            plus the occasional update on what's on. Unsubscribe anytime.
+            The occasional update on what's on at No Dice. Unsubscribe anytime.
           </p>
           <form onSubmit={submit} className="mt-3" noValidate>
             <div className="flex gap-2">

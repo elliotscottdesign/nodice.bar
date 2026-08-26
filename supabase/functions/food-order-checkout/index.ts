@@ -88,7 +88,8 @@ Deno.serve(async (req) => {
   if (!STRIPE_SECRET_KEY) return json({ error: "STRIPE_SECRET_KEY not configured" }, { status: 500 });
 
   let b: {
-    name?: string; phone?: string; allergen_note?: string | null; cart?: CartLine[];
+    name?: string; phone?: string; email?: string; allergen_note?: string | null; cart?: CartLine[];
+    tip_pence?: number; tip_choice?: string; note?: string;
   };
   try { b = await req.json(); } catch { return json({ error: "Invalid JSON body" }, { status: 400 }); }
 

@@ -170,15 +170,25 @@ export default function InlineTournamentBooking({
     async (e: React.FormEvent) => {
       e.preventDefault();
       setError("");
-      // UK mobiles only — 11 digits starting 07 (founder rule 19 Aug 2026).
-      // Up-next texts, pay links and prize codes all go to this number.
-      const ukMobile = (v: string) => /^07\d{9}$/.test(v.replace(/\s+/g, ""));
-      if (!ukMobile(captainPhone)) {
-        setError("Please enter a UK mobile — 11 digits starting 07 (we text you when you're up to play).");
+      // UK mobiles only (founder rule) — but accept every real spelling of one:
+      // 07…, +44 7…, 44 7…, 0044 7…, with spaces/dashes. Normalised to 07 form
+      // before sending. Rejecting +44 autofill blocked real customers on
+      // 20 Aug (Gordon, Thomas) — never again.
+      const normUkMobile = (v: string): string | null => {
+        let n = String(v || "").replace(/[^0-9+]/g, "");
+        if (n.startsWith("+")) n = n.slice(1);
+        if (n.startsWith("00")) n = n.slice(2);
+        if (n.startsWith("44")) n = "0" + n.slice(2);
+        return /^07\d{9}$/.test(n) ? n : null;
+      };
+      const capMob = normUkMobile(captainPhone);
+      if (!capMob) {
+        setError("Please enter a UK mobile number (starting 07 or +44 7) — we text you when you're up to play.");
         return;
       }
-      if (isDoubles && !ukMobile(partnerPhone)) {
-        setError("Please enter your partner's UK mobile too — 11 digits starting 07.");
+      const partMob = isDoubles ? normUkMobile(partnerPhone) : null;
+      if (isDoubles && !partMob) {
+        setError("Please enter your partner's UK mobile too (starting 07 or +44 7).");
         return;
       }
       setSubmitting(true);
@@ -201,12 +211,12 @@ export default function InlineTournamentBooking({
             team_name: (isSingles ? captainName : teamName).trim(),
             captain_name: captainName.trim(),
             captain_email: captainEmail.trim(),
-            captain_phone: captainPhone.trim(),
+            captain_phone: capMob,
             // Doubles: player 2's details — their half of any prize goes
             // straight to their own inbox.
             partner_name: isDoubles ? partnerName.trim() : null,
             partner_email: isDoubles ? partnerEmail.trim() : null,
-            partner_phone: isDoubles ? partnerPhone.replace(/\s+/g, "") : null,
+            partner_phone: isDoubles ? partMob : null,
             player_count: null,
             notes: null,
             heard_from: heardFrom || null,
@@ -371,10 +381,10 @@ export default function InlineTournamentBooking({
                     type="tel"
                     required
                     value={partnerPhone}
-                    onChange={(e) => setPartnerPhone(e.target.value.replace(/[^0-9 ]/g, ""))}
+                    onChange={(e) => setPartnerPhone(e.target.value.replace(/[^0-9+ ]/g, ""))}
                     inputMode="tel"
                     className="mt-2 w-full rounded-lg border border-cream/15 bg-ink/40 px-4 py-3 text-base text-cream focus:border-plonkPink focus:outline-none"
-                    placeholder="Partner's UK mobile (07…)"
+                    placeholder="Partner's UK mobile (07… or +44 7…)"
                   />
                 </div>
               </div>
@@ -393,10 +403,10 @@ export default function InlineTournamentBooking({
               type="tel"
               required
               value={captainPhone}
-              onChange={(e) => setCaptainPhone(e.target.value.replace(/[^0-9 ]/g, ""))}
+              onChange={(e) => setCaptainPhone(e.target.value.replace(/[^0-9+ ]/g, ""))}
               inputMode="tel"
               className="w-full rounded-lg border border-cream/15 bg-ink/40 px-4 py-3 text-base text-cream focus:border-plonkPink focus:outline-none"
-              placeholder="UK mobile, starts 07 — we text you when you're up"
+              placeholder="UK mobile (07… or +44 7…) — we text you when you're up"
             />
           </div>
 
