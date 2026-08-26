@@ -1,6 +1,6 @@
 "use client";
 
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import Image from "next/image";
 import { useRouter, useSearchParams } from "next/navigation";
 import type { Addon, Ticket, Venue } from "@/lib/db/catalogue";
@@ -8,6 +8,7 @@ import { fmtMoney } from "@/lib/format";
 import { lookupActivePromo, type PromoKind } from "@/lib/db/promos";
 import { localIso } from "@/lib/dateIso";
 import CalendarPopup from "@/components/CalendarPopup";
+import { loadClosedDates } from "@/lib/db/closed";
 
 // Mock available slots for a date — every 10 min between 17:00 and 22:00,
 // some randomised to be unavailable / nearly full. Capacity is 6 per slot.
@@ -180,6 +181,31 @@ export default function BookingFlow({
   const slots = useMemo(() => generateSlots(dateIso), [dateIso]);
   const dow = useMemo(() => dayOfWeekFromIso(dateIso), [dateIso]);
 
+  // Closed dates — founder-managed at /admin/closed (closed_dates table).
+  // 2026-08-26: the golf flow previously IGNORED this table; wired in per
+  // founder ask ("close golf Wed–Fri this week"). A closed date's chip is
+  // disabled + struck, and if it's somehow selected (URL prefill, initial
+  // load) the time grid is replaced with a closed notice, so checkout is
+  // unreachable. venue_id null = closure applies everywhere; a set row
+  // only closes its own venue.
+  const [closedSet, setClosedSet] = useState<Set<string>>(new Set());
+  useEffect(() => {
+    let cancelled = false;
+    loadClosedDates()
+      .then((rows) => {
+        if (cancelled) return;
+        setClosedSet(new Set(rows.map((r) => r.date)));
+      })
+      .catch(() => {
+        /* fail open — closures are best-effort in the UI; the venue can
+           always turn away a rogue booking made during a fetch blip */
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, []);
+  const dateClosed = closedSet.has(dateIso);
+
   // Date strip pagination — 6 chips visible at a time.
   const DATE_PAGE_SIZE = 6;
   const [dateOffset, setDateOffset] = useState(0);
@@ -310,6 +336,7 @@ export default function BookingFlow({
 
   const canContinue =
     !!slotTime &&
+    !dateClosed &&
     totalTickets > 0 &&
     !childRuleViolated &&
     !childCutoffViolated &&
@@ -412,29 +439,44 @@ export default function BookingFlow({
               <div className="grid flex-1 grid-cols-6 gap-1.5 sm:gap-2">
                 {visibleDates.map((d) => {
                   const active = d.iso === dateIso;
+                  const closed = closedSet.has(d.iso);
                   return (
                     <button
                       key={d.iso}
+                      disabled={closed}
                       onClick={() => {
                         setDateIso(d.iso);
                         setSlotTime(null);
                       }}
                       className={`flex min-h-[64px] flex-col items-center justify-center rounded-lg border px-1 py-2 transition ${
-                        active
-                          ? "border-plonkPink bg-plonkPink text-white"
-                          : "border-cream/15 bg-ink/40 text-cream/85 hover:border-cream/30 active:bg-cream/5"
+                        closed
+                          ? "cursor-not-allowed border-cream/5 bg-cream/5 text-cream/30"
+                          : active
+                            ? "border-plonkPink bg-plonkPink text-white"
+                            : "border-cream/15 bg-ink/40 text-cream/85 hover:border-cream/30 active:bg-cream/5"
                       }`}
                     >
                       <span
                         className={`text-[10px] font-semibold uppercase tracking-widest ${
-                          active ? "text-white/85" : "text-cream/60"
+                          closed
+                            ? "text-cream/30"
+                            : active
+                              ? "text-white/85"
+                              : "text-cream/60"
                         }`}
                       >
                         {d.weekday}
                       </span>
-                      <span className="mt-0.5 text-xl font-bold leading-none">
+                      <span
+                        className={`mt-0.5 text-xl font-bold leading-none ${closed ? "line-through" : ""}`}
+                      >
                         {d.dayNumber}
                       </span>
+                      {closed && (
+                        <span className="mt-0.5 text-[9px] font-bold uppercase tracking-widest text-cream/35">
+                          Closed
+                        </span>
+                      )}
                     </button>
                   );
                 })}
@@ -463,7 +505,21 @@ export default function BookingFlow({
                 Happy Hour Mon – Fri, Drinks Deals til 7pm
               </div>
             )}
-            <div className="grid grid-cols-3 gap-2 sm:grid-cols-4 md:grid-cols-5">
+            {dateClosed && (
+              <div className="rounded-xl border border-cream/15 bg-ink/40 px-5 py-6 text-center">
+                <p className="text-sm font-semibold text-cream">
+                  We&apos;re closed for golf on this date.
+                </p>
+                <p className="mt-1 text-xs text-cream/55">
+                  Pick another day above — or email{" "}
+                  <a href="mailto:info@nodice.bar" className="underline">
+                    info@nodice.bar
+                  </a>{" "}
+                  for group enquiries.
+                </p>
+              </div>
+            )}
+            <div className={`grid grid-cols-3 gap-2 sm:grid-cols-4 md:grid-cols-5 ${dateClosed ? "hidden" : ""}`}>
               {visibleSlots.map((s) => {
                 const sold = s.left === 0;
                 const lowAvail = !sold && s.left <= 2;
