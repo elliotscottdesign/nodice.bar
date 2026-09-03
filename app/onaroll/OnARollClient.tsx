@@ -48,7 +48,7 @@ async function api(fn: string, body: unknown, auth = false) {
     method: "POST", headers, body: JSON.stringify(body),
   });
   const data = await res.json().catch(() => ({}));
-  if (!res.ok) throw new Error(data.error || `Error ${res.status}`);
+  if (!res.ok) { const e = new Error(data.error || `Error ${res.status}`) as Error & { data?: any }; e.data = data; throw e; }
   return data;
 }
 
@@ -57,7 +57,7 @@ const lineTotal = (l: CartLine) => lineUnit(l) * l.qty;
 
 export default function OnARollClient() {
   const [sections, setSections] = useState<Section[] | null>(null);
-  const [status, setStatus] = useState<{ open: boolean; waiting?: number } | null>(null);
+  const [status, setStatus] = useState<{ open: boolean; waiting?: number; reason?: string | null } | null>(null);
   const [levels, setLevels] = useState<Record<string, StockLevel>>({});
   const [err, setErr] = useState("");
   const [cart, setCart] = useState<CartLine[]>([]);
@@ -85,7 +85,7 @@ export default function OnARollClient() {
     try {
       const [m, s, st] = await Promise.all([api("menu", { action: "getMenu" }), api("food-order", { action: "getStatus" }), api("food-order", { action: "getStock" })]);
       setSections((m.sections || []).filter((sec: Section) => (sec.items || []).some((it) => it.name)));
-      setStatus({ open: !!s.open, waiting: s.waiting });
+      setStatus({ open: !!s.open, waiting: s.waiting, reason: s.reason ?? null });
       setLevels(st.levels || {});
     } catch (e) {
       if (retry) { setTimeout(() => load(false), 1200); return; }   // one silent retry for flaky wifi
@@ -99,7 +99,12 @@ export default function OnARollClient() {
       if (p.get("redirect_status") === "succeeded") setPhase("done");
     } catch { /* ignore */ }
     load();
-    const t = setInterval(() => { api("food-order", { action: "getStock" }).then((r) => setLevels(r.levels || {})).catch(() => {}); }, 15000);
+    const t = setInterval(() => {
+      api("food-order", { action: "getStock" }).then((r) => setLevels(r.levels || {})).catch(() => {});
+      // Re-check open/closed so a 10pm close or a pause reflects even if the page
+      // was loaded while open — a stale menu must never let someone reach payment.
+      api("food-order", { action: "getStatus" }).then((s) => setStatus({ open: !!s.open, waiting: s.waiting, reason: s.reason ?? null })).catch(() => {});
+    }, 15000);
     return () => clearInterval(t);
   }, []);   // eslint-disable-line react-hooks/exhaustive-deps
 
@@ -163,7 +168,13 @@ export default function OnARollClient() {
         cart: cart.map((l) => ({ id: l.item.id, qty: l.qty, addon_ids: l.addons.map((a) => a.id) })),
       }, true);
       setClientSecret(r.client_secret); setOrderNo(r.order_no); setPhase("pay");
-    } catch (e) { setErr((e as Error).message); }
+    } catch (e) {
+      const d = (e as Error & { data?: any }).data;
+      // Kitchen closed/paused between loading and paying → show the closed screen
+      // (no charge was made — the server rejects before creating any payment).
+      if (d && d.open === false) { setStatus({ open: false, waiting: d.waiting, reason: d.reason ?? "paused" }); return; }
+      setErr((e as Error).message);
+    }
     finally { setBusy(false); }
   };
 
@@ -183,8 +194,10 @@ export default function OnARollClient() {
   if (err && !sections) return <Shell><Note>Couldn't load the menu — {err}</Note><button onClick={() => load()} style={btn(RED, "#fff")}>Try again</button></Shell>;
   if (!sections || !status) return <Shell><div style={{ color: MUTED, padding: "40px 0", textAlign: "center" }}>Loading the menu…</div></Shell>;
 
-  // Paused → waitlist
-  if (!status.open && phase === "menu") return <Shell><Paused waiting={status.waiting} /></Shell>;
+  // Closed / paused → show the closed screen instead of the ordering flow. Applies
+  // through menu → allergy → details (not "pay": if they already have a Stripe intent
+  // it was created while open, so let them finish; not "done").
+  if (!status.open && phase !== "pay" && phase !== "done") return <Shell><Paused waiting={status.waiting} reason={status.reason} /></Shell>;
 
   // ── DONE ─────────────────────────────────────────────────────────────────
   if (phase === "done") return (
@@ -518,7 +531,7 @@ function AllergenTags({ allergens }: { allergens?: Record<string, "contains" | "
   return <div style={{ fontSize: 11.5, color: "#b25", marginTop: 2 }}>Contains: {contains.join(", ")}</div>;
 }
 
-function Paused({ waiting }: { waiting?: number }) {
+function Paused({ waiting, reason }: { waiting?: number; reason?: string | null }) {
   const [name, setName] = useState(""); const [phone, setPhone] = useState("");
   const [done, setDone] = useState(false); const [busy, setBusy] = useState(false); const [e, setE] = useState("");
   const join = async () => {
@@ -526,6 +539,15 @@ function Paused({ waiting }: { waiting?: number }) {
     try { await api("food-order", { action: "joinWaitlist", name: name.trim(), phone: phone.trim() }); setDone(true); }
     catch (er) { setE((er as Error).message); } finally { setBusy(false); }
   };
+  // Closed for the night (after 10pm) → no waitlist; come back tomorrow.
+  if (reason === "closed") return (
+    <div style={{ textAlign: "center", padding: "30px 0" }}>
+      <div style={{ fontFamily: HEAVY, fontSize: 28, color: RED }}>Kitchen's closed 🌙</div>
+      <p style={{ fontSize: 15, lineHeight: 1.5, maxWidth: 340, margin: "12px auto", color: INK }}>
+        We're done serving for tonight. <b>On A Roll is open until 10pm</b> — come back tomorrow and we'll get you sorted. No payment has been taken.
+      </p>
+    </div>
+  );
   if (done) return (
     <div style={{ textAlign: "center", padding: "30px 0" }}>
       <div style={{ fontFamily: HEAVY, fontSize: 26, color: GREEN }}>You're on the list ✓</div>

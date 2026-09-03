@@ -68,16 +68,33 @@ function normalisePhone(raw: string): string {
   return s;
 }
 
-// Effective open/paused — same rule as the food-order function's getEffective.
-async function orderingOpen(): Promise<{ open: boolean }> {
+function londonMinutes(): number {
+  const p = new Intl.DateTimeFormat("en-GB", { timeZone: "Europe/London", hour: "2-digit", minute: "2-digit", hour12: false }).formatToParts(new Date());
+  const h = Number(p.find((x) => x.type === "hour")?.value ?? "0");
+  const m = Number(p.find((x) => x.type === "minute")?.value ?? "0");
+  return (h % 24) * 60 + m;
+}
+function hhmmToMin(s?: string | null): number | null {
+  const mt = /^(\d{1,2}):(\d{2})$/.exec(String(s || "").trim());
+  return mt ? Number(mt[1]) * 60 + Number(mt[2]) : null;
+}
+
+// Effective open/paused — same rule as the food-order function's getEffective:
+// closed outside service hours (default 22:00), manual pause, or auto-pause on volume.
+async function orderingOpen(): Promise<{ open: boolean; reason: string | null }> {
   const { data: s } = await db.from("food_settings").select("*").eq("id", 1).maybeSingle();
   const paused = !!s?.paused, auto = !!s?.auto_pause, threshold = s?.auto_threshold ?? 8;
+  const nowMin = londonMinutes(), closeMin = hhmmToMin(s?.close_hhmm || "22:00"), openMin = hhmmToMin(s?.open_hhmm);
+  const outsideHours = (closeMin != null && nowMin >= closeMin) || (openMin != null && nowMin < openMin);
   const { count } = await db
     .from("food_orders")
     .select("id", { count: "exact", head: true })
     .in("status", ["new", "preparing", "ready"]);
   const active = count || 0;
-  return { open: !(paused || (auto && threshold >= 1 && active >= threshold)) };   // threshold 0 = auto-pause off
+  const autoTripped = auto && threshold >= 1 && active >= threshold;   // threshold 0 = auto-pause off
+  const open = !(outsideHours || paused || autoTripped);
+  const reason = outsideHours ? "closed" : paused ? "paused" : autoTripped ? "busy" : null;
+  return { open, reason };
 }
 
 type CartLine = { id: string; qty: number; addon_ids?: string[] };
@@ -112,8 +129,13 @@ Deno.serve(async (req) => {
 
   // Ordering paused? (manual or auto). Match the kitchen rule so we never
   // take money for an order the kitchen isn't accepting.
-  const { open } = await orderingOpen();
-  if (!open) return json({ error: "Ordering is paused right now — please try again shortly.", open: false }, { status: 409 });
+  const { open, reason } = await orderingOpen();
+  if (!open) return json({
+    error: reason === "closed"
+      ? "The kitchen is closed for tonight — we're open until 10pm. No payment has been taken."
+      : "Ordering is paused right now — please try again shortly. No payment has been taken.",
+    open: false, reason,
+  }, { status: 409 });
 
   // ── Recompute the total from the live menu (never trust the client) ──
   const { data: menu } = await db.from("menu_catalog").select("sections").eq("id", 1).maybeSingle();
