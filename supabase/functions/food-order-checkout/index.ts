@@ -141,7 +141,8 @@ Deno.serve(async (req) => {
   const { data: menu } = await db.from("menu_catalog").select("sections").eq("id", 1).maybeSingle();
   const sections: any[] = Array.isArray(menu?.sections) ? menu!.sections : [];
   const itemIndex = new Map<string, any>();
-  for (const sec of sections) for (const it of (sec.items || [])) itemIndex.set(String(it.id), it);
+  // Skip archived items — a stale cart can never order something we've withdrawn.
+  for (const sec of sections) for (const it of (sec.items || [])) { if (it.archived) continue; itemIndex.set(String(it.id), it); }
 
   const lineItems: any[] = [];
   let total = 0;

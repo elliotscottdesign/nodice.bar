@@ -84,7 +84,10 @@ export default function OnARollClient() {
     setErr("");
     try {
       const [m, s, st] = await Promise.all([api("menu", { action: "getMenu" }), api("food-order", { action: "getStatus" }), api("food-order", { action: "getStock" })]);
-      setSections((m.sections || []).filter((sec: Section) => (sec.items || []).some((it) => it.name)));
+      // Drop archived items (sold out / withdrawn) entirely — customers never see them.
+      setSections((m.sections || [])
+        .map((sec: Section) => ({ ...sec, items: (sec.items || []).filter((it) => it.name && !(it as any).archived) }))
+        .filter((sec: Section) => sec.items.length));
       setStatus({ open: !!s.open, waiting: s.waiting, reason: s.reason ?? null });
       setLevels(st.levels || {});
     } catch (e) {
