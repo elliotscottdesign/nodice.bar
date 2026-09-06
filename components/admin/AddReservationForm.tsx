@@ -132,7 +132,7 @@ export default function AddReservationForm({
     // Coerce string inputs to safe integers. Empty / gibberish
     // defaults to a sensible fallback rather than blocking submit —
     // the founder is often mid-thought when hitting save.
-    const partySizeInt = Math.max(1, Math.min(50, parseInt(partySize, 10) || 2));
+    const partySizeInt = Math.max(1, Math.min(80, parseInt(partySize, 10) || 2));
     const durationInt = Math.max(30, Math.min(300, parseInt(duration, 10) || 60));
     const resourceCountInt = Math.max(
       1,
@@ -311,7 +311,7 @@ export default function AddReservationForm({
               type="number"
               required
               min={1}
-              max={50}
+              max={80}
               value={partySize}
               onChange={(e) => setPartySize(e.target.value)}
               className={inputCls + " mt-1"}

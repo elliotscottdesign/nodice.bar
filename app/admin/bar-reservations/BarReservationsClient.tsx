@@ -230,7 +230,7 @@ export default function BarReservationsClient({
         );
         const party = Math.max(
           1,
-          Math.min(50, parseInt(editForm.party_size, 10) || 2),
+          Math.min(80, parseInt(editForm.party_size, 10) || 2),
         );
         const { error } = await supabase()
           .from("bar_reservations")
@@ -542,7 +542,7 @@ export default function BarReservationsClient({
                       </div>
                       <div>
                         <label className="text-[10px] font-bold uppercase tracking-widest text-cream/55">Party size</label>
-                        <input type="number" min={1} max={50} value={editForm.party_size} onChange={(e) => setEditForm({ ...editForm, party_size: e.target.value })} className={editInputCls + " mt-1"} />
+                        <input type="number" min={1} max={80} value={editForm.party_size} onChange={(e) => setEditForm({ ...editForm, party_size: e.target.value })} className={editInputCls + " mt-1"} />
                       </div>
                     </div>
                   )}
