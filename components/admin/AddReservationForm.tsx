@@ -30,8 +30,9 @@ function looksLikeRealEmail(raw: string): boolean {
 // =============================================================
 // Inline "+ Add booking" form at the top of /admin/table-reservations
 // and /admin/pool-reservations. Founder takes a phone reservation /
-// walk-in / staff hold and types it straight in; row goes to the
-// database with status='confirmed'.
+// walk-in / staff hold and types it straight in. Booking type picks
+// the saved status: 'confirmed' (locked in) or 'pending' (pencilled-
+// in enquiry — amber everywhere, confirm later from the list).
 //
 // 2026-07-23 — added the "Send confirmation email" checkbox (defaults
 // on if a real-looking email is present) and the "Include staff notes
@@ -95,6 +96,14 @@ export default function AddReservationForm({
   // don't accidentally reach the customer.
   const [sendConfirmation, setSendConfirmation] = useState(true);
   const [includeNotesInEmail, setIncludeNotesInEmail] = useState(false);
+  // Confirmed vs pending (2026-08-26 founder request): "pending" is a
+  // pencilled-in enquiry — someone interested who hasn't locked it in.
+  // It still holds the slot against online bookings (checkout counts
+  // pending rows) and shows amber everywhere; staff confirm it later
+  // from the list, where full details can also be edited.
+  const [bookingStatus, setBookingStatus] = useState<"confirmed" | "pending">(
+    "confirmed",
+  );
 
   function reset() {
     setName("");
@@ -107,6 +116,7 @@ export default function AddReservationForm({
     setTime(kind === "pool" ? "18:00" : "19:00");
     setSendConfirmation(true);
     setIncludeNotesInEmail(false);
+    setBookingStatus("confirmed");
     setErr("");
     setOk("");
   }
@@ -146,7 +156,7 @@ export default function AddReservationForm({
           notes: notes.trim() || null,
           heard_from: "Manual admin entry",
           marketing_opt_in: false,
-          status: "confirmed", // founder-created = already locked in
+          status: bookingStatus,
         })
         .select("id")
         .single();
@@ -156,7 +166,12 @@ export default function AddReservationForm({
       // box AND we have a real email (never send to the walk-in
       // placeholder — that would land in the shared info@ mailbox).
       let emailMessage = "";
-      const wantsEmail = sendConfirmation && looksLikeRealEmail(finalEmail);
+      // Never email a pending booking — nothing is confirmed yet. The
+      // list screen offers the email at the moment of confirming.
+      const wantsEmail =
+        bookingStatus === "confirmed" &&
+        sendConfirmation &&
+        looksLikeRealEmail(finalEmail);
       if (wantsEmail) {
         try {
           const res = await fetch(SEND_CONFIRMATION_URL, {
@@ -193,8 +208,9 @@ export default function AddReservationForm({
       // Big-booking alert to the founder's inbox — fire-and-forget so a
       // Resend hiccup can't block the save. Matches the stripe-webhook
       // path so paid AND manual entries both trigger it consistently.
+      // Pending bookings don't alert — nothing is locked in yet.
       let bigMessage = "";
-      if (partySizeInt >= BIG_BOOKING_THRESHOLD) {
+      if (bookingStatus === "confirmed" && partySizeInt >= BIG_BOOKING_THRESHOLD) {
         try {
           const res = await fetch(NOTIFY_BIG_BOOKING_URL, {
             method: "POST",
@@ -213,7 +229,11 @@ export default function AddReservationForm({
         }
       }
 
-      setOk(`Booking added for ${name.trim()}.${emailMessage}${bigMessage}`);
+      setOk(
+        bookingStatus === "pending"
+          ? `Pending booking noted for ${name.trim()} — it shows amber in the list and calendar. Confirm it from the list when they lock it in.`
+          : `Booking added for ${name.trim()}.${emailMessage}${bigMessage}`,
+      );
       reset();
       onCreated();
     } catch (e) {
@@ -369,9 +389,57 @@ export default function AddReservationForm({
           />
         </div>
 
+        {/* Confirmed vs pending. A pending booking is a pencilled-in
+            enquiry — shows amber, holds the slot, no customer email
+            until it's confirmed from the list. */}
+        <div>
+          <label className="text-[10px] font-bold uppercase tracking-widest text-cream/55">
+            Booking type
+          </label>
+          <div className="mt-1 grid grid-cols-2 gap-2">
+            <button
+              type="button"
+              onClick={() => setBookingStatus("confirmed")}
+              className={`rounded-lg border px-3 py-2.5 text-left text-sm transition ${
+                bookingStatus === "confirmed"
+                  ? "border-plonkTeal/60 bg-plonkTeal/10 text-plonkTeal"
+                  : "border-cream/15 bg-ink/30 text-cream/60 hover:bg-cream/5"
+              }`}
+            >
+              <span className="block font-semibold">Confirmed</span>
+              <span className="mt-0.5 block text-[11px] text-cream/55">
+                Locked in — can email the customer now
+              </span>
+            </button>
+            <button
+              type="button"
+              onClick={() => setBookingStatus("pending")}
+              className={`rounded-lg border px-3 py-2.5 text-left text-sm transition ${
+                bookingStatus === "pending"
+                  ? "border-amber-400/60 bg-amber-400/10 text-amber-300"
+                  : "border-cream/15 bg-ink/30 text-cream/60 hover:bg-cream/5"
+              }`}
+            >
+              <span className="block font-semibold">Pending</span>
+              <span className="mt-0.5 block text-[11px] text-cream/55">
+                Interested, not confirmed — shows amber, confirm later
+              </span>
+            </button>
+          </div>
+        </div>
+
         {/* Confirmation-email toggles. Rendered as a small block so it
             visually groups the two settings that control what the
-            customer receives once you hit Save. */}
+            customer receives once you hit Save. Hidden meaning when
+            the booking is pending: no email goes out until confirm. */}
+        {bookingStatus === "pending" ? (
+          <div className="rounded-lg border border-amber-400/25 bg-amber-400/5 px-4 py-3 text-xs text-amber-200/85">
+            No email is sent for a pending booking. When they confirm,
+            hit <strong>Confirm</strong> on the row in the list below —
+            you'll be offered the confirmation email then. The slot is
+            still held against online bookings in the meantime.
+          </div>
+        ) : (
         <div className="space-y-2 rounded-lg border border-cream/10 bg-ink/30 px-4 py-3">
           <label className="flex items-start gap-3 text-sm text-cream/90">
             <input
@@ -421,6 +489,7 @@ export default function AddReservationForm({
             </span>
           </label>
         </div>
+        )}
 
         {err && (
           <div className="rounded-lg border border-plonkPink/40 bg-plonkPink/10 px-3 py-2 text-sm text-plonkPink">
@@ -448,9 +517,17 @@ export default function AddReservationForm({
           <button
             type="submit"
             disabled={busy}
-            className="rounded-full bg-plonkPink px-4 py-2 text-xs font-bold uppercase tracking-wider text-white transition hover:bg-plonkPink/90 disabled:opacity-50"
+            className={`rounded-full px-4 py-2 text-xs font-bold uppercase tracking-wider transition disabled:opacity-50 ${
+              bookingStatus === "pending"
+                ? "bg-amber-400 text-ink hover:bg-amber-300"
+                : "bg-plonkPink text-white hover:bg-plonkPink/90"
+            }`}
           >
-            {busy ? "Saving…" : "Add booking"}
+            {busy
+              ? "Saving…"
+              : bookingStatus === "pending"
+              ? "Save pending booking"
+              : "Add booking"}
           </button>
         </div>
       </form>

@@ -14,6 +14,20 @@ import { supabase } from "@/lib/supabase";
 const STRIPE_PAYMENT_URL = (pi: string) =>
   `https://dashboard.stripe.com/payments/${pi}`;
 
+// For the confirm-time email offer on pending rows — same Edge Function
+// the manual add form uses (handles both pool + table kinds).
+const SUPABASE_URL =
+  process.env.NEXT_PUBLIC_SUPABASE_URL ??
+  "https://rntcujcpsozvuxvmlejv.supabase.co";
+const SUPABASE_ANON_KEY = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY ?? "";
+const SEND_CONFIRMATION_URL = `${SUPABASE_URL}/functions/v1/send-pool-confirmation`;
+
+function looksLikeRealEmail(raw: string): boolean {
+  const s = raw.trim().toLowerCase();
+  if (!s || s === "info@nodice.bar") return false;
+  return /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(s);
+}
+
 const editInputCls =
   "w-full rounded-lg border border-cream/15 bg-ink/30 px-3 py-2 text-sm text-cream " +
   "placeholder:text-cream/40 focus:border-plonkPink focus:outline-none";
@@ -127,6 +141,43 @@ export default function BarReservationsClient({
     setErr("");
     try {
       await setUnifiedReservationStatus(row, status);
+      // Pending → confirmed is the moment a pencilled-in booking becomes
+      // real, so offer the standard confirmation email here (manual
+      // pending entries never emailed at creation). Only for regular
+      // bar rows with a real-looking address — never the info@ walk-in
+      // placeholder, and event_entries have their own email flow.
+      if (
+        status === "confirmed" &&
+        row.status === "pending" &&
+        row.source === "bar" &&
+        looksLikeRealEmail(row.email) &&
+        window.confirm(
+          `Send ${row.name} the confirmation email now? (${row.email})`,
+        )
+      ) {
+        try {
+          const res = await fetch(SEND_CONFIRMATION_URL, {
+            method: "POST",
+            headers: {
+              "Content-Type": "application/json",
+              apikey: SUPABASE_ANON_KEY,
+              Authorization: `Bearer ${SUPABASE_ANON_KEY}`,
+            },
+            body: JSON.stringify({
+              reservation_id: row.id,
+              include_notes: false,
+            }),
+          });
+          if (!res.ok)
+            setErr(
+              `Confirmed, but the email failed (HTTP ${res.status}) — you can resend by cancelling and re-confirming.`,
+            );
+        } catch (e) {
+          setErr(
+            `Confirmed, but the email errored: ${describe(e, "network problem")}`,
+          );
+        }
+      }
       await reload();
     } catch (e) {
       setErr(describe(e, "Failed to update reservation"));
@@ -349,7 +400,7 @@ export default function BarReservationsClient({
                     <span
                       className={`rounded-full px-2 py-0.5 text-[10px] font-bold uppercase tracking-[0.18em] ${
                         r.status === "pending"
-                          ? "bg-cream/10 text-cream/75"
+                          ? "bg-amber-400/15 text-amber-300"
                           : r.status === "confirmed"
                           ? "bg-plonkTeal/15 text-plonkTeal"
                           : "bg-cream/5 text-cream/40"

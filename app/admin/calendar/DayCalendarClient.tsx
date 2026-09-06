@@ -332,6 +332,8 @@ export default function DayCalendarClient() {
                 golf: bucket.bookings.filter((b) => b.source === "golf").length,
                 event: bucket.bookings.filter((b) => b.source === "event")
                   .length,
+                pending: bucket.bookings.filter((b) => b.status === "pending")
+                  .length,
               }
             : null;
 
@@ -369,6 +371,11 @@ export default function DayCalendarClient() {
                   )}
                   {counts!.golf > 0 && <div>⛳ {counts!.golf} golf</div>}
                   {counts!.event > 0 && <div>🎉 {counts!.event} event</div>}
+                  {counts!.pending > 0 && (
+                    <div className="font-bold text-amber-300">
+                      ⏳ {counts!.pending} pending
+                    </div>
+                  )}
                 </div>
               )}
               {bucket && (bucket.bar_people > 0 || bucket.golf_people > 0) && (
@@ -430,6 +437,11 @@ export default function DayCalendarClient() {
                     {b.time ?? "TBC"}
                   </span>
                   <span className="text-cream">{b.name}</span>
+                  {b.status === "pending" && (
+                    <span className="rounded-full bg-amber-400/15 px-2 py-0.5 text-[10px] font-bold uppercase tracking-[0.18em] text-amber-300">
+                      pending
+                    </span>
+                  )}
                   {b.match_or_event && (
                     <span className="text-cream/70">· {b.match_or_event}</span>
                   )}
