@@ -265,5 +265,19 @@ Deno.serve(async (req) => {
     );
   }
 
+  // Founder alert — every web reservation emails elliot@nodice.bar
+  // (2026-08-26 request). Fire-and-forget: an alert hiccup must never
+  // fail the customer's booking.
+  fetch(`${SUPABASE_URL}/functions/v1/notify-big-booking`, {
+    method: "POST",
+    headers: {
+      "Content-Type": "application/json",
+      Authorization: `Bearer ${SUPABASE_SERVICE_ROLE_KEY}`,
+    },
+    body: JSON.stringify({ reservation_id: r.id }),
+  }).catch((e) => {
+    console.error(`Booking alert failed for reservation ${r.id}:`, e);
+  });
+
   return jsonResponse({ reservation_id: r.id });
 });

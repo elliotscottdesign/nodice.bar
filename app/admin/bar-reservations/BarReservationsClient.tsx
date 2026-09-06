@@ -87,6 +87,13 @@ export default function BarReservationsClient({
   );
   // Search box — matches name / email / phone / notes / match name.
   const [search, setSearch] = useState("");
+  // Date filter (2026-08-26 founder request): bookings stack closest
+  // date first. "Upcoming" is the default working view; "Past" flips
+  // to most-recent-first. The jump-to-date box overrides the pills.
+  const [dateFilter, setDateFilter] = useState<
+    "upcoming" | "today" | "week" | "past" | "all"
+  >("upcoming");
+  const [jumpDate, setJumpDate] = useState("");
   // Inline-edit state — only one row open at a time.
   const [editingId, setEditingId] = useState<string | null>(null);
   // Number fields kept as strings so the founder can clear the box
@@ -277,10 +284,41 @@ export default function BarReservationsClient({
         [r.name, r.email, r.phone ?? "", r.notes ?? "", r.match_name ?? ""]
           .some((v) => v.toLowerCase().includes(q)),
       );
+
+  // Date filter + closest-first sort. Local-timezone "today" so a 00:30
+  // shift close doesn't flip bookings into "past" five hours early.
+  const now = new Date();
+  const todayIso = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, "0")}-${String(now.getDate()).padStart(2, "0")}`;
+  const weekEnd = new Date(now.getTime() + 7 * 86400_000);
+  const weekIso = `${weekEnd.getFullYear()}-${String(weekEnd.getMonth() + 1).padStart(2, "0")}-${String(weekEnd.getDate()).padStart(2, "0")}`;
+  const sortKey = (r: UnifiedReservation) =>
+    `${r.reservation_date}T${r.start_time}`;
+  const dateRows = (() => {
+    let rs = searchedRows;
+    if (jumpDate) rs = rs.filter((r) => r.reservation_date === jumpDate);
+    else if (dateFilter === "today")
+      rs = rs.filter((r) => r.reservation_date === todayIso);
+    else if (dateFilter === "upcoming")
+      rs = rs.filter((r) => r.reservation_date >= todayIso);
+    else if (dateFilter === "week")
+      rs = rs.filter(
+        (r) => r.reservation_date >= todayIso && r.reservation_date <= weekIso,
+      );
+    else if (dateFilter === "past")
+      rs = rs.filter((r) => r.reservation_date < todayIso);
+    // Closest date first. "Past" reads most-recent-first instead —
+    // yesterday is more useful than last month.
+    const pastMode = !jumpDate && dateFilter === "past";
+    return [...rs].sort((a, b) =>
+      pastMode
+        ? sortKey(b).localeCompare(sortKey(a))
+        : sortKey(a).localeCompare(sortKey(b)),
+    );
+  })();
   const filtered =
     filter === "all"
-      ? searchedRows
-      : searchedRows.filter((r) => r.status === filter);
+      ? dateRows
+      : dateRows.filter((r) => r.status === filter);
 
   const pendingCount = kindRows.filter((r) => r.status === "pending").length;
   // The source dropdown is only meaningful when event_entries can be
@@ -357,6 +395,61 @@ export default function BarReservationsClient({
         ))}
       </div>
 
+      {/* Date filters + calendar view (2026-08-26 founder request). */}
+      <div className="flex flex-wrap items-center gap-2">
+        {(
+          [
+            { id: "upcoming" as const, label: "Upcoming" },
+            { id: "today" as const, label: "Today" },
+            { id: "week" as const, label: "Next 7 days" },
+            { id: "past" as const, label: "Past" },
+            { id: "all" as const, label: "All dates" },
+          ]
+        ).map((t) => (
+          <button
+            key={t.id}
+            onClick={() => {
+              setDateFilter(t.id);
+              setJumpDate("");
+            }}
+            className={`rounded-full border px-3 py-1.5 text-[11px] font-bold uppercase tracking-wider transition ${
+              dateFilter === t.id && !jumpDate
+                ? "border-plonkYellow bg-plonkYellow/15 text-plonkYellow"
+                : "border-cream/15 bg-ink/40 text-cream/60 hover:border-cream/40"
+            }`}
+          >
+            {t.label}
+          </button>
+        ))}
+        <label className="flex items-center gap-2 text-[10px] font-bold uppercase tracking-widest text-cream/45">
+          Jump to
+          <input
+            type="date"
+            value={jumpDate}
+            onChange={(e) => setJumpDate(e.target.value)}
+            className={`rounded-full border px-3 py-1 text-xs font-semibold tracking-normal focus:outline-none ${
+              jumpDate
+                ? "border-plonkYellow bg-plonkYellow/10 text-plonkYellow"
+                : "border-cream/15 bg-ink/40 text-cream/75 focus:border-plonkPink"
+            }`}
+          />
+        </label>
+        {jumpDate && (
+          <button
+            onClick={() => setJumpDate("")}
+            className="rounded-full border border-cream/15 px-3 py-1.5 text-[11px] font-bold uppercase tracking-wider text-cream/60 hover:bg-cream/5"
+          >
+            ✕ Clear
+          </button>
+        )}
+        <a
+          href="/admin/calendar"
+          className="ml-auto rounded-full border border-plonkTeal/50 bg-plonkTeal/10 px-4 py-1.5 text-[11px] font-bold uppercase tracking-wider text-plonkTeal transition hover:bg-plonkTeal/20"
+        >
+          📅 Calendar view
+        </a>
+      </div>
+
       {loading ? (
         <AdminCard>
           <p className="px-5 py-6 text-sm text-cream/55">Loading…</p>
@@ -364,7 +457,12 @@ export default function BarReservationsClient({
       ) : filtered.length === 0 ? (
         <AdminCard>
           <p className="px-5 py-6 text-sm text-cream/55">
-            No {filter === "all" ? "" : filter + " "}reservations.
+            No {filter === "all" ? "" : filter + " "}reservations
+            {jumpDate
+              ? " on that date."
+              : dateFilter === "upcoming"
+              ? " coming up — try Past or All dates."
+              : "."}
           </p>
         </AdminCard>
       ) : (

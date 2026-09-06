@@ -329,6 +329,45 @@ Deno.serve(async (req) => {
     `Confirmation email sent for booking ${booking.reference} → ${booking.customer_email}`,
   );
 
+  // Founder alert — every web reservation emails elliot@nodice.bar
+  // (2026-08-26 request). Golf bookings live in the `bookings` table so
+  // the bar_reservations notify function can't cover them; a compact
+  // mirror goes out here instead. Fire-and-forget: an alert failure
+  // must never fail the customer confirmation that just succeeded.
+  (async () => {
+    const b = booking as unknown as Booking;
+    const slot = (b.slots ?? [])[0];
+    const when = slot
+      ? `${slot.slot_date} at ${String(slot.slot_time).slice(0, 5)}`
+      : "date TBC";
+    const total = (b.total_pence / 100).toFixed(2);
+    const line = `${b.customer_name} · ${b.party_size} player${b.party_size === 1 ? "" : "s"} · ${when} · £${total} paid · ref ${b.reference}`;
+    await fetch("https://api.resend.com/emails", {
+      method: "POST",
+      headers: {
+        Authorization: `Bearer ${RESEND_API_KEY}`,
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify({
+        from: `${fromName} <${FROM_EMAIL}>`,
+        to: "elliot@nodice.bar",
+        reply_to: booking.customer_email,
+        subject: `🔔 New golf booking · ${b.party_size} player${b.party_size === 1 ? "" : "s"} · ${slot ? slot.slot_date : "TBC"}`,
+        text: [
+          `NEW GOLF BOOKING FROM THE WEBSITE`,
+          ``,
+          line,
+          `Customer email: ${booking.customer_email}`,
+          ``,
+          `Manage: https://nodice.bar/admin/bookings`,
+          `Reply to this email to reach the customer directly.`,
+        ].join("\n"),
+      }),
+    });
+  })().catch((e) =>
+    console.error(`Founder alert failed for booking ${booking.reference}:`, e),
+  );
+
   return jsonResponse({
     ok: true,
     sent_to: booking.customer_email,

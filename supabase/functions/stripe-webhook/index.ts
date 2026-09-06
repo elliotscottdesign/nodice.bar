@@ -309,17 +309,15 @@ async function handlePoolReservationPaymentIntent(
     );
   });
 
-  // Big-booking alert to the founder's inbox — 12+ covers gets kitchen +
-  // management a heads-up in time to plan for the extra load. Also fire-
-  // and-forget for the same reason as the confirmation email.
-  if ((r.party_size ?? 0) >= 12) {
-    fireBigBookingAlert(r.id).catch((e) => {
-      console.error(
-        `Big-booking alert failed for reservation ${r!.id}:`,
-        e,
-      );
-    });
-  }
+  // Founder alert — EVERY paid web reservation emails elliot@nodice.bar
+  // (2026-08-26 request); the notify function styles 12+ parties as BIG.
+  // Fire-and-forget for the same reason as the confirmation email.
+  fireBigBookingAlert(r.id).catch((e) => {
+    console.error(
+      `Booking alert failed for reservation ${r!.id}:`,
+      e,
+    );
+  });
 
   return new Response("ok", { status: 200 });
 }

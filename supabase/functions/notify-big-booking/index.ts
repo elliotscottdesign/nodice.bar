@@ -4,15 +4,17 @@
 // POST /functions/v1/notify-big-booking
 // Body: { reservation_id: string }
 //
-// Fires an internal alert email to elliot@nodice.bar when a bar_reservations
-// row is confirmed with party_size >= BIG_THRESHOLD (currently 12). Called
-// fire-and-forget from two write paths:
-//   1. stripe-webhook — a customer just paid for a big table / pool booking
-//   2. AddReservationForm.tsx (admin manual entry) — staff typed in a big
-//      phone booking
+// Fires an internal alert email to elliot@nodice.bar for a bar_reservations
+// row. Since 2026-08-26 (founder: "any reservations that come into the
+// website should automatically email elliot@") this fires for EVERY web
+// reservation, not just big ones — parties >= BIG_THRESHOLD (12) keep the
+// louder "action recommended" styling; smaller ones get a calmer
+// "new booking" alert. Called fire-and-forget from:
+//   1. stripe-webhook — a customer just paid for a table / pool booking
+//   2. create-table-reservation — a free web table reservation landed
+//   3. AddReservationForm.tsx (admin manual entry) — still only calls for
+//      12+ parties, so the founder isn't emailed about his own typing
 //
-// The founder wanted this so kitchen + management get a heads-up in time to
-// order extra stock, adjust staff or reach out to the customer for details.
 // WhatsApp is a planned second channel (see memory: project_whatsapp_api.md)
 // but Twilio isn't wired yet — email only for now.
 //
@@ -30,7 +32,7 @@
 
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2.45.4";
 
-const BIG_THRESHOLD = 12;   // covers at or above this triggers the alert
+const BIG_THRESHOLD = 12;   // covers at or above this get the louder BIG styling
 const ALERT_RECIPIENT = "elliot@nodice.bar";
 
 const corsHeaders = {
@@ -99,13 +101,20 @@ function renderAlertHtml(r: {
   notes: string | null;
   heard_from: string | null;
 }): string {
+  const big = (r.party_size ?? 0) >= BIG_THRESHOLD;
   const kindLabel = r.kind === "pool" ? "Pool table" : "Table";
   const kindEmoji = r.kind === "pool" ? "🎱" : "🍽";
   const durationLine = r.duration_minutes ? `${r.duration_minutes} minutes` : "—";
+  const banner = big
+    ? `<p style="font-size:11px;letter-spacing:0.22em;text-transform:uppercase;color:#DA1B33;margin:0 0 12px;font-weight:700">Big booking · action recommended</p>`
+    : `<p style="font-size:11px;letter-spacing:0.22em;text-transform:uppercase;color:#2DD4BF;margin:0 0 12px;font-weight:700">New booking from the website</p>`;
+  const intro = big
+    ? `A ${r.party_size}-cover ${esc(kindLabel)} booking just landed. Kitchen + management heads-up.`
+    : `A ${esc(kindLabel)} booking just came in through the website.`;
   return `<div style="font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Helvetica,Arial,sans-serif;background:#0c0c0c;color:#f5efe3;padding:28px;border-radius:14px;max-width:560px;margin:auto;border:1px solid rgba(245,239,227,0.12)">
-    <p style="font-size:11px;letter-spacing:0.22em;text-transform:uppercase;color:#DA1B33;margin:0 0 12px;font-weight:700">Big booking · action recommended</p>
+    ${banner}
     <h1 style="font-size:26px;line-height:1.15;margin:0 0 8px;font-weight:800">${kindEmoji} ${esc(r.name)} · ${r.party_size} covers</h1>
-    <p style="font-size:14px;line-height:1.55;color:rgba(245,239,227,0.85);margin:0 0 20px">A ${r.party_size}-cover ${esc(kindLabel)} booking just landed. Kitchen + management heads-up.</p>
+    <p style="font-size:14px;line-height:1.55;color:rgba(245,239,227,0.85);margin:0 0 20px">${intro}</p>
     <table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0" style="margin:16px 0;font-size:14px">
       <tr><td style="padding:8px 0;border-top:1px solid rgba(245,239,227,0.12);color:rgba(245,239,227,0.55);font-size:11px;text-transform:uppercase;letter-spacing:0.18em;width:130px">When</td><td style="padding:8px 0;border-top:1px solid rgba(245,239,227,0.12)">${esc(formatDate(r.reservation_date))} · ${esc(formatTime(r.start_time))}</td></tr>
       <tr><td style="padding:8px 0;border-top:1px solid rgba(245,239,227,0.12);color:rgba(245,239,227,0.55);font-size:11px;text-transform:uppercase;letter-spacing:0.18em">Party size</td><td style="padding:8px 0;border-top:1px solid rgba(245,239,227,0.12);font-weight:700;color:#F59E0B">${r.party_size}</td></tr>
@@ -116,15 +125,16 @@ function renderAlertHtml(r: {
       ${r.notes ? `<tr><td style="padding:8px 0;border-top:1px solid rgba(245,239,227,0.12);color:rgba(245,239,227,0.55);font-size:11px;text-transform:uppercase;letter-spacing:0.18em">Notes</td><td style="padding:8px 0;border-top:1px solid rgba(245,239,227,0.12)">${esc(r.notes)}</td></tr>` : ""}
       ${r.heard_from ? `<tr><td style="padding:8px 0;border-top:1px solid rgba(245,239,227,0.12);color:rgba(245,239,227,0.55);font-size:11px;text-transform:uppercase;letter-spacing:0.18em">Source</td><td style="padding:8px 0;border-top:1px solid rgba(245,239,227,0.12);color:rgba(245,239,227,0.65)">${esc(r.heard_from)}</td></tr>` : ""}
     </table>
-    <div style="margin-top:22px;padding:14px 16px;background:rgba(245,158,11,0.10);border:1px solid rgba(245,158,11,0.35);border-radius:10px;font-size:13px;line-height:1.55">
+    ${big ? `<div style="margin-top:22px;padding:14px 16px;background:rgba(245,158,11,0.10);border:1px solid rgba(245,158,11,0.35);border-radius:10px;font-size:13px;line-height:1.55">
       <strong style="color:#F59E0B">Suggested next steps:</strong>
       <ul style="margin:6px 0 0;padding-left:20px;color:rgba(245,239,227,0.85)">
         <li>Kitchen: check if extra stock or an early prep is needed</li>
         <li>Front of house: pre-set the table area if it's a fixed seating group</li>
         <li>Manager: reply to the customer if they might want pre-order options</li>
       </ul>
-    </div>
-    <p style="margin-top:22px;font-size:11px;color:rgba(245,239,227,0.4)">Reply to this email to reach the customer directly — Reply-To is set to their address.</p>
+    </div>` : ""}
+    <p style="margin-top:22px;font-size:12px;line-height:1.5;color:rgba(245,239,227,0.6)">Manage it at <a href="https://nodice.bar/admin/${r.kind === "pool" ? "pool" : "table"}-reservations" style="color:#2DD4BF">nodice.bar/admin/${r.kind === "pool" ? "pool" : "table"}-reservations</a></p>
+    <p style="margin-top:10px;font-size:11px;color:rgba(245,239,227,0.4)">Reply to this email to reach the customer directly — Reply-To is set to their address.</p>
   </div>`;
 }
 function renderAlertText(r: {
@@ -141,7 +151,9 @@ function renderAlertText(r: {
 }): string {
   const kindLabel = r.kind === "pool" ? "Pool table" : "Table";
   return [
-    `BIG BOOKING · ACTION RECOMMENDED`,
+    (r.party_size ?? 0) >= BIG_THRESHOLD
+      ? `BIG BOOKING · ACTION RECOMMENDED`
+      : `NEW BOOKING FROM THE WEBSITE`,
     ``,
     `${r.name} — ${r.party_size} covers on ${formatDate(r.reservation_date)} at ${formatTime(r.start_time)}`,
     ``,
@@ -203,15 +215,13 @@ Deno.serve(async (req) => {
   if (!r) {
     return jsonResponse({ error: "Reservation not found" }, { status: 404 });
   }
-  // Guard rail — the caller should already have checked this, but the edge
-  // function is the last line of defence against accidentally spamming the
-  // founder about a normal-sized booking.
-  if ((r.party_size ?? 0) < BIG_THRESHOLD) {
-    return jsonResponse({ ok: true, skipped: `Party size ${r.party_size} is below the ${BIG_THRESHOLD} threshold` });
-  }
-
+  // Every web reservation alerts the founder (2026-08-26 request) —
+  // 12+ parties get the louder BIG subject + styling.
+  const big = (r.party_size ?? 0) >= BIG_THRESHOLD;
   const kindLabel = r.kind === "pool" ? "Pool" : "Table";
-  const subject = `🔔 BIG booking · ${r.party_size}-cover ${kindLabel} · ${formatDate(r.reservation_date)}`;
+  const subject = big
+    ? `🔔 BIG booking · ${r.party_size}-cover ${kindLabel} · ${formatDate(r.reservation_date)}`
+    : `🔔 New ${kindLabel.toLowerCase()} booking · ${r.party_size} covers · ${formatDate(r.reservation_date)}`;
 
   const res = await fetch("https://api.resend.com/emails", {
     method: "POST",
@@ -239,7 +249,7 @@ Deno.serve(async (req) => {
   }
 
   console.log(
-    `Big-booking alert sent for reservation ${r.id} (${r.party_size} covers) → ${ALERT_RECIPIENT}`,
+    `Booking alert${big ? " (BIG)" : ""} sent for reservation ${r.id} (${r.party_size} covers) → ${ALERT_RECIPIENT}`,
   );
 
   return jsonResponse({
