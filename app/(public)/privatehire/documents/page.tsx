@@ -43,7 +43,22 @@ const DOCS: { title: string; blurb: string; href: string }[] = [
     blurb: "Hazards and controls for the 9-hole crazy golf course.",
     href: "/docs/no-dice-golf-risk-assessment.pdf",
   },
+  {
+    title: "Summary of Insurance Cover",
+    blurb:
+      "Employers' (£10m), public (£5m) and products (£5m) liability — policy ASCCL251279, Ascot at Lloyd's, to 12/06/2027.",
+    href: "/docs/no-dice-insurance-summary.pdf",
+  },
+  {
+    title: "Certificate of Employers' Liability Insurance",
+    blurb: "The statutory certificate issued by the insurer.",
+    href: "/docs/no-dice-employers-liability-certificate.pdf",
+  },
 ];
+
+// Everything above, as one zip — regenerate it (zip in public/docs)
+// whenever a document is added or replaced.
+const ZIP_HREF = "/docs/no-dice-corporate-documents.zip";
 
 export default function DocumentsPage() {
   const [unlocked, setUnlocked] = useState(false);
@@ -131,7 +146,14 @@ export default function DocumentsPage() {
               </a>
               .
             </p>
-            <ul className="mt-8 space-y-3">
+            <a
+              href={ZIP_HREF}
+              className="mt-8 flex items-center justify-center gap-2 rounded-full bg-plonkTeal px-6 py-3.5 text-xs font-bold uppercase tracking-wider text-ink transition hover:bg-plonkTeal/90"
+            >
+              <Download className="h-4 w-4" />
+              Download all documents (ZIP)
+            </a>
+            <ul className="mt-6 space-y-3">
               {DOCS.map((d) => (
                 <li key={d.href}>
                   <a
