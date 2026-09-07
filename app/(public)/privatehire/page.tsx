@@ -199,23 +199,6 @@ export default function PrivateHirePage() {
         sliderKey="hero.privatehire.hackney"
       />
 
-      {/* Corporate documents — gated (code from the events team). */}
-      <div className="tint-forest-to-plumDeep px-6 pt-8">
-        <div className="mx-auto max-w-4xl">
-          <a
-            href="/privatehire/documents"
-            className="flex flex-wrap items-center justify-between gap-3 rounded-2xl border border-plonkTeal/40 bg-plonkTeal/10 px-5 py-4 transition hover:bg-plonkTeal/15"
-          >
-            <span className="text-sm font-semibold text-cream">
-              📄 Corporate documents — risk assessments &amp; fire plan
-            </span>
-            <span className="rounded-full bg-plonkTeal px-4 py-1.5 text-[11px] font-bold uppercase tracking-wider text-ink">
-              Access with code →
-            </span>
-          </a>
-        </div>
-      </div>
-
       {/* Popular for + about */}
       <section className="tint-forest-to-plumDeep px-6 py-24">
         <div className="mx-auto max-w-4xl">
@@ -359,6 +342,24 @@ export default function PrivateHirePage() {
       </section>
 
       <BigEmailCta subject="Private Hire Enquiry — No Dice" />
+
+      {/* Corporate documents — gated (code from the events team).
+          Founder: sits at the BOTTOM of the page (moved 2026-09-08). */}
+      <div className="tint-forest-to-plumDeep px-6 pb-16 pt-8">
+        <div className="mx-auto max-w-4xl">
+          <a
+            href="/privatehire/documents"
+            className="flex flex-wrap items-center justify-between gap-3 rounded-2xl border border-plonkTeal/40 bg-plonkTeal/10 px-5 py-4 transition hover:bg-plonkTeal/15"
+          >
+            <span className="text-sm font-semibold text-cream">
+              📄 Corporate documents — risk assessments &amp; fire plan
+            </span>
+            <span className="rounded-full bg-plonkTeal px-4 py-1.5 text-[11px] font-bold uppercase tracking-wider text-ink">
+              Access with code →
+            </span>
+          </a>
+        </div>
+      </div>
     </main>
   );
 }
