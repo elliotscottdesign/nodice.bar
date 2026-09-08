@@ -5,6 +5,7 @@ import { useSearchParams } from "next/navigation";
 import {
   loadBookableProductConfig,
   availableSlotsForDate,
+  effectiveOpenWindows,
   isDateBookable,
   recurringClosedDaysOfWeek,
   DAY_NAMES,
@@ -88,6 +89,11 @@ function TableBookingPageInner() {
     Math.max(1, Math.min(12, parseInt(params.get("size") || "2", 10) || 2)),
   );
   const [duration, setDuration] = useState<number>(90); // sensible default until cfg lands
+  // "All night" (founder request 2026-09-08): keep the table from the
+  // chosen start time until close (or until an event cutoff). The real
+  // duration is computed per start time; `duration` still drives the
+  // standard pills.
+  const [allNight, setAllNight] = useState(false);
   const [name, setName] = useState("");
   const [email, setEmail] = useState("");
   const [phone, setPhone] = useState("");
@@ -199,19 +205,39 @@ function TableBookingPageInner() {
     [cfg],
   );
 
+  // All-night helpers. Duration for a given start = the containing
+  // open window's close (capped at any event cutoff and the server's
+  // 600-minute limit) minus the start.
+  const minDuration = cfg?.product.min_duration_minutes ?? 30;
+  function allNightDurationFor(startTime: string): number {
+    if (!cfg) return duration;
+    const [hStr, mStr] = startTime.split(":");
+    const startMin = parseInt(hStr, 10) * 60 + parseInt(mStr || "0", 10);
+    const w = effectiveOpenWindows(cfg, date).find(
+      (win) => startMin >= win.open && startMin < win.close,
+    );
+    if (!w) return duration;
+    const end = slotCutoffMin === null ? w.close : Math.min(w.close, slotCutoffMin);
+    return Math.min(600, Math.max(minDuration, end - startMin));
+  }
+  // The duration actually booked: fixed pill, or start→close for all-night.
+  const effDuration = allNight && time ? allNightDurationFor(time) : duration;
+  // For slot generation, all-night just needs the shortest booking to fit.
+  const slotGenDuration = allNight ? minDuration : duration;
+
   // Raw slots from the bookable-product config. Filtered below
   // when a blocking event is on this date — only slots that END by
   // (event_start_time − 2h) survive.
   const slots = useMemo(() => {
     if (!cfg) return [];
-    const all = availableSlotsForDate(cfg, date, duration);
+    const all = availableSlotsForDate(cfg, date, slotGenDuration);
     if (slotCutoffMin === null) return all;
     return all.filter((s) => {
       const [hStr, mStr] = s.split(":");
       const startMin = parseInt(hStr, 10) * 60 + parseInt(mStr || "0", 10);
-      return startMin + duration <= slotCutoffMin;
+      return startMin + slotGenDuration <= slotCutoffMin;
     });
-  }, [cfg, date, duration, slotCutoffMin]);
+  }, [cfg, date, slotGenDuration, slotCutoffMin]);
 
   // Hides the form (time, duration, party, contact, submit) when
   // there's a blocker AND we can't offer any slots. Either:
@@ -253,7 +279,7 @@ function TableBookingPageInner() {
         body: JSON.stringify({
           reservation_date: date,
           start_time: time,
-          duration_minutes: duration,
+          duration_minutes: effDuration,
           party_size: partySize,
           resource_count: cfg?.product.default_resource_count ?? 1,
           name: name.trim(),
@@ -346,7 +372,7 @@ function TableBookingPageInner() {
                   if (
                     cfg &&
                     time &&
-                    !availableSlotsForDate(cfg, iso, duration).includes(time)
+                    !availableSlotsForDate(cfg, iso, slotGenDuration).includes(time)
                   ) {
                     setTime("");
                   }
@@ -474,7 +500,7 @@ function TableBookingPageInner() {
               <FormSection label="Time">
                 {slots.length === 0 ? (
                   <p className="text-sm text-cream/55">
-                    No slots fit a {duration}-minute booking on{" "}
+                    No slots fit a {slotGenDuration}-minute booking on{" "}
                     {DAY_NAMES[dayOfWeek(date)]}. Try a shorter duration.
                   </p>
                 ) : (
@@ -512,7 +538,7 @@ function TableBookingPageInner() {
               <FormSection label="How long?">
                 <div className="grid gap-3 sm:grid-cols-3">
                   {allowedDurations.map((d) => {
-                    const active = duration === d;
+                    const active = !allNight && duration === d;
                     // Whether this duration has any slot that fits AND
                     // (when there's a soft block) ends by the cutoff.
                     // Grey-out + disable durations that don't fit so
@@ -541,6 +567,7 @@ function TableBookingPageInner() {
                         type="button"
                         disabled={!fits}
                         onClick={() => {
+                          setAllNight(false);
                           setDuration(d);
                           if (
                             time &&
@@ -563,6 +590,34 @@ function TableBookingPageInner() {
                       </button>
                     );
                   })}
+                  {/* All night — keep the table from your start time
+                      until close (or until an event cutoff). */}
+                  {(() => {
+                    const fits = slots.length > 0 || allNight;
+                    return (
+                      <button
+                        type="button"
+                        disabled={!fits}
+                        onClick={() => setAllNight(true)}
+                        className={`rounded-xl border px-4 py-3 text-left transition ${
+                          !fits
+                            ? "cursor-not-allowed border-cream/10 bg-ink/20 opacity-50"
+                            : allNight
+                              ? "border-plonkPink bg-plonkPink/10"
+                              : "border-cream/15 bg-ink/40 hover:border-cream/40"
+                        }`}
+                      >
+                        <div className="text-base font-bold text-cream">
+                          🌙 All night
+                        </div>
+                        <div className="mt-0.5 text-xs uppercase tracking-widest text-cream/55">
+                          {allNight && time
+                            ? `${time} till close`
+                            : "yours till close"}
+                        </div>
+                      </button>
+                    );
+                  })()}
                 </div>
               </FormSection>
             )}

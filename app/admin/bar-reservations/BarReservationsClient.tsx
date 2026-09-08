@@ -318,6 +318,10 @@ export default function BarReservationsClient({
   const filtered =
     filter === "all"
       ? dateRows
+      : filter === "confirmed"
+      ? // Paid = charged via Stripe = as confirmed as it gets (founder
+        // rule 2026-09-08: anything charged shows as confirmed).
+        dateRows.filter((r) => r.status === "confirmed" || r.status === "paid")
       : dateRows.filter((r) => r.status === filter);
 
   const pendingCount = kindRows.filter((r) => r.status === "pending").length;
@@ -499,12 +503,12 @@ export default function BarReservationsClient({
                       className={`rounded-full px-2 py-0.5 text-[10px] font-bold uppercase tracking-[0.18em] ${
                         r.status === "pending"
                           ? "bg-amber-400/15 text-amber-300"
-                          : r.status === "confirmed"
+                          : r.status === "confirmed" || r.status === "paid"
                           ? "bg-plonkTeal/15 text-plonkTeal"
                           : "bg-cream/5 text-cream/40"
                       }`}
                     >
-                      {r.status}
+                      {r.status === "paid" ? "paid ✓ confirmed" : r.status}
                     </span>
                   </div>
                   <h3 className="mt-2 font-display text-2xl">
