@@ -350,7 +350,7 @@ Deno.serve(async (req) => {
       },
       body: JSON.stringify({
         from: `${fromName} <${FROM_EMAIL}>`,
-        to: "elliot@nodice.bar",
+        to: ["elliot@nodice.bar", "rhys@nodice.bar"],
         reply_to: booking.customer_email,
         subject: `🔔 New golf booking · ${b.party_size} player${b.party_size === 1 ? "" : "s"} · ${slot ? slot.slot_date : "TBC"}`,
         text: [

@@ -33,7 +33,9 @@
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2.45.4";
 
 const BIG_THRESHOLD = 12;   // covers at or above this get the louder BIG styling
-const ALERT_RECIPIENT = "elliot@nodice.bar";
+// Founder + assistant manager (rhys@ mailbox added 9 Sep 2026 — founder
+// request: "all enquiries should also go to rhys@nodice.bar").
+const ALERT_RECIPIENTS = ["elliot@nodice.bar", "rhys@nodice.bar"];
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
@@ -231,7 +233,7 @@ Deno.serve(async (req) => {
     },
     body: JSON.stringify({
       from: SENDER,
-      to: ALERT_RECIPIENT,
+      to: ALERT_RECIPIENTS,
       // Reply-To goes to the customer so the founder can hit reply on the
       // alert and be talking to the customer directly.
       reply_to: r.email || REPLY_TO,
@@ -249,12 +251,12 @@ Deno.serve(async (req) => {
   }
 
   console.log(
-    `Booking alert${big ? " (BIG)" : ""} sent for reservation ${r.id} (${r.party_size} covers) → ${ALERT_RECIPIENT}`,
+    `Booking alert${big ? " (BIG)" : ""} sent for reservation ${r.id} (${r.party_size} covers) → ${ALERT_RECIPIENTS.join(", ")}`,
   );
 
   return jsonResponse({
     ok: true,
-    sent_to: ALERT_RECIPIENT,
+    sent_to: ALERT_RECIPIENTS,
     party_size: r.party_size,
   });
 });
