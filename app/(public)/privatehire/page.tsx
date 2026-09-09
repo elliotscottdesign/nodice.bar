@@ -107,7 +107,9 @@ const DEFAULTS = {
   licences:
     "Alcohol licence until 23:00. Later licenses can be applied for with notice.",
   welcomes:
-    "Games competitions / tournaments\nVIP events\nPrivate parties\nOwn music equipment / DJ",
+    // DJ kit lines mirror the booth spec in the DJ portal ("The kit") —
+    // keep the two in step if the booth changes.
+    "Games competitions / tournaments\nVIP events\nPrivate parties\nFull DJ booth — 2× Technics SL-1200 MK7, 2× Pioneer CDJ-900 Nexus, rotary mixer\nMartin Audio sound system — bring your own DJ or plug in a playlist",
   house_rules: "No outside catering. No BYOB. Background music only.",
 };
 
