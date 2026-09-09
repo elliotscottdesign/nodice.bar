@@ -97,9 +97,9 @@ const DEFAULTS = {
     "Birthday party\nChristmas party\nCorporate event\nOutdoor space\nParkside location\nUnusual space",
   about_heading: "About this venue",
   about_body:
-    "We're a neighbourhood bar in the railway arches off London Fields, ready to host your party or event. You bring the people, and we'll provide them with a fantastic selection of drinks from our cocktail bar alongside Snack Bar burgers from the kitchen.\n\nThe venue features two pool tables, a full bar with craft beer + cocktails, plenty of room for groups and the option to take over either an arch-end or the whole place. We can accommodate up to 65 people for private hires.",
+    "We're a neighbourhood bar in the railway arches off London Fields, ready to host your party or event. You bring the people, and we'll provide them with a fantastic selection of drinks from our cocktail bar alongside Snack Bar burgers from the kitchen.\n\nThe venue features two pool tables, a full bar with craft beer + cocktails, plenty of room for groups and the option to take over either an arch-end or the whole place. We can accommodate up to 100 people for private hires.",
   capacity:
-    "Standing: 65\nDining: 40\nCabaret: 30",
+    "Standing: 100\nDining: 40\nCabaret: 60",
   features:
     "Two pool tables\nFull cocktail bar\nCraft beer on draught\nSnack Bar kitchen\nNatural light\nWi-Fi\nStorage space\nStep-free access",
   catering:
