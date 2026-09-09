@@ -200,7 +200,7 @@ export default function PrivateHirePage() {
       />
 
       {/* Popular for + about */}
-      <section className="tint-forest-to-plumDeep px-6 py-24">
+      <section className="tint-forest-to-plumDeep px-6 pb-10 pt-24">
         <div className="mx-auto max-w-4xl">
           <Reveal>
             <p className="text-xs font-bold uppercase tracking-eyebrow text-plonkTeal">
@@ -247,20 +247,23 @@ export default function PrivateHirePage() {
         </div>
       </section>
 
-      {/* Fact sheet */}
-      <section className="tint-plumDeep-to-plum px-6 py-24">
+      {/* Fact sheet. pt trimmed (founder, 9 Sep 2026): the capacity
+          stats should sit close under the intro text, not a screen away. */}
+      <section className="tint-plumDeep-to-plum px-6 pb-24 pt-8">
         <div className="mx-auto max-w-6xl space-y-12">
           <FactPanel title={capacityTitle} titleKey="privatehire.hackney.capacity_title">
-            <div className="grid gap-4 sm:grid-cols-3">
+            {/* One row on every screen size (founder, 9 Sep 2026) —
+                three compact cards beat three full-width slabs. */}
+            <div className="grid grid-cols-3 gap-2 sm:gap-4">
               {capacities.map((c) => (
                 <div
                   key={c.label}
-                  className="rounded-2xl border border-plumLine/80 bg-plumDeep/60 p-6 text-center"
+                  className="rounded-2xl border border-plumLine/80 bg-plumDeep/60 p-3 text-center sm:p-6"
                 >
-                  <p className="text-xs font-bold uppercase tracking-eyebrow text-plonkYellow">
+                  <p className="text-[10px] font-bold uppercase tracking-[0.14em] text-plonkYellow sm:text-xs sm:tracking-eyebrow">
                     {c.label}
                   </p>
-                  <p className="mt-3 font-display text-5xl text-cream">
+                  <p className="mt-1 font-display text-3xl text-cream sm:mt-3 sm:text-5xl">
                     {c.value}
                   </p>
                 </div>
