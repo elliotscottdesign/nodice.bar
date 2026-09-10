@@ -147,9 +147,6 @@ export default function InlineTournamentBooking({
   const [captainName, setCaptainName] = useState("");
   const [captainEmail, setCaptainEmail] = useState("");
   const [captainPhone, setCaptainPhone] = useState("");
-  const [partnerName, setPartnerName] = useState("");
-  const [partnerEmail, setPartnerEmail] = useState("");
-  const [partnerPhone, setPartnerPhone] = useState("");
   const [heardFrom, setHeardFrom] = useState("");
   const [marketingOptIn, setMarketingOptIn] = useState(false);
   const [submitting, setSubmitting] = useState(false);
@@ -186,11 +183,6 @@ export default function InlineTournamentBooking({
         setError("Please enter a UK mobile number (starting 07 or +44 7) — we text you when you're up to play.");
         return;
       }
-      const partMob = isDoubles ? normUkMobile(partnerPhone) : null;
-      if (isDoubles && !partMob) {
-        setError("Please enter your partner's UK mobile too (starting 07 or +44 7).");
-        return;
-      }
       setSubmitting(true);
       try {
         // Single round-trip: tournament-checkout validates, looks
@@ -214,9 +206,9 @@ export default function InlineTournamentBooking({
             captain_phone: capMob,
             // Doubles: player 2's details — their half of any prize goes
             // straight to their own inbox.
-            partner_name: isDoubles ? partnerName.trim() : null,
-            partner_email: isDoubles ? partnerEmail.trim() : null,
-            partner_phone: isDoubles ? partMob : null,
+            partner_name: null,
+            partner_email: null,
+            partner_phone: null,
             player_count: null,
             notes: null,
             heard_from: heardFrom || null,
@@ -258,8 +250,6 @@ export default function InlineTournamentBooking({
       captainPhone,
       isSingles,
       isDoubles,
-      partnerName,
-      partnerEmail,
       heardFrom,
       marketingOptIn,
     ],
@@ -351,49 +341,6 @@ export default function InlineTournamentBooking({
 
           {/* Doubles: player 2's details — prizes split half-and-half and each
               player's half is emailed to their own address. */}
-          {isDoubles && (
-            <div>
-              <div className="grid gap-4 sm:grid-cols-2">
-                <div>
-                  <label className="mb-2 block text-[10px] font-bold uppercase tracking-[0.28em] text-plonkPink">
-                    Player 2 name
-                  </label>
-                  <input
-                    type="text"
-                    required
-                    value={partnerName}
-                    onChange={(e) => setPartnerName(e.target.value)}
-                    className="w-full rounded-lg border border-cream/15 bg-ink/40 px-4 py-3 text-base text-cream focus:border-plonkPink focus:outline-none"
-                  />
-                </div>
-                <div>
-                  <label className="mb-2 block text-[10px] font-bold uppercase tracking-[0.28em] text-plonkPink">
-                    Player 2 email
-                  </label>
-                  <input
-                    type="email"
-                    required
-                    value={partnerEmail}
-                    onChange={(e) => setPartnerEmail(e.target.value)}
-                    className="w-full rounded-lg border border-cream/15 bg-ink/40 px-4 py-3 text-base text-cream focus:border-plonkPink focus:outline-none"
-                  />
-                  <input
-                    type="tel"
-                    required
-                    value={partnerPhone}
-                    onChange={(e) => setPartnerPhone(e.target.value.replace(/[^0-9+ ]/g, ""))}
-                    inputMode="tel"
-                    className="mt-2 w-full rounded-lg border border-cream/15 bg-ink/40 px-4 py-3 text-base text-cream focus:border-plonkPink focus:outline-none"
-                    placeholder="Partner's UK mobile (07… or +44 7…)"
-                  />
-                </div>
-              </div>
-              <p className="mt-1.5 text-[11px] text-cream/50">
-                Win and the bar-tab prize splits between you — each player gets
-                their half by email.
-              </p>
-            </div>
-          )}
 
           <div>
             <label className="mb-2 block text-[10px] font-bold uppercase tracking-[0.28em] text-plonkPink">

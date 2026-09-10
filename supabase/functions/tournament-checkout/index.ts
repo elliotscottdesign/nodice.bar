@@ -259,6 +259,33 @@ Deno.serve(async (req) => {
     }
     if (!tRow) {
       return jsonResponse({ error: "Tournament not found" }, { status: 404 });
+
+  // ── One entry per person per night (founder rule 2 Sep 2026) ──────────────
+  // Paying for a mate is welcome — but the SECOND booking must carry the
+  // mate's own details, or texts/prizes/league points all land on the payer
+  // (the Tom & Bruno tangle). Blocks only against PAID entries, so a retry
+  // after a failed payment is never refused.
+  {
+    const email = input.captain_email.toLowerCase();
+    const phone = input.captain_phone;
+    const { data: dupes } = await supabase
+      .from("tournament_entries")
+      .select("id, captain_email, captain_phone, partner_email, partner_phone")
+      .eq("tournament_id", input.tournament_id)
+      .eq("status", "paid");
+    const clash = (dupes || []).some((d) =>
+      (d.captain_email || "").toLowerCase() === email ||
+      (d.partner_email || "").toLowerCase() === email ||
+      d.captain_phone === phone ||
+      d.partner_phone === phone
+    );
+    if (clash) {
+      return jsonResponse(
+        { error: "These details are already entered for this night. Booking for a friend? Enter THEIR name, email and mobile — their texts, prizes and league points all go to these details." },
+        409,
+      );
+    }
+  }
     }
     ev = {
       id: tRow.id, name: tRow.name, category: "pingpong_tournament_teams",
