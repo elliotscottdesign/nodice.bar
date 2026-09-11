@@ -8,6 +8,7 @@ import Reveal from "@/components/Reveal";
 import HeroBookingWidget from "@/components/HeroBookingWidget";
 import { useContent, useImage, useGallery } from "@/lib/content";
 import { Editable, DisplayImage } from "@/components/Editable";
+import { useEditMode } from "@/lib/editMode";
 import ManageGalleryLink from "@/components/ManageGalleryLink";
 import InstagramFeed from "@/components/InstagramFeed";
 
@@ -330,6 +331,7 @@ function VenueSpotlight({
   imageKey: string;
 }) {
   const imageFirst = align === "left";
+  const editing = useEditMode();
 
   // Pull live values from the CMS (fallbacks shown until something
   // is saved). features key holds a single newline-separated string.
@@ -379,9 +381,17 @@ function VenueSpotlight({
                   </li>
                 ))}
               </ul>
-              {/* Hidden Editable overlay — click anywhere on the list
-                  in admin Edit mode and you get the multiline editor. */}
-              <Editable k={featuresKey} multiline>{liveFeaturesRaw}</Editable>
+              {/* Inline editor — ONLY rendered in admin Edit mode.
+                  Previously always mounted, but Editable renders its
+                  children verbatim when NOT editing, so the raw
+                  newline-joined features string showed as a plain-text
+                  duplicate under the styled bullet list on the live
+                  site (founder bug 2026-09-11). Guarding on `editing`
+                  keeps inline editing for admins and removes the
+                  public duplicate. */}
+              {editing && (
+                <Editable k={featuresKey} multiline>{liveFeaturesRaw}</Editable>
+              )}
             </div>
 
             <div className="mt-10 flex flex-wrap gap-4">
