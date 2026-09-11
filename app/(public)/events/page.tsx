@@ -193,6 +193,9 @@ export default function EventsPage() {
     () => new Set(EVENT_TYPES),
   );
   const allCatsOn = selectedCats.size === EVENT_TYPES.length;
+  // "Event types" dropdown open state (founder 2026-09-11: the row of
+  // pills was messy — collapse it into one labelled dropdown).
+  const [typesOpen, setTypesOpen] = useState(false);
   const toggleCat = (c: string) =>
     setSelectedCats((prev) => {
       const next = new Set(prev);
@@ -322,52 +325,106 @@ export default function EventsPage() {
         </div>
       </section>
 
-      {/* CATEGORY FILTER — SHOW ALL is a master toggle at the front. When
-          it's on, every category pill lights up; unticking any category
-          drops SHOW ALL out of its active state automatically (since not
-          everything is selected any more). Tapping SHOW ALL again re-selects
-          the full set. Founder direction 2026-07-31. */}
+      {/* EVENT TYPES FILTER — one labelled dropdown (founder 2026-09-11,
+          replacing the messy row of pills). Opens to a checklist; the
+          calendar loads with every type selected, and the customer
+          deselects the ones they don't want to see. */}
       <section className="px-6 pb-2">
-        <div className="mx-auto flex max-w-6xl flex-wrap items-center gap-2">
-          <span className="mr-1 text-[11px] font-bold uppercase tracking-[0.18em] text-cream/45">
-            Show
-          </span>
-          <button
-            type="button"
-            // True toggle: on → clears every category (empty calendar); off →
-            // re-selects everything. Founder direction 2026-07-31.
-            onClick={() =>
-              setSelectedCats(allCatsOn ? new Set() : new Set(EVENT_TYPES))
-            }
-            aria-pressed={allCatsOn}
-            className={`shrink-0 rounded-full border px-3.5 py-1.5 text-[11px] font-bold uppercase tracking-[0.14em] transition ${
-              allCatsOn
-                ? "border-cream bg-cream text-ink"
-                : "border-cream/25 text-cream/70 hover:border-cream/60 hover:text-cream"
-            }`}
-          >
-            {allCatsOn ? "✓ " : ""}
-            Show all
-          </button>
-          {EVENT_TYPES.map((c) => {
-            const on = selectedCats.has(c);
-            return (
-              <button
-                key={c}
-                type="button"
-                onClick={() => toggleCat(c)}
-                aria-pressed={on}
-                className={`shrink-0 rounded-full border px-3.5 py-1.5 text-[11px] font-bold uppercase tracking-[0.14em] transition ${
-                  on
-                    ? "border-plonkPink bg-plonkPink text-white"
-                    : "border-cream/15 text-cream/50 hover:border-cream/40 hover:text-cream/80"
-                }`}
+        <div className="mx-auto max-w-6xl">
+          <div className="relative inline-block">
+            <button
+              type="button"
+              onClick={() => setTypesOpen((o) => !o)}
+              aria-haspopup="true"
+              aria-expanded={typesOpen}
+              className="flex items-center gap-2 rounded-full border border-cream/25 bg-ink/40 px-4 py-2 text-[11px] font-bold uppercase tracking-[0.16em] text-cream/85 transition hover:border-cream/60"
+            >
+              Event types
+              <span className="text-cream/55">
+                {allCatsOn
+                  ? "· All"
+                  : selectedCats.size === 0
+                    ? "· None"
+                    : `· ${selectedCats.size} of ${EVENT_TYPES.length}`}
+              </span>
+              <svg
+                width="10"
+                height="6"
+                viewBox="0 0 10 6"
+                fill="none"
+                className={`transition-transform ${typesOpen ? "rotate-180" : ""}`}
+                aria-hidden="true"
               >
-                {on ? "✓ " : ""}
-                {c}
-              </button>
-            );
-          })}
+                <path
+                  d="M1 1l4 4 4-4"
+                  stroke="currentColor"
+                  strokeWidth="1.6"
+                  strokeLinecap="round"
+                  strokeLinejoin="round"
+                />
+              </svg>
+            </button>
+
+            {typesOpen && (
+              <>
+                {/* Click-away backdrop — closes the menu on any outside tap. */}
+                <button
+                  type="button"
+                  aria-label="Close event types menu"
+                  onClick={() => setTypesOpen(false)}
+                  className="fixed inset-0 z-30 cursor-default"
+                />
+                <div
+                  role="menu"
+                  className="absolute left-0 z-40 mt-2 w-60 rounded-2xl border border-cream/15 bg-ink/95 p-2 shadow-xl backdrop-blur"
+                >
+                  <div className="flex items-center justify-between px-2 py-1.5">
+                    <span className="text-[10px] font-bold uppercase tracking-[0.18em] text-cream/45">
+                      Show on calendar
+                    </span>
+                    <button
+                      type="button"
+                      onClick={() =>
+                        setSelectedCats(
+                          allCatsOn ? new Set() : new Set(EVENT_TYPES),
+                        )
+                      }
+                      className="text-[10px] font-bold uppercase tracking-[0.14em] text-plonkPink hover:text-plonkPink/80"
+                    >
+                      {allCatsOn ? "Clear all" : "Select all"}
+                    </button>
+                  </div>
+                  <ul className="mt-1">
+                    {EVENT_TYPES.map((c) => {
+                      const on = selectedCats.has(c);
+                      return (
+                        <li key={c}>
+                          <button
+                            type="button"
+                            onClick={() => toggleCat(c)}
+                            role="menuitemcheckbox"
+                            aria-checked={on}
+                            className="flex w-full items-center gap-3 rounded-lg px-2 py-2 text-left text-sm text-cream/85 transition hover:bg-cream/5"
+                          >
+                            <span
+                              className={`flex h-4 w-4 shrink-0 items-center justify-center rounded border text-[10px] ${
+                                on
+                                  ? "border-plonkPink bg-plonkPink text-white"
+                                  : "border-cream/30 text-transparent"
+                              }`}
+                            >
+                              ✓
+                            </span>
+                            {c}
+                          </button>
+                        </li>
+                      );
+                    })}
+                  </ul>
+                </div>
+              </>
+            )}
+          </div>
         </div>
       </section>
 
@@ -406,7 +463,19 @@ export default function EventsPage() {
                 day === today.day &&
                 active.year === today.year &&
                 active.month === today.month;
-              const dayEvents = byDay[day] ?? [];
+              // Past days in the CURRENT month (the month range never
+              // includes earlier months, so this only fires here).
+              // Founder 2026-09-11: the calendar should start at today —
+              // a DJ night earlier this month must not appear above the
+              // current date. Past days are treated as empty: skipped on
+              // mobile, shown as a dimmed empty cell on desktop so the
+              // 7-col grid alignment survives. Edit mode still shows all.
+              const isPastDay =
+                !editing &&
+                active.year === today.year &&
+                active.month === today.month &&
+                day < today.day;
+              const dayEvents = isPastDay ? [] : byDay[day] ?? [];
               const dayIso = isoFor(active.year, active.month, day);
 
               // Mobile FOMO rule (founder 2026-07-02): dead dates
@@ -428,7 +497,7 @@ export default function EventsPage() {
                     isToday
                       ? "border-cream ring-2 ring-cream"
                       : "border-cream/10"
-                  } ${editing && !isToday ? "ring-1 ring-cream/10" : ""}`}
+                  } ${isPastDay ? "opacity-30" : ""} ${editing && !isToday ? "ring-1 ring-cream/10" : ""}`}
                 >
                   {/* Day-number badge — DESKTOP only. On mobile the
                       dedicated header strip below carries the date;
