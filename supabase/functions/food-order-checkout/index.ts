@@ -110,6 +110,26 @@ Deno.serve(async (req) => {
   };
   try { b = await req.json(); } catch { return json({ error: "Invalid JSON body" }, { status: 400 }); }
 
+  // ── Payment health check (admin) — recent PaymentIntents by status, so we can
+  // see at a glance how many are succeeding vs stalling, and which wallet. ──
+  if ((b as any).action === "piDiag") {
+    const secret = Deno.env.get("SEND_SECRET");
+    if (!secret || (b as any).secret !== secret) return json({ error: "not allowed" }, { status: 403 });
+    try {
+      const pis = await stripe.paymentIntents.list({ limit: 25, expand: ["data.payment_method"] });
+      const rows = pis.data.map((p: any) => ({
+        id: p.id, status: p.status, amount: p.amount, created: p.created,
+        methods: p.payment_method_types,
+        wallet: p.payment_method?.card?.wallet?.type || p.payment_method?.type || null,
+        lastError: p.last_payment_error?.message || p.last_payment_error?.code || null,
+        nextAction: p.next_action?.type || null,
+      }));
+      const byStatus: Record<string, number> = {};
+      for (const r of rows) byStatus[r.status] = (byStatus[r.status] || 0) + 1;
+      return json({ ok: true, byStatus, rows });
+    } catch (e) { return json({ error: String(e) }); }
+  }
+
   const name = String(b.name || "").trim();
   const phone = normalisePhone(String(b.phone || ""));
   const emailRaw = String(b.email || "").trim().slice(0, 120);
@@ -186,7 +206,10 @@ Deno.serve(async (req) => {
       currency: "gbp",
       description: `On A Roll — ${lineItems.reduce((n, l) => n + l.qty, 0)} item(s)${tip > 0 ? ` + £${(tip / 100).toFixed(2)} tip` : ""}`,
       ...(email ? { receipt_email: email } : {}),   // Stripe emails a receipt (business details from the account)
-      automatic_payment_methods: { enabled: true },
+      // Food truck = tap & collect: card + Apple Pay + Google Pay only. This drops
+      // the redirect wallets (Klarna / Amazon Pay / Revolut Pay) that send customers
+      // off-site and cause "stuck on processing" dead-ends.
+      payment_method_types: ["card"],
       metadata: { kind: "food_order", name },
     });
   } catch (e) {

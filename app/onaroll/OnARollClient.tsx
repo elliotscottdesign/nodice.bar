@@ -468,16 +468,26 @@ function PayForm({ total, onSuccess, onBack, onError }: { total: number; onSucce
     setSubmitting(true); setInlineErr("");
     const { error: submitError } = await elements.submit();
     if (submitError) { setInlineErr(submitError.message || "Check your card details."); setSubmitting(false); return; }
-    const { error } = await stripe.confirmPayment({
-      elements, redirect: "if_required",
-      confirmParams: { return_url: `${window.location.origin}/onaroll/` },
-    });
-    if (error) {
-      if (error.type === "card_error" || error.type === "validation_error") setInlineErr(error.message || "Card declined.");
-      else onError(error.message || "Payment failed — please try again.");
-      setSubmitting(false); return;
+    try {
+      const { error, paymentIntent } = await stripe.confirmPayment({
+        elements, redirect: "if_required",
+        confirmParams: { return_url: `${window.location.origin}/onaroll/` },
+      });
+      if (error) {
+        // Decline / validation / cancelled Apple Pay → show it and let them retry.
+        // Never leave them stuck on "Processing…".
+        setInlineErr(error.message || "That didn't go through — please try again, or use a card.");
+        setSubmitting(false); return;
+      }
+      const st = paymentIntent?.status;
+      if (st === "succeeded" || st === "processing") { onSuccess(); return; }
+      // requires_payment_method / requires_action / canceled → not paid yet: recover.
+      setInlineErr("Payment didn't complete — please tap Pay again (card or Apple Pay).");
+      setSubmitting(false);
+    } catch {
+      setInlineErr("Payment error — please try again.");
+      setSubmitting(false);
     }
-    onSuccess();
   };
 
   return (
