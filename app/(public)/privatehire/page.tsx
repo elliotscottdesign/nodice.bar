@@ -14,6 +14,10 @@ import {
   Wine,
   Users,
   Tag,
+  CircleDot,
+  Gamepad2,
+  Target,
+  Disc3,
   type LucideIcon,
 } from "lucide-react";
 import PageHero from "@/components/PageHero";
@@ -33,8 +37,14 @@ function iconForUseCase(label: string): LucideIcon {
   if (/outdoor|garden|terrace|beer garden/.test(t)) return Sun;
   if (/park|green/.test(t)) return Trees;
   if (/unusual|unique|quirky|different/.test(t)) return Sparkles;
+  // Venue activities (added 2026-09-13). DJ rule sits before the generic
+  // music rule so "DJs" gets the turntable icon, not a plain note.
+  if (/pool|cue|billiard/.test(t)) return CircleDot;
+  if (/arcade|gaming/.test(t)) return Gamepad2;
+  if (/ping.?pong|table tennis/.test(t)) return Target;
+  if (/dj|deck|turntable/.test(t)) return Disc3;
   if (/party|club|night/.test(t)) return PartyPopper;
-  if (/music|dj|live/.test(t)) return Music;
+  if (/music|live/.test(t)) return Music;
   if (/photo|shoot|brand|launch/.test(t)) return Camera;
   if (/food|dinner|tasting/.test(t)) return Utensils;
   if (/drink|cocktail|wine/.test(t)) return Wine;
@@ -94,7 +104,7 @@ const DEFAULTS = {
     "London Fields' newest bar — yours for the night. Two arches of pool, drinks and snacks for parties of up to 65.",
   popular_heading: "No Dice is popular for",
   popular_list:
-    "Birthday party\nChristmas party\nCorporate event\nOutdoor space\nParkside location\nUnusual space",
+    "Birthday party\nChristmas party\nCorporate event\nOutdoor space\nParkside location\nUnusual space\nPool\nArcade\nPing pong\nDJs",
   about_heading: "About this venue",
   about_body:
     "We're a neighbourhood bar in the railway arches off London Fields, ready to host your party or event. You bring the people, and we'll provide them with a fantastic selection of drinks from our cocktail bar alongside Snack Bar burgers from the kitchen.\n\nThe venue features two pool tables, a full bar with craft beer + cocktails, plenty of room for groups and the option to take over either an arch-end or the whole place. We can accommodate up to 100 people for private hires.",
