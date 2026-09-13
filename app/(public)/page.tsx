@@ -8,7 +8,6 @@ import Reveal from "@/components/Reveal";
 import HeroBookingWidget from "@/components/HeroBookingWidget";
 import { useContent, useImage, useGallery } from "@/lib/content";
 import { Editable, DisplayImage } from "@/components/Editable";
-import { useEditMode } from "@/lib/editMode";
 import ManageGalleryLink from "@/components/ManageGalleryLink";
 import InstagramFeed from "@/components/InstagramFeed";
 
@@ -331,7 +330,6 @@ function VenueSpotlight({
   imageKey: string;
 }) {
   const imageFirst = align === "left";
-  const editing = useEditMode();
 
   // Pull live values from the CMS (fallbacks shown until something
   // is saved). features key holds a single newline-separated string.
@@ -372,30 +370,21 @@ function VenueSpotlight({
             {/* The whole bullet list is one editable multiline field —
                 each line in the textarea becomes a bullet. Edit icon
                 sits on the kicker line so the click target is clear. */}
-            {/* Features: styled bullets in normal view, the raw
-                multiline editor in admin Edit mode — never BOTH.
-                They used to render together, so the editor's plain
-                newline text showed as a duplicate list beneath the
-                bullets (founder bug, seen twice: 2026-09-11 & -13).
-                One-or-the-other is the definitive fix. */}
-            <div className="mt-8 relative">
-              {editing ? (
-                <div className="text-sm text-cream/80">
-                  <p className="mb-2 text-[11px] font-bold uppercase tracking-widest text-plonkYellow">
-                    Features — one per line
-                  </p>
-                  <Editable k={featuresKey} multiline>{liveFeaturesRaw}</Editable>
-                </div>
-              ) : (
-                <ul className="grid grid-cols-2 gap-x-4 gap-y-3 text-sm text-cream/80">
-                  {liveFeatures.map((f, i) => (
-                    <li key={`${f}-${i}`} className="flex items-center gap-2">
-                      <span className="h-1.5 w-1.5 rounded-full bg-plonkYellow" />
-                      {f}
-                    </li>
-                  ))}
-                </ul>
-              )}
+            {/* Features — styled bullets, always. The inline Edit-mode
+                overlay was removed 2026-09-13: it kept rendering the raw
+                newline text as a duplicate list (and its "Features — one
+                per line" label showed in edit mode). These four venue
+                facts rarely change; edit them in the `features` array
+                where VenueSpotlight is used, above. */}
+            <div className="mt-8">
+              <ul className="grid grid-cols-2 gap-x-4 gap-y-3 text-sm text-cream/80">
+                {liveFeatures.map((f, i) => (
+                  <li key={`${f}-${i}`} className="flex items-center gap-2">
+                    <span className="h-1.5 w-1.5 rounded-full bg-plonkYellow" />
+                    {f}
+                  </li>
+                ))}
+              </ul>
             </div>
 
             <div className="mt-10 flex flex-wrap gap-4">
