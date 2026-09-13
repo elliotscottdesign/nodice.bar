@@ -372,25 +372,29 @@ function VenueSpotlight({
             {/* The whole bullet list is one editable multiline field —
                 each line in the textarea becomes a bullet. Edit icon
                 sits on the kicker line so the click target is clear. */}
+            {/* Features: styled bullets in normal view, the raw
+                multiline editor in admin Edit mode — never BOTH.
+                They used to render together, so the editor's plain
+                newline text showed as a duplicate list beneath the
+                bullets (founder bug, seen twice: 2026-09-11 & -13).
+                One-or-the-other is the definitive fix. */}
             <div className="mt-8 relative">
-              <ul className="grid grid-cols-2 gap-x-4 gap-y-3 text-sm text-cream/80">
-                {liveFeatures.map((f, i) => (
-                  <li key={`${f}-${i}`} className="flex items-center gap-2">
-                    <span className="h-1.5 w-1.5 rounded-full bg-plonkYellow" />
-                    {f}
-                  </li>
-                ))}
-              </ul>
-              {/* Inline editor — ONLY rendered in admin Edit mode.
-                  Previously always mounted, but Editable renders its
-                  children verbatim when NOT editing, so the raw
-                  newline-joined features string showed as a plain-text
-                  duplicate under the styled bullet list on the live
-                  site (founder bug 2026-09-11). Guarding on `editing`
-                  keeps inline editing for admins and removes the
-                  public duplicate. */}
-              {editing && (
-                <Editable k={featuresKey} multiline>{liveFeaturesRaw}</Editable>
+              {editing ? (
+                <div className="text-sm text-cream/80">
+                  <p className="mb-2 text-[11px] font-bold uppercase tracking-widest text-plonkYellow">
+                    Features — one per line
+                  </p>
+                  <Editable k={featuresKey} multiline>{liveFeaturesRaw}</Editable>
+                </div>
+              ) : (
+                <ul className="grid grid-cols-2 gap-x-4 gap-y-3 text-sm text-cream/80">
+                  {liveFeatures.map((f, i) => (
+                    <li key={`${f}-${i}`} className="flex items-center gap-2">
+                      <span className="h-1.5 w-1.5 rounded-full bg-plonkYellow" />
+                      {f}
+                    </li>
+                  ))}
+                </ul>
               )}
             </div>
 
