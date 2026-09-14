@@ -172,10 +172,11 @@ Deno.serve(async (req) => {
     const qty = Math.min(20, Math.max(1, parseInt(String(line.qty), 10) || 1));
     const addonIds = Array.isArray(line.addon_ids) ? line.addon_ids.map(String) : [];
     const chosen = (it.addons || []).filter((a: any) => addonIds.includes(String(a.id)));
-    const options = chosen.map((a: any) => ({ name: a.name, price_pence: parseInt(a.price_pence, 10) || 0 }));
+    // Snapshot cost_pence at order time so realised margin stays exact if the menu is re-priced later.
+    const options = chosen.map((a: any) => ({ name: a.name, price_pence: parseInt(a.price_pence, 10) || 0, cost_pence: parseInt(a.cost_pence, 10) || 0 }));
     const unit = (parseInt(it.sell_pence, 10) || 0) + options.reduce((s: number, o: any) => s + o.price_pence, 0);
     total += unit * qty;
-    lineItems.push({ name: it.name, qty, price_pence: parseInt(it.sell_pence, 10) || 0, options, stock: Array.isArray(it.stock) ? it.stock : [] });
+    lineItems.push({ name: it.name, qty, price_pence: parseInt(it.sell_pence, 10) || 0, cost_pence: parseInt(it.cost_pence, 10) || 0, options, stock: Array.isArray(it.stock) ? it.stock : [] });
   }
   if (total <= 0) return json({ error: "Could not price this order — please refresh and try again." }, { status: 400 });
 
