@@ -19,7 +19,7 @@ export function generateStaticParams() {
 }
 
 const VENUE_NAMES: Record<string, string> = {
-  hackney: "Plonk Hackney",
+  hackney: "No Dice Crazy Golf",
 };
 
 export function generateMetadata({ params }: { params: { venue: string } }) {

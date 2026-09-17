@@ -13,7 +13,7 @@ import CheckoutClient from "./CheckoutClient";
 
 export const metadata = {
   title: "Checkout — No Dice",
-  description: "Confirm your Plonk Hackney booking.",
+  description: "Confirm your No Dice Crazy Golf booking.",
 };
 
 export default function CheckoutPage() {

@@ -55,9 +55,9 @@ const FALLBACK_CARDS = [
   // launches, admin can repoint this card's href in /admin/content/info/book.
   {
     id: "minigolf",
-    name: "Plonk Hackney",
-    tagline: "Mini golf · 9 holes · London Fields",
-    blurb: "Plonk's Polynesian-themed crazy golf course, next door to No Dice. Book a tee time.",
+    name: "No Dice Crazy Golf",
+    tagline: "Crazy golf · 9 holes · London Fields",
+    blurb: "A Polynesian-themed crazy golf course, next door to the bar. Book a tee time.",
     // Same fallback image the /minigolf hero uses so the card matches
     // the landing page visually. Founder can override per-card via the
     // CMS ("book.minigolf.image") without touching this file.

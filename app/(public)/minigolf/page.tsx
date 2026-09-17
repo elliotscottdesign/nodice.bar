@@ -7,7 +7,8 @@ import { useContent } from "@/lib/content";
 import { supabase } from "@/lib/supabase";
 
 // =============================================================
-// /minigolf — landing page for Plonk Hackney mini golf
+// /minigolf — landing page for No Dice Crazy Golf (the "Plonk" brand
+// name is withheld from public copy pending due diligence, 17 Sep 2026)
 // =============================================================
 // 2026-07-19: switched from "coming soon" email capture to a live
 // booking CTA now that the interim /book/hackney flow is running on
@@ -32,11 +33,11 @@ const FALLBACK_HERO = [
 ];
 
 export default function MiniGolfPage() {
-  const eyebrow = useContent("minigolf.eyebrow", "Plonk · Hackney · London Fields");
-  const title = useContent("minigolf.title", "Plonk Hackney — Mini Golf");
+  const eyebrow = useContent("minigolf.eyebrow", "Crazy Golf · Hackney · London Fields");
+  const title = useContent("minigolf.title", "No Dice Crazy Golf");
   const intro = useContent(
     "minigolf.intro",
-    "Plonk's Polynesian-themed 9-hole crazy golf course, right next door to No Dice. Drinks in hand, tacos on the side. Book a tee time below.",
+    "Our Polynesian-themed 9-hole crazy golf course, right next door to the bar. Drinks in hand, tacos on the side. Book a tee time below.",
   );
   const ctaLabel = useContent("minigolf.cta_label", "Book a tee time");
   const newsletterPrompt = useContent(
@@ -52,10 +53,10 @@ export default function MiniGolfPage() {
     "minigolf.signup_success",
     "You're on the list — we'll be in touch with openings and offers.",
   );
-  const aboutTitle = useContent("minigolf.about_title", "About Plonk");
+  const aboutTitle = useContent("minigolf.about_title", "About the course");
   const aboutBody = useContent(
     "minigolf.about_body",
-    "Plonk is London's original crazy-golf brand — 14 years running mini-golf courses across the city, back at London Fields with a new 9-hole Polynesian-themed course. Plonk shares the venue with No Dice bar: one address, two doors, two brands.",
+    "A Polynesian-themed 9-hole crazy golf course at London Fields, sharing the venue with No Dice bar — one address, two doors. Drinks in hand, tacos on the side.",
   );
 
   const [email, setEmail] = useState("");

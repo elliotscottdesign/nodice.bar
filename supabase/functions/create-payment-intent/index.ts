@@ -293,7 +293,7 @@ Deno.serve(async (req) => {
       currency: "gbp",
       automatic_payment_methods: { enabled: true },
       receipt_email: customer.email,
-      description: `Plonk Golf — ${venue.name} — ${reference}`,
+      description: `No Dice Crazy Golf — ${venue.name} — ${reference}`,
       metadata: {
         booking_id: booking.id,
         reference,

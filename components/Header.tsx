@@ -19,11 +19,11 @@ const FALLBACK_NAV = [
   //   "World Cup | /worldcup",
   "Deals | /deals",
   "DJs & Events | /events",
-  // Plonk — the mini-golf brand at the London Fields venue. Plonk has
-  // its own door and its own signage at No Dice, so the nav label leads
-  // with the brand ("PLONK") rather than the category ("MINI GOLF").
-  // Route stays at /minigolf so old bookmarks / share links keep working.
-  "Plonk | /minigolf",
+  // Crazy golf at the London Fields venue. The "Plonk" brand name is
+  // withheld from all public copy pending name-ownership due diligence
+  // (founder, 17 Sep 2026) — held as "No Dice Crazy Golf". Route stays
+  // at /minigolf so old bookmarks / share links keep working.
+  "Crazy Golf | /minigolf",
   "Parties | /privatehire",
   "Contact | /contact",
 ].join("\n");

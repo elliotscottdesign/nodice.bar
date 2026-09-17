@@ -30,7 +30,7 @@ type ItemId = "pool" | "table" | "worldcup" | "golf";
 const ITEMS: { id: ItemId; label: string; description: string }[] = [
   { id: "pool",     label: "Pool table",   description: "30 min slots · on the hour" },
   { id: "table",    label: "Table",        description: "Drinks · dinner · groups" },
-  { id: "golf",     label: "Golf",         description: "Plonk Golf — Hackney" },
+  { id: "golf",     label: "Golf",         description: "No Dice Crazy Golf — Hackney" },
 ];
 
 // Plonk Golf is on its own domain — opening it in a new tab keeps the
