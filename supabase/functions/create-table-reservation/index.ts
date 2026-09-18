@@ -236,6 +236,51 @@ Deno.serve(async (req) => {
     }
   }
 
+  // ---------------------------------------------------------
+  // Auto-confirm vs hold for review (founder 2026-09-18).
+  // A website booking auto-confirms UNLESS the venue is already at
+  // capacity in an overlapping window — i.e. CAPACITY_THRESHOLD+ people
+  // are already reserved across pool AND tables at the same time. When
+  // that's the case the booking is saved as 'pending' for staff to
+  // review (no customer confirmation email); otherwise it's 'confirmed'
+  // and the customer gets their email right away.
+  //
+  // "already reserved" = existing overlapping covers BEFORE this booking
+  // (matches the founder's wording "already sixty people reserved").
+  // Counts confirmed + paid + pending rows so a pile of pending web
+  // requests can't quietly blow past the cap either.
+  // ---------------------------------------------------------
+  const CAPACITY_THRESHOLD = 60;
+  const [nbh, nbm] = input.start_time.split(":").map((s) => parseInt(s, 10));
+  const newStart = nbh * 60 + (nbm || 0);
+  const newEnd = newStart + input.duration_minutes;
+  let concurrentCovers = 0;
+  {
+    const { data: sameDay, error: coverErr } = await db
+      .from("bar_reservations")
+      .select("start_time, duration_minutes, party_size, status")
+      .eq("reservation_date", input.reservation_date)
+      .in("status", ["confirmed", "paid", "pending"]);
+    if (coverErr) {
+      return jsonResponse(
+        { error: `Capacity lookup failed: ${coverErr.message}` },
+        { status: 500 },
+      );
+    }
+    for (const row of sameDay ?? []) {
+      const [rh, rm] = String(row.start_time).split(":").map((s) => parseInt(s, 10));
+      const s = rh * 60 + (rm || 0);
+      const e = s + (row.duration_minutes ?? 0);
+      // Overlap: existing starts before the new one ends AND ends after
+      // the new one starts.
+      if (s < newEnd && e > newStart) {
+        concurrentCovers += row.party_size ?? 0;
+      }
+    }
+  }
+  const overCapacity = concurrentCovers >= CAPACITY_THRESHOLD;
+  const bookingStatus = overCapacity ? "pending" : "confirmed";
+
   const { data: r, error: insertErr } = await db
     .from("bar_reservations")
     .insert({
@@ -251,6 +296,7 @@ Deno.serve(async (req) => {
       notes: input.notes,
       heard_from: input.heard_from,
       marketing_opt_in: input.marketing_opt_in,
+      status: bookingStatus,
     })
     .select("id")
     .single();
@@ -279,5 +325,27 @@ Deno.serve(async (req) => {
     console.error(`Booking alert failed for reservation ${r.id}:`, e);
   });
 
-  return jsonResponse({ reservation_id: r.id });
+  // Auto-confirmed bookings email the customer their confirmation now
+  // (via send-pool-confirmation, which handles kind 'table' too).
+  // Over-capacity 'pending' bookings get NO email — staff review them
+  // and confirm from /admin, which sends the email at that point.
+  // Never email the info@ walk-in placeholder.
+  if (
+    bookingStatus === "confirmed" &&
+    input.email &&
+    input.email.trim().toLowerCase() !== "info@nodice.bar"
+  ) {
+    fetch(`${SUPABASE_URL}/functions/v1/send-pool-confirmation`, {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        Authorization: `Bearer ${SUPABASE_SERVICE_ROLE_KEY}`,
+      },
+      body: JSON.stringify({ reservation_id: r.id, include_notes: false }),
+    }).catch((e) => {
+      console.error(`Customer confirmation email failed for ${r.id}:`, e);
+    });
+  }
+
+  return jsonResponse({ reservation_id: r.id, status: bookingStatus });
 });

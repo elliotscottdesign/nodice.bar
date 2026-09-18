@@ -105,6 +105,11 @@ function TableBookingPageInner() {
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState("");
   const [success, setSuccess] = useState(false);
+  // Which end-state the server returned: auto-confirmed, or held pending
+  // because the venue was already at capacity for this slot.
+  const [bookingStatus, setBookingStatus] = useState<"confirmed" | "pending">(
+    "confirmed",
+  );
 
   // ----- Blocked dates (World Cup match nights, food residencies) -----
   // Loaded once on mount for the next ~120 days. Drives both the
@@ -296,6 +301,10 @@ function TableBookingPageInner() {
           `Couldn't save the reservation (${res.status}): ${txt || "no detail"}`,
         );
       }
+      // status: 'confirmed' (auto-confirmed, email sent now) or 'pending'
+      // (venue already at capacity for this slot — staff will review).
+      const body = await res.json().catch(() => ({}));
+      setBookingStatus(body?.status === "pending" ? "pending" : "confirmed");
       setSuccess(true);
     } catch (err) {
       setError(
@@ -314,15 +323,22 @@ function TableBookingPageInner() {
       <main className="px-6 py-24">
         <div className="mx-auto max-w-xl rounded-2xl border border-plonkTeal/40 bg-plonkTeal/10 p-10 text-center">
           <div className="text-xs font-bold uppercase tracking-[0.3em] text-plonkTeal">
-            Request received
+            {bookingStatus === "pending" ? "Request received" : "You're booked"}
           </div>
           <h1 className="mt-3 font-display text-4xl uppercase tracking-wider">
-            Got it
+            {bookingStatus === "pending" ? "Got it" : "See you soon"}
           </h1>
-          <p className="mt-4 text-base text-cream/75">
-            Confirmation email will hit <strong>{email}</strong> shortly. See
-            you at {time} on {date}.
-          </p>
+          {bookingStatus === "pending" ? (
+            <p className="mt-4 text-base text-cream/75">
+              We've got your request for {time} on {date} — it's a busy slot,
+              so we'll confirm by email to <strong>{email}</strong> shortly.
+            </p>
+          ) : (
+            <p className="mt-4 text-base text-cream/75">
+              You're confirmed for {time} on {date}. A confirmation email is on
+              its way to <strong>{email}</strong>. See you then.
+            </p>
+          )}
         </div>
       </main>
     );
