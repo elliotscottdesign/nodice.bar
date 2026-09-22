@@ -317,19 +317,12 @@ Deno.serve(async (req) => {
       { status: 400 },
     );
   }
-  // Doubles need BOTH players' details — the prize tab splits half-and-half
-  // and each player's half is emailed to their own address (founder rule
-  // 6 Aug 2026).
-  if (
-    (ev.category === "pool_tournament_doubles" ||
-      ev.category === "pingpong_tournament_teams") &&
-    !input.partner_email
-  ) {
-    return jsonResponse(
-      { error: "Team entries need your partner's name and email too" },
-      { status: 400 },
-    );
-  }
+  // 22 Sep 2026: partner details are OPTIONAL at booking — the shortened
+  // doubles form (10 Sep) stopped collecting them, and this old requirement
+  // was silently refusing EVERY doubles/teams booking since. When no partner
+  // email is held, the prize engine issues one full voucher to the captain
+  // instead of splitting (already shipped 10 Sep). Partner details, when
+  // provided (ops walk-up flow), are still validated and stored above.
 
   // Entry fee: teams nights carry it on the tournaments row; events-platform
   // nights read the first active ticket type (mirrors loadOpenTournaments).
