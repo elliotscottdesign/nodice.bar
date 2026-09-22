@@ -158,18 +158,38 @@ Deno.serve(async (req) => {
   }, { status: 409 });
 
   // ── Recompute the total from the live menu (never trust the client) ──
-  const { data: menu } = await db.from("menu_catalog").select("sections").eq("id", 1).maybeSingle();
+  const { data: menu } = await db.from("menu_catalog").select("sections, bundles").eq("id", 1).maybeSingle();
   const sections: any[] = Array.isArray(menu?.sections) ? menu!.sections : [];
   const itemIndex = new Map<string, any>();
-  // Skip archived items — a stale cart can never order something we've withdrawn.
-  for (const sec of sections) for (const it of (sec.items || [])) { if (it.archived) continue; itemIndex.set(String(it.id), it); }
+  // Skip archived items (and whole parked/archived sections) — a stale cart can
+  // never order something we've withdrawn.
+  for (const sec of sections) for (const it of (sec.items || [])) { if (it.archived || sec.archived) continue; itemIndex.set(String(it.id), it); }
+  // Beer + Burger deals — day-gated. London weekday so "runs Tue" is right in BST/GMT.
+  const bundles: any[] = Array.isArray(menu?.bundles) ? menu!.bundles : [];
+  const bundleIndex = new Map<string, any>();
+  for (const bn of bundles) if (bn && bn.id) bundleIndex.set(String(bn.id), bn);
+  const todayDow = new Intl.DateTimeFormat("en-GB", { timeZone: "Europe/London", weekday: "short" }).format(new Date());
 
   const lineItems: any[] = [];
   let total = 0;
   for (const line of cart) {
+    const qty = Math.min(20, Math.max(1, parseInt(String(line.qty), 10) || 1));
+    // A deal line prices from the BUNDLE (burger cooked + a beer poured at the bar).
+    if ((line as any).bundle_id) {
+      const bn = bundleIndex.get(String((line as any).bundle_id));
+      if (!bn) return json({ error: "That deal has just changed — please refresh and try again." }, { status: 409 });
+      const days = Array.isArray(bn.days) ? bn.days : [];
+      if (days.length && !days.includes(todayDow)) return json({ error: "That deal isn't running today — please refresh the menu." }, { status: 409 });
+      const burger = itemIndex.get(String(bn.burger_id));
+      if (!burger) return json({ error: "That deal's burger isn't available right now — please refresh the menu." }, { status: 409 });
+      const price = parseInt(bn.price_pence, 10) || 0;
+      if (price <= 0) return json({ error: "That deal isn't priced — please refresh the menu." }, { status: 409 });
+      total += price * qty;
+      lineItems.push({ name: `🍺 ${bn.name || "Beer + Burger"}: ${burger.name} + beer (pour at bar)`, qty, price_pence: price, cost_pence: parseInt(burger.cost_pence, 10) || 0, options: [], bundle: true, stock: Array.isArray(burger.stock) ? burger.stock : [] });
+      continue;
+    }
     const it = itemIndex.get(String(line.id));
     if (!it) return json({ error: "That menu has just changed — please refresh and try again." }, { status: 409 });
-    const qty = Math.min(20, Math.max(1, parseInt(String(line.qty), 10) || 1));
     const addonIds = Array.isArray(line.addon_ids) ? line.addon_ids.map(String) : [];
     const chosen = (it.addons || []).filter((a: any) => addonIds.includes(String(a.id)));
     // Snapshot cost_pence at order time so realised margin stays exact if the menu is re-priced later.
