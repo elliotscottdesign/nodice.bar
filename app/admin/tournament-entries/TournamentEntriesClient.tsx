@@ -221,6 +221,12 @@ export default function TournamentEntriesClient() {
         >
           Download CSV
         </button>
+        <a
+          href="/admin/calendar"
+          className="rounded-full border border-plonkTeal/50 bg-plonkTeal/10 px-5 py-2.5 text-xs font-bold uppercase tracking-wider text-plonkTeal transition hover:bg-plonkTeal/20"
+        >
+          📅 Calendar view
+        </a>
         <div className="flex-1" />
         <select
           value={filterTournamentId}

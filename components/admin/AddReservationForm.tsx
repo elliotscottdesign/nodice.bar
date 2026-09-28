@@ -63,19 +63,26 @@ const inputCls =
 export default function AddReservationForm({
   kind,
   onCreated,
+  initialDate,
+  startOpen = false,
 }: {
   kind: Kind;
   onCreated: () => void;
+  // Prefill the date (YYYY-MM-DD) — used when the form is opened from
+  // the booking calendar for a specific day. Defaults to today.
+  initialDate?: string;
+  // Render already expanded (calendar day panel opens straight into it).
+  startOpen?: boolean;
 }) {
-  const [open, setOpen] = useState(false);
+  const [open, setOpen] = useState(startOpen);
   const [busy, setBusy] = useState(false);
   const [err, setErr] = useState("");
   const [ok, setOk] = useState("");
 
-  // Default date = today. Default time depends on kind: 19:00 (7pm)
-  // is the most-booked slot for tables, 18:00 for pool.
+  // Default date = the passed-in day, else today. Default time depends
+  // on kind: 19:00 (7pm) is the most-booked slot for tables, 18:00 pool.
   const today = new Date().toISOString().slice(0, 10);
-  const [date, setDate] = useState(today);
+  const [date, setDate] = useState(initialDate || today);
   const [time, setTime] = useState(kind === "pool" ? "18:00" : "19:00");
   // Number-input state kept as string so the founder can clear the
   // field and type any value — a `useState<number>` snapshot would

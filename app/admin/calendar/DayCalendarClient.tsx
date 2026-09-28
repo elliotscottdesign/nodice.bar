@@ -4,6 +4,9 @@ import { useEffect, useMemo, useState } from "react";
 import { AdminCard } from "@/components/admin/AdminCard";
 import { supabase } from "@/lib/supabase";
 import { loadBookings, type DbBookingRow } from "@/lib/db/bookings";
+import AddReservationForm from "@/components/admin/AddReservationForm";
+import AddTournamentEntryForm from "@/components/admin/AddTournamentEntryForm";
+import { loadAllTournaments, type DbTournament } from "@/lib/db/tournaments";
 
 // Founder-set hard capacities. Heatmap colour = max(bar%, golf%) so
 // whichever side is filling up first drives the cell's warmth.
@@ -99,6 +102,23 @@ export default function DayCalendarClient() {
   const [buckets, setBuckets] = useState<Record<string, DayBucket>>({});
   const [loading, setLoading] = useState(true);
   const [err, setErr] = useState("");
+  // Bumped after an inline add so the grid + day panel refresh.
+  const [refreshKey, setRefreshKey] = useState(0);
+  // Which add form is open in the selected-day panel (null = none).
+  const [addMode, setAddMode] = useState<"table" | "pool" | "tournament" | null>(
+    null,
+  );
+  // Tournaments for the inline tournament-entry form.
+  const [tournaments, setTournaments] = useState<DbTournament[]>([]);
+  useEffect(() => {
+    loadAllTournaments()
+      .then(setTournaments)
+      .catch(() => setTournaments([]));
+  }, [refreshKey]);
+  function afterAdd() {
+    setAddMode(null);
+    setRefreshKey((k) => k + 1);
+  }
 
   useEffect(() => {
     let cancelled = false;
@@ -217,7 +237,7 @@ export default function DayCalendarClient() {
     return () => {
       cancelled = true;
     };
-  }, []);
+  }, [refreshKey]);
 
   const grid = useMemo(
     () => buildMonthGrid(active.year, active.month),
@@ -403,6 +423,61 @@ export default function DayCalendarClient() {
 
       {/* Selected day detail */}
       {selected && (
+        <div className="space-y-4">
+          {/* Add a booking straight from the calendar for the selected
+              day (founder 28 Sep 2026). Table + pool prefill this date;
+              tournament entries pick their event in the form. Golf
+              bookings are card-paid online only — no manual add yet. */}
+          <div className="flex flex-wrap items-center gap-2">
+            <span className="mr-1 text-[11px] font-bold uppercase tracking-widest text-cream/45">
+              Add for this day
+            </span>
+            {([
+              { id: "table", label: "+ Table" },
+              { id: "pool", label: "+ Pool" },
+              { id: "tournament", label: "+ Tournament" },
+            ] as const).map((b) => (
+              <button
+                key={b.id}
+                type="button"
+                onClick={() => setAddMode(addMode === b.id ? null : b.id)}
+                className={`rounded-full border px-4 py-1.5 text-xs font-bold uppercase tracking-wider transition ${
+                  addMode === b.id
+                    ? "border-plonkPink bg-plonkPink text-white"
+                    : "border-cream/15 text-cream/75 hover:border-cream/40"
+                }`}
+              >
+                {b.label}
+              </button>
+            ))}
+          </div>
+
+          {addMode === "table" && (
+            <AddReservationForm
+              key={`table-${selected}`}
+              kind="table"
+              initialDate={selected}
+              startOpen
+              onCreated={afterAdd}
+            />
+          )}
+          {addMode === "pool" && (
+            <AddReservationForm
+              key={`pool-${selected}`}
+              kind="pool"
+              initialDate={selected}
+              startOpen
+              onCreated={afterAdd}
+            />
+          )}
+          {addMode === "tournament" && (
+            <AddTournamentEntryForm
+              tournaments={tournaments}
+              startOpen
+              onCreated={afterAdd}
+            />
+          )}
+
         <AdminCard
           title={new Date(selected + "T12:00:00").toLocaleDateString("en-GB", {
             weekday: "long",
@@ -454,6 +529,7 @@ export default function DayCalendarClient() {
             </ul>
           )}
         </AdminCard>
+        </div>
       )}
     </div>
   );

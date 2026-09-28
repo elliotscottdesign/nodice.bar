@@ -43,11 +43,14 @@ function typeLabel(t: DbTournament["tournament_type"]): string {
 export default function AddTournamentEntryForm({
   tournaments,
   onCreated,
+  startOpen = false,
 }: {
   tournaments: DbTournament[];
   onCreated: () => void;
+  // Render already expanded (used from the booking calendar).
+  startOpen?: boolean;
 }) {
-  const [open, setOpen] = useState(false);
+  const [open, setOpen] = useState(startOpen);
   const [busy, setBusy] = useState(false);
   const [err, setErr] = useState("");
   const [ok, setOk] = useState("");
