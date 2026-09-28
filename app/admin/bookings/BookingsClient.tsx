@@ -4,6 +4,7 @@ import { useEffect, useMemo, useState } from "react";
 import Link from "next/link";
 import AdminPageHeader from "@/components/admin/AdminPageHeader";
 import { AdminCard } from "@/components/admin/AdminCard";
+import AddGolfBookingForm from "@/components/admin/AddGolfBookingForm";
 import { fmtMoney } from "@/lib/format";
 import { loadVenues, type DbVenue } from "@/lib/db/tickets";
 import {
@@ -81,6 +82,13 @@ export default function BookingsClient() {
           {err}
         </div>
       )}
+
+      {/* Manual golf booking — phone / walk-in paying at the venue, or a
+          comp round. Lands as a confirmed booking like the online ones.
+          Matches the pool/table/tournament manual-add pattern. */}
+      <div className="mb-4">
+        <AddGolfBookingForm onCreated={reload} />
+      </div>
 
       <div className="mb-4 flex flex-wrap gap-2 text-xs">
         {STATUS_FILTERS.map((f) => (

@@ -57,3 +57,107 @@ export function slotIso(b: DbBookingRow): string | null {
   if (!s) return null;
   return `${s.slot_date}T${s.slot_time}`;
 }
+
+// =============================================================
+// Manual golf booking (admin) — founder 28 Sep 2026.
+// The golf equivalent of the pool/table/tournament "+ Add
+// manually" forms. Golf normally goes card → Stripe → webhook;
+// this records a phone / walk-in / comp booking straight as a
+// CONFIRMED booking (+ slot + ticket lines) with no card.
+// Authenticated admin session; anon already has INSERT grants on
+// these tables for the public pending-booking path.
+// =============================================================
+
+export type GolfTicketLine = {
+  name: string;      // must match a row in `tickets` (e.g. "Adult round")
+  quantity: number;
+};
+
+export type ManualGolfBooking = {
+  slot_date: string;   // YYYY-MM-DD
+  slot_time: string;   // HH:MM
+  customer_name: string;
+  customer_email: string;
+  customer_phone: string | null;
+  tickets: GolfTicketLine[];
+  comp?: boolean;      // true = free/guest entry (total £0)
+};
+
+// Short, phone-friendly reference. "ND-" prefix (the old golf flow
+// used "PLNK-" — withheld while the Plonk name is on hold).
+function manualGolfRef(): string {
+  const r = () =>
+    Math.random().toString(36).slice(2, 6).toUpperCase();
+  return `ND-${r()}-${r()}`;
+}
+
+export async function createManualGolfBooking(
+  input: ManualGolfBooking,
+): Promise<{ id: string; reference: string }> {
+  const sb = supabase();
+
+  // Golf venue (slug 'hackney') + the ticket rows we're selling.
+  const [{ data: venue, error: venueErr }, { data: ticketRows, error: tErr }] =
+    await Promise.all([
+      sb.from("venues").select("id").eq("slug", "hackney").single(),
+      sb.from("tickets").select("id, name, price_pence").eq("active", true),
+    ]);
+  if (venueErr || !venue) throw new Error(venueErr?.message || "Golf venue not found");
+  if (tErr) throw new Error(tErr.message);
+
+  const ticketByName = new Map(
+    (ticketRows ?? []).map((t) => [t.name, t]),
+  );
+
+  const lines = input.tickets.filter((l) => l.quantity > 0);
+  if (lines.length === 0) throw new Error("Add at least one player / ticket.");
+
+  let subtotal = 0;
+  const ticketLineData = lines.map((l) => {
+    const t = ticketByName.get(l.name);
+    if (!t) throw new Error(`Ticket "${l.name}" not found`);
+    subtotal += t.price_pence * l.quantity;
+    return { ticket_id: t.id, quantity: l.quantity, unit_price_pence: t.price_pence };
+  });
+  const partySize = lines.reduce((n, l) => n + l.quantity, 0);
+  // Comp = fully discounted to £0; paid = full price.
+  const discount = input.comp ? subtotal : 0;
+  const total = input.comp ? 0 : subtotal;
+
+  const reference = manualGolfRef();
+  const { data: booking, error: bErr } = await sb
+    .from("bookings")
+    .insert({
+      reference,
+      venue_id: venue.id,
+      customer_name: input.customer_name,
+      customer_email: input.customer_email,
+      customer_phone: input.customer_phone,
+      heard_from: "Manual admin entry",
+      marketing_opt_in: false,
+      party_size: partySize,
+      subtotal_pence: subtotal,
+      discount_pence: discount,
+      total_pence: total,
+      currency: "gbp",
+      status: "confirmed",
+    })
+    .select("id, reference")
+    .single();
+  if (bErr || !booking) throw new Error(bErr?.message || "Booking insert failed");
+
+  const { error: sErr } = await sb.from("booking_slots").insert({
+    booking_id: booking.id,
+    slot_date: input.slot_date,
+    slot_time: input.slot_time,
+    count: partySize,
+  });
+  if (sErr) throw new Error(`Booking saved but slot failed: ${sErr.message}`);
+
+  const { error: tlErr } = await sb.from("booking_tickets").insert(
+    ticketLineData.map((t) => ({ ...t, booking_id: booking.id })),
+  );
+  if (tlErr) throw new Error(`Booking saved but tickets failed: ${tlErr.message}`);
+
+  return booking;
+}

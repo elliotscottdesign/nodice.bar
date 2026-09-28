@@ -6,6 +6,7 @@ import { supabase } from "@/lib/supabase";
 import { loadBookings, type DbBookingRow } from "@/lib/db/bookings";
 import AddReservationForm from "@/components/admin/AddReservationForm";
 import AddTournamentEntryForm from "@/components/admin/AddTournamentEntryForm";
+import AddGolfBookingForm from "@/components/admin/AddGolfBookingForm";
 import { loadAllTournaments, type DbTournament } from "@/lib/db/tournaments";
 
 // Founder-set hard capacities. Heatmap colour = max(bar%, golf%) so
@@ -105,9 +106,9 @@ export default function DayCalendarClient() {
   // Bumped after an inline add so the grid + day panel refresh.
   const [refreshKey, setRefreshKey] = useState(0);
   // Which add form is open in the selected-day panel (null = none).
-  const [addMode, setAddMode] = useState<"table" | "pool" | "tournament" | null>(
-    null,
-  );
+  const [addMode, setAddMode] = useState<
+    "table" | "pool" | "golf" | "tournament" | null
+  >(null);
   // Tournaments for the inline tournament-entry form.
   const [tournaments, setTournaments] = useState<DbTournament[]>([]);
   useEffect(() => {
@@ -425,9 +426,8 @@ export default function DayCalendarClient() {
       {selected && (
         <div className="space-y-4">
           {/* Add a booking straight from the calendar for the selected
-              day (founder 28 Sep 2026). Table + pool prefill this date;
-              tournament entries pick their event in the form. Golf
-              bookings are card-paid online only — no manual add yet. */}
+              day (founder 28 Sep 2026). Table / pool / golf prefill this
+              date; tournament entries pick their event in the form. */}
           <div className="flex flex-wrap items-center gap-2">
             <span className="mr-1 text-[11px] font-bold uppercase tracking-widest text-cream/45">
               Add for this day
@@ -435,6 +435,7 @@ export default function DayCalendarClient() {
             {([
               { id: "table", label: "+ Table" },
               { id: "pool", label: "+ Pool" },
+              { id: "golf", label: "+ Golf" },
               { id: "tournament", label: "+ Tournament" },
             ] as const).map((b) => (
               <button
@@ -465,6 +466,14 @@ export default function DayCalendarClient() {
             <AddReservationForm
               key={`pool-${selected}`}
               kind="pool"
+              initialDate={selected}
+              startOpen
+              onCreated={afterAdd}
+            />
+          )}
+          {addMode === "golf" && (
+            <AddGolfBookingForm
+              key={`golf-${selected}`}
               initialDate={selected}
               startOpen
               onCreated={afterAdd}
