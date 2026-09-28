@@ -205,6 +205,43 @@ export async function createTournamentEntry(
   return data as DbTournamentEntry;
 }
 
+// Manual admin sign-up (phone / DM / walk-in paying at the venue, or a
+// comp/guest team) — the tournament equivalent of the pool/table
+// "+ Add booking manually" form. Unlike the public flow this never
+// touches Stripe: it lands straight as `paid` (so it counts as a real
+// team and shows up in Copy-team-names), with paid_at set and the
+// settlement method recorded. Partner columns exist on the table even
+// though the public flow leaves them null.
+export type ManualTournamentEntry = {
+  tournament_id: string;
+  team_name: string;
+  captain_name: string;
+  captain_email: string;
+  captain_phone: string;
+  partner_name?: string | null;
+  partner_email?: string | null;
+  partner_phone?: string | null;
+  player_count?: number | null;
+  notes?: string | null;
+};
+
+export async function createManualTournamentEntry(
+  input: ManualTournamentEntry,
+): Promise<DbTournamentEntry> {
+  const { data, error } = await supabase()
+    .from("tournament_entries")
+    .insert({
+      ...input,
+      status: "paid" as TournamentEntryStatus,
+      paid_at: new Date().toISOString(),
+      heard_from: "Manual admin entry",
+    })
+    .select()
+    .single();
+  if (error) throw error;
+  return data as DbTournamentEntry;
+}
+
 // =========================================================
 // Admin-only reads + writes.
 // =========================================================

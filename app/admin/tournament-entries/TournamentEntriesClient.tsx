@@ -9,6 +9,7 @@ import {
   type DbTournamentEntry,
   type TournamentEntryStatus,
 } from "@/lib/db/tournaments";
+import AddTournamentEntryForm from "@/components/admin/AddTournamentEntryForm";
 
 // Admin view of all tournament_entries. Two main jobs:
 //   1. See who's paid — paid teams are the only thing that matters for
@@ -198,6 +199,11 @@ export default function TournamentEntriesClient() {
           {err}
         </div>
       )}
+
+      {/* Manual entry — phone / DM / walk-in sign-ups paying at the
+          venue, or comp teams. Lands as a paid entry like the online
+          ones. Mirrors the pool/table "+ Add booking manually" form. */}
+      <AddTournamentEntryForm tournaments={tournaments} onCreated={reload} />
 
       {/* Top action bar */}
       <div className="flex flex-wrap items-center gap-3">
