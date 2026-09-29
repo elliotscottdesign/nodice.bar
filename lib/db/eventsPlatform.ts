@@ -26,7 +26,12 @@ export type EventCategory =
   | "world_cup"
   | "other";
 
-export type RecurrenceType = "none" | "weekly" | "fortnightly" | "monthly";
+export type RecurrenceType =
+  | "none"
+  | "weekly"
+  | "fortnightly"
+  | "monthly"
+  | "monthly_nth_weekday";
 
 export type EventEntryStatus =
   | "pending_payment"
@@ -51,6 +56,10 @@ export type DbEvent = {
   end_time: string | null;
   recurrence_type: RecurrenceType;
   recurrence_parent_id: string | null;
+  /** For 'monthly_nth_weekday': which occurrence (1..4, or -1 = last)
+   *  and which weekday (0=Sunday .. 6=Saturday). Null for other types. */
+  recurrence_nth: number | null;
+  recurrence_weekday: number | null;
   show_on_pool_schedule: boolean;
   show_on_events_calendar: boolean;
   show_on_bar_page: boolean;
@@ -333,14 +342,33 @@ export function generateRecurrenceDates(
   startDateIso: string, // YYYY-MM-DD
   recurrenceType: RecurrenceType,
   occurrenceCount: number,
+  // For 'monthly_nth_weekday': which occurrence (1..4, -1 = last) and
+  // weekday (0=Sun..6=Sat). Ignored for other types.
+  nth?: number | null,
+  weekday?: number | null,
 ): string[] {
   if (recurrenceType === "none" || occurrenceCount < 1) {
     return [startDateIso];
   }
+  const start = new Date(`${startDateIso}T00:00:00Z`);
+
+  // "Nth weekday of the month" (first Tuesday, last Sunday, …). Walk one
+  // month at a time from the start month and place the right weekday.
+  if (recurrenceType === "monthly_nth_weekday") {
+    const n = nth ?? 1;
+    const wd = weekday ?? start.getUTCDay();
+    const out: string[] = [];
+    for (let i = 0; i < occurrenceCount; i++) {
+      const y = start.getUTCFullYear();
+      const m = start.getUTCMonth() + i; // JS normalises overflow months
+      out.push(nthWeekdayOfMonth(y, m, n, wd).toISOString().slice(0, 10));
+    }
+    return out;
+  }
+
   // All date maths in UTC so a "T00:00:00" local parse can't roll back a day when
   // serialized with toISOString() in British Summer Time (that shifted every
   // Monday recurrence onto the Sunday). Parse UTC, step UTC, format UTC.
-  const start = new Date(`${startDateIso}T00:00:00Z`);
   const out: string[] = [];
   for (let i = 0; i < occurrenceCount; i++) {
     const d = new Date(start);
@@ -354,6 +382,44 @@ export function generateRecurrenceDates(
     out.push(d.toISOString().slice(0, 10));
   }
   return out;
+}
+
+// The concrete date of the Nth `weekday` in a given month (UTC).
+// nth: 1..4, or -1 for "last". weekday: 0=Sun..6=Sat.
+export function nthWeekdayOfMonth(
+  year: number,
+  monthIndex0: number, // may be >11; Date normalises it
+  nth: number,
+  weekday: number,
+): Date {
+  if (nth === -1) {
+    // Last day of the month, walk back to the target weekday.
+    const d = new Date(Date.UTC(year, monthIndex0 + 1, 0));
+    const back = (d.getUTCDay() - weekday + 7) % 7;
+    d.setUTCDate(d.getUTCDate() - back);
+    return d;
+  }
+  const first = new Date(Date.UTC(year, monthIndex0, 1));
+  const forward = (weekday - first.getUTCDay() + 7) % 7;
+  const day = 1 + forward + (Math.max(1, nth) - 1) * 7;
+  return new Date(Date.UTC(year, monthIndex0, day));
+}
+
+// Given a concrete date, which "nth weekday of the month" is it? Returns
+// { nth, weekday } with nth 1..4 or -1 when it's the last such weekday.
+// Used to pre-select the pattern from the date the founder picked.
+export function nthWeekdayForDate(dateIso: string): {
+  nth: number;
+  weekday: number;
+} {
+  const d = new Date(`${dateIso}T00:00:00Z`);
+  const weekday = d.getUTCDay();
+  const nth = Math.floor((d.getUTCDate() - 1) / 7) + 1; // 1..5
+  // Is it the LAST of this weekday in the month? (no same weekday 7 days on)
+  const next = new Date(d);
+  next.setUTCDate(d.getUTCDate() + 7);
+  const isLast = next.getUTCMonth() !== d.getUTCMonth();
+  return { nth: isLast ? -1 : Math.min(nth, 4), weekday };
 }
 
 // Human-readable label for a category. Keep in sync with the

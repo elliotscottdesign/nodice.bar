@@ -52,6 +52,7 @@ import {
   deleteTicketType,
   deleteEvent,
   generateRecurrenceDates,
+  nthWeekdayForDate,
   CATEGORY_LABEL,
   type DbEvent,
   type DbTicketType,
@@ -114,7 +115,27 @@ const RECURRENCE_OPTIONS: { value: RecurrenceType; label: string }[] = [
   { value: "none", label: "One-off (no repeat)" },
   { value: "weekly", label: "Repeats weekly" },
   { value: "fortnightly", label: "Repeats fortnightly" },
-  { value: "monthly", label: "Repeats monthly" },
+  { value: "monthly_nth_weekday", label: "Repeats monthly (on a set weekday)" },
+  { value: "monthly", label: "Repeats monthly (same date each month)" },
+];
+
+// Position within the month for the "set weekday" monthly option.
+const NTH_OPTIONS: { value: number; label: string }[] = [
+  { value: 1, label: "First" },
+  { value: 2, label: "Second" },
+  { value: 3, label: "Third" },
+  { value: 4, label: "Fourth" },
+  { value: -1, label: "Last" },
+];
+// Weekday values are 0=Sun..6=Sat (JS getUTCDay); listed Mon-first.
+const WEEKDAY_OPTIONS: { value: number; label: string }[] = [
+  { value: 1, label: "Monday" },
+  { value: 2, label: "Tuesday" },
+  { value: 3, label: "Wednesday" },
+  { value: 4, label: "Thursday" },
+  { value: 5, label: "Friday" },
+  { value: 6, label: "Saturday" },
+  { value: 0, label: "Sunday" },
 ];
 
 // Draft shape for a ticket type in the create form. Mirrors
@@ -202,6 +223,20 @@ export default function EventsAdminClient() {
   const [endTime, setEndTime] = useState<string>("");
   const [recurrenceType, setRecurrenceType] = useState<RecurrenceType>("none");
   const [occurrences, setOccurrences] = useState<number>(8);
+  // For 'monthly_nth_weekday': the position (1..4, -1=last) + weekday.
+  const [recurrenceNth, setRecurrenceNth] = useState<number>(1);
+  const [recurrenceWeekday, setRecurrenceWeekday] = useState<number>(2); // Tue
+  // Pre-select the pattern from the chosen date whenever the date changes
+  // or the founder switches to the set-weekday option — so "first Tuesday"
+  // is picked automatically when they enter a first-Tuesday date. They can
+  // still override the dropdowns afterwards.
+  useEffect(() => {
+    if (recurrenceType !== "monthly_nth_weekday") return;
+    const { nth, weekday } = nthWeekdayForDate(eventDate);
+    setRecurrenceNth(nth);
+    setRecurrenceWeekday(weekday);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [eventDate, recurrenceType]);
   const [showOnPool, setShowOnPool] = useState(false);
   const [showOnCalendar, setShowOnCalendar] = useState(true);
   const [showOnBar, setShowOnBar] = useState(false);
@@ -342,8 +377,10 @@ export default function EventsAdminClient() {
       eventDate,
       recurrenceType,
       recurrenceType === "none" ? 1 : Math.max(1, occurrences),
+      recurrenceNth,
+      recurrenceWeekday,
     );
-  }, [eventDate, recurrenceType, occurrences]);
+  }, [eventDate, recurrenceType, occurrences, recurrenceNth, recurrenceWeekday]);
 
   async function handleSave(e: React.FormEvent) {
     e.preventDefault();
@@ -390,6 +427,14 @@ export default function EventsAdminClient() {
           end_time: endTime || null,
           recurrence_type: i === 0 ? recurrenceType : "none",
           recurrence_parent_id: i === 0 ? null : parentId,
+          recurrence_nth:
+            i === 0 && recurrenceType === "monthly_nth_weekday"
+              ? recurrenceNth
+              : null,
+          recurrence_weekday:
+            i === 0 && recurrenceType === "monthly_nth_weekday"
+              ? recurrenceWeekday
+              : null,
           show_on_pool_schedule: showOnPool,
           show_on_events_calendar: showOnCalendar,
           show_on_bar_page: showOnBar,
@@ -657,6 +702,45 @@ export default function EventsAdminClient() {
                 ))}
               </select>
             </Field>
+
+            {recurrenceType === "monthly_nth_weekday" && (
+              <Field label="Which weekday?">
+                <div className="flex gap-2">
+                  <select
+                    value={recurrenceNth}
+                    onChange={(e) => setRecurrenceNth(parseInt(e.target.value, 10))}
+                    className={inputCls}
+                  >
+                    {NTH_OPTIONS.map((o) => (
+                      <option key={o.value} value={o.value}>
+                        {o.label}
+                      </option>
+                    ))}
+                  </select>
+                  <select
+                    value={recurrenceWeekday}
+                    onChange={(e) =>
+                      setRecurrenceWeekday(parseInt(e.target.value, 10))
+                    }
+                    className={inputCls}
+                  >
+                    {WEEKDAY_OPTIONS.map((o) => (
+                      <option key={o.value} value={o.value}>
+                        {o.label}
+                      </option>
+                    ))}
+                  </select>
+                </div>
+                <p className="mt-2 text-xs text-cream/55">
+                  e.g.{" "}
+                  <strong>
+                    {NTH_OPTIONS.find((n) => n.value === recurrenceNth)?.label}{" "}
+                    {WEEKDAY_OPTIONS.find((w) => w.value === recurrenceWeekday)?.label}
+                  </strong>{" "}
+                  of each month.
+                </p>
+              </Field>
+            )}
 
             {recurrenceType !== "none" && (
               <Field label="How many occurrences?">
@@ -1054,6 +1138,14 @@ function EditEventModal({
     event.recurrence_type,
   );
   const [occurrences, setOccurrences] = useState<string>("8");
+  // Set-weekday monthly pattern — seed from the stored rule, else derive
+  // from this event's own date.
+  const [recurrenceNth, setRecurrenceNth] = useState<number>(
+    event.recurrence_nth ?? nthWeekdayForDate(event.event_date).nth,
+  );
+  const [recurrenceWeekday, setRecurrenceWeekday] = useState<number>(
+    event.recurrence_weekday ?? nthWeekdayForDate(event.event_date).weekday,
+  );
   // Subcategory (calendar chip) — nullable, blank = untagged.
   const [subcategory, setSubcategory] = useState<string>(
     event.subcategory ?? "",
@@ -1122,6 +1214,10 @@ function EditEventModal({
         poster_url: posterUrl || null,
         subcategory: subcategory || null,
         recurrence_type: recurrenceType,
+        recurrence_nth:
+          recurrenceType === "monthly_nth_weekday" ? recurrenceNth : null,
+        recurrence_weekday:
+          recurrenceType === "monthly_nth_weekday" ? recurrenceWeekday : null,
         // Detach a child instance when its recurrence changes so
         // this row becomes standalone (or a new series parent
         // depending on the picked value). Founder rule (2026-07-02):
@@ -1143,6 +1239,8 @@ function EditEventModal({
           eventDate,
           recurrenceType,
           count,
+          recurrenceNth,
+          recurrenceWeekday,
         );
         // dates[0] is this event's own date; skip it. Only create
         // the remaining child rows, each pointing at this event.
@@ -1159,6 +1257,8 @@ function EditEventModal({
             end_time: endTime || null,
             recurrence_type: "none",
             recurrence_parent_id: event.id,
+            recurrence_nth: null,
+            recurrence_weekday: null,
             show_on_pool_schedule: showOnPool,
             show_on_events_calendar: showOnCalendar,
             show_on_bar_page: showOnBar,
@@ -1389,8 +1489,39 @@ function EditEventModal({
                 <option value="none">One-off</option>
                 <option value="weekly">Weekly</option>
                 <option value="fortnightly">Fortnightly</option>
-                <option value="monthly">Monthly</option>
+                <option value="monthly_nth_weekday">Monthly (set weekday)</option>
+                <option value="monthly">Monthly (same date)</option>
               </select>
+              {recurrenceType === "monthly_nth_weekday" && (
+                <div className="flex items-center gap-2">
+                  <select
+                    value={recurrenceNth}
+                    onChange={(ev) =>
+                      setRecurrenceNth(parseInt(ev.target.value, 10))
+                    }
+                    className={modalInputCls + " w-28"}
+                  >
+                    {NTH_OPTIONS.map((o) => (
+                      <option key={o.value} value={o.value}>
+                        {o.label}
+                      </option>
+                    ))}
+                  </select>
+                  <select
+                    value={recurrenceWeekday}
+                    onChange={(ev) =>
+                      setRecurrenceWeekday(parseInt(ev.target.value, 10))
+                    }
+                    className={modalInputCls + " w-32"}
+                  >
+                    {WEEKDAY_OPTIONS.map((o) => (
+                      <option key={o.value} value={o.value}>
+                        {o.label}
+                      </option>
+                    ))}
+                  </select>
+                </div>
+              )}
               {!isSeriesParent && recurrenceType !== "none" && (
                 <div className="flex items-center gap-2 text-xs text-cream/70">
                   <span>× how many occurrences?</span>
