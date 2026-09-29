@@ -337,8 +337,13 @@ Deno.serve(async (req) => {
   (async () => {
     const b = booking as unknown as Booking;
     const slot = (b.slots ?? [])[0];
+    // UK dates, always dd/mm/yyyy (founder 30 Sep 2026 — never ISO order).
+    const dmy = (iso: string) => {
+      const [y, m, d] = iso.split("-");
+      return `${d}/${m}/${y}`;
+    };
     const when = slot
-      ? `${slot.slot_date} at ${String(slot.slot_time).slice(0, 5)}`
+      ? `${dmy(slot.slot_date)} at ${String(slot.slot_time).slice(0, 5)}`
       : "date TBC";
     const total = (b.total_pence / 100).toFixed(2);
     const line = `${b.customer_name} · ${b.party_size} player${b.party_size === 1 ? "" : "s"} · ${when} · £${total} paid · ref ${b.reference}`;
@@ -352,7 +357,7 @@ Deno.serve(async (req) => {
         from: `${fromName} <${FROM_EMAIL}>`,
         to: ["elliot@nodice.bar", "rhys@nodice.bar"],
         reply_to: booking.customer_email,
-        subject: `🔔 New golf booking · ${b.party_size} player${b.party_size === 1 ? "" : "s"} · ${slot ? slot.slot_date : "TBC"}`,
+        subject: `🔔 New golf booking · ${b.party_size} player${b.party_size === 1 ? "" : "s"} · ${slot ? dmy(slot.slot_date) : "TBC"}`,
         text: [
           `NEW GOLF BOOKING FROM THE WEBSITE`,
           ``,

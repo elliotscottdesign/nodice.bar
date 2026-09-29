@@ -88,9 +88,11 @@ function bad(message: string, status = 400) {
 }
 
 function randomRef(): string {
-  // PLNK-XXXX-XXXX, base36 uppercase, easy to read over the phone.
+  // ND-XXXX-XXXX, base36 uppercase, easy to read over the phone. (Was
+  // PLNK- — the Plonk name is withheld from customer-facing content
+  // while due diligence runs; founder 30 Sep 2026.)
   const r = () => Math.random().toString(36).slice(2, 6).toUpperCase();
-  return `PLNK-${r()}-${r()}`;
+  return `ND-${r()}-${r()}`;
 }
 
 Deno.serve(async (req) => {
