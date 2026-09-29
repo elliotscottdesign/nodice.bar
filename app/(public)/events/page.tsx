@@ -283,6 +283,16 @@ export default function EventsPage() {
       const d = parseInt(e.event_date.slice(-2), 10);
       (m[d] ??= []).push(e);
     }
+    // Founder 2026-09-29: when a night has multiple events / deals, the
+    // DJ night is the primary — its poster is the day's headline image
+    // and its link is the click target. So sort each day's list DJ-first
+    // (stable otherwise, so within a group the original order holds).
+    const isDj = (e: DbCalendarEvent) =>
+      isDjEvent(e) || e.subcategory === "DJ Night";
+    for (const day of Object.keys(m)) {
+      const list = m[Number(day)];
+      list.sort((a, b) => (isDj(a) ? 0 : 1) - (isDj(b) ? 0 : 1));
+    }
     return m;
   }, [visibleEvents]);
 
