@@ -184,8 +184,9 @@ Deno.serve(async (req) => {
       if (!burger) return json({ error: "That deal's burger isn't available right now — please refresh the menu." }, { status: 409 });
       const price = parseInt(bn.price_pence, 10) || 0;
       if (price <= 0) return json({ error: "That deal isn't priced — please refresh the menu." }, { status: 409 });
+      const drink = (typeof bn.drink === "string" && bn.drink.trim()) ? bn.drink.trim() : "beer";
       total += price * qty;
-      lineItems.push({ name: `🍺 ${bn.name || "Beer + Burger"}: ${burger.name} + beer (pour at bar)`, qty, price_pence: price, cost_pence: parseInt(burger.cost_pence, 10) || 0, options: [], bundle: true, stock: Array.isArray(burger.stock) ? burger.stock : [] });
+      lineItems.push({ name: `🎟 ${bn.name || "Beer + Burger"}: ${burger.name} + ${drink} (pour at bar)`, qty, price_pence: price, cost_pence: parseInt(burger.cost_pence, 10) || 0, options: [], bundle: true, stock: Array.isArray(burger.stock) ? burger.stock : [] });
       continue;
     }
     const it = itemIndex.get(String(line.id));

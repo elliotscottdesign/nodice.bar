@@ -39,7 +39,7 @@ type Item = {
 };
 type StockLevel = { count: number; override: string | null; soldOut: boolean; label?: string };
 type Section = { id: string; name: string; items: Item[] };
-type Bundle = { id: string; name?: string; burger_id: string; beer_pence?: number; price_pence?: number; days?: string[] };
+type Bundle = { id: string; name?: string; burger_id: string; beer_pence?: number; price_pence?: number; days?: string[]; drink?: string };
 // A deal is a normal cart line with a SYNTHETIC item (name/price/allergens taken from
 // the bundle + its burger) so all the existing cart/allergy/pricing code just works;
 // `bundle_id` marks it so we send the deal — not a plain item — to the server.
@@ -174,12 +174,13 @@ export default function OnARollClient() {
   };
   // Add a deal — a synthetic item priced at the bundle price, allergens from the burger.
   const addBundleToCart = (bn: Bundle, burger: Item) => {
+    const drink = (bn.drink && bn.drink.trim()) || "beer";
     const item: Item = {
       id: burger.id,
-      name: `🍺 ${bn.name || "Beer + Burger"}: ${burger.name} + beer`,
+      name: `🎟 ${bn.name || "Beer + Burger"}: ${burger.name} + ${drink}`,
       sell_pence: parseInt(String(bn.price_pence), 10) || 0,
       allergens: burger.allergens, addons: [], stock: burger.stock,
-      desc: `${burger.name} + a beer — poured at the bar`,
+      desc: `${burger.name} + a ${drink} — poured at the bar`,
     };
     setCart((c) => [...c, { uid: `deal-${bn.id}-${Date.now()}-${c.length}`, item, qty: 1, addons: [], bundle_id: bn.id }]);
   };
@@ -448,21 +449,22 @@ export default function OnARollClient() {
       {picking && <AddonSheet item={picking} onClose={() => setPicking(null)} onAdd={addToCart} />}
       {deals.length > 0 && (
         <div style={{ marginBottom: 22 }}>
-          <div style={{ fontFamily: HEAVY, fontSize: 24, color: RED, borderBottom: `2px solid ${RED}`, paddingBottom: 4, marginBottom: 10, textTransform: "uppercase", letterSpacing: "0.5px" }}>🍺 Deals</div>
+          <div style={{ fontFamily: HEAVY, fontSize: 24, color: RED, borderBottom: `2px solid ${RED}`, paddingBottom: 4, marginBottom: 10, textTransform: "uppercase", letterSpacing: "0.5px" }}>🎟 Deals</div>
           {deals.map(({ bn, burger }) => {
             const soldOut = avail(burger) <= 0;
             const beer = parseInt(String(bn.beer_pence), 10) || 0;
             const price = parseInt(String(bn.price_pence), 10) || 0;
+            const drink = (bn.drink && bn.drink.trim()) || "beer";
             const save = (burger.sell_pence + beer) - price;
             return (
               <div key={bn.id} style={{ display: "flex", gap: 12, padding: "10px 0", borderBottom: `1px solid ${LINE}`, opacity: soldOut ? 0.55 : 1 }}>
                 {burger.img ? <img src={burger.img} alt="" style={{ width: 66, height: 66, borderRadius: 10, objectFit: "cover", flexShrink: 0, filter: soldOut ? "grayscale(1)" : "none" }} /> : null}
                 <div style={{ flex: 1, minWidth: 0 }}>
                   <div style={{ display: "flex", justifyContent: "space-between", gap: 8 }}>
-                    <span style={{ fontWeight: 800, fontSize: 16 }}>🍺 {bn.name || "Beer + Burger"}</span>
+                    <span style={{ fontWeight: 800, fontSize: 16 }}>🎟 {bn.name || "Beer + Burger"}</span>
                     <span style={{ fontFamily: HEAVY, color: RED, fontSize: 18 }}>{gbp(price)}</span>
                   </div>
-                  <div style={{ fontSize: 13, color: MUTED, lineHeight: 1.4, margin: "3px 0" }}>{burger.name} + a beer — <b>poured at the bar</b>{save > 0 ? ` · save ${gbp(save)}` : ""}</div>
+                  <div style={{ fontSize: 13, color: MUTED, lineHeight: 1.4, margin: "3px 0" }}>{burger.name} + a {drink} — <b>poured at the bar</b>{save > 0 ? ` · save ${gbp(save)}` : ""}</div>
                   <AllergenTags allergens={burger.allergens} />
                   {soldOut
                     ? <div style={{ display: "inline-block", marginTop: 7, padding: "8px 16px", borderRadius: 10, background: "#efe6cf", color: "#8a7f63", fontFamily: HEAVY, fontSize: 15, textTransform: "uppercase", letterSpacing: "0.5px" }}>Sold out</div>
