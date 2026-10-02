@@ -141,9 +141,11 @@ export default function AddReservationForm({
     // the founder is often mid-thought when hitting save.
     const partySizeInt = Math.max(1, Math.min(80, parseInt(partySize, 10) || 2));
     const durationInt = Math.max(30, Math.min(300, parseInt(duration, 10) || 60));
+    // Venue has 2 physical pool tables — never let an admin book more
+    // (founder 2 Oct 2026). Online bookings are separately capped at 1.
     const resourceCountInt = Math.max(
       1,
-      Math.min(10, parseInt(resourceCount, 10) || 1),
+      Math.min(2, parseInt(resourceCount, 10) || 1),
     );
     setBusy(true);
     try {
@@ -333,7 +335,7 @@ export default function AddReservationForm({
                 type="number"
                 required
                 min={1}
-                max={6}
+                max={2}
                 value={resourceCount}
                 onChange={(e) => setResourceCount(e.target.value)}
                 className={inputCls + " mt-1"}
