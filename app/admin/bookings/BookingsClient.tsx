@@ -33,10 +33,16 @@ export default function BookingsClient() {
   const [statusFilter, setStatusFilter] = useState<BookingStatus | "all">("all");
   // Search + sortable columns (founder 5 Oct 2026).
   const [search, setSearch] = useState("");
+  // Date filters — same set as the pool/table reservations toolbar so the
+  // two lists match (founder 5 Oct 2026).
+  const [dateFilter, setDateFilter] = useState<
+    "upcoming" | "today" | "week" | "past" | "all"
+  >("upcoming");
+  const [jumpDate, setJumpDate] = useState("");
   type SortKey =
     | "ref" | "slot" | "customer" | "size" | "total" | "status";
   const [sortKey, setSortKey] = useState<SortKey>("slot");
-  const [sortDir, setSortDir] = useState<"asc" | "desc">("desc");
+  const [sortDir, setSortDir] = useState<"asc" | "desc">("asc");
   function toggleSort(key: SortKey) {
     if (sortKey === key) {
       setSortDir((d) => (d === "asc" ? "desc" : "asc"));
@@ -64,8 +70,25 @@ export default function BookingsClient() {
 
   const filtered = useMemo(() => {
     const q = search.trim().toLowerCase();
+    const now = new Date();
+    const todayIso = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, "0")}-${String(now.getDate()).padStart(2, "0")}`;
+    const weekEnd = new Date(now.getTime() + 7 * 86400_000);
+    const weekIso = `${weekEnd.getFullYear()}-${String(weekEnd.getMonth() + 1).padStart(2, "0")}-${String(weekEnd.getDate()).padStart(2, "0")}`;
     const rows = bookings.filter((b) => {
       if (statusFilter !== "all" && b.status !== statusFilter) return false;
+      // Date filter — by the booking's first slot date.
+      const sd = firstSlot(b)?.slot_date ?? "";
+      if (jumpDate) {
+        if (sd !== jumpDate) return false;
+      } else if (dateFilter === "today") {
+        if (sd !== todayIso) return false;
+      } else if (dateFilter === "upcoming") {
+        if (sd < todayIso) return false;
+      } else if (dateFilter === "week") {
+        if (sd < todayIso || sd > weekIso) return false;
+      } else if (dateFilter === "past") {
+        if (sd >= todayIso) return false;
+      }
       if (q) {
         const hay = [
           b.reference,
@@ -100,23 +123,13 @@ export default function BookingsClient() {
       if (typeof va === "number" && typeof vb === "number") return (va - vb) * dir;
       return String(va).localeCompare(String(vb)) * dir;
     });
-  }, [bookings, statusFilter, search, sortKey, sortDir]);
+  }, [bookings, statusFilter, search, sortKey, sortDir, dateFilter, jumpDate]);
 
   return (
     <>
       <AdminPageHeader
         title="Bookings"
         description="Every booking taken. Search, or tap any column heading to sort."
-        action={
-          <div className="flex gap-2">
-            <Link
-              href="/admin/calendar"
-              className="rounded-full border border-plonkTeal/50 bg-plonkTeal/10 px-5 py-2 text-xs font-bold uppercase tracking-wider text-plonkTeal transition hover:bg-plonkTeal/20"
-            >
-              📅 Calendar view
-            </Link>
-          </div>
-        }
       />
 
       {err && (
@@ -125,16 +138,15 @@ export default function BookingsClient() {
         </div>
       )}
 
-      {/* Manual golf booking — phone / walk-in paying at the venue, or a
-          comp round. Lands as a confirmed booking like the online ones.
-          Matches the pool/table/tournament manual-add pattern. */}
+      {/* Toolbar — same three-row layout as the pool/table reservations
+          page (founder 5 Oct 2026): add button, search, status pills,
+          then date filters + calendar. */}
       <div className="mb-4">
         <AddGolfBookingForm onCreated={reload} />
       </div>
 
-      {/* Filters — search first, then status + venue pills, matching the
-          pool/table + tournament toolbars (founder 5 Oct 2026). */}
-      <div className="mb-4 flex flex-wrap items-center gap-2 text-xs">
+      {/* Row 1 — search */}
+      <div className="mb-3 flex flex-wrap gap-3">
         <input
           type="search"
           value={search}
@@ -142,6 +154,10 @@ export default function BookingsClient() {
           placeholder="Search ref, name, email…"
           className="min-w-[220px] flex-1 rounded-full border border-cream/15 bg-ink/40 px-4 py-1.5 text-xs text-cream placeholder:text-cream/40 focus:border-plonkPink focus:outline-none"
         />
+      </div>
+
+      {/* Row 2 — status pills */}
+      <div className="mb-3 flex flex-wrap gap-2 text-xs">
         {STATUS_FILTERS.map((f) => (
           <Filter
             key={f.value}
@@ -150,6 +166,61 @@ export default function BookingsClient() {
             onClick={() => setStatusFilter(f.value)}
           />
         ))}
+      </div>
+
+      {/* Row 3 — date filters + calendar */}
+      <div className="mb-4 flex flex-wrap items-center gap-2">
+        {(
+          [
+            { id: "upcoming" as const, label: "Upcoming" },
+            { id: "today" as const, label: "Today" },
+            { id: "week" as const, label: "Next 7 days" },
+            { id: "past" as const, label: "Past" },
+            { id: "all" as const, label: "All dates" },
+          ]
+        ).map((t) => (
+          <button
+            key={t.id}
+            onClick={() => {
+              setDateFilter(t.id);
+              setJumpDate("");
+            }}
+            className={`rounded-full border px-3 py-1.5 text-[11px] font-bold uppercase tracking-wider transition ${
+              dateFilter === t.id && !jumpDate
+                ? "border-plonkYellow bg-plonkYellow/15 text-plonkYellow"
+                : "border-cream/15 bg-ink/40 text-cream/60 hover:border-cream/40"
+            }`}
+          >
+            {t.label}
+          </button>
+        ))}
+        <label className="flex items-center gap-2 text-[10px] font-bold uppercase tracking-widest text-cream/45">
+          Jump to
+          <input
+            type="date"
+            value={jumpDate}
+            onChange={(e) => setJumpDate(e.target.value)}
+            className={`rounded-full border px-3 py-1 text-xs font-semibold tracking-normal focus:outline-none ${
+              jumpDate
+                ? "border-plonkYellow bg-plonkYellow/10 text-plonkYellow"
+                : "border-cream/15 bg-ink/40 text-cream/75 focus:border-plonkPink"
+            }`}
+          />
+        </label>
+        {jumpDate && (
+          <button
+            onClick={() => setJumpDate("")}
+            className="rounded-full border border-cream/15 px-3 py-1.5 text-[11px] font-bold uppercase tracking-wider text-cream/60 hover:bg-cream/5"
+          >
+            ✕ Clear
+          </button>
+        )}
+        <Link
+          href="/admin/calendar"
+          className="ml-auto rounded-full border border-plonkTeal/50 bg-plonkTeal/10 px-4 py-1.5 text-[11px] font-bold uppercase tracking-wider text-plonkTeal transition hover:bg-plonkTeal/20"
+        >
+          📅 Calendar view
+        </Link>
       </div>
 
       {loading ? (
@@ -189,7 +260,11 @@ export default function BookingsClient() {
                 {filtered.length === 0 && (
                   <tr>
                     <td colSpan={6} className="px-5 py-10 text-center text-sm text-cream/55">
-                      No bookings match the current filter.
+                      {jumpDate
+                        ? "No bookings on that date."
+                        : dateFilter === "upcoming"
+                        ? "No bookings coming up — try Past or All dates."
+                        : "No bookings match the current filter."}
                     </td>
                   </tr>
                 )}
