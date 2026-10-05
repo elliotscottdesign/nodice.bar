@@ -122,9 +122,9 @@ export default function BookingsClient() {
           <div className="flex gap-2">
             <Link
               href="/admin/calendar"
-              className="rounded-full border border-cream/15 px-5 py-2 text-xs font-bold uppercase tracking-wider text-cream/85 hover:bg-cream/5"
+              className="rounded-full border border-plonkTeal/50 bg-plonkTeal/10 px-5 py-2 text-xs font-bold uppercase tracking-wider text-plonkTeal transition hover:bg-plonkTeal/20"
             >
-              Calendar view
+              📅 Calendar view
             </Link>
           </div>
         }
@@ -143,7 +143,16 @@ export default function BookingsClient() {
         <AddGolfBookingForm onCreated={reload} />
       </div>
 
-      <div className="mb-4 flex flex-wrap gap-2 text-xs">
+      {/* Filters — search first, then status + venue pills, matching the
+          pool/table + tournament toolbars (founder 5 Oct 2026). */}
+      <div className="mb-4 flex flex-wrap items-center gap-2 text-xs">
+        <input
+          type="search"
+          value={search}
+          onChange={(e) => setSearch(e.target.value)}
+          placeholder="Search ref, name, email…"
+          className="min-w-[220px] flex-1 rounded-full border border-cream/15 bg-ink/40 px-4 py-1.5 text-xs text-cream placeholder:text-cream/40 focus:border-plonkPink focus:outline-none"
+        />
         {STATUS_FILTERS.map((f) => (
           <Filter
             key={f.value}
@@ -152,7 +161,7 @@ export default function BookingsClient() {
             onClick={() => setStatusFilter(f.value)}
           />
         ))}
-        <span className="mx-2 text-cream/30">·</span>
+        <span className="mx-1 text-cream/30">·</span>
         <Filter
           label="Both venues"
           active={venueFilter === "all"}
@@ -166,14 +175,6 @@ export default function BookingsClient() {
             onClick={() => setVenueFilter(v.id)}
           />
         ))}
-        <div className="flex-1" />
-        <input
-          type="search"
-          value={search}
-          onChange={(e) => setSearch(e.target.value)}
-          placeholder="Search ref, name, email…"
-          className="min-w-[200px] rounded-full border border-cream/15 bg-ink/40 px-4 py-1.5 text-xs text-cream placeholder:text-cream/40 focus:border-plonkPink focus:outline-none"
-        />
       </div>
 
       {loading ? (
@@ -266,10 +267,10 @@ function Filter({
   return (
     <button
       onClick={onClick}
-      className={`rounded-full border px-3 py-1 transition ${
+      className={`rounded-full border px-4 py-1.5 font-bold uppercase tracking-wider transition ${
         active
-          ? "border-plonkPink bg-plonkPink/15 text-cream"
-          : "border-cream/15 text-cream/70 hover:bg-cream/5"
+          ? "border-plonkPink bg-plonkPink text-white"
+          : "border-cream/15 bg-ink/40 text-cream/75 hover:border-cream/40"
       }`}
     >
       {label}

@@ -256,11 +256,41 @@ export default function TournamentEntriesClient() {
         >
           📅 Calendar view
         </a>
-        <div className="flex-1" />
+      </div>
+
+      {/* Filters — search + status pills + tournament, matching the
+          pool/table reservations toolbar (founder 5 Oct 2026). */}
+      <div className="flex flex-wrap items-center gap-2">
+        <input
+          type="search"
+          value={search}
+          onChange={(e) => setSearch(e.target.value)}
+          placeholder="Search team, email, captain…"
+          className="min-w-[220px] flex-1 rounded-full border border-cream/15 bg-ink/40 px-4 py-1.5 text-xs text-cream placeholder:text-cream/40 focus:border-plonkPink focus:outline-none"
+        />
+        {(
+          [
+            ["all", "All"],
+            ["paid", "Paid"],
+          ] as ["all" | "paid", string][]
+        ).map(([v, label]) => (
+          <button
+            key={v}
+            type="button"
+            onClick={() => setFilterStatus(v)}
+            className={`rounded-full border px-4 py-1.5 text-xs font-bold uppercase tracking-wider transition ${
+              filterStatus === v
+                ? "border-plonkPink bg-plonkPink text-white"
+                : "border-cream/15 bg-ink/40 text-cream/75 hover:border-cream/40"
+            }`}
+          >
+            {label}
+          </button>
+        ))}
         <select
           value={filterTournamentId}
           onChange={(e) => setFilterTournamentId(e.target.value)}
-          className="rounded-lg border border-cream/15 bg-ink/40 px-3 py-2 text-sm text-cream"
+          className="rounded-full border border-cream/15 bg-ink/40 px-4 py-1.5 text-xs font-bold uppercase tracking-wider text-cream/85 focus:border-plonkPink focus:outline-none"
         >
           <option value="all">All tournaments</option>
           {tournaments.map((t) => (
@@ -269,23 +299,6 @@ export default function TournamentEntriesClient() {
             </option>
           ))}
         </select>
-        <select
-          value={filterStatus}
-          onChange={(e) =>
-            setFilterStatus(e.target.value as "paid" | "all")
-          }
-          className="rounded-lg border border-cream/15 bg-ink/40 px-3 py-2 text-sm text-cream"
-        >
-          <option value="paid">Paid only</option>
-          <option value="all">All statuses</option>
-        </select>
-        <input
-          type="search"
-          value={search}
-          onChange={(e) => setSearch(e.target.value)}
-          placeholder="Search team, captain, email…"
-          className="min-w-[200px] rounded-full border border-cream/15 bg-ink/40 px-4 py-1.5 text-xs text-cream placeholder:text-cream/40 focus:border-plonkPink focus:outline-none"
-        />
       </div>
 
       {loading ? (
