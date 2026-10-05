@@ -67,6 +67,16 @@ export default function TournamentEntriesClient() {
   // visit. Use the dropdown to narrow to "Paid only" when copying
   // team names into the tournament app.
   const [filterStatus, setFilterStatus] = useState<"paid" | "all">("all");
+  // Search + sortable columns (founder 5 Oct 2026 — parity with the
+  // golf bookings list).
+  const [search, setSearch] = useState("");
+  type SortKey = "team" | "captain" | "tournament" | "signed" | "status";
+  const [sortKey, setSortKey] = useState<SortKey>("signed");
+  const [sortDir, setSortDir] = useState<"asc" | "desc">("desc");
+  function toggleSort(key: SortKey) {
+    if (sortKey === key) setSortDir((d) => (d === "asc" ? "desc" : "asc"));
+    else { setSortKey(key); setSortDir("asc"); }
+  }
   const [copied, setCopied] = useState(false);
 
   async function reload() {
@@ -96,13 +106,32 @@ export default function TournamentEntriesClient() {
   }, [tournaments]);
 
   const filtered = useMemo(() => {
-    return entries.filter((e) => {
+    const q = search.trim().toLowerCase();
+    const rows = entries.filter((e) => {
       if (filterTournamentId !== "all" && e.tournament_id !== filterTournamentId)
         return false;
       if (filterStatus === "paid" && e.status !== "paid") return false;
+      if (q) {
+        const hay = [e.team_name, e.captain_name, e.captain_email]
+          .join(" ")
+          .toLowerCase();
+        if (!hay.includes(q)) return false;
+      }
       return true;
     });
-  }, [entries, filterTournamentId, filterStatus]);
+    const val = (e: DbTournamentEntry): string => {
+      const t = tournamentById.get(e.tournament_id);
+      switch (sortKey) {
+        case "team": return (e.team_name || "").toLowerCase();
+        case "captain": return (e.captain_name || "").toLowerCase();
+        case "tournament": return `${t?.event_date ?? ""} ${t?.name ?? ""}`.toLowerCase();
+        case "signed": return e.created_at;
+        case "status": return e.status;
+      }
+    };
+    const dir = sortDir === "asc" ? 1 : -1;
+    return [...rows].sort((a, b) => val(a).localeCompare(val(b)) * dir);
+  }, [entries, filterTournamentId, filterStatus, search, sortKey, sortDir, tournamentById]);
 
   async function handleSetStatus(
     entry: DbTournamentEntry,
@@ -250,6 +279,13 @@ export default function TournamentEntriesClient() {
           <option value="paid">Paid only</option>
           <option value="all">All statuses</option>
         </select>
+        <input
+          type="search"
+          value={search}
+          onChange={(e) => setSearch(e.target.value)}
+          placeholder="Search team, captain, email…"
+          className="min-w-[200px] rounded-full border border-cream/15 bg-ink/40 px-4 py-1.5 text-xs text-cream placeholder:text-cream/40 focus:border-plonkPink focus:outline-none"
+        />
       </div>
 
       {loading ? (
@@ -263,11 +299,28 @@ export default function TournamentEntriesClient() {
           <table className="w-full text-sm">
             <thead className="bg-ink/40 text-[10px] uppercase tracking-widest text-cream/60">
               <tr>
-                <th className="px-4 py-3 text-left">Team</th>
-                <th className="px-4 py-3 text-left">Captain</th>
-                <th className="px-4 py-3 text-left">Tournament</th>
-                <th className="px-4 py-3 text-left">Signed up</th>
-                <th className="px-4 py-3 text-left">Status</th>
+                {(
+                  [
+                    ["team", "Team"],
+                    ["captain", "Captain"],
+                    ["tournament", "Tournament"],
+                    ["signed", "Signed up"],
+                    ["status", "Status"],
+                  ] as [SortKey, string][]
+                ).map(([key, label]) => (
+                  <th key={key} className="px-4 py-3 text-left">
+                    <button
+                      type="button"
+                      onClick={() => toggleSort(key)}
+                      className="flex items-center gap-1 uppercase tracking-widest transition hover:text-cream"
+                    >
+                      {label}
+                      <span className="text-[10px] text-plonkPink">
+                        {sortKey === key ? (sortDir === "asc" ? "▲" : "▼") : "↕"}
+                      </span>
+                    </button>
+                  </th>
+                ))}
                 <th className="px-4 py-3 text-right">Actions</th>
               </tr>
             </thead>
