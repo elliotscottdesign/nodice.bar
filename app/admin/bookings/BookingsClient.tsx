@@ -6,7 +6,6 @@ import AdminPageHeader from "@/components/admin/AdminPageHeader";
 import { AdminCard } from "@/components/admin/AdminCard";
 import AddGolfBookingForm from "@/components/admin/AddGolfBookingForm";
 import { fmtMoney } from "@/lib/format";
-import { loadVenues, type DbVenue } from "@/lib/db/tickets";
 import {
   loadBookings,
   firstSlot,
@@ -28,7 +27,6 @@ function describe(err: unknown, fallback: string) {
 }
 
 export default function BookingsClient() {
-  const [venues, setVenues] = useState<DbVenue[]>([]);
   const [bookings, setBookings] = useState<DbBookingRow[]>([]);
   const [loading, setLoading] = useState(true);
   const [err, setErr] = useState("");
@@ -36,7 +34,7 @@ export default function BookingsClient() {
   // Search + sortable columns (founder 5 Oct 2026).
   const [search, setSearch] = useState("");
   type SortKey =
-    | "ref" | "slot" | "venue" | "customer" | "size" | "total" | "status";
+    | "ref" | "slot" | "customer" | "size" | "total" | "status";
   const [sortKey, setSortKey] = useState<SortKey>("slot");
   const [sortDir, setSortDir] = useState<"asc" | "desc">("desc");
   function toggleSort(key: SortKey) {
@@ -52,8 +50,7 @@ export default function BookingsClient() {
     setLoading(true);
     setErr("");
     try {
-      const [v, b] = await Promise.all([loadVenues(), loadBookings()]);
-      setVenues(v);
+      const b = await loadBookings();
       setBookings(b);
     } catch (e) {
       setErr(describe(e, "Failed to load bookings"));
@@ -65,10 +62,6 @@ export default function BookingsClient() {
     reload();
   }, []);
 
-  // Venue name lookup — also used for search + the Venue sort.
-  const venueName = (id: string) =>
-    venues.find((v) => v.id === id)?.name.replace("No Dice ", "") ?? "";
-
   const filtered = useMemo(() => {
     const q = search.trim().toLowerCase();
     const rows = bookings.filter((b) => {
@@ -78,7 +71,6 @@ export default function BookingsClient() {
           b.reference,
           b.customer_name,
           b.customer_email,
-          venueName(b.venue_id),
         ]
           .join(" ")
           .toLowerCase();
@@ -96,7 +88,6 @@ export default function BookingsClient() {
           const s = firstSlot(b);
           return s ? `${s.slot_date}T${s.slot_time}` : "";
         }
-        case "venue": return venueName(b.venue_id).toLowerCase();
         case "customer": return b.customer_name.toLowerCase();
         case "size": return b.party_size;
         case "total": return b.total_pence;
@@ -109,7 +100,7 @@ export default function BookingsClient() {
       if (typeof va === "number" && typeof vb === "number") return (va - vb) * dir;
       return String(va).localeCompare(String(vb)) * dir;
     });
-  }, [bookings, statusFilter, search, sortKey, sortDir, venues]);
+  }, [bookings, statusFilter, search, sortKey, sortDir]);
 
   return (
     <>
@@ -173,7 +164,6 @@ export default function BookingsClient() {
                     [
                       ["ref", "Ref"],
                       ["slot", "Slot"],
-                      ["venue", "Venue"],
                       ["customer", "Customer"],
                       ["size", "Size"],
                       ["total", "Total"],
@@ -198,14 +188,13 @@ export default function BookingsClient() {
               <tbody>
                 {filtered.length === 0 && (
                   <tr>
-                    <td colSpan={7} className="px-5 py-10 text-center text-sm text-cream/55">
+                    <td colSpan={6} className="px-5 py-10 text-center text-sm text-cream/55">
                       No bookings match the current filter.
                     </td>
                   </tr>
                 )}
                 {filtered.map((b) => {
                   const slot = firstSlot(b);
-                  const vName = venueName(b.venue_id) || "—";
                   return (
                     <tr key={b.id} className="border-b border-cream/5 last:border-b-0 hover:bg-cream/5">
                       <td className="px-5 py-3 font-mono text-xs">{b.reference}</td>
@@ -217,7 +206,6 @@ export default function BookingsClient() {
                             )} · ${slot.slot_time.slice(0, 5)}`
                           : "—"}
                       </td>
-                      <td className="px-5 py-3 text-plonkYellow text-xs">{vName}</td>
                       <td className="px-5 py-3">
                         <p className="font-medium">{b.customer_name}</p>
                         <p className="text-xs text-cream/55">{b.customer_email}</p>
