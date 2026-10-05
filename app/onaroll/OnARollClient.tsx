@@ -36,6 +36,7 @@ type Addon = { id: string; name: string; price_pence: number };
 type Item = {
   id: string; name: string; sell_pence: number; desc?: string; img?: string;
   addons?: Addon[]; allergens?: Record<string, "contains" | "trace">; stock?: string[];
+  star?: boolean;   // a "special" — highlighted with a ★ + dotted box
 };
 type StockLevel = { count: number; override: string | null; soldOut: boolean; label?: string };
 type Section = { id: string; name: string; items: Item[] };
@@ -482,12 +483,15 @@ export default function OnARollClient() {
             const left = avail(it);
             const soldOut = left <= 0;
             const lowLeft = !soldOut && left !== Infinity && left <= 6;
+            const special = !!it.star;
             return (
-            <div key={it.id} style={{ display: "flex", gap: 12, padding: "10px 0", borderBottom: `1px solid ${LINE}`, opacity: soldOut ? 0.55 : 1 }}>
+            <div key={it.id} style={special
+              ? { display: "flex", gap: 12, padding: "12px 14px", margin: "12px 0", border: `2px dashed ${RED}`, borderRadius: 12, background: "rgba(218,27,51,0.045)", opacity: soldOut ? 0.55 : 1 }
+              : { display: "flex", gap: 12, padding: "10px 0", borderBottom: `1px solid ${LINE}`, opacity: soldOut ? 0.55 : 1 }}>
               {it.img ? <img src={it.img} alt="" style={{ width: 66, height: 66, borderRadius: 10, objectFit: "cover", flexShrink: 0, filter: soldOut ? "grayscale(1)" : "none" }} /> : null}
               <div style={{ flex: 1, minWidth: 0 }}>
                 <div style={{ display: "flex", justifyContent: "space-between", gap: 8 }}>
-                  <span style={{ fontWeight: 800, fontSize: 16 }}>{it.name}</span>
+                  <span style={{ fontWeight: 800, fontSize: 16 }}>{special && <span style={{ color: RED }} title="Today's special">★ </span>}{it.name}</span>
                   <span style={{ fontFamily: HEAVY, color: RED, fontSize: 18 }}>{gbp(it.sell_pence)}</span>
                 </div>
                 {it.desc && <div style={{ fontSize: 13, color: MUTED, lineHeight: 1.4, margin: "3px 0" }}>{it.desc}</div>}
