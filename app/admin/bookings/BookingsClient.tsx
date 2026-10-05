@@ -33,7 +33,6 @@ export default function BookingsClient() {
   const [loading, setLoading] = useState(true);
   const [err, setErr] = useState("");
   const [statusFilter, setStatusFilter] = useState<BookingStatus | "all">("all");
-  const [venueFilter, setVenueFilter] = useState<string | "all">("all");
   // Search + sortable columns (founder 5 Oct 2026).
   const [search, setSearch] = useState("");
   type SortKey =
@@ -74,7 +73,6 @@ export default function BookingsClient() {
     const q = search.trim().toLowerCase();
     const rows = bookings.filter((b) => {
       if (statusFilter !== "all" && b.status !== statusFilter) return false;
-      if (venueFilter !== "all" && b.venue_id !== venueFilter) return false;
       if (q) {
         const hay = [
           b.reference,
@@ -111,7 +109,7 @@ export default function BookingsClient() {
       if (typeof va === "number" && typeof vb === "number") return (va - vb) * dir;
       return String(va).localeCompare(String(vb)) * dir;
     });
-  }, [bookings, statusFilter, venueFilter, search, sortKey, sortDir, venues]);
+  }, [bookings, statusFilter, search, sortKey, sortDir, venues]);
 
   return (
     <>
@@ -159,20 +157,6 @@ export default function BookingsClient() {
             label={f.label}
             active={statusFilter === f.value}
             onClick={() => setStatusFilter(f.value)}
-          />
-        ))}
-        <span className="mx-1 text-cream/30">·</span>
-        <Filter
-          label="Both venues"
-          active={venueFilter === "all"}
-          onClick={() => setVenueFilter("all")}
-        />
-        {venues.map((v) => (
-          <Filter
-            key={v.id}
-            label={v.name.replace("No Dice ", "")}
-            active={venueFilter === v.id}
-            onClick={() => setVenueFilter(v.id)}
           />
         ))}
       </div>
