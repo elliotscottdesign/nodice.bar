@@ -234,7 +234,9 @@ export default function TournamentEntriesClient() {
           ones. Mirrors the pool/table "+ Add booking manually" form. */}
       <AddTournamentEntryForm tournaments={tournaments} onCreated={reload} />
 
-      {/* Top action bar */}
+      {/* Toolbar — same three-row layout as the golf + pool/table lists
+          (founder 7 Oct 2026): action buttons, search, status pills, then
+          the tournament filter + calendar. */}
       <div className="flex flex-wrap items-center gap-3">
         <button
           onClick={handleCopyTeamNames}
@@ -250,17 +252,10 @@ export default function TournamentEntriesClient() {
         >
           Download CSV
         </button>
-        <a
-          href="/admin/calendar"
-          className="rounded-full border border-plonkTeal/50 bg-plonkTeal/10 px-5 py-2.5 text-xs font-bold uppercase tracking-wider text-plonkTeal transition hover:bg-plonkTeal/20"
-        >
-          📅 Calendar view
-        </a>
       </div>
 
-      {/* Filters — search + status pills + tournament, matching the
-          pool/table reservations toolbar (founder 5 Oct 2026). */}
-      <div className="flex flex-wrap items-center gap-2">
+      {/* Row 1 — search */}
+      <div className="flex flex-wrap gap-3">
         <input
           type="search"
           value={search}
@@ -268,6 +263,10 @@ export default function TournamentEntriesClient() {
           placeholder="Search team, email, captain…"
           className="min-w-[220px] flex-1 rounded-full border border-cream/15 bg-ink/40 px-4 py-1.5 text-xs text-cream placeholder:text-cream/40 focus:border-plonkPink focus:outline-none"
         />
+      </div>
+
+      {/* Row 2 — status pills */}
+      <div className="flex flex-wrap gap-2">
         {(
           [
             ["all", "All"],
@@ -287,10 +286,14 @@ export default function TournamentEntriesClient() {
             {label}
           </button>
         ))}
+      </div>
+
+      {/* Row 3 — tournament filter + calendar */}
+      <div className="flex flex-wrap items-center gap-2">
         <select
           value={filterTournamentId}
           onChange={(e) => setFilterTournamentId(e.target.value)}
-          className="rounded-full border border-cream/15 bg-ink/40 px-4 py-1.5 text-xs font-bold uppercase tracking-wider text-cream/85 focus:border-plonkPink focus:outline-none"
+          className="rounded-full border border-cream/15 bg-ink/40 px-4 py-1.5 text-[11px] font-bold uppercase tracking-wider text-cream/85 focus:border-plonkPink focus:outline-none"
         >
           <option value="all">All tournaments</option>
           {tournaments.map((t) => (
@@ -299,6 +302,12 @@ export default function TournamentEntriesClient() {
             </option>
           ))}
         </select>
+        <a
+          href="/admin/calendar"
+          className="ml-auto rounded-full border border-plonkTeal/50 bg-plonkTeal/10 px-4 py-1.5 text-[11px] font-bold uppercase tracking-wider text-plonkTeal transition hover:bg-plonkTeal/20"
+        >
+          📅 Calendar view
+        </a>
       </div>
 
       {loading ? (
