@@ -99,6 +99,22 @@ export default function TournamentSchedule() {
     return () => cancelAnimationFrame(id);
   }, [expandedId]);
 
+  // Deep link from a team's own page: /pool?night=<id> opens that night's
+  // booking form straight away (founder, 8 Oct 2026 — "this should load
+  // checkout options to book those nights and join in"). Also flips the
+  // singles/doubles filter so the night is actually in the visible rail.
+  useEffect(() => {
+    if (typeof window === "undefined" || !all.length) return;
+    const want = new URLSearchParams(window.location.search).get("night");
+    if (!want) return;
+    const hit = all.find((t) => t.id === want);
+    if (!hit) return;
+    if (hit.tournament_type === "singles" || hit.tournament_type === "doubles") {
+      setType(hit.tournament_type as TournamentType);
+    }
+    setExpandedId(want);
+  }, [all]);
+
   // Scroll-arrow behaviour, snap rail, edge-fades and hidden
   // scrollbar all come from the shared <RollerDeck> wrapper below.
 
