@@ -145,18 +145,21 @@ export default function NewsletterPopup() {
     // Best-effort — a network blip still shows the success screen, and
     // the localStorage state below ensures we won't pester them again.
     try {
-      await fetch(`${SUPABASE_URL}/rest/v1/newsletter_signups`, {
+      await fetch(`${SUPABASE_URL}/rest/v1/subscribers`, {
         method: "POST",
         headers: {
           "Content-Type": "application/json",
           apikey: SUPABASE_ANON_KEY,
           Authorization: `Bearer ${SUPABASE_ANON_KEY}`,
-          Prefer: "resolution=merge-duplicates",
+          // ignore-duplicates: repeat email is a no-op (INSERT only, no
+          // UPDATE). return=minimal: anon can't read the list back.
+          Prefer: "resolution=ignore-duplicates,return=minimal",
         },
         body: JSON.stringify({
           email: email.trim().toLowerCase(),
           source: "popup",
           consent: true,
+          unsubscribed: false,
         }),
       });
     } catch {

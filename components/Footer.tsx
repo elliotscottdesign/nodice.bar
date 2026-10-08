@@ -174,20 +174,26 @@ function FooterNewsletter() {
     setState("sending");
     try {
       // Record-only — no discount email (WELCOME20 retired 26 Aug 2026,
-      // founder: "0 deals for emails"). Direct RLS-permitted anon insert,
-      // same pattern as the /minigolf capture.
-      const res = await fetch(`${SUPABASE_URL}/rest/v1/newsletter_signups`, {
+      // founder: "0 deals for emails"). Writes straight into `subscribers`,
+      // the list the send-newsletter function actually mails (consent=true,
+      // unsubscribed=false). Anon insert is RLS-permitted; anon can't read
+      // the list back.
+      const res = await fetch(`${SUPABASE_URL}/rest/v1/subscribers`, {
         method: "POST",
         headers: {
           "Content-Type": "application/json",
           apikey: SUPABASE_ANON_KEY,
           Authorization: `Bearer ${SUPABASE_ANON_KEY}`,
-          Prefer: "resolution=merge-duplicates",
+          // ignore-duplicates: a repeat email is a no-op (needs only INSERT,
+          // not UPDATE). return=minimal: anon can't read the list back, so
+          // don't ask PostgREST to return the row.
+          Prefer: "resolution=ignore-duplicates,return=minimal",
         },
         body: JSON.stringify({
           email: email.trim().toLowerCase(),
           source: "footer",
           consent: true,
+          unsubscribed: false,
         }),
       });
       if (!res.ok) {
