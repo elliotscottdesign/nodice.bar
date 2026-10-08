@@ -1,5 +1,6 @@
 import Link from "next/link";
 import type { Metadata } from "next";
+import MediaStrip from "@/components/MediaStrip";
 
 // Christmas 2026 — public corporate & party menu (nodice.bar/xmas). Reads the
 // SAME live doc the kitchen edits in the On A Roll back end (team.nodice.bar →
@@ -97,8 +98,20 @@ export default async function XmasPage() {
       {/* Festive ribbon */}
       <div className="h-1.5 w-full bg-gradient-to-r from-nodiceRed via-pong to-nodiceRed" />
 
+      {/* VENUE scroller — full-width, sits at the very top. Blank
+          placeholders until the team uploads photos to the shared
+          `venue.hackney` gallery (also used on /privatehire). */}
+      <div className="pt-20 sm:pt-24">
+        <MediaStrip
+          galleryKey="parties.venue"
+          blankLabel="Venue photo"
+          aspect="16 / 9"
+          blankCount={6}
+        />
+      </div>
+
       {/* HERO */}
-      <header className="relative flex min-h-[38vh] flex-col items-center justify-center px-6 pt-24 pb-14 text-center">
+      <header className="relative flex min-h-[30vh] flex-col items-center justify-center px-6 pt-8 pb-14 text-center">
         <p className="text-xs font-bold uppercase tracking-eyebrow text-nodiceRed">
           No Dice · London Fields
         </p>
@@ -116,6 +129,17 @@ export default async function XmasPage() {
           <span className="h-px w-10 bg-pong/60" />
         </div>
       </header>
+
+      {/* MENU scroller — full-width, at the top of the party packages.
+          Blank placeholders until photos are uploaded to `xmas.menu`. */}
+      <MediaStrip
+        galleryKey="xmas.menu"
+        heading="This year's festive menu"
+        intro="A taste of what's on — swipe through."
+        blankLabel="Menu photo"
+        aspect="4 / 3"
+        blankCount={5}
+      />
 
       <section className="px-6 pb-24">
         <div className="mx-auto max-w-3xl">

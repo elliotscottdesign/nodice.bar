@@ -21,6 +21,7 @@ import {
   type LucideIcon,
 } from "lucide-react";
 import PageHero from "@/components/PageHero";
+import MediaStrip from "@/components/MediaStrip";
 import Reveal from "@/components/Reveal";
 import BigEmailCta from "@/components/BigEmailCta";
 import { useContent, useImage } from "@/lib/content";
@@ -209,6 +210,16 @@ export default function PrivateHirePage() {
         introKey="privatehire.hackney.intro"
         imageKey="privatehire.hackney.hero_image"
         sliderKey="hero.privatehire.hackney"
+      />
+
+      {/* VENUE scroller — full-width, shared `parties.venue` gallery
+          (same photos as /xmas). Blank placeholders until the team
+          uploads shots of the space in the galleries admin. */}
+      <MediaStrip
+        galleryKey="parties.venue"
+        blankLabel="Venue photo"
+        aspect="16 / 9"
+        blankCount={6}
       />
 
       {/* Popular for + about */}

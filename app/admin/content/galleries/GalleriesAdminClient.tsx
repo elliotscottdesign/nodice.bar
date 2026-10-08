@@ -187,6 +187,20 @@ const KNOWN_GALLERIES: {
       "Upload 7–10 portrait poster images for the deals grid on /deals. First 10 render in order.",
     previewPath: "/deals",
   },
+  {
+    key: "parties.venue",
+    label: "Parties — Venue scroller",
+    description:
+      "Full-width venue photo scroller at the top of /privatehire AND /xmas. Upload landscape shots of the space — shared across both party pages. Shows blank placeholders until you add photos.",
+    previewPath: "/privatehire",
+  },
+  {
+    key: "xmas.menu",
+    label: "Xmas — Festive menu scroller",
+    description:
+      "Full-width photo scroller at the top of the Christmas party packages on /xmas. Upload shots of the festive food/menu. Shows blank placeholders until you add photos.",
+    previewPath: "/xmas",
+  },
 ];
 
 function describe(err: unknown, fallback: string) {

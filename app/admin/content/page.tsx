@@ -132,6 +132,14 @@ const PAGES: { label: string; href: string; description: string; group: string }
   },
 
   {
+    group: "Seasonal",
+    label: "Christmas (/xmas)",
+    href: "/admin/content/xmas",
+    description:
+      "The venue + festive-menu photo scrollers on the Christmas parties page. (Menu items & prices are edited in the team hub → 🎄 Xmas.)",
+  },
+
+  {
     group: "Media",
     label: "Galleries",
     href: "/admin/content/galleries",
@@ -152,7 +160,7 @@ const PAGES: { label: string; href: string; description: string; group: string }
   },
 ];
 
-const GROUPS = ["Marketing", "Nav pages", "Private hire", "Info pages", "Media", "Site-wide"];
+const GROUPS = ["Marketing", "Nav pages", "Private hire", "Info pages", "Seasonal", "Media", "Site-wide"];
 
 export default function ContentLandingPage() {
   return (
