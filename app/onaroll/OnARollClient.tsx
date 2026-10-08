@@ -150,6 +150,19 @@ export default function OnARollClient() {
       .filter((d): d is { bn: Bundle; burger: Item } =>
         !!d.burger && (parseInt(String(d.bn.price_pence), 10) || 0) > 0 && (!d.bn.days?.length || d.bn.days.includes(dow)));
   }, [bundles, sections]);
+
+  // Starred items are pulled OUT of their section into a "Specials" group at the TOP
+  // — same as the printed menu — then the rest follow with specials removed.
+  const menuGroups = useMemo<Section[]>(() => {
+    if (!sections) return [];
+    const starred = sections.flatMap((s) => s.items.filter((it) => it.name && (it as any).star));
+    const specials: Section[] = starred.length ? [{ id: "__specials", name: "Specials", items: starred }] : [];
+    const rest = sections
+      .map((s) => ({ ...s, items: s.items.filter((it) => it.name && !(it as any).star) }))
+      .filter((s) => s.items.length);
+    return [...specials, ...rest];
+  }, [sections]);
+
   const tipPence = tipChoice === "5" ? Math.round(total * 0.05) : tipChoice === "10" ? Math.round(total * 0.1) : tipChoice === "custom" ? Math.max(0, Math.round((parseFloat(tipCustom) || 0) * 100)) : 0;
   const grand = total + tipPence;
 
@@ -476,9 +489,11 @@ export default function OnARollClient() {
           })}
         </div>
       )}
-      {sections.map((sec) => (
+      {menuGroups.map((sec) => {
+        const isSpecials = sec.id === "__specials";
+        return (
         <div key={sec.id} style={{ marginBottom: 22 }}>
-          <div style={{ fontFamily: HEAVY, fontSize: 24, color: BLUE, borderBottom: `2px solid ${BLUE}`, paddingBottom: 4, marginBottom: 10, textTransform: "uppercase", letterSpacing: "0.5px" }}>{sec.name}</div>
+          <div style={{ fontFamily: HEAVY, fontSize: 24, color: isSpecials ? RED : BLUE, borderBottom: `2px ${isSpecials ? "dotted" : "solid"} ${isSpecials ? RED : BLUE}`, paddingBottom: 4, marginBottom: 10, textTransform: "uppercase", letterSpacing: "0.5px" }}>{isSpecials ? "★ Specials" : sec.name}</div>
           {sec.items.filter((it) => it.name).map((it) => {
             const left = avail(it);
             const soldOut = left <= 0;
@@ -509,7 +524,8 @@ export default function OnARollClient() {
             );
           })}
         </div>
-      ))}
+        );
+      })}
       {count > 0 && (
         <div style={{ position: "fixed", left: 0, right: 0, bottom: 0, padding: "12px 14px", background: CREAM, borderTop: `2px solid ${BLUE}` }}>
           <button onClick={() => setPhase("cart")} style={{ ...btn(RED, "#fff"), maxWidth: 560, margin: "0 auto", display: "flex", justifyContent: "space-between", alignItems: "center" }}>
