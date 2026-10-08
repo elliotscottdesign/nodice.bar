@@ -137,8 +137,17 @@ export default function RollerDeck({
         ref={railRef}
         onScroll={refreshArrows}
         aria-label={ariaLabel}
-        className="hide-scrollbar flex snap-x snap-mandatory gap-3 overflow-x-auto px-6 pb-2 pt-1 sm:px-16"
+        // `safe center` centres the cards when they all fit (so a short
+        // rail looks balanced and the scroll arrows auto-hide, instead
+        // of the cards hugging the left with a stranded right arrow),
+        // and falls back to flex-start the moment they overflow so every
+        // card stays reachable by scrolling. The gutter is kept modest
+        // (sm:px-10) so a near-fitting rail doesn't register a sliver of
+        // false overflow from the padding alone and show arrows that
+        // point at empty space.
+        className="hide-scrollbar flex snap-x snap-mandatory gap-3 overflow-x-auto px-6 py-2 sm:px-10"
         style={{
+          justifyContent: "safe center",
           scrollPaddingLeft: "24px",
           scrollPaddingRight: "24px",
         }}
