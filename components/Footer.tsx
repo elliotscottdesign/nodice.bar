@@ -184,10 +184,10 @@ function FooterNewsletter() {
           "Content-Type": "application/json",
           apikey: SUPABASE_ANON_KEY,
           Authorization: `Bearer ${SUPABASE_ANON_KEY}`,
-          // ignore-duplicates: a repeat email is a no-op (needs only INSERT,
-          // not UPDATE). return=minimal: anon can't read the list back, so
-          // don't ask PostgREST to return the row.
-          Prefer: "resolution=ignore-duplicates,return=minimal",
+          // return=minimal (NOT ignore-duplicates): the insert-only RLS policy
+          // gives anon no read access, and on-conflict/RETURNING would need a
+          // read — so a plain minimal insert is the only shape that passes.
+          Prefer: "return=minimal",
         },
         body: JSON.stringify({
           email: email.trim().toLowerCase(),
@@ -196,6 +196,12 @@ function FooterNewsletter() {
           unsubscribed: false,
         }),
       });
+      // 409 = email already on the list. That's a success from the
+      // customer's point of view, not an error.
+      if (res.status === 409) {
+        setState("ok");
+        return;
+      }
       if (!res.ok) {
         setState("err");
         setError("Couldn't send right now — try again in a minute.");

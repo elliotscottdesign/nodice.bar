@@ -151,9 +151,10 @@ export default function NewsletterPopup() {
           "Content-Type": "application/json",
           apikey: SUPABASE_ANON_KEY,
           Authorization: `Bearer ${SUPABASE_ANON_KEY}`,
-          // ignore-duplicates: repeat email is a no-op (INSERT only, no
-          // UPDATE). return=minimal: anon can't read the list back.
-          Prefer: "resolution=ignore-duplicates,return=minimal",
+          // return=minimal (NOT ignore-duplicates): the insert-only RLS policy
+          // gives anon no read, so on-conflict/RETURNING would fail. A repeat
+          // email returns 409, which this best-effort call simply ignores.
+          Prefer: "return=minimal",
         },
         body: JSON.stringify({
           email: email.trim().toLowerCase(),
