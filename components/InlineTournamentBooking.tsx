@@ -1,6 +1,6 @@
 "use client";
 
-import { useCallback, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useState } from "react";
 import {
   loadStripe,
   type Stripe as StripeJs,
@@ -50,6 +50,7 @@ const SUPABASE_URL =
   "https://rntcujcpsozvuxvmlejv.supabase.co";
 const SUPABASE_ANON_KEY = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY ?? "";
 const CHECKOUT_FN_URL = `${SUPABASE_URL}/functions/v1/tournament-checkout`;
+const TOURNAMENT_FN_URL = `${SUPABASE_URL}/functions/v1/tournament`;
 
 // loadStripe should be called once per Stripe docs (not on every
 // render). Memoised at module scope.
@@ -149,6 +150,46 @@ export default function InlineTournamentBooking({
   const [captainPhone, setCaptainPhone] = useState("");
   const [heardFrom, setHeardFrom] = useState("");
   const [marketingOptIn, setMarketingOptIn] = useState(false);
+  // Returning player? The email they type is matched against every email we
+  // hold for a team (captain, partner or named squad member) and we ASK before
+  // assuming — players cross teams (founder, 8 Oct 2026).
+  const [knownTeam, setKnownTeam] = useState<{ team: string; player: string | null } | null>(null);
+  const [teamChoice, setTeamChoice] = useState<"same" | "new" | null>(null);
+  // Ask the engine who this email belongs to, a beat after they stop typing.
+  useEffect(() => {
+    const email = captainEmail.trim().toLowerCase();
+    if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) {
+      setKnownTeam(null);
+      setTeamChoice(null);
+      return;
+    }
+    let dead = false;
+    const id = setTimeout(async () => {
+      try {
+        const r = await fetch(TOURNAMENT_FN_URL, {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ action: "teamLookup", email }),
+        });
+        const j = await r.json();
+        if (dead) return;
+        if (j?.ok && j.team) {
+          setKnownTeam({ team: j.team, player: j.player ?? null });
+          setTeamChoice(null);
+        } else {
+          setKnownTeam(null);
+          setTeamChoice(null);
+        }
+      } catch {
+        /* lookup is a convenience — never block the booking */
+      }
+    }, 600);
+    return () => {
+      dead = true;
+      clearTimeout(id);
+    };
+  }, [captainEmail]);
+
   const [submitting, setSubmitting] = useState(false);
 
   const elementsOptions = useMemo<StripeElementsOptions | null>(
@@ -336,6 +377,46 @@ export default function InlineTournamentBooking({
                   ? "Use the same email every time you enter — your league points follow it."
                   : "Use the same captain email every night — that's how your team's league points add up."}
               </p>
+              {knownTeam && (
+                <div className="mt-3 rounded-lg border border-plonkPink/45 bg-plonkPink/10 p-3">
+                  <p className="text-[13px] leading-relaxed text-cream">
+                    We know this email{knownTeam.player ? ` as ${knownTeam.player}` : ""} — are you signing up as{" "}
+                    <strong className="uppercase">{knownTeam.team}</strong>?
+                  </p>
+                  <div className="mt-2.5 flex flex-wrap gap-2">
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setTeamChoice("same");
+                        if (!isSingles) setTeamName(knownTeam.team);
+                      }}
+                      className={`rounded-full px-3.5 py-1.5 text-[12px] font-bold ${teamChoice === "same" ? "bg-plonkPink text-ink" : "border border-cream/25 text-cream/80"}`}
+                    >
+                      Yes — {knownTeam.team}
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setTeamChoice("new");
+                        if (!isSingles) setTeamName("");
+                      }}
+                      className={`rounded-full px-3.5 py-1.5 text-[12px] font-bold ${teamChoice === "new" ? "bg-plonkPink text-ink" : "border border-cream/25 text-cream/80"}`}
+                    >
+                      No — different team
+                    </button>
+                  </div>
+                  {teamChoice === "same" && (
+                    <p className="mt-2 text-[11px] text-cream/55">Your pot, league points and prizes carry on where they left off.</p>
+                  )}
+                  {teamChoice === "new" && (
+                    <p className="mt-2 text-[11px] text-cream/55">
+                      {isSingles
+                        ? "No problem — this entry stands on its own."
+                        : "Give the new team its name above; it starts its own record."}
+                    </p>
+                  )}
+                </div>
+              )}
             </div>
           </div>
 
