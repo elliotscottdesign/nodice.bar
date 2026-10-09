@@ -69,6 +69,7 @@ const SLOTS = [
 
 const MAX_DATES = 4;
 const MAX_HEADS_NO_HIRE = 40;
+const MAX_HEADS_HIRE = 100;
 const EMAIL_RE = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
 const gbp = (n: number) => `£${n.toLocaleString()}`;
 
@@ -174,7 +175,8 @@ export default function XmasPackageBuilder() {
     if (v === "") return setHeadcount("");
     let n = parseInt(v, 10);
     if (Number.isNaN(n)) return;
-    if (!privateHire && n > MAX_HEADS_NO_HIRE) n = MAX_HEADS_NO_HIRE;
+    const cap = privateHire ? MAX_HEADS_HIRE : MAX_HEADS_NO_HIRE;
+    if (n > cap) n = cap;
     setHeadcount(String(Math.max(0, n)));
   }
 
@@ -363,8 +365,16 @@ export default function XmasPackageBuilder() {
             type="checkbox"
             checked={privateHire}
             onChange={(e) => {
-              setPrivateHire(e.target.checked);
-              if (!e.target.checked) setSlot("");
+              const on = e.target.checked;
+              setPrivateHire(on);
+              if (!on) {
+                setSlot("");
+                // Drop back to the no-hire cap if they'd gone over.
+                setHeadcount((h) => {
+                  const n = parseInt(h || "0", 10) || 0;
+                  return n > MAX_HEADS_NO_HIRE ? String(MAX_HEADS_NO_HIRE) : h;
+                });
+              }
             }}
             className="mt-0.5 h-5 w-5 accent-nodiceRed"
           />
@@ -410,7 +420,7 @@ export default function XmasPackageBuilder() {
           <input
             type="number"
             min={1}
-            max={privateHire ? undefined : MAX_HEADS_NO_HIRE}
+            max={privateHire ? MAX_HEADS_HIRE : MAX_HEADS_NO_HIRE}
             inputMode="numeric"
             value={headcount}
             onChange={(e) => onHeadcountChange(e.target.value)}
@@ -419,7 +429,7 @@ export default function XmasPackageBuilder() {
           />
           <span className="text-sm text-cream/55">
             {privateHire
-              ? "guests"
+              ? `guests · up to ${MAX_HEADS_HIRE} with private hire`
               : `guests · up to ${MAX_HEADS_NO_HIRE} without private hire`}
           </span>
         </div>
