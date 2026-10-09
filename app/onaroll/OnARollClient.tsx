@@ -15,6 +15,8 @@ const CREAM = "#fdf2e0", BLUE = "#183fa0", RED = "#e0231b", GREEN = "#1f8a4d",
   INK = "#15305c", LINE = "#e3d6b6", MUTED = "#8a7f63";
 const HEAVY = "Impact, 'Arial Narrow Bold', 'Haettenschweiler', sans-serif";
 const LOGO = "/onaroll-logo.png";
+// A live pop-up with a `logo` on its section takes over the header (On A Roll → pop-up).
+const POPUP_LOGOS: Record<string, string> = { cyprus: "/cyprus-grill-logo.png" };
 
 // The 14 FSA allergens + mushroom — mirrors src/kitchen/allergens.js in the team hub.
 const ALLERGENS: { key: string; label: string }[] = [
@@ -241,17 +243,21 @@ export default function OnARollClient() {
     finally { setBusy(false); }
   };
 
-  if (err && !sections) return <Shell><Note>Couldn't load the menu — {err}</Note><button onClick={() => load()} style={btn(RED, "#fff")}>Try again</button></Shell>;
-  if (!sections || !status) return <Shell><div style={{ color: MUTED, padding: "40px 0", textAlign: "center" }}>Loading the menu…</div></Shell>;
+  // A live pop-up (sections are already filtered to non-archived at load) with a known
+  // logo takes over the On A Roll header.
+  const headerLogo = (sections || []).map((s) => POPUP_LOGOS[(s as any).logo]).find(Boolean) || LOGO;
+
+  if (err && !sections) return <Shell logo={headerLogo}><Note>Couldn't load the menu — {err}</Note><button onClick={() => load()} style={btn(RED, "#fff")}>Try again</button></Shell>;
+  if (!sections || !status) return <Shell logo={headerLogo}><div style={{ color: MUTED, padding: "40px 0", textAlign: "center" }}>Loading the menu…</div></Shell>;
 
   // Closed / paused → show the closed screen instead of the ordering flow. Applies
   // through menu → allergy → details (not "pay": if they already have a Stripe intent
   // it was created while open, so let them finish; not "done").
-  if (!status.open && phase !== "pay" && phase !== "done") return <Shell><Paused waiting={status.waiting} reason={status.reason} /></Shell>;
+  if (!status.open && phase !== "pay" && phase !== "done") return <Shell logo={headerLogo}><Paused waiting={status.waiting} reason={status.reason} /></Shell>;
 
   // ── DONE ─────────────────────────────────────────────────────────────────
   if (phase === "done") return (
-    <Shell>
+    <Shell logo={headerLogo}>
       <div style={{ textAlign: "center", padding: "26px 0" }}>
         <div style={{ fontFamily: HEAVY, fontSize: 30, color: GREEN }}>✓ Order in!</div>
         {orderNo != null && <div style={{ fontFamily: HEAVY, fontSize: 64, color: RED, lineHeight: 1.1, margin: "6px 0" }}>#{orderNo}</div>}
@@ -273,7 +279,7 @@ export default function OnARollClient() {
       appearance: { theme: "flat", variables: { colorPrimary: RED, colorText: INK, fontFamily: "DM Sans, system-ui, sans-serif", borderRadius: "10px" } },
     };
     return (
-      <Shell>
+      <Shell logo={headerLogo}>
         <Head>Pay {gbp(grand)}</Head>
         <p style={{ fontSize: 13.5, color: MUTED, margin: "0 0 12px" }}>{count} item{count > 1 ? "s" : ""}{tipPence > 0 ? ` + ${gbp(tipPence)} tip` : ""} · we'll text you when it's ready.</p>
         <Elements stripe={getStripe()} options={options}>
@@ -288,7 +294,7 @@ export default function OnARollClient() {
   if (phase === "code") {
     const okCode = codeInput.trim().length >= 3;
     return (
-      <Shell>
+      <Shell logo={headerLogo}>
         <Back onClick={() => setPhase("details")} />
         <Head>Order on a code</Head>
         <p style={{ fontSize: 14, lineHeight: 1.5, color: INK, margin: "0 0 14px" }}>
@@ -310,7 +316,7 @@ export default function OnARollClient() {
     const emailValid = /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email.trim());
     const ok = name.trim().length >= 2 && (phone.replace(/\D/g, "").length >= 10 || emailValid);
     return (
-      <Shell>
+      <Shell logo={headerLogo}>
         <Back onClick={() => setPhase("allergy")} />
         <Head>Almost there</Head>
         <form onSubmit={(e) => { e.preventDefault(); if (ok && !busy) startPayment(); }}>
@@ -368,7 +374,7 @@ export default function OnARollClient() {
     const declaredAndFlagged = !noAllergies && declared.size > 0;
     const canProceed = noAllergies || declared.size === 0 || accepted;
     return (
-      <Shell>
+      <Shell logo={headerLogo}>
         <Back onClick={() => setPhase("cart")} />
         <Head>Any allergies?</Head>
         <p style={{ fontSize: 14, lineHeight: 1.5, color: INK, margin: "0 0 14px" }}>
@@ -427,7 +433,7 @@ export default function OnARollClient() {
 
   // ── CART ─────────────────────────────────────────────────────────────────
   if (phase === "cart") return (
-    <Shell>
+    <Shell logo={headerLogo}>
       <Back onClick={() => setPhase("menu")} />
       <Head>Your order</Head>
       {cart.length === 0 ? <p style={{ color: MUTED }}>Nothing here yet.</p> : cart.map((l) => (
@@ -459,7 +465,7 @@ export default function OnARollClient() {
 
   // ── MENU ─────────────────────────────────────────────────────────────────
   return (
-    <Shell>
+    <Shell logo={headerLogo}>
       {picking && <AddonSheet item={picking} onClose={() => setPicking(null)} onAdd={addToCart} />}
       {deals.length > 0 && (
         <div style={{ marginBottom: 22 }}>
@@ -668,10 +674,10 @@ function Paused({ waiting, reason }: { waiting?: number; reason?: string | null 
 // Shell MUST be module-scope (not defined inside OnARollClient) — otherwise it
 // is a new component type on every render, so React remounts the whole subtree
 // on each keystroke and inputs lose focus / can't be autofilled.
-const Shell = ({ children }: { children: React.ReactNode }) => (
+const Shell = ({ children, logo = LOGO }: { children: React.ReactNode; logo?: string }) => (
   <div style={{ minHeight: "100vh", background: CREAM, color: INK, fontFamily: "'DM Sans', system-ui, sans-serif" }}>
     <div style={{ background: CREAM, padding: "16px 16px 14px", textAlign: "center", borderBottom: `3px solid ${BLUE}` }}>
-      <img src={LOGO} alt="On A Roll" style={{ height: 60, maxWidth: "72%" }} />
+      <img src={logo} alt="menu" style={{ height: 60, maxWidth: "72%" }} />
     </div>
     <div style={{ maxWidth: 560, margin: "0 auto", padding: "16px 14px 140px" }}>{children}</div>
   </div>
