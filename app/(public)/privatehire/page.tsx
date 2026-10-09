@@ -28,6 +28,7 @@ import PageHero from "@/components/PageHero";
 import MediaStrip from "@/components/MediaStrip";
 import RollerDeck from "@/components/RollerDeck";
 import ManageGalleryLink from "@/components/ManageGalleryLink";
+import XmasMenuDropdown from "@/components/XmasMenuDropdown";
 import { useEditMode } from "@/lib/editMode";
 import Reveal from "@/components/Reveal";
 import BigEmailCta from "@/components/BigEmailCta";
@@ -410,6 +411,9 @@ export default function PrivateHirePage() {
           />
 
           <FactPanel title={cateringTitle} titleKey="privatehire.hackney.catering_title">
+            {/* Live Christmas menu from the On A Roll Xmas menu app
+                (founder 9 Oct 2026). */}
+            <XmasMenuDropdown />
             <div className="grid gap-x-10 gap-y-3 md:grid-cols-2">
               <ul className="space-y-3">
                 {cateringYes.map((c) => (
