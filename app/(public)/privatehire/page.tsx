@@ -441,8 +441,11 @@ export default function PrivateHirePage() {
 
         <div className="mx-auto max-w-6xl space-y-8">
           <FactPanel title={cateringTitle} titleKey="privatehire.hackney.catering_title">
-            <div className="grid gap-x-10 gap-y-3 md:grid-cols-2">
-              <ul className="space-y-3">
+            {/* Ticks flow across 2 columns so the section isn't a tall
+                single column (founder 9 Oct 2026); the "no" items sit
+                below, also 2-up. */}
+            <div className="space-y-4">
+              <ul className="grid gap-x-10 gap-y-3 sm:grid-cols-2">
                 {cateringYes.map((c) => (
                   <li
                     key={c}
@@ -453,17 +456,19 @@ export default function PrivateHirePage() {
                   </li>
                 ))}
               </ul>
-              <ul className="space-y-3">
-                {cateringNo.map((c) => (
-                  <li
-                    key={c}
-                    className="flex items-start gap-3 text-sm text-cream/60"
-                  >
-                    <Cross />
-                    {c}
-                  </li>
-                ))}
-              </ul>
+              {cateringNo.length > 0 && (
+                <ul className="grid gap-x-10 gap-y-3 border-t border-cream/10 pt-4 sm:grid-cols-2">
+                  {cateringNo.map((c) => (
+                    <li
+                      key={c}
+                      className="flex items-start gap-3 text-sm text-cream/60"
+                    >
+                      <Cross />
+                      {c}
+                    </li>
+                  ))}
+                </ul>
+              )}
             </div>
           </FactPanel>
 
