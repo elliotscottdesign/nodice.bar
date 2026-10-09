@@ -195,6 +195,38 @@ function validate(body: Partial<TournamentEntryInput>): {
   };
 }
 
+// Online entry closes this many minutes before a tournament starts.
+const TOURNAMENT_CLOSE_LEAD_MIN = 30;
+
+function timeToMin(t: string): number {
+  const [h, m] = t.split(":").map(Number);
+  return h * 60 + (m || 0);
+}
+// Now in Europe/London as the calendar date + minutes-since-midnight,
+// so the cutoff is correct whether this runs in a UTC edge runtime or
+// a London browser.
+function londonNowParts(now = new Date()): { iso: string; minutes: number } {
+  const parts = Object.fromEntries(
+    new Intl.DateTimeFormat("en-GB", {
+      timeZone: "Europe/London",
+      year: "numeric",
+      month: "2-digit",
+      day: "2-digit",
+      hour: "2-digit",
+      minute: "2-digit",
+      hour12: false,
+    })
+      .formatToParts(now)
+      .map((p) => [p.type, p.value]),
+  ) as Record<string, string>;
+  let hour = parseInt(parts.hour, 10);
+  if (hour === 24) hour = 0;
+  return {
+    iso: `${parts.year}-${parts.month}-${parts.day}`,
+    minutes: hour * 60 + parseInt(parts.minute, 10),
+  };
+}
+
 Deno.serve(async (req) => {
   const preflight = handlePreflight(req);
   if (preflight) return preflight;
@@ -226,7 +258,7 @@ Deno.serve(async (req) => {
   const { data: evRow, error: evErr } = await db
     .from("events")
     .select(
-      "id, name, category, registration_open, bookable, max_attendees, paid_entries_count",
+      "id, name, category, registration_open, bookable, max_attendees, paid_entries_count, event_date, start_time",
     )
     .eq("id", input.tournament_id)
     .maybeSingle();
@@ -242,12 +274,13 @@ Deno.serve(async (req) => {
   let ev = evRow as {
     id: string; name: string; category: string; registration_open: boolean;
     bookable: boolean; max_attendees: number | null; paid_entries_count: number;
+    event_date: string | null; start_time: string | null;
   } | null;
   let fallbackFee: number | null = null;
   if (!ev) {
     const { data: tRow, error: tErr } = await db
       .from("tournaments")
-      .select("id, name, tournament_type, registration_open, bookable, max_teams, paid_entries_count, entry_fee_pence")
+      .select("id, name, tournament_type, registration_open, bookable, max_teams, paid_entries_count, entry_fee_pence, event_date, start_time")
       .eq("id", input.tournament_id)
       .eq("tournament_type", "teams")
       .maybeSingle();
@@ -291,6 +324,7 @@ Deno.serve(async (req) => {
       id: tRow.id, name: tRow.name, category: "pingpong_tournament_teams",
       registration_open: tRow.registration_open, bookable: tRow.bookable,
       max_attendees: tRow.max_teams, paid_entries_count: tRow.paid_entries_count,
+      event_date: tRow.event_date, start_time: tRow.start_time,
     };
     fallbackFee = tRow.entry_fee_pence;
   }
@@ -305,6 +339,29 @@ Deno.serve(async (req) => {
       { error: "This event is invitation only — not publicly bookable" },
       { status: 409 },
     );
+  }
+  // Entry cutoff: online entry closes 30 minutes before the tournament
+  // starts (founder rule 9 Oct 2026). After that, enter in person.
+  if (ev.event_date && ev.start_time) {
+    const { iso: todayIso, minutes: nowMin } = londonNowParts();
+    if (ev.event_date < todayIso) {
+      return jsonResponse(
+        { error: "That tournament has already taken place." },
+        { status: 409 },
+      );
+    }
+    if (ev.event_date === todayIso) {
+      const startMin = timeToMin(ev.start_time);
+      if (nowMin >= startMin - TOURNAMENT_CLOSE_LEAD_MIN) {
+        return jsonResponse(
+          {
+            error:
+              "Online entry for tonight's tournament has closed — we stop 30 minutes before it starts. Come down and enter at the bar.",
+          },
+          { status: 409 },
+        );
+      }
+    }
   }
   if (
     ev.category !== "pool_tournament_doubles" &&

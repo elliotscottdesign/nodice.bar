@@ -146,6 +146,77 @@ async function feeForBookingFromConfig(
 }
 
 // =============================================================
+// Same-day booking cutoff (founder rule, 9 Oct 2026). Online booking
+// for a date closes one hour before that date opens — mirrors the
+// customer form so a crafted request can't slip a late booking past.
+// Pool is also Saturday-closed via its hours (no Saturday row → no
+// window → rejected here too).
+// =============================================================
+const BOOKING_CLOSE_LEAD_MIN = 60;
+
+function londonNowParts(now = new Date()): { iso: string; minutes: number } {
+  const parts = Object.fromEntries(
+    new Intl.DateTimeFormat("en-GB", {
+      timeZone: "Europe/London",
+      year: "numeric",
+      month: "2-digit",
+      day: "2-digit",
+      hour: "2-digit",
+      minute: "2-digit",
+      hour12: false,
+    })
+      .formatToParts(now)
+      .map((p) => [p.type, p.value]),
+  ) as Record<string, string>;
+  let hour = parseInt(parts.hour, 10);
+  if (hour === 24) hour = 0;
+  return {
+    iso: `${parts.year}-${parts.month}-${parts.day}`,
+    minutes: hour * 60 + parseInt(parts.minute, 10),
+  };
+}
+
+// Returns a customer-facing error string if online booking for `isoDate`
+// is closed (day fully closed, or within an hour of opening / in the
+// past), else null.
+async function bookingCutoffError(
+  productId: string,
+  isoDate: string,
+): Promise<string | null> {
+  let openMin: number | null = null;
+  const { data: ovr } = await db
+    .from("bookable_date_overrides")
+    .select("closed, open_time")
+    .eq("product_id", productId)
+    .eq("date", isoDate)
+    .maybeSingle();
+  if (ovr) {
+    if (ovr.closed) return "We're closed on that day — walk in and we'll sort you out.";
+    if (ovr.open_time) openMin = timeToMin(ovr.open_time);
+  }
+  if (openMin === null) {
+    const dow = dayOfWeekUtc(isoDate);
+    const { data: hours } = await db
+      .from("bookable_hours")
+      .select("open_time")
+      .eq("product_id", productId)
+      .eq("day_of_week", dow);
+    if (!hours || hours.length === 0) {
+      return "We don't take online bookings on that day — just walk in.";
+    }
+    openMin = Math.min(
+      ...(hours as { open_time: string }[]).map((h) => timeToMin(h.open_time)),
+    );
+  }
+  const { iso: todayIso, minutes: nowMin } = londonNowParts();
+  if (isoDate < todayIso) return "That date has passed.";
+  if (isoDate === todayIso && nowMin >= openMin - BOOKING_CLOSE_LEAD_MIN) {
+    return "Online booking for today has closed — we stop one hour before we open. Just walk in and grab a table at the bar.";
+  }
+  return null;
+}
+
+// =============================================================
 // Input validation — the body is whatever the customer's browser
 // posts, so we can't trust anything. Keep checks defensive but
 // permissive enough that a normal happy-path booking sails through.
@@ -267,6 +338,11 @@ Deno.serve(async (req) => {
       { status: 423 },
     );
   }
+
+  // Same-day cutoff: no online booking within an hour of opening (and
+  // no Saturday pool, via its hours). Blocks a crafted late request.
+  const cutoffErr = await bookingCutoffError("pool", input.reservation_date);
+  if (cutoffErr) return jsonResponse({ error: cutoffErr }, { status: 423 });
 
   // ────────────────────────────────────────────────────────────
   // Capacity check — reject if this booking would push the venue
