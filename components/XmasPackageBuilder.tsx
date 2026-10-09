@@ -44,16 +44,19 @@ const GAMES: Item[] = [
 const ALL_ITEMS = [...DRINKS, ...FOOD, ...GAMES];
 
 // Private-hire slots and their MINIMUM SPEND (not an extra fee — the
-// packages have to add up to at least this).
+// packages have to add up to at least this). The minimum depends on the
+// day + slot (founder schedule 9 Oct 2026): Mon–Wed 3-hour slots are
+// £3k; Thu/Fri evenings and all of Sat/Sun are £7k. Each slot names its
+// day so the customer self-selects and the minimum is unambiguous.
 const SLOTS = [
-  { id: "lunch", label: "12:00 – 3:00pm", min: 3000, note: "£3,000 minimum spend" },
-  { id: "afternoon", label: "3:30 – 6:30pm", min: 3000, note: "£3,000 minimum spend" },
-  {
-    id: "evening",
-    label: "7:00pm – 12:00am",
-    min: 6000,
-    note: "£6,000 minimum spend · free DJ all night",
-  },
+  { id: "mw-lunch", label: "Mon–Wed · 12:00–3:00pm", min: 3000, note: "£3,000 min spend · 3 hrs" },
+  { id: "mw-aft", label: "Mon–Wed · 3:30–6:30pm", min: 3000, note: "£3,000 min spend · 3 hrs" },
+  { id: "mw-eve", label: "Mon–Wed · 7:00–11:00pm", min: 4000, note: "£4,000 min spend · 4 hrs" },
+  { id: "thufri-eve", label: "Thu/Fri · 7:00pm–12:00am", min: 7000, note: "£7,000 min spend · free DJ" },
+  { id: "sat-day", label: "Saturday · 12:00–6:30pm", min: 7000, note: "£7,000 min spend" },
+  { id: "sat-eve", label: "Saturday · 7:00pm–12:00am", min: 7000, note: "£7,000 min spend · free DJ" },
+  { id: "sun-day", label: "Sunday · 12:00–6:00pm", min: 7000, note: "£7,000 min spend" },
+  { id: "sun-eve", label: "Sunday · 7:00pm–12:00am", min: 7000, note: "£7,000 min spend · free DJ" },
 ] as const;
 
 const MAX_DATES = 4;
