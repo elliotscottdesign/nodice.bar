@@ -3,7 +3,8 @@
 import Image from "next/image";
 import RollerDeck from "./RollerDeck";
 import ManageGalleryLink from "./ManageGalleryLink";
-import { useGallery } from "@/lib/content";
+import { Editable } from "./Editable";
+import { useGallery, useContent } from "@/lib/content";
 
 // =============================================================
 // MediaStrip — full-width, swipe-able image scroller
@@ -27,6 +28,8 @@ export default function MediaStrip({
   galleryKey,
   heading,
   intro,
+  headingKey,
+  introKey,
   blankCount = 6,
   blankLabel = "Photo coming soon",
   aspect = "16 / 10",
@@ -35,6 +38,11 @@ export default function MediaStrip({
   galleryKey: string;
   heading?: string;
   intro?: string;
+  /** Optional CMS keys — when set, the heading/intro become editable
+   *  in-place (Edit mode) like the rest of the site, with heading/intro
+   *  as the fallback text. */
+  headingKey?: string;
+  introKey?: string;
   /** How many placeholder tiles to show while the gallery is empty. */
   blankCount?: number;
   blankLabel?: string;
@@ -46,15 +54,35 @@ export default function MediaStrip({
   const images = useGallery(galleryKey, []);
   const hasImages = images.length > 0;
 
+  // Heading / intro can be plain props or CMS-backed (editable in place).
+  // useContent is called unconditionally with a no-op key when there's no
+  // CMS key, so hook order stays stable.
+  const headingCms = useContent(headingKey || "__none__", heading ?? "");
+  const introCms = useContent(introKey || "__none__", intro ?? "");
+  const headingText = headingKey ? headingCms : heading;
+  const introText = introKey ? introCms : intro;
+
   return (
     <section className={`w-full ${tint ?? ""}`}>
       <div className="py-10 sm:py-14">
-        {heading && (
-          <div className="mx-auto mb-6 max-w-6xl px-6">
-            <h2 className="font-display text-2xl text-cream sm:text-3xl">
-              {heading}
+        {(headingText || headingKey) && (
+          <div className="mx-auto mb-6 max-w-6xl px-6 text-center">
+            <h2 className="font-display text-2xl uppercase tracking-wider text-cream sm:text-3xl">
+              {headingKey ? (
+                <Editable k={headingKey}>{headingText}</Editable>
+              ) : (
+                headingText
+              )}
             </h2>
-            {intro && <p className="mt-2 text-sm text-cream/65">{intro}</p>}
+            {(introText || introKey) && (
+              <p className="mt-2 text-sm text-cream/65">
+                {introKey ? (
+                  <Editable k={introKey}>{introText}</Editable>
+                ) : (
+                  introText
+                )}
+              </p>
+            )}
           </div>
         )}
 

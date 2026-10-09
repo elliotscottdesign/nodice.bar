@@ -1,6 +1,7 @@
 import Link from "next/link";
 import type { Metadata } from "next";
 import MediaStrip from "@/components/MediaStrip";
+import EditableText from "@/components/EditableText";
 
 // Christmas 2026 — public corporate & party menu (nodice.bar/xmas). Reads the
 // SAME live doc the kitchen edits in the On A Roll back end (team.nodice.bar →
@@ -112,17 +113,25 @@ export default async function XmasPage() {
 
       {/* HERO */}
       <header className="relative flex min-h-[30vh] flex-col items-center justify-center px-6 pt-8 pb-14 text-center">
-        <p className="text-xs font-bold uppercase tracking-eyebrow text-nodiceRed">
-          No Dice · London Fields
-        </p>
-        <h1 className="mt-4 font-display text-5xl leading-tight sm:text-6xl">
-          Christmas at No Dice
-        </h1>
-        <p className="mx-auto mt-5 max-w-xl text-base text-cream/85 sm:text-lg">
-          Festive sharing menus and party packages for your Christmas do — corporate
-          or private, big group or small. Booze, games and proper food in the heart of
-          London Fields.
-        </p>
+        <EditableText
+          as="p"
+          k="xmas.hero_kicker"
+          fallback="No Dice · London Fields"
+          className="text-xs font-bold uppercase tracking-eyebrow text-nodiceRed"
+        />
+        <EditableText
+          as="h1"
+          k="xmas.hero_title"
+          fallback="Christmas at No Dice"
+          className="mt-4 font-display text-5xl uppercase leading-tight tracking-wider sm:text-6xl"
+        />
+        <EditableText
+          as="p"
+          multiline
+          k="xmas.hero_intro"
+          fallback="Festive sharing menus and party packages for your Christmas do — corporate or private, big group or small. Booze, games and proper food in the heart of London Fields."
+          className="mx-auto mt-5 max-w-xl text-base text-cream/85 sm:text-lg"
+        />
         <div className="mt-7 flex items-center gap-3 text-pongLight" aria-hidden>
           <span className="h-px w-10 bg-pong/60" />
           <span className="text-lg">❄</span>
@@ -136,6 +145,8 @@ export default async function XmasPage() {
         galleryKey="xmas.menu"
         heading="This year's festive menu"
         intro="A taste of what's on — swipe through."
+        headingKey="xmas.menu_heading"
+        introKey="xmas.menu_intro"
         blankLabel="Menu photo"
         aspect="4 / 3"
         blankCount={5}
@@ -145,7 +156,12 @@ export default async function XmasPage() {
         <div className="mx-auto max-w-3xl">
           {!hasContent ? (
             <div className="rounded-2xl border border-nodiceRed/40 bg-nodiceRed/10 p-8 text-center">
-              <h2 className="font-display text-2xl text-cream">Menus landing soon</h2>
+              <EditableText
+                as="h2"
+                k="xmas.empty_heading"
+                fallback="Menus landing soon"
+                className="font-display text-2xl uppercase tracking-wider text-cream"
+              />
               <p className="mt-3 text-sm leading-relaxed text-cream/80">
                 Our Christmas 2026 menus are being finalised. Email{" "}
                 <a className="font-semibold text-nodiceRed underline" href="mailto:hello@nodice.bar">
@@ -159,10 +175,18 @@ export default async function XmasPage() {
               {/* PACKAGES */}
               {packages.length > 0 && (
                 <div className="mb-14">
-                  <h2 className="font-display text-3xl text-cream sm:text-4xl">
-                    Party packages
-                  </h2>
-                  <p className="mt-2 text-sm text-cream/60">Per head · minimum numbers may apply</p>
+                  <EditableText
+                    as="h2"
+                    k="xmas.packages_heading"
+                    fallback="Party packages"
+                    className="font-display text-3xl uppercase tracking-wider text-cream sm:text-4xl"
+                  />
+                  <EditableText
+                    as="p"
+                    k="xmas.packages_sub"
+                    fallback="Per head · minimum numbers may apply"
+                    className="mt-2 text-sm text-cream/60"
+                  />
                   <div className="mt-6 grid gap-5 sm:grid-cols-2">
                     {packages.map((p) => (
                       <article
@@ -202,10 +226,18 @@ export default async function XmasPage() {
               {/* À LA CARTE */}
               {alacarte.length > 0 && (
                 <div>
-                  <h2 className="font-display text-3xl text-cream sm:text-4xl">By the item</h2>
-                  <p className="mt-2 text-sm text-cream/60">
-                    Build your own spread — price per head unless noted.
-                  </p>
+                  <EditableText
+                    as="h2"
+                    k="xmas.alacarte_heading"
+                    fallback="By the item"
+                    className="font-display text-3xl uppercase tracking-wider text-cream sm:text-4xl"
+                  />
+                  <EditableText
+                    as="p"
+                    k="xmas.alacarte_sub"
+                    fallback="Build your own spread — price per head unless noted."
+                    className="mt-2 text-sm text-cream/60"
+                  />
                   <div className="mt-6 space-y-3">
                     {alacarte.map((it) => (
                       <article key={it.name} className="rounded-2xl border border-white/10 p-5">
@@ -231,14 +263,19 @@ export default async function XmasPage() {
 
           {/* CTA */}
           <div className="mt-14 rounded-2xl border border-nodiceRed/40 bg-gradient-to-br from-nodiceRed/15 to-transparent p-7 text-center">
-            <h2 className="font-display text-2xl text-cream sm:text-3xl">
-              Planning a Christmas party?
-            </h2>
-            <p className="mx-auto mt-3 max-w-lg text-sm leading-relaxed text-cream/80">
-              Tell us your date, numbers and what you fancy and we&apos;ll put together the
-              perfect festive package. We host everything from team lunches to full venue
-              takeovers.
-            </p>
+            <EditableText
+              as="h2"
+              k="xmas.cta_heading"
+              fallback="Planning a Christmas party?"
+              className="font-display text-2xl uppercase tracking-wider text-cream sm:text-3xl"
+            />
+            <EditableText
+              as="p"
+              multiline
+              k="xmas.cta_body"
+              fallback="Tell us your date, numbers and what you fancy and we'll put together the perfect festive package. We host everything from team lunches to full venue takeovers."
+              className="mx-auto mt-3 max-w-lg text-sm leading-relaxed text-cream/80"
+            />
             <div className="mt-6 flex flex-wrap items-center justify-center gap-3">
               <a
                 href="mailto:hello@nodice.bar?subject=Christmas%20party%20enquiry"
@@ -256,10 +293,13 @@ export default async function XmasPage() {
           </div>
 
           {/* Allergies + back */}
-          <div className="mt-10 rounded-2xl border border-pong/30 bg-pong/[0.06] p-5 text-sm leading-relaxed text-pongLight">
-            <strong className="font-bold">Allergies?</strong> Just let our team know when you
-            book — we&apos;ll guide you to safe options.
-          </div>
+          <EditableText
+            as="div"
+            multiline
+            k="xmas.allergies_note"
+            fallback="Allergies? Just let our team know when you book — we'll guide you to safe options."
+            className="mt-10 rounded-2xl border border-pong/30 bg-pong/[0.06] p-5 text-sm leading-relaxed text-pongLight"
+          />
           <div className="mt-10 text-center">
             <Link
               href="/venue/hackney"
