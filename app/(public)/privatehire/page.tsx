@@ -239,7 +239,7 @@ export default function PrivateHirePage() {
   );
   const licencesTitle = useContent(
     "privatehire.hackney.licences_title",
-    "Licences",
+    "License & Documents",
   );
   const welcomesTitle = useContent(
     "privatehire.hackney.welcomes_title",
@@ -357,7 +357,25 @@ export default function PrivateHirePage() {
               ))}
             </div>
           </FactPanel>
+        </div>
 
+        {/* GAMES kit scroller — full width, under the Capacity section
+            (founder 9 Oct 2026). New privatehire.games gallery; blank
+            placeholders until the team uploads photos of the games kit. */}
+        <div className="-mx-6 my-4">
+          <MediaStrip
+            galleryKey="privatehire.games"
+            heading="Our games kit"
+            headingKey="privatehire.games_heading"
+            intro="Pool, ping pong, board games and more."
+            introKey="privatehire.games_intro"
+            blankLabel="Games photo"
+            aspect="16 / 9"
+            blankCount={6}
+          />
+        </div>
+
+        <div className="mx-auto max-w-6xl space-y-8">
           {/* Venue floorplan — transparent image sitting straight on the
               page, between capacity and features (founder 9 Oct 2026).
               Shrinks on phones (w-full) and caps on desktop. */}
@@ -415,11 +433,14 @@ export default function PrivateHirePage() {
           />
         </div>
 
+        {/* Xmas menu dropdown pill — sits directly under the festive
+            menu scroller (founder 9 Oct 2026). */}
+        <div className="mx-auto max-w-3xl">
+          <XmasMenuDropdown />
+        </div>
+
         <div className="mx-auto max-w-6xl space-y-8">
           <FactPanel title={cateringTitle} titleKey="privatehire.hackney.catering_title">
-            {/* Live Christmas menu from the On A Roll Xmas menu app
-                (founder 9 Oct 2026). */}
-            <XmasMenuDropdown />
             <div className="grid gap-x-10 gap-y-3 md:grid-cols-2">
               <ul className="space-y-3">
                 {cateringYes.map((c) => (
@@ -452,6 +473,19 @@ export default function PrivateHirePage() {
                 {licences}
               </Editable>
             </p>
+            {/* Gated corporate documents (code from the events team) —
+                moved into this section + renamed (founder 9 Oct 2026). */}
+            <a
+              href="/privatehire/documents"
+              className="mt-6 flex flex-wrap items-center justify-between gap-3 rounded-2xl border border-plonkTeal/40 bg-plonkTeal/10 px-5 py-4 transition hover:bg-plonkTeal/15"
+            >
+              <span className="font-display text-xl uppercase tracking-wider text-cream">
+                📄 Corporate documents — risk assessments &amp; fire plan
+              </span>
+              <span className="rounded-full bg-plonkTeal px-4 py-1.5 text-[11px] font-bold uppercase tracking-wider text-ink">
+                Access with code →
+              </span>
+            </a>
           </FactPanel>
 
           <FactPanel title={welcomesTitle} titleKey="privatehire.hackney.welcomes_title">
@@ -479,24 +513,6 @@ export default function PrivateHirePage() {
       </section>
 
       <BigEmailCta subject="Private Hire Enquiry — No Dice" />
-
-      {/* Corporate documents — gated (code from the events team).
-          Founder: sits at the BOTTOM of the page (moved 2026-09-08). */}
-      <div className="tint-forest-to-plumDeep px-6 pb-12 pt-4">
-        <div className="mx-auto max-w-4xl">
-          <a
-            href="/privatehire/documents"
-            className="flex flex-wrap items-center justify-between gap-3 rounded-2xl border border-plonkTeal/40 bg-plonkTeal/10 px-5 py-4 transition hover:bg-plonkTeal/15"
-          >
-            <span className="font-display text-xl uppercase tracking-wider text-cream">
-              📄 Corporate documents — risk assessments &amp; fire plan
-            </span>
-            <span className="rounded-full bg-plonkTeal px-4 py-1.5 text-[11px] font-bold uppercase tracking-wider text-ink">
-              Access with code →
-            </span>
-          </a>
-        </div>
-      </div>
     </main>
   );
 }
@@ -515,7 +531,7 @@ function FactPanel({
   return (
     <Reveal>
       <div className="rounded-3xl border border-plumLine/60 p-7 sm:p-9">
-        <h3 className="font-display text-2xl text-plonkYellow sm:text-3xl">
+        <h3 className="text-center font-display text-2xl text-plonkYellow sm:text-3xl">
           <Editable k={titleKey}>{title}</Editable>
         </h3>
         <div className="mt-6">{children}</div>

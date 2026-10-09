@@ -92,22 +92,24 @@ export default function XmasMenuDropdown() {
 
   return (
     <div className="mb-6">
-      <button
-        type="button"
-        onClick={toggle}
-        aria-expanded={open}
-        className="flex w-full items-center justify-between gap-3 rounded-2xl border border-nodiceRed/40 bg-nodiceRed/10 px-5 py-4 text-left transition hover:bg-nodiceRed/15"
-      >
-        <span className="font-display text-xl uppercase tracking-wider text-cream">
-          🎄 Click to explore Xmas menu 2026
-        </span>
-        <span
-          className={`text-nodiceRed transition-transform ${open ? "rotate-180" : ""}`}
-          aria-hidden
+      <div className="flex justify-center">
+        <button
+          type="button"
+          onClick={toggle}
+          aria-expanded={open}
+          className="inline-flex items-center gap-2 rounded-full border border-nodiceRed/40 bg-nodiceRed/10 px-5 py-2.5 transition hover:bg-nodiceRed/15"
         >
-          ▾
-        </span>
-      </button>
+          <span className="font-display text-base uppercase tracking-wider text-cream sm:text-lg">
+            🎄 Click to explore Xmas menu 2026 🎄
+          </span>
+          <span
+            className={`text-nodiceRed transition-transform ${open ? "rotate-180" : ""}`}
+            aria-hidden
+          >
+            ▾
+          </span>
+        </button>
+      </div>
 
       {open && (
         <div className="mt-3 rounded-2xl border border-cream/10 bg-white/[0.02] p-5">

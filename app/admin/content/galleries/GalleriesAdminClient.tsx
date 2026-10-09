@@ -188,6 +188,13 @@ const KNOWN_GALLERIES: {
     previewPath: "/deals",
   },
   {
+    key: "privatehire.games",
+    label: "Private hire — Games kit scroller",
+    description:
+      "Full-width scroller under the Capacity section on /privatehire. Upload photos of the games kit (pool, ping pong, board games, etc.). Shows blank placeholders until you add photos.",
+    previewPath: "/privatehire",
+  },
+  {
     key: "privatehire.floorplan",
     label: "Private hire — Venue floorplan",
     description:
