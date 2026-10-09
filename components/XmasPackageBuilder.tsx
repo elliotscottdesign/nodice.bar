@@ -553,6 +553,11 @@ export default function XmasPackageBuilder() {
         </label>
       </section>
 
+      <p className="rounded-xl border border-pong/30 bg-pong/[0.06] px-4 py-3 text-sm leading-relaxed text-pongLight">
+        When confirmed, a final food-ordering link will be sent to you — no need
+        for menu selections today.
+      </p>
+
       {error && (
         <p className="rounded-xl border border-red-400/30 bg-red-400/5 px-4 py-3 text-sm text-red-300">
           {error}
