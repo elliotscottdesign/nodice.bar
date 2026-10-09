@@ -188,6 +188,13 @@ const KNOWN_GALLERIES: {
     previewPath: "/deals",
   },
   {
+    key: "privatehire.floorplan",
+    label: "Private hire — Venue floorplan",
+    description:
+      "A single floorplan image shown between Capacity and Room Features on /privatehire. Transparent PNG works best — it sits straight on the page. Upload one; the newest is used.",
+    previewPath: "/privatehire",
+  },
+  {
     key: "parties.venue",
     label: "Parties — Venue scroller",
     description:

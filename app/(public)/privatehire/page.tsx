@@ -27,9 +27,11 @@ import {
 import PageHero from "@/components/PageHero";
 import MediaStrip from "@/components/MediaStrip";
 import RollerDeck from "@/components/RollerDeck";
+import ManageGalleryLink from "@/components/ManageGalleryLink";
+import { useEditMode } from "@/lib/editMode";
 import Reveal from "@/components/Reveal";
 import BigEmailCta from "@/components/BigEmailCta";
-import { useContent, useImage } from "@/lib/content";
+import { useContent, useImage, useGallery } from "@/lib/content";
 import { Editable } from "@/components/Editable";
 
 // Icon component shape shared by the lucide icons and our custom SVGs
@@ -246,6 +248,11 @@ export default function PrivateHirePage() {
     "privatehire.hackney.house_rules_title",
     "House rules",
   );
+  // Floorplan image — single CMS gallery so the team uploads/swaps it in
+  // the admin. Transparent PNG sits straight on the page; nothing shows
+  // on the live site until one is uploaded.
+  const floorplan = useGallery("privatehire.floorplan", []);
+  const editing = useEditMode();
 
   return (
     <main>
@@ -346,6 +353,30 @@ export default function PrivateHirePage() {
             </div>
           </FactPanel>
 
+          {/* Venue floorplan — transparent image sitting straight on the
+              page, between capacity and features (founder 9 Oct 2026).
+              Shrinks on phones (w-full) and caps on desktop. */}
+          {(floorplan.length > 0 || editing) && (
+            <div className="relative mx-auto max-w-3xl">
+              {floorplan.length > 0 ? (
+                // eslint-disable-next-line @next/next/no-img-element
+                <img
+                  src={floorplan[0].src}
+                  alt="No Dice Hackney venue floorplan"
+                  className="mx-auto block h-auto w-full"
+                />
+              ) : (
+                <div className="flex min-h-[160px] items-center justify-center rounded-2xl border border-dashed border-cream/20 text-sm text-cream/40">
+                  Floorplan — add an image
+                </div>
+              )}
+              <ManageGalleryLink
+                galleryKey="privatehire.floorplan"
+                label={floorplan.length ? "Change floorplan" : "Add floorplan"}
+              />
+            </div>
+          )}
+
           <FactPanel title={featuresTitle} titleKey="privatehire.hackney.features_title">
             <ul className="grid gap-x-6 gap-y-3 sm:grid-cols-2 lg:grid-cols-3">
               {features.map((f) => (
@@ -420,6 +451,20 @@ export default function PrivateHirePage() {
       </section>
 
       <BigEmailCta subject="Private Hire Enquiry — No Dice" />
+
+      {/* Xmas menu scroller — the SAME shared gallery + editable heading
+          as /xmas (galleryKey "xmas.menu"), so a photo or heading changed
+          in one place changes both (founder 9 Oct 2026). */}
+      <MediaStrip
+        galleryKey="xmas.menu"
+        heading="This year's festive menu"
+        intro="A taste of what's on — swipe through."
+        headingKey="xmas.menu_heading"
+        introKey="xmas.menu_intro"
+        blankLabel="Menu photo"
+        aspect="4 / 3"
+        blankCount={5}
+      />
 
       {/* Corporate documents — gated (code from the events team).
           Founder: sits at the BOTTOM of the page (moved 2026-09-08). */}
