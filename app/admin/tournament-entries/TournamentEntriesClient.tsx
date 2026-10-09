@@ -10,6 +10,7 @@ import {
   type TournamentEntryStatus,
 } from "@/lib/db/tournaments";
 import AddTournamentEntryForm from "@/components/admin/AddTournamentEntryForm";
+import BookingLockedTag from "@/components/admin/BookingLockedTag";
 
 // Admin view of all tournament_entries. Two main jobs:
 //   1. See who's paid — paid teams are the only thing that matters for
@@ -570,11 +571,15 @@ export default function TournamentEntriesClient() {
                       {formatDateTime(e.created_at)}
                     </td>
                     <td className="px-4 py-3 align-top">
-                      <span
-                        className={`inline-block rounded-full px-2.5 py-1 text-[10px] font-bold uppercase tracking-wider ${STATUS_COLOR[e.status]}`}
-                      >
-                        {STATUS_LABEL[e.status]}
-                      </span>
+                      {e.status === "paid" ? (
+                        <BookingLockedTag name={e.team_name} />
+                      ) : (
+                        <span
+                          className={`inline-block rounded-full px-2.5 py-1 text-[10px] font-bold uppercase tracking-wider ${STATUS_COLOR[e.status]}`}
+                        >
+                          {STATUS_LABEL[e.status]}
+                        </span>
+                      )}
                     </td>
                     <td className="px-4 py-3 align-top text-right">
                       {e.status === "paid" && (

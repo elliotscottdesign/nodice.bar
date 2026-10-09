@@ -7,6 +7,7 @@ import { loadBookings, type DbBookingRow } from "@/lib/db/bookings";
 import AddReservationForm from "@/components/admin/AddReservationForm";
 import AddTournamentEntryForm from "@/components/admin/AddTournamentEntryForm";
 import AddGolfBookingForm from "@/components/admin/AddGolfBookingForm";
+import BookingLockedTag from "@/components/admin/BookingLockedTag";
 import { loadAllTournaments, type DbTournament } from "@/lib/db/tournaments";
 
 // Founder-set hard capacities. Heatmap colour = max(bar%, golf%) so
@@ -520,7 +521,11 @@ export default function DayCalendarClient() {
                   <span className="min-w-[3.5rem] text-cream/85">
                     {b.time ?? "TBC"}
                   </span>
-                  <span className="text-cream">{b.name}</span>
+                  {b.status === "confirmed" || b.status === "paid" ? (
+                    <BookingLockedTag name={b.name} />
+                  ) : (
+                    <span className="text-cream">{b.name}</span>
+                  )}
                   {b.status === "pending" && (
                     <span className="rounded-full bg-amber-400/15 px-2 py-0.5 text-[10px] font-bold uppercase tracking-[0.18em] text-amber-300">
                       pending

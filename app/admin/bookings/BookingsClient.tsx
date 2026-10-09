@@ -5,6 +5,7 @@ import Link from "next/link";
 import AdminPageHeader from "@/components/admin/AdminPageHeader";
 import { AdminCard } from "@/components/admin/AdminCard";
 import AddGolfBookingForm from "@/components/admin/AddGolfBookingForm";
+import BookingLockedTag from "@/components/admin/BookingLockedTag";
 import { fmtMoney } from "@/lib/format";
 import {
   loadBookings,
@@ -288,7 +289,11 @@ export default function BookingsClient() {
                       <td className="px-5 py-3 text-cream/85">{b.party_size}</td>
                       <td className="px-5 py-3 font-medium">{fmtMoney(b.total_pence)}</td>
                       <td className="px-5 py-3">
-                        <StatusPill status={b.status} />
+                        {b.status === "confirmed" ? (
+                          <BookingLockedTag name={b.customer_name} />
+                        ) : (
+                          <StatusPill status={b.status} />
+                        )}
                       </td>
                     </tr>
                   );
