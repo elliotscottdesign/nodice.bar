@@ -137,17 +137,9 @@ export default function XmasMenuDropdown() {
               <div className="mt-3 space-y-3">
                 {packages.map((p) => (
                   <div key={p.name} className="rounded-xl border border-pong/30 bg-pong/[0.04] p-4">
-                    <div className="flex items-baseline justify-between gap-3">
-                      <span className="font-display text-lg uppercase tracking-wider text-cream">
-                        {p.name}
-                      </span>
-                      <span className="whitespace-nowrap font-display text-lg text-nodiceRed">
-                        {gbp(p.pricePerHead)}
-                        <span className="ml-1 text-[10px] font-normal uppercase tracking-wider text-cream/50">
-                          /head
-                        </span>
-                      </span>
-                    </div>
+                    <span className="font-display text-lg uppercase tracking-wider text-cream">
+                      {p.name}
+                    </span>
                     {p.blurb && <p className="mt-1.5 text-sm text-cream/70">{p.blurb}</p>}
                     {p.items.length > 0 && (
                       <p className="mt-2 text-xs text-pongLight">{p.items.join(" · ")}</p>
@@ -165,17 +157,9 @@ export default function XmasMenuDropdown() {
               </h4>
               <div className="mt-3 space-y-2">
                 {alacarte.map((it) => (
-                  <div key={it.name} className="flex items-baseline justify-between gap-4 border-b border-cream/5 pb-2">
-                    <div>
-                      <span className="text-sm text-cream/90">{it.name}</span>
-                      {it.desc && <span className="ml-2 text-xs text-cream/50">{it.desc}</span>}
-                    </div>
-                    <span className="whitespace-nowrap text-sm text-nodiceRed">
-                      {gbp(it.sell)}
-                      <span className="ml-1 text-[10px] uppercase tracking-wider text-cream/45">
-                        {it.board ? "share" : "/head"}
-                      </span>
-                    </span>
+                  <div key={it.name} className="border-b border-cream/5 pb-2">
+                    <span className="text-sm text-cream/90">{it.name}</span>
+                    {it.desc && <span className="ml-2 text-xs text-cream/50">{it.desc}</span>}
                   </div>
                 ))}
               </div>
