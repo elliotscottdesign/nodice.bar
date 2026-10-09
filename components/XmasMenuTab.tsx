@@ -109,17 +109,9 @@ export default function XmasMenuTab() {
               <div className="mt-5 grid gap-4 sm:grid-cols-2">
                 {packages.map((p) => (
                   <div key={p.name} className="rounded-2xl border border-pong/40 bg-pong/[0.04] p-5">
-                    <div className="flex items-baseline justify-between gap-3">
-                      <span className="font-display text-xl uppercase tracking-wider text-cream">
-                        {p.name}
-                      </span>
-                      <span className="whitespace-nowrap font-display text-xl text-nodiceRed">
-                        {gbp(p.pricePerHead)}
-                        <span className="ml-1 text-[10px] font-normal uppercase tracking-wider text-cream/50">
-                          /head
-                        </span>
-                      </span>
-                    </div>
+                    <span className="font-display text-xl uppercase tracking-wider text-cream">
+                      {p.name}
+                    </span>
                     {p.blurb && <p className="mt-2 text-sm text-cream/70">{p.blurb}</p>}
                     {p.items.length > 0 && (
                       <p className="mt-3 text-xs text-pongLight">{p.items.join(" · ")}</p>
@@ -139,17 +131,9 @@ export default function XmasMenuTab() {
               <p className="mt-2 text-sm text-cream/60">Build your own spread.</p>
               <div className="mt-5 space-y-3">
                 {alacarte.map((it) => (
-                  <div key={it.name} className="flex items-baseline justify-between gap-4 border-b border-cream/10 pb-3">
-                    <div>
-                      <span className="text-sm text-cream/90">{it.name}</span>
-                      {it.desc && <span className="ml-2 text-xs text-cream/50">{it.desc}</span>}
-                    </div>
-                    <span className="whitespace-nowrap text-sm text-nodiceRed">
-                      {gbp(it.sell)}
-                      <span className="ml-1 text-[10px] uppercase tracking-wider text-cream/45">
-                        {it.board ? "share" : "/head"}
-                      </span>
-                    </span>
+                  <div key={it.name} className="border-b border-cream/10 pb-3">
+                    <span className="text-sm text-cream/90">{it.name}</span>
+                    {it.desc && <span className="ml-2 text-xs text-cream/50">{it.desc}</span>}
                   </div>
                 ))}
               </div>
