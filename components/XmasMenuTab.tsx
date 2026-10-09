@@ -3,6 +3,7 @@
 import { useEffect, useState } from "react";
 import MediaStrip from "./MediaStrip";
 import AllergenMatrix from "./AllergenMatrix";
+import EditableText from "./EditableText";
 
 // =============================================================
 // XmasMenuTab — the "Xmas menu" view on /privatehire
@@ -125,10 +126,18 @@ export default function XmasMenuTab() {
           {/* À la carte */}
           {alacarte.length > 0 && (
             <div>
-              <h3 className="font-display text-3xl uppercase tracking-wider text-cream sm:text-4xl">
-                By the item
-              </h3>
-              <p className="mt-2 text-sm text-cream/60">Build your own spread.</p>
+              <EditableText
+                as="h3"
+                k="xmas.menutab.alacarte_heading"
+                fallback="Christmessy menu"
+                className="font-display text-3xl uppercase tracking-wider text-cream sm:text-4xl"
+              />
+              <EditableText
+                as="p"
+                k="xmas.menutab.alacarte_sub"
+                fallback="Build your own spread."
+                className="mt-2 text-sm text-cream/60"
+              />
               <div className="mt-5 space-y-3">
                 {alacarte.map((it) => (
                   <div key={it.name} className="border-b border-cream/10 pb-3">
