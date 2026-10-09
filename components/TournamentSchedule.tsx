@@ -73,6 +73,44 @@ function formatFee(pence: number): string {
   return `£${(pence / 100).toFixed(2)}`;
 }
 
+// Online entry closes 30 min before a tournament starts (founder rule
+// 9 Oct 2026) — mirrored server-side in tournament-checkout. After that
+// the card shows "Closed for bookings" and offers walk-up at the bar.
+const TOURNAMENT_CLOSE_LEAD_MIN = 30;
+
+function londonNowParts(now = new Date()): { iso: string; minutes: number } {
+  const parts = Object.fromEntries(
+    new Intl.DateTimeFormat("en-GB", {
+      timeZone: "Europe/London",
+      year: "numeric",
+      month: "2-digit",
+      day: "2-digit",
+      hour: "2-digit",
+      minute: "2-digit",
+      hour12: false,
+    })
+      .formatToParts(now)
+      .map((p) => [p.type, p.value]),
+  ) as Record<string, string>;
+  let hour = parseInt(parts.hour, 10);
+  if (hour === 24) hour = 0;
+  return {
+    iso: `${parts.year}-${parts.month}-${parts.day}`,
+    minutes: hour * 60 + parseInt(parts.minute, 10),
+  };
+}
+
+function entriesClosed(eventDate: string, startTime: string | null): boolean {
+  const { iso, minutes } = londonNowParts();
+  if (eventDate < iso) return true;
+  if (eventDate === iso && startTime) {
+    const [h, m] = startTime.split(":").map(Number);
+    const startMin = h * 60 + (m || 0);
+    return minutes >= startMin - TOURNAMENT_CLOSE_LEAD_MIN;
+  }
+  return false;
+}
+
 export default function TournamentSchedule() {
   const [all, setAll] = useState<DbTournament[]>([]);
   const [loading, setLoading] = useState(true);
@@ -297,6 +335,10 @@ export default function TournamentSchedule() {
                     t.max_teams - t.paid_entries_count,
                   );
                   const isSoldOut = spotsLeft <= 0;
+                  // Entries closed: within 30 min of start (or past). Takes
+                  // precedence over "spots left" — sold-out still wins.
+                  const closed = !isSoldOut && entriesClosed(t.event_date, t.start_time);
+                  const blocked = isSoldOut || closed;
 
                   // Compact card width — fits ~1.3 cards on mobile so
                   // the next one peeks in (signals scrollability),
@@ -334,12 +376,12 @@ export default function TournamentSchedule() {
                       key={t.id}
                       type="button"
                       onClick={() =>
-                        !isSoldOut &&
+                        !blocked &&
                         setExpandedId(isExpanded ? null : t.id)
                       }
-                      disabled={isSoldOut}
+                      disabled={blocked}
                       className={`${baseCardCls} ${
-                        isSoldOut
+                        blocked
                           ? "cursor-not-allowed border-cream/10 bg-ink/20 opacity-60"
                           : isExpanded
                             ? "border-violet-400 bg-violet-500/15 ring-1 ring-violet-400/30"
@@ -371,7 +413,7 @@ export default function TournamentSchedule() {
                         <div className="h-1 w-full overflow-hidden rounded-full bg-cream/10">
                           <div
                             className={`h-full transition-all ${
-                              isSoldOut
+                              blocked
                                 ? "bg-cream/20"
                                 : spotsLeft <= 2
                                   ? "bg-plonkPink"
@@ -387,16 +429,18 @@ export default function TournamentSchedule() {
                         <div className="mt-1.5 text-[10px] uppercase tracking-widest text-cream/45">
                           {isSoldOut
                             ? `${t.max_teams} / ${t.max_teams} taken`
-                            : spotsLeft === 1
-                              ? "Last spot"
-                              : `${spotsLeft} of ${t.max_teams} left`}
+                            : closed
+                              ? "Entries closed"
+                              : spotsLeft === 1
+                                ? "Last spot"
+                                : `${spotsLeft} of ${t.max_teams} left`}
                         </div>
                       </div>
 
                       {/* CTA pill */}
                       <div
                         className={`mt-5 inline-block rounded-full px-4 py-2 text-[11px] font-bold uppercase tracking-widest ${
-                          isSoldOut
+                          blocked
                             ? "border border-cream/15 text-cream/50"
                             : isExpanded
                               ? "bg-cream/10 text-cream"
@@ -405,10 +449,17 @@ export default function TournamentSchedule() {
                       >
                         {isSoldOut
                           ? "Sold out"
-                          : isExpanded
-                            ? "Selected"
-                            : "Sign up →"}
+                          : closed
+                            ? "Closed for bookings"
+                            : isExpanded
+                              ? "Selected"
+                              : "Sign up →"}
                       </div>
+                      {closed && (
+                        <p className="mt-2 text-[10px] leading-snug text-cream/45">
+                          Some walk-up slots may be available at the bar.
+                        </p>
+                      )}
                     </button>
                   );
                 })}
