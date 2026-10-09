@@ -1,5 +1,6 @@
 "use client";
 
+import { useEffect, useRef, useState } from "react";
 import {
   Cake,
   Gift,
@@ -28,7 +29,8 @@ import PageHero from "@/components/PageHero";
 import MediaStrip from "@/components/MediaStrip";
 import RollerDeck from "@/components/RollerDeck";
 import ManageGalleryLink from "@/components/ManageGalleryLink";
-import XmasMenuDropdown from "@/components/XmasMenuDropdown";
+import XmasMenuTab from "@/components/XmasMenuTab";
+import XmasPackageBuilder from "@/components/XmasPackageBuilder";
 import { useEditMode } from "@/lib/editMode";
 import Reveal from "@/components/Reveal";
 import BigEmailCta from "@/components/BigEmailCta";
@@ -255,6 +257,39 @@ export default function PrivateHirePage() {
   const floorplan = useGallery("privatehire.floorplan", []);
   const editing = useEditMode();
 
+  // Three sticky sub-tabs (founder 9 Oct 2026). All panels stay MOUNTED
+  // (toggled with `hidden`), so the package builder keeps its dates,
+  // selections and details when you switch away and back.
+  const TABS = [
+    { id: "venue" as const, label: "Venue details" },
+    { id: "menu" as const, label: "Xmas menu" },
+    { id: "builder" as const, label: "Package builder" },
+  ];
+  type TabId = (typeof TABS)[number]["id"];
+  const [activeTab, setActiveTab] = useState<TabId>("venue");
+  const tabsRef = useRef<HTMLDivElement | null>(null);
+
+  // Deep-link + back-button support via the URL hash (#menu / #builder).
+  useEffect(() => {
+    const fromHash = () => {
+      const h = window.location.hash.replace("#", "");
+      if (h === "venue" || h === "menu" || h === "builder") setActiveTab(h);
+    };
+    fromHash();
+    window.addEventListener("hashchange", fromHash);
+    return () => window.removeEventListener("hashchange", fromHash);
+  }, []);
+
+  function selectTab(id: TabId) {
+    setActiveTab(id);
+    if (typeof window !== "undefined") {
+      history.replaceState(null, "", `#${id}`);
+      requestAnimationFrame(() =>
+        tabsRef.current?.scrollIntoView({ behavior: "smooth", block: "start" }),
+      );
+    }
+  }
+
   return (
     <main>
       <PageHero
@@ -269,6 +304,31 @@ export default function PrivateHirePage() {
         sliderKey="hero.privatehire.hackney"
       />
 
+      {/* Sticky sub-tabs — pinned below the site header as you scroll. */}
+      <div
+        ref={tabsRef}
+        className="sticky top-[60px] z-40 scroll-mt-[60px] border-y border-cream/10 bg-black/95 backdrop-blur sm:top-[68px] sm:scroll-mt-[68px]"
+      >
+        <div className="mx-auto flex max-w-4xl">
+          {TABS.map((t) => (
+            <button
+              key={t.id}
+              type="button"
+              onClick={() => selectTab(t.id)}
+              className={`flex-1 border-b-2 px-2 py-4 text-[11px] font-bold uppercase tracking-wider transition sm:text-sm ${
+                activeTab === t.id
+                  ? "border-nodiceRed text-cream"
+                  : "border-transparent text-cream/55 hover:text-cream/85"
+              }`}
+            >
+              {t.label}
+            </button>
+          ))}
+        </div>
+      </div>
+
+      {/* ═══════════ VENUE DETAILS ═══════════ */}
+      <div hidden={activeTab !== "venue"}>
       {/* VENUE scroller — full-width, shared `parties.venue` gallery
           (same photos as /xmas). Blank placeholders until the team
           uploads shots of the space in the galleries admin. */}
@@ -415,30 +475,6 @@ export default function PrivateHirePage() {
           </FactPanel>
         </div>
 
-        {/* Festive menu scroller — FULL page width (founder 9 Oct 2026):
-            lifted out of the max-w-6xl column; -mx-6 cancels the section
-            padding so it spans the page like the venue scroller. Sits just
-            above the Catering header. SAME shared gallery + heading as
-            /xmas (galleryKey "xmas.menu"), so a change in one updates both. */}
-        <div className="-mx-6 my-4">
-          <MediaStrip
-            galleryKey="xmas.menu"
-            heading="This year's festive menu"
-            intro="A taste of what's on — swipe through."
-            headingKey="xmas.menu_heading"
-            introKey="xmas.menu_intro"
-            blankLabel="Menu photo"
-            aspect="4 / 3"
-            blankCount={5}
-          />
-        </div>
-
-        {/* Xmas menu dropdown pill — sits directly under the festive
-            menu scroller (founder 9 Oct 2026). */}
-        <div className="mx-auto max-w-3xl">
-          <XmasMenuDropdown />
-        </div>
-
         <div className="mx-auto max-w-6xl space-y-8">
           <FactPanel title={cateringTitle} titleKey="privatehire.hackney.catering_title">
             {/* Ticks flow across 2 columns so the section isn't a tall
@@ -518,6 +554,21 @@ export default function PrivateHirePage() {
       </section>
 
       <BigEmailCta subject="Private Hire Enquiry — No Dice" />
+      </div>
+
+      {/* ═══════════ XMAS MENU ═══════════ */}
+      <div hidden={activeTab !== "menu"}>
+        <XmasMenuTab />
+      </div>
+
+      {/* ═══════════ PACKAGE BUILDER ═══════════ */}
+      <div hidden={activeTab !== "builder"}>
+        <section className="px-6 py-10">
+          <div className="mx-auto max-w-3xl">
+            <XmasPackageBuilder />
+          </div>
+        </section>
+      </div>
     </main>
   );
 }
