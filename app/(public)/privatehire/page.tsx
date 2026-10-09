@@ -254,7 +254,14 @@ export default function PrivateHirePage() {
   // Floorplan image — single CMS gallery so the team uploads/swaps it in
   // the admin. Transparent PNG sits straight on the page; nothing shows
   // on the live site until one is uploaded.
-  const floorplan = useGallery("privatehire.floorplan", []);
+  // Default to the floorplan the founder uploaded (9 Oct 2026). Still
+  // overridable via the privatehire.floorplan gallery in the admin.
+  const floorplan = useGallery("privatehire.floorplan", [
+    {
+      src: "https://rntcujcpsozvuxvmlejv.supabase.co/storage/v1/object/public/media/library/1791563582090-neon-cad-venue-floor-plan.png",
+      alt: "No Dice Hackney venue floorplan",
+    },
+  ]);
   const editing = useEditMode();
 
   // Three sticky sub-tabs (founder 9 Oct 2026). All panels stay MOUNTED
