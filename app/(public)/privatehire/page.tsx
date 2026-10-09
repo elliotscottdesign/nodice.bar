@@ -314,18 +314,18 @@ export default function PrivateHirePage() {
       {/* Sticky sub-tabs — pinned below the site header as you scroll. */}
       <div
         ref={tabsRef}
-        className="sticky top-[60px] z-40 scroll-mt-[60px] border-y border-cream/10 bg-black/95 backdrop-blur sm:top-[68px] sm:scroll-mt-[68px]"
+        className="sticky top-[60px] z-40 scroll-mt-[60px] border-y border-cream/15 bg-black sm:top-[68px] sm:scroll-mt-[68px]"
       >
-        <div className="mx-auto flex max-w-4xl">
+        <div className="mx-auto flex max-w-4xl gap-1 p-1 sm:gap-2 sm:p-2">
           {TABS.map((t) => (
             <button
               key={t.id}
               type="button"
               onClick={() => selectTab(t.id)}
-              className={`flex-1 border-b-2 px-2 py-4 text-[11px] font-bold uppercase tracking-wider transition sm:text-sm ${
+              className={`flex-1 rounded-xl px-2 py-3.5 text-xs font-bold uppercase tracking-wider transition sm:text-base ${
                 activeTab === t.id
-                  ? "border-nodiceRed text-cream"
-                  : "border-transparent text-cream/55 hover:text-cream/85"
+                  ? "bg-nodiceRed text-white shadow-lg shadow-nodiceRed/30"
+                  : "bg-white/[0.04] text-cream/65 hover:bg-white/10 hover:text-cream"
               }`}
             >
               {t.label}

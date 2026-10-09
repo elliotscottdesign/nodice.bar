@@ -23,22 +23,30 @@ const SUPABASE_URL =
 const SUPABASE_ANON_KEY = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY ?? "";
 const ENQUIRY_FN_URL = `${SUPABASE_URL}/functions/v1/xmas-enquiry`;
 
-type Item = { id: string; name: string; price: number; exclusive?: boolean };
+type Item = {
+  id: string;
+  name: string;
+  price: number;
+  exclusive?: boolean;
+  desc?: string;
+  // Quantity items let the guest pick how many per head (e.g. drinks).
+  qty?: boolean;
+};
 
 const DRINKS: Item[] = [
-  { id: "house_drink", name: "House drink", price: 8 },
-  { id: "xmas_cocktail", name: "Xmas cocktail", price: 12 },
+  { id: "house_drink", name: "House drink", price: 8, qty: true, desc: "Pick how many per head" },
+  { id: "xmas_cocktail", name: "Xmas cocktail", price: 12, qty: true, desc: "Pick how many per head" },
   { id: "open_bar", name: "Open Bar — house drinks", price: 70, exclusive: true },
 ];
 const FOOD: Item[] = [
   { id: "main", name: "Main", price: 12 },
-  { id: "sides", name: "Sides", price: 5 },
+  { id: "sides", name: "Sides", price: 6 },
   { id: "sharer", name: "Xmas sharer menu", price: 40 },
   { id: "open_buffet", name: "Bottomless Xmas buffet", price: 70, exclusive: true },
 ];
 const GAMES: Item[] = [
-  { id: "gaming_pack", name: "Gaming pack", price: 12 },
-  { id: "bingo", name: "Bingo", price: 5 },
+  { id: "gaming_pack", name: "Gaming pack", price: 12, desc: "Golf · tokens · pool · darts · ping pong" },
+  { id: "bingo", name: "Bingo", price: 5, desc: "5 cards per person, across the event" },
   { id: "treasure_hunt", name: "Xmas treasure hunt", price: 10 },
 ];
 const ALL_ITEMS = [...DRINKS, ...FOOD, ...GAMES];
@@ -53,9 +61,9 @@ const SLOTS = [
   { id: "mw-aft", label: "Mon–Wed · 3:30–6:30pm", min: 3000, note: "£3,000 min spend · 3 hrs" },
   { id: "mw-eve", label: "Mon–Wed · 7:00–11:00pm", min: 4000, note: "£4,000 min spend · 4 hrs" },
   { id: "thufri-eve", label: "Thu/Fri · 7:00pm–12:00am", min: 7000, note: "£7,000 min spend · free DJ" },
-  { id: "sat-day", label: "Saturday · 12:00–6:30pm", min: 7000, note: "£7,000 min spend" },
+  { id: "sat-day", label: "Saturday · 12:00–6:30pm", min: 7000, note: "£7,000 min spend · free DJ" },
   { id: "sat-eve", label: "Saturday · 7:00pm–12:00am", min: 7000, note: "£7,000 min spend · free DJ" },
-  { id: "sun-day", label: "Sunday · 12:00–6:00pm", min: 7000, note: "£7,000 min spend" },
+  { id: "sun-day", label: "Sunday · 12:00–6:00pm", min: 7000, note: "£7,000 min spend · free DJ" },
   { id: "sun-eve", label: "Sunday · 7:00pm–12:00am", min: 7000, note: "£7,000 min spend · free DJ" },
 ] as const;
 
@@ -91,6 +99,11 @@ export default function XmasPackageBuilder() {
   const [privateHire, setPrivateHire] = useState(false);
   const [slot, setSlot] = useState<string>("");
   const [selected, setSelected] = useState<Set<string>>(new Set());
+  // Per-head quantity for drink items (house drink + cocktail).
+  const [qty, setQty] = useState<Record<string, number>>({
+    house_drink: 0,
+    xmas_cocktail: 0,
+  });
   const [headcount, setHeadcount] = useState("");
   const [name, setName] = useState("");
   const [email, setEmail] = useState("");
@@ -114,6 +127,7 @@ export default function XmasPackageBuilder() {
 
   function toggleItem(group: Item[], id: string) {
     const item = group.find((i) => i.id === id)!;
+    const willSelect = !selected.has(id);
     setSelected((prev) => {
       const next = new Set(prev);
       if (next.has(id)) {
@@ -128,6 +142,32 @@ export default function XmasPackageBuilder() {
       next.add(id);
       return next;
     });
+    // An exclusive pick (Open Bar) also clears the group's per-head drink
+    // quantities.
+    if (item.exclusive && willSelect) {
+      const qtyIds = group.filter((g) => g.qty).map((g) => g.id);
+      if (qtyIds.length) {
+        setQty((q) => {
+          const nq = { ...q };
+          for (const qid of qtyIds) nq[qid] = 0;
+          return nq;
+        });
+      }
+    }
+  }
+
+  // Step a drink quantity up/down. Adding a drink clears Open Bar (they're
+  // exclusive within Drinks).
+  function changeQty(id: string, delta: number) {
+    setQty((prev) => ({ ...prev, [id]: Math.max(0, (prev[id] || 0) + delta) }));
+    if (delta > 0) {
+      setSelected((prev) => {
+        if (!prev.has("open_bar")) return prev;
+        const n = new Set(prev);
+        n.delete("open_bar");
+        return n;
+      });
+    }
   }
 
   function onHeadcountChange(v: string) {
@@ -142,11 +182,14 @@ export default function XmasPackageBuilder() {
   const openBuffet = selected.has("open_buffet");
 
   const heads = Math.max(0, parseInt(headcount || "0", 10) || 0);
-  const perHead = useMemo(
-    () =>
-      ALL_ITEMS.filter((i) => selected.has(i.id)).reduce((s, i) => s + i.price, 0),
-    [selected],
-  );
+  const perHead = useMemo(() => {
+    let sum = 0;
+    for (const i of ALL_ITEMS) {
+      if (i.qty) sum += i.price * (qty[i.id] || 0);
+      else if (selected.has(i.id)) sum += i.price;
+    }
+    return sum;
+  }, [selected, qty]);
   const packageTotal = perHead * heads;
 
   const chosenSlot = privateHire ? SLOTS.find((s) => s.id === slot) : undefined;
@@ -170,10 +213,17 @@ export default function XmasPackageBuilder() {
       slot: chosenSlot ? chosenSlot.label : null,
       min_spend: privateHire ? minSpend : 0,
       headcount: heads,
-      items: ALL_ITEMS.filter((i) => selected.has(i.id)).map((i) => ({
-        name: i.name,
-        price_per_head: i.price,
-      })),
+      items: [
+        // Quantity drinks (× per head), then the toggled items.
+        ...ALL_ITEMS.filter((i) => i.qty && (qty[i.id] || 0) > 0).map((i) => ({
+          name: `${i.name} × ${qty[i.id]}`,
+          price_per_head: i.price * (qty[i.id] || 0),
+        })),
+        ...ALL_ITEMS.filter((i) => !i.qty && selected.has(i.id)).map((i) => ({
+          name: i.name,
+          price_per_head: i.price,
+        })),
+      ],
       package_per_head: perHead,
       package_total: packageTotal,
       name: name.trim(),
@@ -387,8 +437,10 @@ export default function XmasPackageBuilder() {
             label="Drinks"
             items={DRINKS}
             selected={selected}
-            disabledIds={openBar ? DRINKS.filter((i) => !i.exclusive).map((i) => i.id) : []}
+            disabledIds={openBar ? DRINKS.filter((i) => i.qty).map((i) => i.id) : []}
             onToggle={(id) => toggleItem(DRINKS, id)}
+            qty={qty}
+            onQty={changeQty}
           />
           <ItemGroup
             label="Food"
@@ -541,12 +593,16 @@ function ItemGroup({
   selected,
   disabledIds,
   onToggle,
+  qty,
+  onQty,
 }: {
   label: string;
   items: Item[];
   selected: Set<string>;
   disabledIds: string[];
   onToggle: (id: string) => void;
+  qty?: Record<string, number>;
+  onQty?: (id: string, delta: number) => void;
 }) {
   return (
     <div>
@@ -555,8 +611,57 @@ function ItemGroup({
       </div>
       <div className="mt-2 grid gap-2 sm:grid-cols-2">
         {items.map((i) => {
-          const isSel = selected.has(i.id);
           const isDisabled = disabledIds.includes(i.id);
+
+          // Quantity item → stepper (how many per head).
+          if (i.qty && qty && onQty) {
+            const n = qty[i.id] || 0;
+            const active = n > 0 && !isDisabled;
+            return (
+              <div
+                key={i.id}
+                className={`flex items-center justify-between gap-3 rounded-2xl border px-4 py-3 ${
+                  active
+                    ? "border-nodiceRed bg-nodiceRed/10"
+                    : isDisabled
+                      ? "border-cream/5 bg-white/[0.01] opacity-40"
+                      : "border-cream/10 bg-white/[0.02]"
+                }`}
+              >
+                <span className="min-w-0">
+                  <span className="block text-sm text-cream/90">{i.name}</span>
+                  {i.desc && (
+                    <span className="block text-[11px] text-cream/45">{i.desc}</span>
+                  )}
+                  <span className="text-[11px] text-cream/50">£{i.price}/head each</span>
+                </span>
+                <span className="flex shrink-0 items-center gap-2">
+                  <button
+                    type="button"
+                    aria-label={`One fewer ${i.name}`}
+                    disabled={isDisabled || n === 0}
+                    onClick={() => onQty(i.id, -1)}
+                    className="flex h-7 w-7 items-center justify-center rounded-full border border-cream/25 text-lg text-cream transition hover:border-cream/50 disabled:opacity-30"
+                  >
+                    −
+                  </button>
+                  <span className="w-5 text-center font-display text-lg text-cream">{n}</span>
+                  <button
+                    type="button"
+                    aria-label={`One more ${i.name}`}
+                    disabled={isDisabled}
+                    onClick={() => onQty(i.id, 1)}
+                    className="flex h-7 w-7 items-center justify-center rounded-full border border-cream/25 text-lg text-cream transition hover:border-cream/50 disabled:opacity-30"
+                  >
+                    +
+                  </button>
+                </span>
+              </div>
+            );
+          }
+
+          // Toggle item.
+          const isSel = selected.has(i.id);
           return (
             <button
               key={i.id}
@@ -571,9 +676,9 @@ function ItemGroup({
                     : "border-cream/10 bg-white/[0.02] hover:border-cream/30"
               }`}
             >
-              <span className="flex items-center gap-2.5 text-sm text-cream/90">
+              <span className="flex items-start gap-2.5 text-sm text-cream/90">
                 <span
-                  className={`flex h-5 w-5 items-center justify-center rounded-md border text-[11px] ${
+                  className={`mt-0.5 flex h-5 w-5 shrink-0 items-center justify-center rounded-md border text-[11px] ${
                     isSel
                       ? "border-nodiceRed bg-nodiceRed text-white"
                       : "border-cream/25 text-transparent"
@@ -582,12 +687,19 @@ function ItemGroup({
                 >
                   ✓
                 </span>
-                {i.name}
-                {i.exclusive && (
-                  <span className="rounded-full bg-pong/15 px-2 py-0.5 text-[9px] font-bold uppercase tracking-wider text-pongLight">
-                    all-in
+                <span className="min-w-0">
+                  <span className="flex flex-wrap items-center gap-2">
+                    {i.name}
+                    {i.exclusive && (
+                      <span className="rounded-full bg-pong/15 px-2 py-0.5 text-[9px] font-bold uppercase tracking-wider text-pongLight">
+                        all-in
+                      </span>
+                    )}
                   </span>
-                )}
+                  {i.desc && (
+                    <span className="block text-[11px] text-cream/45">{i.desc}</span>
+                  )}
+                </span>
               </span>
               <span className="whitespace-nowrap font-display text-lg text-nodiceRed">
                 £{i.price}
