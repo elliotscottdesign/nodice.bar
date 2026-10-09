@@ -7,6 +7,7 @@ import {
   availableSlotsForDate,
   effectiveOpenWindows,
   isDateBookable,
+  bookingCutoffPassed,
   recurringClosedDaysOfWeek,
   DAY_NAMES,
   type BookableProductConfig,
@@ -253,12 +254,18 @@ function TableBookingPageInner() {
   const blockedFromBooking =
     !!blockingEvent && (slotCutoffMin === null || slots.length === 0);
 
-  const closed = cfg ? !isDateBookable(cfg, date) : false;
+  // Same-day cutoff: online table booking stops one hour before we open
+  // (founder rule 9 Oct 2026). Past that, the day is closed online — walk in.
+  const cutoffPassed = cfg ? bookingCutoffPassed(cfg, date) : false;
+  const dayOpen = cfg ? isDateBookable(cfg, date) : false;
+  const closed = cfg ? !dayOpen || cutoffPassed : false;
   const closedOverride = cfg?.overrides.find((o) => o.date === date && o.closed);
   const closedNote = closed
-    ? closedOverride?.note
-      ? `Closed: ${closedOverride.note}`
-      : `${DAY_NAMES[dayOfWeek(date)]} — closed.`
+    ? cutoffPassed && dayOpen
+      ? "Online booking for today has closed — we stop one hour before we open. Just walk in and ask at the bar."
+      : closedOverride?.note
+        ? `Closed: ${closedOverride.note}`
+        : `${DAY_NAMES[dayOfWeek(date)]} — closed.`
     : "";
 
   async function submit(e: React.FormEvent) {
@@ -357,6 +364,14 @@ function TableBookingPageInner() {
           {cfg?.product.customer_intro ||
             "Pick a time, tell us about your group. We'll save a table."}
         </p>
+
+        {/* Booking rule (founder 9 Oct 2026) — table booking closes online an
+            hour before opening; after that it's walk-in. */}
+        <div className="mx-auto mt-6 max-w-xl rounded-xl border border-plonkPink/25 bg-plonkPink/5 px-5 py-4 text-center text-sm leading-relaxed text-cream/80">
+          <span className="font-bold text-plonkPink">Booking rule:</span>{" "}
+          Online table bookings close <strong>1 hour before we open</strong> each
+          day — after that, just walk in and ask at the bar.
+        </div>
 
         {cfgLoaded && cfg && !cfg.product.enabled && (
           <div className="mx-auto mt-12 max-w-xl rounded-2xl border border-plonkPink/40 bg-plonkPink/10 p-8 text-center">

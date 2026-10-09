@@ -362,3 +362,74 @@ export function recurringClosedDaysOfWeek(cfg: BookableProductConfig): number[] 
   for (let i = 0; i < 7; i++) if (!open.has(i)) out.push(i);
   return out;
 }
+
+// ---------------------------------------------------------------
+// Same-day booking cutoff (founder rule, 9 Oct 2026)
+// ---------------------------------------------------------------
+// "Online bookings must close one hour before we open for service
+// that day — we can't be watching the feed while people walk up."
+// So online booking for a date closes BOOKING_CLOSE_LEAD_MIN before
+// that date's opening time. Only the current day can be past its
+// cutoff; a future date is always before it. Enforced on the customer
+// form AND mirrored server-side in the pool-checkout / table edge
+// functions so it can't be bypassed. (Golf is exempt — different flow.)
+export const BOOKING_CLOSE_LEAD_MIN = 60;
+
+/** Now, expressed in the venue's timezone (Europe/London), as the
+ *  calendar date 'YYYY-MM-DD' and minutes-since-midnight. Computed
+ *  via Intl so it's correct whether it runs in a London browser or a
+ *  UTC edge function. */
+export function londonNowParts(now: Date = new Date()): {
+  iso: string;
+  minutes: number;
+} {
+  const parts = Object.fromEntries(
+    new Intl.DateTimeFormat("en-GB", {
+      timeZone: "Europe/London",
+      year: "numeric",
+      month: "2-digit",
+      day: "2-digit",
+      hour: "2-digit",
+      minute: "2-digit",
+      hour12: false,
+    })
+      .formatToParts(now)
+      .map((p) => [p.type, p.value]),
+  ) as Record<string, string>;
+  let hour = parseInt(parts.hour, 10);
+  if (hour === 24) hour = 0; // some engines render midnight as 24
+  return {
+    iso: `${parts.year}-${parts.month}-${parts.day}`,
+    minutes: hour * 60 + parseInt(parts.minute, 10),
+  };
+}
+
+/** True once online booking for `iso` has closed because we are within
+ *  BOOKING_CLOSE_LEAD_MIN of (or past) that date's opening time. Future
+ *  dates are never closed by this rule; past dates always are. Days the
+ *  product is anyway closed (no open window) return false here — that's
+ *  `isDateBookable`'s job, not the cutoff's. */
+export function bookingCutoffPassed(
+  cfg: BookableProductConfig,
+  iso: string,
+  now: Date = new Date(),
+): boolean {
+  const windows = effectiveOpenWindows(cfg, iso);
+  if (windows.length === 0) return false;
+  const openMin = Math.min(...windows.map((w) => w.open));
+  const { iso: todayIso, minutes: nowMin } = londonNowParts(now);
+  if (iso > todayIso) return false;
+  if (iso < todayIso) return true;
+  return nowMin >= openMin - BOOKING_CLOSE_LEAD_MIN;
+}
+
+/** The single gate the customer form + edge function should use: a date
+ *  is open for online booking only if the product is open that day AND
+ *  the same-day cutoff hasn't passed. */
+export function isDateOnlineBookable(
+  cfg: BookableProductConfig,
+  iso: string,
+  now: Date = new Date(),
+): boolean {
+  return isDateBookable(cfg, iso) && !bookingCutoffPassed(cfg, iso, now);
+}

@@ -18,6 +18,7 @@ import {
   availableSlotsForDate,
   priceForBooking as priceForBookingFromCfg,
   isDateBookable,
+  bookingCutoffPassed,
   recurringClosedDaysOfWeek,
   DAY_NAMES,
   type BookableProductConfig,
@@ -219,12 +220,18 @@ function PoolBookingPageInner() {
     [cfg, date, duration],
   );
 
-  const closed = cfg ? !isDateBookable(cfg, date) : false;
+  // Same-day cutoff: online pool booking stops one hour before we open
+  // (founder rule 9 Oct 2026). Past that, the day is closed online — walk in.
+  const cutoffPassed = cfg ? bookingCutoffPassed(cfg, date) : false;
+  const dayOpen = cfg ? isDateBookable(cfg, date) : false;
+  const closed = cfg ? !dayOpen || cutoffPassed : false;
   const closedOverride = cfg?.overrides.find((o) => o.date === date && o.closed);
   const closedNote = closed
-    ? closedOverride?.note
-      ? `Closed: ${closedOverride.note}`
-      : `${DAY_NAMES[dayOfWeek(date)]} — closed.`
+    ? cutoffPassed && dayOpen
+      ? "Online booking for today has closed — we stop one hour before we open. Just walk in and grab a table at the bar."
+      : closedOverride?.note
+        ? `Closed: ${closedOverride.note}`
+        : `${DAY_NAMES[dayOfWeek(date)]} — closed.`
     : "";
 
   const totalPence =
@@ -377,6 +384,16 @@ function PoolBookingPageInner() {
           {cfg?.product.customer_intro ||
             "American 7ft tables. Pick a length, pay to confirm."}
         </p>
+
+        {/* Booking rules (founder 9 Oct 2026) — pool closes online an hour
+            before opening, and no Saturday reservations at all. */}
+        <div className="mx-auto mt-6 max-w-xl rounded-xl border border-plonkPink/25 bg-plonkPink/5 px-5 py-4 text-center text-sm leading-relaxed text-cream/80">
+          <span className="font-bold text-plonkPink">Booking rules:</span>{" "}
+          Online pool bookings close <strong>1 hour before we open</strong> each
+          day, and we don&apos;t take pool reservations on{" "}
+          <strong>Saturdays</strong> — Saturdays are walk-in only. You can always
+          walk in and grab a free table at the bar.
+        </div>
 
         {cfgLoaded && cfg && !cfg.product.enabled && (
           <div className="mx-auto mt-12 max-w-xl rounded-2xl border border-plonkPink/40 bg-plonkPink/10 p-8 text-center">
