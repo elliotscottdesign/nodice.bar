@@ -377,7 +377,7 @@ export default function PrivateHirePage() {
             href="/privatehire/documents"
             className="flex flex-wrap items-center justify-between gap-3 rounded-2xl border border-plonkTeal/40 bg-plonkTeal/10 px-5 py-4 transition hover:bg-plonkTeal/15"
           >
-            <span className="text-sm font-semibold text-cream">
+            <span className="font-display text-xl uppercase tracking-wider text-cream">
               📄 Corporate documents — risk assessments &amp; fire plan
             </span>
             <span className="rounded-full bg-plonkTeal px-4 py-1.5 text-[11px] font-bold uppercase tracking-wider text-ink">
