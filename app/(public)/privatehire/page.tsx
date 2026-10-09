@@ -287,10 +287,13 @@ export default function PrivateHirePage() {
                 {popularHeading}
               </Editable>
             </p>
-            {/* Single scrollable line of activity icons (founder 9 Oct
-                2026) — swipe/scroll horizontally, same rail chrome as the
-                photo scrollers. */}
-            <RollerDeck ariaLabel="What No Dice is popular for" className="mt-6">
+          </Reveal>
+        </div>
+        {/* Full-width scrollable line of activity icons (founder 9 Oct
+            2026) — breaks out of the max-w-4xl so it spans the page like
+            the photo scrollers above. */}
+        <Reveal>
+          <RollerDeck ariaLabel="What No Dice is popular for" className="mt-6">
               {popularList.map((t) => {
                 const Icon = iconForUseCase(t);
                 return (
@@ -310,8 +313,9 @@ export default function PrivateHirePage() {
                 );
               })}
             </RollerDeck>
-          </Reveal>
+        </Reveal>
 
+        <div className="mx-auto max-w-4xl">
           <Reveal delay={120}>
             <h2 className="mt-12 font-display text-3xl leading-tight sm:text-4xl">
               <Editable k="privatehire.hackney.about_heading">

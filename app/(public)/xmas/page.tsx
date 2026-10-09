@@ -2,6 +2,7 @@ import Link from "next/link";
 import type { Metadata } from "next";
 import MediaStrip from "@/components/MediaStrip";
 import EditableText from "@/components/EditableText";
+import XmasPackageBuilder from "@/components/XmasPackageBuilder";
 
 // Christmas 2026 — public corporate & party menu (nodice.bar/xmas). Reads the
 // SAME live doc the kitchen edits in the On A Roll back end (team.nodice.bar →
@@ -151,6 +152,28 @@ export default async function XmasPage() {
         aspect="4 / 3"
         blankCount={5}
       />
+
+      {/* PACKAGE BUILDER — pick & mix + enquiry to info@nodice.bar
+          (founder 9 Oct 2026). */}
+      <section className="px-6 pb-16 pt-4">
+        <div className="mx-auto max-w-3xl">
+          <EditableText
+            as="h2"
+            k="xmas.builder_heading"
+            fallback="Build your Christmas party"
+            className="font-display text-3xl uppercase tracking-wider text-cream sm:text-4xl"
+          />
+          <EditableText
+            as="p"
+            k="xmas.builder_intro"
+            fallback="Pick your dates, mix your drinks, food and games, and send it straight to our team."
+            className="mt-2 text-sm text-cream/60"
+          />
+          <div className="mt-8">
+            <XmasPackageBuilder />
+          </div>
+        </div>
+      </section>
 
       <section className="px-6 pb-24">
         <div className="mx-auto max-w-3xl">
