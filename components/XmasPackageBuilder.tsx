@@ -5,12 +5,16 @@ import { useMemo, useState } from "react";
 // =============================================================
 // XmasPackageBuilder — pick-and-mix Christmas party enquiry
 // =============================================================
-// Customer picks up to 4 preferred dates, optionally a private-hire
-// slot, then mixes drinks / food / games packages and gives their
-// details. "Send to the No Dice team" POSTs to the `xmas-enquiry`
-// edge function, which emails info@nodice.bar. It's an ENQUIRY, not a
-// payment — the running total is indicative (per head × headcount).
-// (Founder spec, 9 Oct 2026.)
+// Two paths (founder spec, 9 Oct 2026):
+//  • Private hire — pick a slot with a MINIMUM SPEND (£3,000 or
+//    £6,000). Add packages until the running package total reaches
+//    that minimum; the builder shows how much more to spend. Only
+//    once the minimum is met can they send the application.
+//  • No private hire — up to 40 people; no minimum, the total just
+//    accrues as they add packages. Send any time.
+// "Happy with my package" POSTs to the xmas-enquiry edge function,
+// which emails a report to info@nodice.bar AND back to the customer.
+// Enquiry only — no payment.
 // =============================================================
 
 const SUPABASE_URL =
@@ -39,18 +43,23 @@ const GAMES: Item[] = [
 ];
 const ALL_ITEMS = [...DRINKS, ...FOOD, ...GAMES];
 
+// Private-hire slots and their MINIMUM SPEND (not an extra fee — the
+// packages have to add up to at least this).
 const SLOTS = [
-  { id: "lunch", label: "12:00 – 3:00pm", note: "£3,000 min spend" },
-  { id: "afternoon", label: "3:30 – 6:30pm", note: "£3,000 min spend" },
+  { id: "lunch", label: "12:00 – 3:00pm", min: 3000, note: "£3,000 minimum spend" },
+  { id: "afternoon", label: "3:30 – 6:30pm", min: 3000, note: "£3,000 minimum spend" },
   {
     id: "evening",
     label: "7:00pm – 12:00am",
-    note: "£7,000 min spend · free DJ all night",
+    min: 6000,
+    note: "£6,000 minimum spend · free DJ all night",
   },
 ] as const;
 
 const MAX_DATES = 4;
+const MAX_HEADS_NO_HIRE = 40;
 const EMAIL_RE = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+const gbp = (n: number) => `£${n.toLocaleString()}`;
 
 // ── Calendar helpers ─────────────────────────────────────────
 const MONTHS = [
@@ -73,9 +82,8 @@ function prettyDate(isoStr: string): string {
 }
 
 export default function XmasPackageBuilder() {
-  // Start the calendar on December 2026 — peak party season.
   const [calYear, setCalYear] = useState(2026);
-  const [calMonth, setCalMonth] = useState(11); // 0-indexed → December
+  const [calMonth, setCalMonth] = useState(11); // December
   const [dates, setDates] = useState<string[]>([]);
   const [privateHire, setPrivateHire] = useState(false);
   const [slot, setSlot] = useState<string>("");
@@ -96,7 +104,7 @@ export default function XmasPackageBuilder() {
   function toggleDate(d: string) {
     setDates((prev) => {
       if (prev.includes(d)) return prev.filter((x) => x !== d);
-      if (prev.length >= MAX_DATES) return prev; // cap at 4
+      if (prev.length >= MAX_DATES) return prev;
       return [...prev, d].sort();
     });
   }
@@ -110,15 +118,21 @@ export default function XmasPackageBuilder() {
         return next;
       }
       if (item.exclusive) {
-        // Open Bar / Open Buffet clears the rest of its group.
         for (const other of group) next.delete(other.id);
       } else {
-        // Selecting any normal item clears the group's exclusive pick.
         for (const other of group) if (other.exclusive) next.delete(other.id);
       }
       next.add(id);
       return next;
     });
+  }
+
+  function onHeadcountChange(v: string) {
+    if (v === "") return setHeadcount("");
+    let n = parseInt(v, 10);
+    if (Number.isNaN(n)) return;
+    if (!privateHire && n > MAX_HEADS_NO_HIRE) n = MAX_HEADS_NO_HIRE;
+    setHeadcount(String(Math.max(0, n)));
   }
 
   const openBar = selected.has("open_bar");
@@ -127,41 +141,38 @@ export default function XmasPackageBuilder() {
   const heads = Math.max(0, parseInt(headcount || "0", 10) || 0);
   const perHead = useMemo(
     () =>
-      ALL_ITEMS.filter((i) => selected.has(i.id)).reduce(
-        (s, i) => s + i.price,
-        0,
-      ),
+      ALL_ITEMS.filter((i) => selected.has(i.id)).reduce((s, i) => s + i.price, 0),
     [selected],
   );
-  const estimate = perHead * heads;
+  const packageTotal = perHead * heads;
 
-  const canSend =
-    name.trim() &&
-    EMAIL_RE.test(email.trim()) &&
-    heads > 0 &&
-    state !== "sending";
+  const chosenSlot = privateHire ? SLOTS.find((s) => s.id === slot) : undefined;
+  const minSpend = chosenSlot?.min ?? 0;
+  const remaining = Math.max(0, minSpend - packageTotal);
+  const minMet = !privateHire || (!!chosenSlot && packageTotal >= minSpend);
+
+  const detailsOk =
+    name.trim() && EMAIL_RE.test(email.trim()) && heads > 0;
+  const hireOk = !privateHire || (!!chosenSlot && minMet);
+  const canSend = detailsOk && hireOk && state !== "sending";
 
   async function submit(e: React.FormEvent) {
     e.preventDefault();
     if (!canSend) return;
     setState("sending");
     setError("");
-    const chosenSlot = privateHire
-      ? SLOTS.find((s) => s.id === slot)
-      : undefined;
     const payload = {
       dates,
       private_hire: privateHire,
-      slot: chosenSlot
-        ? `${chosenSlot.label} (${chosenSlot.note})`
-        : null,
+      slot: chosenSlot ? chosenSlot.label : null,
+      min_spend: privateHire ? minSpend : 0,
       headcount: heads,
       items: ALL_ITEMS.filter((i) => selected.has(i.id)).map((i) => ({
         name: i.name,
         price_per_head: i.price,
       })),
-      estimate_per_head: perHead,
-      estimate_total: estimate,
+      package_per_head: perHead,
+      package_total: packageTotal,
       name: name.trim(),
       email: email.trim(),
       phone: phone.trim(),
@@ -197,12 +208,12 @@ export default function XmasPackageBuilder() {
     return (
       <div className="rounded-2xl border border-pong/40 bg-pong/[0.08] p-8 text-center">
         <div className="font-display text-3xl uppercase tracking-wider text-cream">
-          Enquiry sent 🎄
+          Package sent 🎄
         </div>
         <p className="mx-auto mt-3 max-w-md text-sm leading-relaxed text-cream/80">
-          Thanks {name.trim().split(" ")[0]} — your Christmas party enquiry is
-          with the No Dice team. We&apos;ll be in touch shortly to lock in the
-          details.
+          Thanks {name.trim().split(" ")[0]} — your Christmas party package is
+          with the No Dice team, and a copy is on its way to your inbox. We&apos;ll
+          be in touch to lock it in.
         </p>
       </div>
     );
@@ -305,7 +316,9 @@ export default function XmasPackageBuilder() {
             className="mt-0.5 h-5 w-5 accent-nodiceRed"
           />
           <span className="text-sm text-cream/85">
-            Take the space privately — pick a slot below. Minimum spends apply.
+            Take the space privately — pick a slot below. Each has a minimum
+            spend you build up to with your packages. Not private? You can book
+            up to {MAX_HEADS_NO_HIRE} people with no minimum.
           </span>
         </label>
         {privateHire && (
@@ -337,9 +350,31 @@ export default function XmasPackageBuilder() {
         )}
       </section>
 
-      {/* ── 3 · Packages ────────────────────────────── */}
+      {/* ── 3 · Numbers ─────────────────────────────── */}
       <section>
-        <StepHeading n={3} title="Build your package" />
+        <StepHeading n={3} title="How many people?" />
+        <div className="mt-3 flex flex-wrap items-center gap-3">
+          <input
+            type="number"
+            min={1}
+            max={privateHire ? undefined : MAX_HEADS_NO_HIRE}
+            inputMode="numeric"
+            value={headcount}
+            onChange={(e) => onHeadcountChange(e.target.value)}
+            placeholder="e.g. 20"
+            className="w-32 rounded-xl border border-cream/15 bg-ink/40 px-4 py-3 text-base text-cream placeholder:text-cream/35 focus:border-nodiceRed focus:outline-none"
+          />
+          <span className="text-sm text-cream/55">
+            {privateHire
+              ? "guests"
+              : `guests · up to ${MAX_HEADS_NO_HIRE} without private hire`}
+          </span>
+        </div>
+      </section>
+
+      {/* ── 4 · Packages ────────────────────────────── */}
+      <section>
+        <StepHeading n={4} title="Build your package" />
         <p className="mt-1 text-sm text-cream/60">
           Prices are per head. Open Bar or Bottomless Buffet cover everything in
           their section.
@@ -367,36 +402,67 @@ export default function XmasPackageBuilder() {
             onToggle={(id) => toggleItem(GAMES, id)}
           />
         </div>
-      </section>
 
-      {/* ── 4 · Numbers + estimate ──────────────────── */}
-      <section>
-        <StepHeading n={4} title="How many people?" />
-        <div className="mt-3 flex flex-wrap items-center gap-4">
-          <input
-            type="number"
-            min={1}
-            inputMode="numeric"
-            value={headcount}
-            onChange={(e) => setHeadcount(e.target.value)}
-            placeholder="e.g. 20"
-            className="w-32 rounded-xl border border-cream/15 bg-ink/40 px-4 py-3 text-base text-cream placeholder:text-cream/35 focus:border-nodiceRed focus:outline-none"
-          />
-          {perHead > 0 && heads > 0 && (
-            <div className="text-sm text-cream/80">
-              Indicative total{" "}
-              <span className="font-display text-2xl text-nodiceRed">
-                £{estimate.toLocaleString()}
-              </span>{" "}
-              <span className="text-cream/50">
-                (£{perHead}/head × {heads})
-              </span>
+        {/* Live spend summary — min-spend tracker for private hire,
+            accruing total otherwise. */}
+        <div className="mt-6 rounded-2xl border border-cream/10 bg-white/[0.03] p-5">
+          <div className="flex items-end justify-between gap-4">
+            <div>
+              <div className="text-xs font-bold uppercase tracking-widest text-cream/45">
+                Your package so far
+              </div>
+              <div className="mt-1 font-display text-3xl text-nodiceRed">
+                {gbp(packageTotal)}
+              </div>
+              {heads > 0 && perHead > 0 && (
+                <div className="text-xs text-cream/50">
+                  {gbp(perHead)}/head × {heads}
+                </div>
+              )}
             </div>
+            {privateHire && chosenSlot && (
+              <div className="text-right">
+                <div className="text-xs font-bold uppercase tracking-widest text-cream/45">
+                  Minimum spend
+                </div>
+                <div className="mt-1 font-display text-2xl text-cream">
+                  {gbp(minSpend)}
+                </div>
+              </div>
+            )}
+          </div>
+
+          {privateHire && chosenSlot && (
+            <>
+              <div className="mt-4 h-2 w-full overflow-hidden rounded-full bg-cream/10">
+                <div
+                  className={`h-full rounded-full transition-all ${minMet ? "bg-pong" : "bg-nodiceRed"}`}
+                  style={{
+                    width: `${Math.min(100, minSpend ? (packageTotal / minSpend) * 100 : 0)}%`,
+                  }}
+                />
+              </div>
+              <p className={`mt-2 text-sm ${minMet ? "text-pongLight" : "text-cream/75"}`}>
+                {minMet
+                  ? "✓ Minimum reached — you're ready to send your package."
+                  : heads > 0
+                    ? `Add ${gbp(remaining)} more to reach your minimum (pick more packages, or add guests).`
+                    : "Add your guest numbers and packages to build up to your minimum."}
+              </p>
+            </>
+          )}
+          {privateHire && !chosenSlot && (
+            <p className="mt-3 text-sm text-cream/60">
+              Pick a private-hire slot above to see your minimum spend.
+            </p>
+          )}
+          {!privateHire && (
+            <p className="mt-3 text-xs text-cream/45">
+              No private-hire minimum — your total just adds up as you go. The
+              team will confirm a firm quote.
+            </p>
           )}
         </div>
-        <p className="mt-2 text-xs text-cream/45">
-          A guide only — the team will send a firm quote with your enquiry.
-        </p>
       </section>
 
       {/* ── 5 · Your details ────────────────────────── */}
@@ -428,13 +494,26 @@ export default function XmasPackageBuilder() {
         </p>
       )}
 
-      <button
-        type="submit"
-        disabled={!canSend}
-        className="w-full rounded-full bg-nodiceRed px-8 py-4 text-sm font-bold uppercase tracking-wider text-white transition hover:bg-nodiceRedDeep disabled:cursor-not-allowed disabled:opacity-40 sm:w-auto"
-      >
-        {state === "sending" ? "Sending…" : "Send to the No Dice team →"}
-      </button>
+      <div>
+        <button
+          type="submit"
+          disabled={!canSend}
+          className="w-full rounded-full bg-nodiceRed px-8 py-4 text-sm font-bold uppercase tracking-wider text-white transition hover:bg-nodiceRedDeep disabled:cursor-not-allowed disabled:opacity-40 sm:w-auto"
+        >
+          {state === "sending" ? "Sending…" : "Happy with my package →"}
+        </button>
+        {!canSend && state !== "sending" && (
+          <p className="mt-2 text-xs text-cream/45">
+            {!detailsOk
+              ? "Add your name, a valid email and guest numbers to send."
+              : privateHire && !chosenSlot
+                ? "Pick a private-hire slot to continue."
+                : privateHire && !minMet
+                  ? `You're ${gbp(remaining)} short of your minimum spend.`
+                  : ""}
+          </p>
+        )}
+      </div>
     </form>
   );
 }
@@ -555,8 +634,7 @@ function Field({
 function buildMonth(year: number, month: number): (number | null)[] {
   const first = new Date(year, month, 1);
   const daysInMonth = new Date(year, month + 1, 0).getDate();
-  // JS getDay: 0=Sun..6=Sat → convert to Mon-first index 0=Mon..6=Sun.
-  const lead = (first.getDay() + 6) % 7;
+  const lead = (first.getDay() + 6) % 7; // Mon-first
   const cells: (number | null)[] = [];
   for (let i = 0; i < lead; i++) cells.push(null);
   for (let d = 1; d <= daysInMonth; d++) cells.push(d);
