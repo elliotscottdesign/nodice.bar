@@ -351,10 +351,16 @@ export default function GalleriesAdminClient() {
     setUploading(true);
     setErr("");
     setUploadProgress({ done: 0, total: files.length });
-    let order = images.length;
-    try {
-      for (let i = 0; i < files.length; i++) {
-        const file = files[i];
+    // Append after the gallery's current highest sort_order.
+    let order = images.reduce((m, g) => Math.max(m, g.sort_order), 0);
+    let ok = 0;
+    const failed: string[] = [];
+    // Isolate each file so one failure (a bad image, a flaky upload) never
+    // aborts the whole batch — previously the loop threw on file 2 and only
+    // the first image stuck.
+    for (let i = 0; i < files.length; i++) {
+      const file = files[i];
+      try {
         const { public_url } = await uploadImage(file, `gallery/${activeKey}`);
         order += 1;
         await createGalleryImage({
@@ -369,14 +375,20 @@ export default function GalleriesAdminClient() {
           position_zoom: 1,
           position_fit: "cover",
         });
-        setUploadProgress({ done: i + 1, total: files.length });
+        ok += 1;
+      } catch (e) {
+        console.error("Gallery upload failed for", file.name, e);
+        failed.push(file.name);
       }
-      await reload();
-    } catch (e) {
-      setErr(describe(e, "Upload failed"));
-    } finally {
-      setUploading(false);
-      setUploadProgress(null);
+      setUploadProgress({ done: i + 1, total: files.length });
+    }
+    await reload();
+    setUploading(false);
+    setUploadProgress(null);
+    if (failed.length) {
+      setErr(
+        `Added ${ok} of ${files.length}. Failed: ${failed.join(", ")} — try those again.`,
+      );
     }
   }
 

@@ -35,8 +35,12 @@ export async function uploadImage(
 ): Promise<{ public_url: string; storage_path: string; filename: string }> {
   const client = supabase();
   const stamp = Date.now();
+  // Random suffix so a batch of same-named files (or two uploads in the same
+  // millisecond) can never collide on the storage path — which, with
+  // upsert:false, would throw and abort a bulk upload after the first file.
+  const rand = Math.random().toString(36).slice(2, 8);
   const base = safeFilename(file.name);
-  const storagePath = `${pathPrefix}/${stamp}-${base}`;
+  const storagePath = `${pathPrefix}/${stamp}-${rand}-${base}`;
 
   const { error: uploadErr } = await client.storage
     .from(BUCKET)

@@ -167,7 +167,7 @@ const DEFAULTS = {
   capacity:
     "Standing: 100\nDining: 40\nCabaret: 60",
   features:
-    "Two pool tables\nFull cocktail bar\nCraft beer on draught\nSnack Bar kitchen\nNatural light\nWi-Fi\nStorage space\nStep-free access",
+    "Two pool tables\nFull cocktail bar\nCraft beer on draught\nSnack Bar kitchen\nNatural light\nWi-Fi\nStorage space\nStep-free access\nFull DJ booth — 2× Technics SL-1200 MK7, 2× Pioneer CDJ-900 Nexus, rotary mixer\nMartin Audio sound system — bring your own DJ or plug in a playlist",
   catering:
     "In-house catering\nApproved caterers only\nWe provide alcohol\nKitchen facilities available\nHalal available\nKosher available\nComplimentary water\nExtensive vegan menu\nExtensive gluten-free menu\nBuyout fee for external catering\nno: External catering (general)\nno: BYOB alcohol\nno: Complimentary tea & coffee",
   licences:
@@ -217,14 +217,6 @@ export default function PrivateHirePage() {
     "privatehire.hackney.licences",
     DEFAULTS.licences,
   );
-  const welcomes = lines(
-    useContent("privatehire.hackney.welcomes", DEFAULTS.welcomes),
-  );
-  const houseRules = useContent(
-    "privatehire.hackney.house_rules",
-    DEFAULTS.house_rules,
-  );
-
   // Section titles. Hardcoded for years — surfacing them as CMS
   // fields means the founder can rename "Capacity" → "Numbers" or
   // "Venue welcomes" → "Yes to" etc., direct from the live page.
@@ -243,14 +235,6 @@ export default function PrivateHirePage() {
   const licencesTitle = useContent(
     "privatehire.hackney.licences_title",
     "License & Documents",
-  );
-  const welcomesTitle = useContent(
-    "privatehire.hackney.welcomes_title",
-    "Venue welcomes",
-  );
-  const houseRulesTitle = useContent(
-    "privatehire.hackney.house_rules_title",
-    "House rules",
   );
   // Floorplan image — single CMS gallery so the team uploads/swaps it in
   // the admin. Transparent PNG sits straight on the page; nothing shows
@@ -444,9 +428,23 @@ export default function PrivateHirePage() {
         </div>
 
         <div className="mx-auto max-w-6xl space-y-8">
-          {/* Venue floorplan — transparent image sitting straight on the
-              page, between capacity and features (founder 9 Oct 2026).
-              Shrinks on phones (w-full) and caps on desktop. */}
+          <FactPanel title={featuresTitle} titleKey="privatehire.hackney.features_title">
+            <ul className="grid gap-x-6 gap-y-3 sm:grid-cols-2 lg:grid-cols-3">
+              {features.map((f) => (
+                <li
+                  key={f}
+                  className="flex items-center gap-3 text-sm text-cream/90"
+                >
+                  <Check />
+                  {f}
+                </li>
+              ))}
+            </ul>
+          </FactPanel>
+
+          {/* Venue floorplan — sits below Room Features (founder 9 Oct
+              2026). Transparent image straight on the page; shrinks on
+              phones, caps on desktop. */}
           {(floorplan.length > 0 || editing) && (
             <div className="relative mx-auto max-w-3xl">
               {floorplan.length > 0 ? (
@@ -467,20 +465,6 @@ export default function PrivateHirePage() {
               />
             </div>
           )}
-
-          <FactPanel title={featuresTitle} titleKey="privatehire.hackney.features_title">
-            <ul className="grid gap-x-6 gap-y-3 sm:grid-cols-2 lg:grid-cols-3">
-              {features.map((f) => (
-                <li
-                  key={f}
-                  className="flex items-center gap-3 text-sm text-cream/90"
-                >
-                  <Check />
-                  {f}
-                </li>
-              ))}
-            </ul>
-          </FactPanel>
         </div>
 
         <div className="mx-auto max-w-6xl space-y-8">
@@ -535,28 +519,6 @@ export default function PrivateHirePage() {
                 Access with code →
               </span>
             </a>
-          </FactPanel>
-
-          <FactPanel title={welcomesTitle} titleKey="privatehire.hackney.welcomes_title">
-            <ul className="grid gap-x-6 gap-y-3 sm:grid-cols-2">
-              {welcomes.map((w) => (
-                <li
-                  key={w}
-                  className="flex items-center gap-3 text-sm text-cream/90"
-                >
-                  <Check />
-                  {w}
-                </li>
-              ))}
-            </ul>
-          </FactPanel>
-
-          <FactPanel title={houseRulesTitle} titleKey="privatehire.hackney.house_rules_title">
-            <p className="whitespace-pre-line text-sm leading-relaxed text-cream/85 sm:text-base">
-              <Editable k="privatehire.hackney.house_rules" multiline>
-                {houseRules}
-              </Editable>
-            </p>
           </FactPanel>
         </div>
       </section>
