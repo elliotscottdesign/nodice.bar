@@ -26,6 +26,7 @@ import {
 } from "lucide-react";
 import PageHero from "@/components/PageHero";
 import MediaStrip from "@/components/MediaStrip";
+import RollerDeck from "@/components/RollerDeck";
 import Reveal from "@/components/Reveal";
 import BigEmailCta from "@/components/BigEmailCta";
 import { useContent, useImage } from "@/lib/content";
@@ -279,26 +280,29 @@ export default function PrivateHirePage() {
                 {popularHeading}
               </Editable>
             </p>
-            <div className="mt-6 grid grid-cols-2 gap-3 sm:grid-cols-3 sm:gap-4 md:grid-cols-6">
+            {/* Single scrollable line of activity icons (founder 9 Oct
+                2026) — swipe/scroll horizontally, same rail chrome as the
+                photo scrollers. */}
+            <RollerDeck ariaLabel="What No Dice is popular for" className="mt-6">
               {popularList.map((t) => {
                 const Icon = iconForUseCase(t);
                 return (
                   <div
                     key={t}
-                    className="flex flex-col items-center gap-3 rounded-2xl border border-plumLine/80 bg-plumDeep/60 px-3 py-5 text-center transition hover:border-plonkTeal/40"
+                    className="flex w-28 shrink-0 snap-start flex-col items-center gap-3 rounded-2xl border border-plumLine/80 bg-plumDeep/60 px-3 py-5 text-center transition hover:border-plonkTeal/40"
                   >
                     <Icon
                       className="h-7 w-7 text-plonkTeal"
                       strokeWidth={1.5}
                       aria-hidden="true"
                     />
-                    <span className="text-xs font-medium leading-tight text-cream/90 sm:text-sm">
+                    <span className="text-xs font-medium leading-tight text-cream/90">
                       {t}
                     </span>
                   </div>
                 );
               })}
-            </div>
+            </RollerDeck>
           </Reveal>
 
           <Reveal delay={120}>
