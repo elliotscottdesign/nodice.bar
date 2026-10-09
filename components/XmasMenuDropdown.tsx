@@ -99,7 +99,7 @@ export default function XmasMenuDropdown() {
         className="flex w-full items-center justify-between gap-3 rounded-2xl border border-nodiceRed/40 bg-nodiceRed/10 px-5 py-4 text-left transition hover:bg-nodiceRed/15"
       >
         <span className="font-display text-xl uppercase tracking-wider text-cream">
-          🎄 This year&apos;s Christmas menu
+          🎄 Click to explore Xmas menu 2026
         </span>
         <span
           className={`text-nodiceRed transition-transform ${open ? "rotate-180" : ""}`}

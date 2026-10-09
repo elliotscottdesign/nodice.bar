@@ -395,10 +395,14 @@ export default function PrivateHirePage() {
               ))}
             </ul>
           </FactPanel>
+        </div>
 
-          {/* Festive menu scroller — sits just above the Catering header
-              (founder 9 Oct 2026). SAME shared gallery + heading as /xmas
-              (galleryKey "xmas.menu"), so a change in one updates both. */}
+        {/* Festive menu scroller — FULL page width (founder 9 Oct 2026):
+            lifted out of the max-w-6xl column; -mx-6 cancels the section
+            padding so it spans the page like the venue scroller. Sits just
+            above the Catering header. SAME shared gallery + heading as
+            /xmas (galleryKey "xmas.menu"), so a change in one updates both. */}
+        <div className="-mx-6 my-4">
           <MediaStrip
             galleryKey="xmas.menu"
             heading="This year's festive menu"
@@ -409,7 +413,9 @@ export default function PrivateHirePage() {
             aspect="4 / 3"
             blankCount={5}
           />
+        </div>
 
+        <div className="mx-auto max-w-6xl space-y-8">
           <FactPanel title={cateringTitle} titleKey="privatehire.hackney.catering_title">
             {/* Live Christmas menu from the On A Roll Xmas menu app
                 (founder 9 Oct 2026). */}
