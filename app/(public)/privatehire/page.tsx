@@ -279,10 +279,10 @@ export default function PrivateHirePage() {
       />
 
       {/* Popular for + about */}
-      <section className="tint-forest-to-plumDeep px-6 pb-10 pt-24">
-        <div className="mx-auto max-w-4xl">
+      <section className="tint-forest-to-plumDeep px-6 pb-6 pt-10">
+        <div className="mx-auto max-w-5xl">
           <Reveal>
-            <p className="text-xs font-bold uppercase tracking-eyebrow text-plonkTeal">
+            <p className="text-center text-lg font-bold uppercase tracking-[0.3em] text-plonkTeal sm:text-2xl">
               <Editable k="privatehire.hackney.popular_heading">
                 {popularHeading}
               </Editable>
@@ -317,7 +317,7 @@ export default function PrivateHirePage() {
 
         <div className="mx-auto max-w-4xl">
           <Reveal delay={120}>
-            <h2 className="mt-12 font-display text-3xl leading-tight sm:text-4xl">
+            <h2 className="mt-8 font-display text-3xl leading-tight sm:text-4xl">
               <Editable k="privatehire.hackney.about_heading">
                 {aboutHeading}
               </Editable>
@@ -335,8 +335,8 @@ export default function PrivateHirePage() {
 
       {/* Fact sheet. pt trimmed (founder, 9 Sep 2026): the capacity
           stats should sit close under the intro text, not a screen away. */}
-      <section className="tint-plumDeep-to-plum px-6 pb-24 pt-8">
-        <div className="mx-auto max-w-6xl space-y-12">
+      <section className="tint-plumDeep-to-plum px-6 pb-14 pt-6">
+        <div className="mx-auto max-w-6xl space-y-8">
           <FactPanel title={capacityTitle} titleKey="privatehire.hackney.capacity_title">
             {/* One row on every screen size (founder, 9 Sep 2026) —
                 three compact cards beat three full-width slabs. */}
@@ -394,6 +394,20 @@ export default function PrivateHirePage() {
               ))}
             </ul>
           </FactPanel>
+
+          {/* Festive menu scroller — sits just above the Catering header
+              (founder 9 Oct 2026). SAME shared gallery + heading as /xmas
+              (galleryKey "xmas.menu"), so a change in one updates both. */}
+          <MediaStrip
+            galleryKey="xmas.menu"
+            heading="This year's festive menu"
+            intro="A taste of what's on — swipe through."
+            headingKey="xmas.menu_heading"
+            introKey="xmas.menu_intro"
+            blankLabel="Menu photo"
+            aspect="4 / 3"
+            blankCount={5}
+          />
 
           <FactPanel title={cateringTitle} titleKey="privatehire.hackney.catering_title">
             <div className="grid gap-x-10 gap-y-3 md:grid-cols-2">
@@ -456,23 +470,9 @@ export default function PrivateHirePage() {
 
       <BigEmailCta subject="Private Hire Enquiry — No Dice" />
 
-      {/* Xmas menu scroller — the SAME shared gallery + editable heading
-          as /xmas (galleryKey "xmas.menu"), so a photo or heading changed
-          in one place changes both (founder 9 Oct 2026). */}
-      <MediaStrip
-        galleryKey="xmas.menu"
-        heading="This year's festive menu"
-        intro="A taste of what's on — swipe through."
-        headingKey="xmas.menu_heading"
-        introKey="xmas.menu_intro"
-        blankLabel="Menu photo"
-        aspect="4 / 3"
-        blankCount={5}
-      />
-
       {/* Corporate documents — gated (code from the events team).
           Founder: sits at the BOTTOM of the page (moved 2026-09-08). */}
-      <div className="tint-forest-to-plumDeep px-6 pb-16 pt-8">
+      <div className="tint-forest-to-plumDeep px-6 pb-12 pt-4">
         <div className="mx-auto max-w-4xl">
           <a
             href="/privatehire/documents"

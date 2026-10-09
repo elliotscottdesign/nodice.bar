@@ -64,7 +64,7 @@ export default function MediaStrip({
 
   return (
     <section className={`w-full ${tint ?? ""}`}>
-      <div className="py-10 sm:py-14">
+      <div className="py-6 sm:py-8">
         {(headingText || headingKey) && (
           <div className="mx-auto mb-6 max-w-6xl px-6 text-center">
             <h2 className="font-display text-2xl uppercase tracking-wider text-cream sm:text-3xl">
