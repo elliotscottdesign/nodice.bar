@@ -91,27 +91,28 @@ export default function RollerDeck({
 
   return (
     <div className={`relative -mx-6 sm:mx-0 ${className ?? ""}`}>
-      {/* Edge-fade gradients — pointer-events: none so they don't
-          intercept taps on the cards underneath. */}
+      {/* Edge-fade gradients sit at the RAIL edges (inset by the arrow
+          gutter on sm+) so they fade the cards near the arrows, not the
+          empty gutter. pointer-events: none so they never block a tap. */}
       <div
         aria-hidden
-        className="pointer-events-none absolute left-0 top-0 z-10 h-full w-8 bg-gradient-to-r from-ink to-transparent sm:w-12"
+        className="pointer-events-none absolute left-0 top-0 z-10 h-full w-8 bg-gradient-to-r from-ink to-transparent sm:left-14"
       />
       <div
         aria-hidden
-        className="pointer-events-none absolute right-0 top-0 z-10 h-full w-8 bg-gradient-to-l from-ink to-transparent sm:w-12"
+        className="pointer-events-none absolute right-0 top-0 z-10 h-full w-8 bg-gradient-to-l from-ink to-transparent sm:right-14"
       />
 
       {/* Arrow buttons — hidden on mobile (touch swipe is intuitive),
-          shown sm+ where there's no swipe gesture. Positioned to sit
-          in the rail's extra horizontal padding (added below on sm+)
-          so they appear OUTSIDE the leftmost / rightmost visible card,
-          not on top of it. */}
+          shown sm+. They sit in the reserved side gutter (the sm:px-14
+          wrapper below), which is OUTSIDE the scroll rail — so they can
+          never overlap the first / last card, and they auto-hide when
+          the rail isn't scrollable. */}
       <button
         type="button"
         aria-label={`Scroll ${ariaLabel || "list"} left`}
         onClick={() => scrollByCard(-1)}
-        className={`absolute left-2 top-1/2 z-20 hidden -translate-y-1/2 rounded-full border border-cream/20 bg-ink/80 p-3 text-cream shadow-xl backdrop-blur transition hover:bg-plonkPink hover:text-white sm:flex ${
+        className={`absolute left-1 top-1/2 z-20 hidden -translate-y-1/2 rounded-full border border-cream/20 bg-ink/80 p-3 text-cream shadow-xl backdrop-blur transition hover:bg-plonkPink hover:text-white sm:flex ${
           canLeft ? "opacity-100" : "pointer-events-none opacity-0"
         }`}
       >
@@ -121,38 +122,31 @@ export default function RollerDeck({
         type="button"
         aria-label={`Scroll ${ariaLabel || "list"} right`}
         onClick={() => scrollByCard(1)}
-        className={`absolute right-2 top-1/2 z-20 hidden -translate-y-1/2 rounded-full border border-cream/20 bg-ink/80 p-3 text-cream shadow-xl backdrop-blur transition hover:bg-plonkPink hover:text-white sm:flex ${
+        className={`absolute right-1 top-1/2 z-20 hidden -translate-y-1/2 rounded-full border border-cream/20 bg-ink/80 p-3 text-cream shadow-xl backdrop-blur transition hover:bg-plonkPink hover:text-white sm:flex ${
           canRight ? "opacity-100" : "pointer-events-none opacity-0"
         }`}
       >
         <ChevronIcon dir="right" />
       </button>
 
-      {/* The actual scrollable rail. Children are placed directly
-          inside — they should declare their own width / snap-start
-          per card. The extra sm:px-16 padding pushes the first/last
-          card INWARDS so the absolute-positioned arrows above sit
-          flush in the rail's empty gutter, never overlapping a card. */}
-      <div
-        ref={railRef}
-        onScroll={refreshArrows}
-        aria-label={ariaLabel}
-        // `safe center` centres the cards when they all fit (so a short
-        // rail looks balanced and the scroll arrows auto-hide, instead
-        // of the cards hugging the left with a stranded right arrow),
-        // and falls back to flex-start the moment they overflow so every
-        // card stays reachable by scrolling. The gutter is kept modest
-        // (sm:px-10) so a near-fitting rail doesn't register a sliver of
-        // false overflow from the padding alone and show arrows that
-        // point at empty space.
-        className="hide-scrollbar flex snap-x snap-mandatory gap-3 overflow-x-auto px-6 py-2 sm:px-10"
-        style={{
-          justifyContent: "safe center",
-          scrollPaddingLeft: "24px",
-          scrollPaddingRight: "24px",
-        }}
-      >
-        {children}
+      {/* Gutter wrapper — reserves room for the arrows on sm+ as PADDING
+          on this wrapper (not on the rail), so the gutter never counts as
+          scroll overflow. That's what lets a short rail that fits show no
+          arrows at all, while a long one scrolls with arrows that stay in
+          the gutter. */}
+      <div className="sm:px-14">
+        <div
+          ref={railRef}
+          onScroll={refreshArrows}
+          aria-label={ariaLabel}
+          className="hide-scrollbar flex snap-x snap-mandatory gap-3 overflow-x-auto px-6 py-2 sm:px-0"
+          style={{
+            scrollPaddingLeft: "12px",
+            scrollPaddingRight: "12px",
+          }}
+        >
+          {children}
+        </div>
       </div>
     </div>
   );
