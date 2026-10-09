@@ -3,6 +3,7 @@
 import { useEffect, useState } from "react";
 import { AdminCard } from "@/components/admin/AdminCard";
 import AddReservationForm from "@/components/admin/AddReservationForm";
+import BookingLockedTag from "@/components/admin/BookingLockedTag";
 import {
   loadAllTableSurfaceReservations,
   setUnifiedReservationStatus,
@@ -499,17 +500,19 @@ export default function BarReservationsClient({
                         {r.match_name}
                       </span>
                     )}
-                    <span
-                      className={`rounded-full px-2 py-0.5 text-[10px] font-bold uppercase tracking-[0.18em] ${
-                        r.status === "pending"
-                          ? "bg-amber-400/15 text-amber-300"
-                          : r.status === "confirmed" || r.status === "paid"
-                          ? "bg-plonkTeal/15 text-plonkTeal"
-                          : "bg-cream/5 text-cream/40"
-                      }`}
-                    >
-                      {r.status === "paid" ? "paid ✓ confirmed" : r.status}
-                    </span>
+                    {r.status === "confirmed" || r.status === "paid" ? (
+                      <BookingLockedTag name={r.name} />
+                    ) : (
+                      <span
+                        className={`rounded-full px-2 py-0.5 text-[10px] font-bold uppercase tracking-[0.18em] ${
+                          r.status === "pending"
+                            ? "bg-amber-400/15 text-amber-300"
+                            : "bg-cream/5 text-cream/40"
+                        }`}
+                      >
+                        {r.status}
+                      </span>
+                    )}
                   </div>
                   <h3 className="mt-2 font-display text-2xl">
                     {formatDate(r.reservation_date)} · {formatTime(r.start_time)}
