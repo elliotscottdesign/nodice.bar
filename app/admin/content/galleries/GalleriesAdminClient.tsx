@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { useSearchParams } from "next/navigation";
 import AdminPageHeader from "@/components/admin/AdminPageHeader";
 import { AdminCard } from "@/components/admin/AdminCard";
@@ -241,6 +241,14 @@ export default function GalleriesAdminClient() {
   const [err, setErr] = useState("");
   const [busy, setBusy] = useState(false);
   const [uploading, setUploading] = useState(false);
+  // Multi-file drop-zone state: progress through a batch, and whether a
+  // file-drag is currently hovering the zone.
+  const [uploadProgress, setUploadProgress] = useState<{
+    done: number;
+    total: number;
+  } | null>(null);
+  const [dropActive, setDropActive] = useState(false);
+  const fileInputRef = useRef<HTMLInputElement | null>(null);
   // Open state for the media library / upload picker. Replaces the
   // old upload-only button so the founder can pick from existing
   // media too — no more re-uploading the same hero shot for every
@@ -316,6 +324,45 @@ export default function GalleriesAdminClient() {
       setErr(describe(e, "Upload failed"));
     } finally {
       setUploading(false);
+    }
+  }
+
+  // Multi-file upload: drag a batch of images straight onto the gallery
+  // (or pick several at once). Uploads them in order and appends each to
+  // the end of the gallery, so a folder of venue / Xmas shots lands in one
+  // drop (founder, 9 Oct 2026). Sequential so sort_order stays stable.
+  async function handleAddFiles(fileList: File[]) {
+    const files = fileList.filter((f) => f.type.startsWith("image/"));
+    if (files.length === 0) return;
+    setUploading(true);
+    setErr("");
+    setUploadProgress({ done: 0, total: files.length });
+    let order = images.length;
+    try {
+      for (let i = 0; i < files.length; i++) {
+        const file = files[i];
+        const { public_url } = await uploadImage(file, `gallery/${activeKey}`);
+        order += 1;
+        await createGalleryImage({
+          gallery_key: activeKey,
+          src: public_url,
+          alt: file.name.replace(/\.[^.]+$/, ""),
+          caption: null,
+          sort_order: order,
+          active: true,
+          position_x: 50,
+          position_y: 50,
+          position_zoom: 1,
+          position_fit: "cover",
+        });
+        setUploadProgress({ done: i + 1, total: files.length });
+      }
+      await reload();
+    } catch (e) {
+      setErr(describe(e, "Upload failed"));
+    } finally {
+      setUploading(false);
+      setUploadProgress(null);
     }
   }
 
@@ -502,6 +549,59 @@ export default function GalleriesAdminClient() {
               </button>
             }
           >
+            {/* Multi-file drop zone — drag a batch of photos straight in,
+                or click to choose several at once. */}
+            <div className="px-5 pt-4">
+              <div
+                onDragOver={(e) => {
+                  e.preventDefault();
+                  if (!uploading) setDropActive(true);
+                }}
+                onDragLeave={() => setDropActive(false)}
+                onDrop={(e) => {
+                  e.preventDefault();
+                  setDropActive(false);
+                  if (uploading) return;
+                  const files = Array.from(e.dataTransfer.files || []);
+                  if (files.length) handleAddFiles(files);
+                }}
+                onClick={() => !uploading && fileInputRef.current?.click()}
+                role="button"
+                tabIndex={0}
+                className={`cursor-pointer rounded-xl border-2 border-dashed px-4 py-6 text-center text-sm transition ${
+                  dropActive
+                    ? "border-plonkPink bg-plonkPink/10 text-cream"
+                    : "border-cream/20 text-cream/60 hover:border-cream/40"
+                }`}
+              >
+                <input
+                  ref={fileInputRef}
+                  type="file"
+                  accept="image/*"
+                  multiple
+                  hidden
+                  onChange={(e) => {
+                    const files = Array.from(e.target.files || []);
+                    if (files.length) handleAddFiles(files);
+                    e.target.value = "";
+                  }}
+                />
+                {uploadProgress ? (
+                  <span className="font-semibold text-plonkPink">
+                    Uploading {uploadProgress.done} / {uploadProgress.total}…
+                  </span>
+                ) : (
+                  <span>
+                    <span className="font-bold text-plonkPink">
+                      Drag images here
+                    </span>{" "}
+                    to upload several at once — or click to choose. They&apos;re
+                    added to the end of the gallery in order.
+                  </span>
+                )}
+              </div>
+            </div>
+
             {loading ? (
               <p className="px-5 py-8 text-sm text-cream/60">Loading…</p>
             ) : images.length === 0 ? (
