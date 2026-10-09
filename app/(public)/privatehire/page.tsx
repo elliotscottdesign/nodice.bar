@@ -18,7 +18,11 @@ import {
   Gamepad2,
   Target,
   Disc3,
-  type LucideIcon,
+  Flag,
+  Dices,
+  Truck,
+  ChefHat,
+  LayoutGrid,
 } from "lucide-react";
 import PageHero from "@/components/PageHero";
 import MediaStrip from "@/components/MediaStrip";
@@ -27,10 +31,47 @@ import BigEmailCta from "@/components/BigEmailCta";
 import { useContent, useImage } from "@/lib/content";
 import { Editable } from "@/components/Editable";
 
+// Icon component shape shared by the lucide icons and our custom SVGs
+// below — just the props the grid actually passes.
+type UseCaseIcon = React.ComponentType<{
+  className?: string;
+  strokeWidth?: string | number;
+  "aria-hidden"?: boolean | "true" | "false";
+}>;
+
+// Table-tennis bat — lucide has no paddle, so this is a hand-drawn line
+// icon in the same stroke style (blade + handle + ball).
+function PingPongPaddle({
+  className,
+  strokeWidth = 1.5,
+  ...rest
+}: {
+  className?: string;
+  strokeWidth?: string | number;
+  "aria-hidden"?: boolean | "true" | "false";
+}) {
+  return (
+    <svg
+      viewBox="0 0 24 24"
+      fill="none"
+      stroke="currentColor"
+      strokeWidth={strokeWidth}
+      strokeLinecap="round"
+      strokeLinejoin="round"
+      className={className}
+      {...rest}
+    >
+      <circle cx="9.5" cy="9.5" r="6.2" />
+      <path d="M13.9 13.9l4 4.1a1.9 1.9 0 0 1-2.7 2.7l-4-4.1" />
+      <circle cx="18.5" cy="6" r="1.3" />
+    </svg>
+  );
+}
+
 // Pick an icon by keyword for a free-text "popular for" use-case.
 // CMS-editable — falls back to a generic Tag icon when nothing
 // matches so the grid never breaks on a custom string.
-function iconForUseCase(label: string): LucideIcon {
+function iconForUseCase(label: string): UseCaseIcon {
   const t = label.toLowerCase();
   if (/birthday/.test(t)) return Cake;
   if (/christmas|xmas|festive|holiday/.test(t)) return Gift;
@@ -38,12 +79,19 @@ function iconForUseCase(label: string): LucideIcon {
   if (/outdoor|garden|terrace|beer garden/.test(t)) return Sun;
   if (/park|green/.test(t)) return Trees;
   if (/unusual|unique|quirky|different/.test(t)) return Sparkles;
-  // Venue activities (added 2026-09-13). DJ rule sits before the generic
-  // music rule so "DJs" gets the turntable icon, not a plain note.
+  // Venue activities. DJ rule sits before the generic music rule so "DJs"
+  // gets the turntable icon; food-truck/catering sit before the generic
+  // food rule so they don't collapse into plain cutlery.
   if (/pool|cue|billiard/.test(t)) return CircleDot;
+  if (/mini.?golf|crazy golf|golf/.test(t)) return Flag;
+  if (/bingo/.test(t)) return LayoutGrid;
+  if (/board game|boardgame/.test(t)) return Dices;
+  if (/dart/.test(t)) return Target; // the concentric "dartboard" icon
   if (/arcade|gaming/.test(t)) return Gamepad2;
-  if (/ping.?pong|table tennis/.test(t)) return Target;
+  if (/ping.?pong|table tennis/.test(t)) return PingPongPaddle;
   if (/dj|deck|turntable/.test(t)) return Disc3;
+  if (/food truck|food.?truck|truck/.test(t)) return Truck;
+  if (/cater/.test(t)) return ChefHat;
   if (/party|club|night/.test(t)) return PartyPopper;
   if (/music|live/.test(t)) return Music;
   if (/photo|shoot|brand|launch/.test(t)) return Camera;
@@ -105,7 +153,7 @@ const DEFAULTS = {
     "London Fields' newest bar — yours for the night. Two arches of pool, drinks and snacks for parties of up to 65.",
   popular_heading: "No Dice is popular for",
   popular_list:
-    "Birthday party\nChristmas party\nCorporate event\nOutdoor space\nParkside location\nUnusual space\nPool\nArcade\nPing pong\nDJs",
+    "Birthday party\nChristmas party\nCorporate event\nOutdoor space\nParkside location\nUnusual space\nPool\nArcade\nPing pong\nDJs\nBingo\nMini golf\nBoard games\nDarts\nFood truck\nCatering",
   about_heading: "About this venue",
   about_body:
     "We're a neighbourhood bar in the railway arches off London Fields, ready to host your party or event. You bring the people, and we'll provide them with a fantastic selection of drinks from our cocktail bar alongside Snack Bar burgers from the kitchen.\n\nThe venue features two pool tables, a full bar with craft beer + cocktails, plenty of room for groups and the option to take over either an arch-end or the whole place. We can accommodate up to 100 people for private hires.",
