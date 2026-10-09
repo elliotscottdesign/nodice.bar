@@ -34,6 +34,7 @@ import XmasPackageBuilder from "@/components/XmasPackageBuilder";
 import { useEditMode } from "@/lib/editMode";
 import Reveal from "@/components/Reveal";
 import BigEmailCta from "@/components/BigEmailCta";
+import InstagramFeed from "@/components/InstagramFeed";
 import { useContent, useImage, useGallery } from "@/lib/content";
 import { Editable } from "@/components/Editable";
 
@@ -561,6 +562,12 @@ export default function PrivateHirePage() {
       </section>
 
       <BigEmailCta subject="Private Hire Enquiry — No Dice" />
+
+      {/* Instagram feed at the end of Venue details (founder 9 Oct 2026). */}
+      <InstagramFeed
+        headingKey="privatehire.hackney.instagram_heading"
+        headingFallback="Follow the parties"
+      />
       </div>
 
       {/* ═══════════ XMAS MENU ═══════════ */}
