@@ -150,10 +150,6 @@ export default function XmasMenuTab() {
               <h3 className="text-center font-display text-3xl uppercase tracking-wider text-cream sm:text-4xl">
                 Festive food packages
               </h3>
-              <p className="mt-2 text-center text-sm text-cream/60">
-                What&apos;s in each bundle — build and price yours on the Package
-                builder tab.
-              </p>
               <div className="mt-5 grid grid-cols-1 gap-4 sm:grid-cols-2">
                 {packages.map((p) => (
                   <div key={p.name} className="overflow-hidden rounded-2xl border border-pong/40 bg-pong/[0.04] text-center">
