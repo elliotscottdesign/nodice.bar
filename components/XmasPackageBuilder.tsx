@@ -34,8 +34,8 @@ type Item = {
 };
 
 const DRINKS: Item[] = [
-  { id: "house_drink", name: "House drink", price: 8, qty: true, desc: "Pick how many per head" },
-  { id: "xmas_cocktail", name: "Xmas cocktail", price: 12, qty: true, desc: "Pick how many per head" },
+  { id: "house_drink", name: "House drink", price: 8, qty: true, desc: "Pint / single & mix / wine / bottles / softs" },
+  { id: "xmas_cocktail", name: "Xmas cocktail", price: 12, qty: true, desc: "One from our Xmas seasonal menu" },
   { id: "open_bar", name: "Open Bar — house drinks", price: 70, exclusive: true },
 ];
 const FOOD: Item[] = [
