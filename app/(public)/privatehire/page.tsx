@@ -446,23 +446,44 @@ export default function PrivateHirePage() {
               2026). Transparent image straight on the page; shrinks on
               phones, caps on desktop. */}
           {(floorplan.length > 0 || editing) && (
-            <div className="relative mx-auto max-w-3xl">
-              {floorplan.length > 0 ? (
-                // eslint-disable-next-line @next/next/no-img-element
-                <img
-                  src={floorplan[0].src}
-                  alt="No Dice Hackney venue floorplan"
-                  className="mx-auto block h-auto w-full"
+            <div className="mx-auto max-w-3xl">
+              <div className="relative">
+                {floorplan.length > 0 ? (
+                  // eslint-disable-next-line @next/next/no-img-element
+                  <img
+                    src={floorplan[0].src}
+                    alt="No Dice Hackney venue floorplan"
+                    className="mx-auto block h-auto w-full"
+                  />
+                ) : (
+                  <div className="flex min-h-[160px] items-center justify-center rounded-2xl border border-dashed border-cream/20 text-sm text-cream/40">
+                    Floorplan — add an image
+                  </div>
+                )}
+                <ManageGalleryLink
+                  galleryKey="privatehire.floorplan"
+                  label={floorplan.length ? "Change floorplan" : "Add floorplan"}
                 />
-              ) : (
-                <div className="flex min-h-[160px] items-center justify-center rounded-2xl border border-dashed border-cream/20 text-sm text-cream/40">
-                  Floorplan — add an image
-                </div>
-              )}
-              <ManageGalleryLink
-                galleryKey="privatehire.floorplan"
-                label={floorplan.length ? "Change floorplan" : "Add floorplan"}
-              />
+              </div>
+              {/* Colour key — matches the floorplan (founder 10 Oct 2026). */}
+              <div className="mt-4 flex flex-wrap items-center justify-center gap-x-5 gap-y-2 text-sm text-cream/80">
+                <span className="flex items-center gap-2">
+                  <span className="inline-block h-3.5 w-3.5 rounded-sm" style={{ background: "#2f7dff" }} />
+                  Seating
+                </span>
+                <span className="flex items-center gap-2">
+                  <span className="inline-block h-3.5 w-3.5 rounded-sm" style={{ background: "#2ecc40" }} />
+                  Pool
+                </span>
+                <span className="flex items-center gap-2">
+                  <span className="inline-block h-3.5 w-3.5 rounded-sm" style={{ background: "#ff851b" }} />
+                  Arcades
+                </span>
+                <span className="flex items-center gap-2">
+                  <span className="inline-block h-3.5 w-3.5 rounded-sm border border-cream/50 bg-white" />
+                  170m²
+                </span>
+              </div>
             </div>
           )}
         </div>
