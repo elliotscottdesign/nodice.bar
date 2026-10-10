@@ -34,8 +34,10 @@ type Item = {
   // Food packages carry the list of dishes they include, shown in a dropdown.
   breakdown?: string[];
   // Optional landscape hero image (a URL from the website media library,
-  // attached to the package/item in the On A Roll backend).
+  // attached to the package/item in the On A Roll backend) + its focal point.
   image?: string;
+  imageX?: number;
+  imageY?: number;
 };
 
 const DRINKS: Item[] = [
@@ -47,6 +49,7 @@ const GAMES: Item[] = [
   { id: "gaming_pack", name: "Gaming pack", price: 12, desc: "Golf · tokens · pool · darts · ping pong" },
   { id: "bingo", name: "Bingo", price: 5, desc: "5 cards per person, across the event" },
   { id: "treasure_hunt", name: "Xmas treasure hunt", price: 10 },
+  { id: "karaoke", name: "Karaoke", price: 10 },
 ];
 
 // Food is driven LIVE by the On A Roll Xmas menu backend — every package the
@@ -57,6 +60,11 @@ const MENU_FN = `${SUPABASE_URL}/functions/v1/menu`;
 const num = (v: unknown) => {
   const n = parseFloat(String(v));
   return Number.isFinite(n) ? n : 0;
+};
+// Focal-point percentage (object-position), centre (50) when unset.
+const posN = (v: unknown) => {
+  const n = parseFloat(String(v));
+  return Number.isFinite(n) ? Math.min(100, Math.max(0, n)) : 50;
 };
 
 // Beyond the packages, two individual items are offered standalone in the
@@ -167,6 +175,8 @@ export default function XmasPackageBuilder() {
             price: num(p.pricePerHead),
             desc: p.blurb || "",
             image: p.image || p.heroImage || "",
+            imageX: posN(p.imageX),
+            imageY: posN(p.imageY),
             breakdown: (p.items || [])
               .map((x: any) => byId[x.itemId]?.name)
               .filter(Boolean),
@@ -183,6 +193,8 @@ export default function XmasPackageBuilder() {
             price: num(it.sellOverride), // per-head sell set in On A Roll
             desc: it.desc || "",
             image: it.image || it.heroImage || "",
+            imageX: posN(it.imageX),
+            imageY: posN(it.imageY),
             breakdown: [],
           });
         }
@@ -920,6 +932,7 @@ function FoodPackageGroup({
                       src={p.image}
                       alt={p.name}
                       className="aspect-[16/9] w-full object-cover"
+                      style={{ objectPosition: `${p.imageX ?? 50}% ${p.imageY ?? 50}%` }}
                       loading="lazy"
                     />
                   </button>

@@ -27,6 +27,11 @@ const num = (v: unknown) => {
   const n = parseFloat(String(v));
   return Number.isFinite(n) ? n : 0;
 };
+// Focal-point percentage (object-position), centre (50) when unset.
+const posN = (v: unknown) => {
+  const n = parseFloat(String(v));
+  return Number.isFinite(n) ? Math.min(100, Math.max(0, n)) : 50;
+};
 const gcost = (g: any) =>
   num(g?.packSize) > 0 && g?.packPrice !== "" && g?.packPrice != null && g?.qtyUsed !== "" && g?.qtyUsed != null
     ? (num(g.packPrice) / num(g.packSize)) * num(g.qtyUsed)
@@ -41,7 +46,7 @@ const sellOf = (it: any, settings: any) =>
       : 0;
 const gbp = (n: number) => "£" + (n % 1 === 0 ? n.toFixed(0) : n.toFixed(2));
 
-type Pkg = { name: string; pricePerHead: number; blurb: string; items: string[]; image: string };
+type Pkg = { name: string; pricePerHead: number; blurb: string; items: string[]; image: string; imageX: number; imageY: number };
 type Ala = { name: string; desc: string; sell: number; board: boolean };
 
 export default function XmasMenuTab() {
@@ -97,6 +102,8 @@ export default function XmasMenuTab() {
               pricePerHead: num(p.pricePerHead),
               blurb: p.blurb || "",
               image: p.image || p.heroImage || "",
+              imageX: posN(p.imageX),
+              imageY: posN(p.imageY),
               items: (p.items || []).map((x: any) => byId[x.itemId]?.name).filter(Boolean),
             }))
             .sort((a: Pkg, b: Pkg) => (a.pricePerHead || Infinity) - (b.pricePerHead || Infinity)),
@@ -140,10 +147,10 @@ export default function XmasMenuTab() {
               (those live in the builder). */}
           {packages.length > 0 && (
             <div>
-              <h3 className="font-display text-3xl uppercase tracking-wider text-cream sm:text-4xl">
+              <h3 className="text-center font-display text-3xl uppercase tracking-wider text-cream sm:text-4xl">
                 Festive food packages
               </h3>
-              <p className="mt-2 text-sm text-cream/60">
+              <p className="mt-2 text-center text-sm text-cream/60">
                 What&apos;s in each bundle — build and price yours on the Package
                 builder tab.
               </p>
@@ -156,6 +163,7 @@ export default function XmasMenuTab() {
                         src={p.image}
                         alt={p.name}
                         className="aspect-[16/9] w-full object-cover"
+                        style={{ objectPosition: `${p.imageX ?? 50}% ${p.imageY ?? 50}%` }}
                         loading="lazy"
                       />
                     )}
