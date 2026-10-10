@@ -130,13 +130,13 @@ export default function XmasMenuTab() {
                 as="h3"
                 k="xmas.menutab.alacarte_heading"
                 fallback="Christmessy menu"
-                className="font-display text-3xl uppercase tracking-wider text-cream sm:text-4xl"
+                className="text-center font-display text-3xl uppercase tracking-wider text-cream sm:text-4xl"
               />
               <EditableText
                 as="p"
                 k="xmas.menutab.alacarte_sub"
                 fallback="Build your own spread."
-                className="mt-2 text-sm text-cream/60"
+                className="mt-2 text-center text-sm text-cream/60"
               />
               <div className="mt-5 space-y-3">
                 {alacarte.map((it) => (
@@ -144,7 +144,9 @@ export default function XmasMenuTab() {
                     key={it.name}
                     className="border-b border-dotted border-cream/25 pb-4 text-center"
                   >
-                    <div className="text-base text-cream/90">{it.name}</div>
+                    <div className="font-display text-2xl normal-case tracking-normal text-cream sm:text-3xl">
+                      {it.name}
+                    </div>
                     {it.desc && (
                       <div className="mx-auto mt-1 max-w-xl text-xs leading-relaxed text-cream/50">
                         {it.desc}
