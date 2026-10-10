@@ -98,7 +98,8 @@ export default function XmasMenuTab() {
               blurb: p.blurb || "",
               image: p.image || p.heroImage || "",
               items: (p.items || []).map((x: any) => byId[x.itemId]?.name).filter(Boolean),
-            })),
+            }))
+            .sort((a: Pkg, b: Pkg) => (a.pricePerHead || Infinity) - (b.pricePerHead || Infinity)),
         );
         setAlacarte(
           items
