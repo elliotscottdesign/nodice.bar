@@ -389,28 +389,6 @@ export default function PrivateHirePage() {
       {/* Fact sheet. pt trimmed (founder, 9 Sep 2026): the capacity
           stats should sit close under the intro text, not a screen away. */}
       <section className="tint-plumDeep-to-plum px-6 pb-2 pt-6">
-        <div className="mx-auto max-w-6xl space-y-8">
-          <FactPanel title={capacityTitle} titleKey="privatehire.hackney.capacity_title">
-            {/* One row on every screen size (founder, 9 Sep 2026) —
-                three compact cards beat three full-width slabs. */}
-            <div className="grid grid-cols-3 gap-2 sm:gap-4">
-              {capacities.map((c) => (
-                <div
-                  key={c.label}
-                  className="rounded-2xl border border-plumLine/80 bg-plumDeep/60 p-3 text-center sm:p-6"
-                >
-                  <p className="text-[10px] font-bold uppercase tracking-[0.14em] text-plonkYellow sm:text-xs sm:tracking-eyebrow">
-                    {c.label}
-                  </p>
-                  <p className="mt-1 font-display text-3xl text-cream sm:mt-3 sm:text-5xl">
-                    {c.value}
-                  </p>
-                </div>
-              ))}
-            </div>
-          </FactPanel>
-        </div>
-
         {/* GAMES kit scroller — full width, under the Capacity section
             (founder 9 Oct 2026). New privatehire.games gallery; blank
             placeholders until the team uploads photos of the games kit. */}
@@ -486,6 +464,25 @@ export default function PrivateHirePage() {
               </div>
             </div>
           )}
+
+          {/* Capacity — moved to below the floorplan key (founder 10 Oct). */}
+          <FactPanel title={capacityTitle} titleKey="privatehire.hackney.capacity_title">
+            <div className="grid grid-cols-3 gap-2 sm:gap-4">
+              {capacities.map((c) => (
+                <div
+                  key={c.label}
+                  className="rounded-2xl border border-plumLine/80 bg-plumDeep/60 p-3 text-center sm:p-6"
+                >
+                  <p className="text-[10px] font-bold uppercase tracking-[0.14em] text-plonkYellow sm:text-xs sm:tracking-eyebrow">
+                    {c.label}
+                  </p>
+                  <p className="mt-1 font-display text-3xl text-cream sm:mt-3 sm:text-5xl">
+                    {c.value}
+                  </p>
+                </div>
+              ))}
+            </div>
+          </FactPanel>
         </div>
 
         <div className="mx-auto max-w-6xl space-y-8">
