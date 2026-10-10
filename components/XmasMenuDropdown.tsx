@@ -139,7 +139,7 @@ export default function XmasMenuDropdown() {
               <div className="mt-3 space-y-3">
                 {packages.map((p) => (
                   <div key={p.name} className="rounded-xl border border-pong/30 bg-pong/[0.04] p-4">
-                    <span className="font-display text-lg uppercase tracking-wider text-cream">
+                    <span className="font-festive capitalize text-lg text-cream">
                       {p.name}
                     </span>
                     {p.blurb && <p className="mt-1.5 text-sm text-cream/70">{p.blurb}</p>}
@@ -160,7 +160,7 @@ export default function XmasMenuDropdown() {
               <div className="mt-3 space-y-2">
                 {alacarte.map((it) => (
                   <div key={it.name} className="border-b border-cream/5 pb-2">
-                    <span className="text-sm text-cream/90">{it.name}</span>
+                    <span className="text-sm capitalize text-cream/90">{it.name}</span>
                     {it.desc && <span className="ml-2 text-xs text-cream/50">{it.desc}</span>}
                   </div>
                 ))}

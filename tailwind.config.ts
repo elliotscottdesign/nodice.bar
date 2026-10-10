@@ -70,6 +70,8 @@ const config: Config = {
       },
       fontFamily: {
         display: ["var(--font-display)", "Georgia", "serif"],
+        // Shrikhand — Xmas pages ONLY (founder-approved exception to Bebas).
+        festive: ["Shrikhand", "Georgia", "serif"],
         body: ["var(--font-body)", "system-ui", "sans-serif"],
       },
       letterSpacing: {

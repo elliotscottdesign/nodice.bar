@@ -132,6 +132,7 @@ export default function XmasMenuTab() {
       <MediaStrip
         galleryKey="xmas.menu"
         heading="This year's festive menu"
+        headingClassName="font-festive capitalize"
         intro="A taste of what's on — swipe through."
         headingKey="xmas.menu_heading"
         introKey="xmas.menu_intro"
@@ -147,7 +148,7 @@ export default function XmasMenuTab() {
               (those live in the builder). */}
           {packages.length > 0 && (
             <div>
-              <h3 className="text-center font-display text-3xl uppercase tracking-wider text-cream sm:text-4xl">
+              <h3 className="text-center font-festive capitalize text-2xl text-cream sm:text-3xl">
                 Festive food packages
               </h3>
               <div className="mt-5 grid grid-cols-1 gap-4 sm:grid-cols-2">
@@ -164,7 +165,7 @@ export default function XmasMenuTab() {
                       />
                     )}
                     <div className="p-5">
-                    <span className="font-display text-xl uppercase tracking-wider text-cream">
+                    <span className="font-festive capitalize text-xl text-cream">
                       {p.name}
                     </span>
                     {p.blurb && <p className="mt-2 text-sm text-cream/70">{p.blurb}</p>}
@@ -173,7 +174,7 @@ export default function XmasMenuTab() {
                         {p.items.map((dish) => (
                           <li key={dish} className="flex justify-center gap-2 text-sm text-cream/85">
                             <span className="text-pongLight" aria-hidden>·</span>
-                            <span>{dish}</span>
+                            <span className="capitalize">{dish}</span>
                           </li>
                         ))}
                       </ul>
@@ -192,7 +193,7 @@ export default function XmasMenuTab() {
                 as="h3"
                 k="xmas.menutab.alacarte_heading"
                 fallback="Christmessy menu"
-                className="text-center font-display text-5xl uppercase tracking-wider text-cream sm:text-6xl"
+                className="text-center font-festive capitalize text-4xl text-cream sm:text-5xl"
               />
               <EditableText
                 as="p"
@@ -206,7 +207,7 @@ export default function XmasMenuTab() {
                     key={it.name}
                     className="border-b border-dotted border-cream/25 pb-9 text-center"
                   >
-                    <div className="font-display text-2xl normal-case tracking-normal text-cream sm:text-3xl">
+                    <div className="font-festive capitalize text-xl text-cream sm:text-2xl">
                       {`  —  ${it.name}  —  `}
                     </div>
                     {it.desc && (
@@ -254,7 +255,7 @@ export default function XmasMenuTab() {
 
           {/* Allergen matrix */}
           <div className="text-center">
-            <h3 className="font-display text-3xl uppercase tracking-wider text-cream sm:text-4xl">
+            <h3 className="font-festive capitalize text-2xl text-cream sm:text-3xl">
               Allergens
             </h3>
             <p className="mb-5 mt-2 text-sm text-cream/60">

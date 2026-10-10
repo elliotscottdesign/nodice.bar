@@ -361,7 +361,7 @@ export default function XmasPackageBuilder() {
   if (state === "sent") {
     return (
       <div className="rounded-2xl border border-pong/40 bg-pong/[0.08] p-8 text-center">
-        <div className="font-display text-3xl uppercase tracking-wider text-cream">
+        <div className="font-festive capitalize text-2xl text-cream">
           Package sent 🎄
         </div>
         <p className="mx-auto mt-3 max-w-md text-sm leading-relaxed text-cream/80">
@@ -744,7 +744,7 @@ function StepHeading({ n, title }: { n: number; title: string }) {
       <span className="flex h-7 w-7 shrink-0 items-center justify-center rounded-full bg-nodiceRed/20 text-xs font-bold text-nodiceRed">
         {n}
       </span>
-      <h3 className="font-display text-2xl uppercase tracking-wider text-cream sm:text-3xl">
+      <h3 className="font-festive capitalize text-xl text-cream sm:text-2xl">
         {title}
       </h3>
     </div>
@@ -853,7 +853,7 @@ function ItemGroup({
                 </span>
                 <span className="min-w-0">
                   <span className="flex flex-wrap items-center gap-2">
-                    {i.name}
+                    <span className="capitalize">{i.name}</span>
                     {i.exclusive && (
                       <span className="rounded-full bg-pong/15 px-2 py-0.5 text-[9px] font-bold uppercase tracking-wider text-pongLight">
                         all-in
@@ -959,7 +959,7 @@ function FoodPackageGroup({
                     >
                       ✓
                     </span>
-                    <span className="min-w-0 font-medium">{p.name}</span>
+                    <span className="min-w-0 font-medium capitalize">{p.name}</span>
                   </span>
                   <span className="whitespace-nowrap font-display text-lg text-nodiceRed">
                     {p.price > 0 ? (

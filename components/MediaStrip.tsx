@@ -34,6 +34,7 @@ export default function MediaStrip({
   blankLabel = "Photo coming soon",
   aspect = "16 / 10",
   tint,
+  headingClassName,
 }: {
   galleryKey: string;
   heading?: string;
@@ -50,6 +51,8 @@ export default function MediaStrip({
   aspect?: string;
   /** Optional background tint class (e.g. "tint-forest"). */
   tint?: string;
+  /** Optional override for the heading's font classes (Xmas pages use Shrikhand). */
+  headingClassName?: string;
 }) {
   const images = useGallery(galleryKey, []);
   const hasImages = images.length > 0;
@@ -67,7 +70,7 @@ export default function MediaStrip({
       <div className="py-6 sm:py-8">
         {(headingText || headingKey) && (
           <div className="mx-auto mb-6 max-w-6xl px-6 text-center">
-            <h2 className="font-display text-2xl uppercase tracking-wider text-cream sm:text-3xl">
+            <h2 className={`${headingClassName ?? "font-display uppercase tracking-wider"} text-2xl text-cream sm:text-3xl`}>
               {headingKey ? (
                 <Editable k={headingKey}>{headingText}</Editable>
               ) : (

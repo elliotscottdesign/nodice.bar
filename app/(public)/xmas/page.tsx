@@ -124,7 +124,7 @@ export default async function XmasPage() {
           as="h1"
           k="xmas.hero_title"
           fallback="Christmas at No Dice"
-          className="mt-4 font-display text-5xl uppercase leading-tight tracking-wider sm:text-6xl"
+          className="mt-4 font-festive capitalize text-4xl leading-tight sm:text-5xl"
         />
         <EditableText
           as="p"
@@ -145,6 +145,7 @@ export default async function XmasPage() {
       <MediaStrip
         galleryKey="xmas.menu"
         heading="This year's festive menu"
+        headingClassName="font-festive capitalize"
         intro="A taste of what's on — swipe through."
         headingKey="xmas.menu_heading"
         introKey="xmas.menu_intro"
@@ -161,7 +162,7 @@ export default async function XmasPage() {
             as="h2"
             k="xmas.builder_heading"
             fallback="Build your Christmas party"
-            className="font-display text-3xl uppercase tracking-wider text-cream sm:text-4xl"
+            className="font-festive capitalize text-2xl text-cream sm:text-3xl"
           />
           <EditableText
             as="p"
@@ -183,7 +184,7 @@ export default async function XmasPage() {
                 as="h2"
                 k="xmas.empty_heading"
                 fallback="Menus landing soon"
-                className="font-display text-2xl uppercase tracking-wider text-cream"
+                className="font-festive capitalize text-xl text-cream"
               />
               <p className="mt-3 text-sm leading-relaxed text-cream/80">
                 Our Christmas 2026 menus are being finalised. Email{" "}
@@ -202,7 +203,7 @@ export default async function XmasPage() {
                     as="h2"
                     k="xmas.packages_heading"
                     fallback="Party packages"
-                    className="font-display text-3xl uppercase tracking-wider text-cream sm:text-4xl"
+                    className="font-festive capitalize text-2xl text-cream sm:text-3xl"
                   />
                   <EditableText
                     as="p"
@@ -217,7 +218,7 @@ export default async function XmasPage() {
                         className="flex flex-col rounded-2xl border border-pong/50 bg-white/[0.02] p-6"
                       >
                         <div className="flex items-baseline justify-between gap-3">
-                          <h3 className="font-display text-2xl text-cream">{p.name}</h3>
+                          <h3 className="font-festive capitalize text-xl text-cream sm:text-2xl">{p.name}</h3>
                           <span className="whitespace-nowrap font-display text-2xl text-nodiceRed">
                             {gbp(p.pricePerHead)}
                             <span className="ml-1 text-xs font-normal uppercase tracking-wider text-cream/50">
@@ -233,7 +234,7 @@ export default async function XmasPage() {
                             {p.items.map((name, i) => (
                               <li
                                 key={i}
-                                className="rounded-full border border-pong/40 bg-pong/10 px-3 py-1 text-xs text-pongLight"
+                                className="rounded-full border border-pong/40 bg-pong/10 px-3 py-1 text-xs capitalize text-pongLight"
                               >
                                 {name}
                               </li>
@@ -253,7 +254,7 @@ export default async function XmasPage() {
                     as="h2"
                     k="xmas.alacarte_heading"
                     fallback="By the item"
-                    className="font-display text-3xl uppercase tracking-wider text-cream sm:text-4xl"
+                    className="font-festive capitalize text-2xl text-cream sm:text-3xl"
                   />
                   <EditableText
                     as="p"
@@ -265,7 +266,7 @@ export default async function XmasPage() {
                     {alacarte.map((it) => (
                       <article key={it.name} className="rounded-2xl border border-white/10 p-5">
                         <div className="flex items-baseline justify-between gap-4">
-                          <h3 className="font-display text-xl text-cream sm:text-2xl">{it.name}</h3>
+                          <h3 className="font-festive capitalize text-lg text-cream sm:text-xl">{it.name}</h3>
                           <span className="whitespace-nowrap font-display text-xl text-nodiceRed sm:text-2xl">
                             {gbp(it.sell)}
                             <span className="ml-1 text-xs font-normal uppercase tracking-wider text-cream/50">
@@ -290,7 +291,7 @@ export default async function XmasPage() {
               as="h2"
               k="xmas.cta_heading"
               fallback="Planning a Christmas party?"
-              className="font-display text-2xl uppercase tracking-wider text-cream sm:text-3xl"
+              className="font-festive capitalize text-xl text-cream sm:text-2xl"
             />
             <EditableText
               as="p"
