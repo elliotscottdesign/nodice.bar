@@ -50,6 +50,55 @@ type Row = { dish: string; allergens: Record<string, string>; notes: string | nu
 
 export default function AllergenMatrix({ menuPrefix = "🎄" }: { menuPrefix?: string }) {
   const [rows, setRows] = useState<Row[] | null>(null);
+  const [open, setOpen] = useState(false);
+
+  // Download a print-friendly A4 sheet built from the LIVE matrix, so a
+  // customer's download always reflects the current kitchen data.
+  function downloadSheet() {
+    if (!rows || rows.length === 0) return;
+    const w = window.open("", "_blank");
+    if (!w) return;
+    const esc = (s: unknown) =>
+      String(s ?? "").replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;");
+    const sym = (s?: string) =>
+      s === "contains" ? "●" : s === "trace" ? "○" : s === "pending" ? "⧗" : "";
+    const head = ALLERGENS.map((a) => `<th>${esc(a.label)}</th>`).join("");
+    const body = rows
+      .map((r) => {
+        const cells = ALLERGENS.map(
+          (a) => `<td style="text-align:center">${sym(r.allergens?.[a.key])}</td>`,
+        ).join("");
+        return `<tr><td style="font-weight:600">${esc(r.dish.replace(/^🎄\s*/, ""))}</td>${cells}</tr>`;
+      })
+      .join("");
+    const today = new Date().toLocaleDateString("en-GB", {
+      day: "numeric",
+      month: "long",
+      year: "numeric",
+    });
+    w.document.write(
+      `<!doctype html><html><head><meta charset="utf-8"><title>No Dice — Christmas Allergen Matrix</title>
+      <style>
+        @page { size: A4 landscape; margin: 12mm; }
+        body { font-family: Arial, Helvetica, sans-serif; color:#111; }
+        h1 { font-size:18px; margin:0 0 2px; }
+        .sub { color:#666; font-size:11px; margin:0 0 14px; }
+        table { width:100%; border-collapse:collapse; font-size:11px; }
+        th,td { border:1px solid #ccc; padding:5px 6px; }
+        th { background:#f3f3f3; text-align:center; }
+        th:first-child, td:first-child { text-align:left; }
+        .legend { margin-top:10px; font-size:11px; color:#444; }
+      </style></head><body>
+      <h1>No Dice · Christmas Allergen Matrix</h1>
+      <p class="sub">London Fields, E8 · generated ${esc(today)} · always tell us about allergies when you book</p>
+      <table><thead><tr><th>Dish</th>${head}</tr></thead><tbody>${body}</tbody></table>
+      <p class="legend">● Contains &nbsp;&nbsp; ○ May contain / trace &nbsp;&nbsp; ⧗ Confirming</p>
+      </body></html>`,
+    );
+    w.document.close();
+    w.focus();
+    setTimeout(() => w.print(), 400);
+  }
 
   useEffect(() => {
     let cancelled = false;
@@ -93,7 +142,28 @@ export default function AllergenMatrix({ menuPrefix = "🎄" }: { menuPrefix?: s
 
   return (
     <div>
-      <div className="overflow-x-auto rounded-2xl border border-cream/10">
+      <div className="flex flex-wrap items-center gap-3">
+        <button
+          type="button"
+          onClick={() => setOpen((o) => !o)}
+          aria-expanded={open}
+          className="inline-flex items-center gap-2 rounded-full border border-cream/20 bg-white/[0.03] px-5 py-2.5 text-sm font-bold uppercase tracking-wider text-cream transition hover:bg-white/10"
+        >
+          {open ? "Hide allergen matrix" : "View full allergen matrix"}
+          <span className={`transition-transform ${open ? "rotate-180" : ""}`} aria-hidden>▾</span>
+        </button>
+        <button
+          type="button"
+          onClick={downloadSheet}
+          className="inline-flex items-center gap-2 rounded-full bg-nodiceRed px-5 py-2.5 text-sm font-bold uppercase tracking-wider text-white transition hover:bg-nodiceRedDeep"
+        >
+          ⤓ Download
+        </button>
+      </div>
+
+      {!open ? null : (
+        <div className="mt-4">
+          <div className="overflow-x-auto rounded-2xl border border-cream/10">
         <table className="w-full border-collapse text-left">
           <thead>
             <tr className="bg-white/[0.03]">
@@ -144,7 +214,9 @@ export default function AllergenMatrix({ menuPrefix = "🎄" }: { menuPrefix?: s
         <span><span className="text-plonkYellow">○</span> May contain / trace</span>
         <span><span className="text-cream/40">⧗</span> Confirming</span>
         <span className="text-cream/45">Always tell us about allergies when you book.</span>
-      </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }
