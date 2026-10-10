@@ -196,11 +196,11 @@ export default function XmasMenuTab() {
                 fallback="Build your own spread."
                 className="mt-2 text-center text-sm text-cream/60"
               />
-              <div className="mt-5 space-y-3">
+              <div className="mt-7 space-y-9">
                 {alacarte.map((it) => (
                   <div
                     key={it.name}
-                    className="border-b border-dotted border-cream/25 pb-4 text-center"
+                    className="border-b border-dotted border-cream/25 pb-9 text-center"
                   >
                     <div className="font-display text-2xl normal-case tracking-normal text-cream sm:text-3xl">
                       {`  —  ${it.name}  —  `}
