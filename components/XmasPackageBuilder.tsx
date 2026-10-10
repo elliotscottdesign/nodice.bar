@@ -1,6 +1,6 @@
 "use client";
 
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 
 // =============================================================
 // XmasPackageBuilder — pick-and-mix Christmas party enquiry
@@ -31,6 +31,8 @@ type Item = {
   desc?: string;
   // Quantity items let the guest pick how many per head (e.g. drinks).
   qty?: boolean;
+  // Food packages carry the list of dishes they include, shown in a dropdown.
+  breakdown?: string[];
 };
 
 const DRINKS: Item[] = [
@@ -38,18 +40,21 @@ const DRINKS: Item[] = [
   { id: "xmas_cocktail", name: "Xmas cocktail", price: 12, qty: true, desc: "One from our Xmas seasonal menu" },
   { id: "open_bar", name: "Open Bar — house drinks", price: 70, exclusive: true },
 ];
-const FOOD: Item[] = [
-  { id: "main", name: "Main", price: 12 },
-  { id: "sides", name: "Sides", price: 6 },
-  { id: "sharer", name: "Xmas sharer menu", price: 40 },
-  { id: "open_buffet", name: "Bottomless Xmas buffet", price: 70, exclusive: true },
-];
 const GAMES: Item[] = [
   { id: "gaming_pack", name: "Gaming pack", price: 12, desc: "Golf · tokens · pool · darts · ping pong" },
   { id: "bingo", name: "Bingo", price: 5, desc: "5 cards per person, across the event" },
   { id: "treasure_hunt", name: "Xmas treasure hunt", price: 10 },
 ];
-const ALL_ITEMS = [...DRINKS, ...FOOD, ...GAMES];
+
+// Food is driven LIVE by the On A Roll Xmas menu backend — every package the
+// kitchen publishes there becomes a selectable food add-on here, with its
+// dish breakdown shown in a dropdown. Prices come straight from the backend
+// (pricePerHead), so new or changed packages flow through automatically.
+const MENU_FN = `${SUPABASE_URL}/functions/v1/menu`;
+const num = (v: unknown) => {
+  const n = parseFloat(String(v));
+  return Number.isFinite(n) ? n : 0;
+};
 
 // Private-hire slots and their MINIMUM SPEND (not an extra fee — the
 // packages have to add up to at least this). The minimum depends on the
@@ -100,6 +105,8 @@ export default function XmasPackageBuilder() {
   const [privateHire, setPrivateHire] = useState(false);
   const [slot, setSlot] = useState<string>("");
   const [selected, setSelected] = useState<Set<string>>(new Set());
+  // Food add-on packages, pulled live from the On A Roll Xmas backend.
+  const [foodPkgs, setFoodPkgs] = useState<Item[]>([]);
   // Per-head quantity for drink items (house drink + cocktail).
   const [qty, setQty] = useState<Record<string, number>>({
     house_drink: 0,
@@ -119,6 +126,45 @@ export default function XmasPackageBuilder() {
   const [error, setError] = useState("");
 
   const minIso = todayIso();
+
+  // Pull the live food packages from the On A Roll Xmas menu. Each published
+  // package → a food add-on, priced by the backend, with its dishes listed.
+  useEffect(() => {
+    let cancelled = false;
+    fetch(MENU_FN, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ action: "getXmasMenu" }),
+    })
+      .then((r) => r.json())
+      .then((j) => {
+        if (cancelled) return;
+        const doc = j?.doc || {};
+        const items: any[] = Array.isArray(doc.items) ? doc.items : [];
+        const byId: Record<string, any> = Object.fromEntries(
+          items.map((it) => [it.id, it]),
+        );
+        const pkgs: Item[] = (Array.isArray(doc.packages) ? doc.packages : [])
+          .filter((p: any) => p?.name)
+          .map((p: any) => ({
+            id: `food_${String(p.name)
+              .toLowerCase()
+              .replace(/[^a-z0-9]+/g, "_")
+              .replace(/^_|_$/g, "")}`,
+            name: p.name,
+            price: num(p.pricePerHead),
+            desc: p.blurb || "",
+            breakdown: (p.items || [])
+              .map((x: any) => byId[x.itemId]?.name)
+              .filter(Boolean),
+          }));
+        setFoodPkgs(pkgs);
+      })
+      .catch(() => {});
+    return () => {
+      cancelled = true;
+    };
+  }, []);
 
   function toggleDate(d: string) {
     setDates((prev) => {
@@ -183,17 +229,19 @@ export default function XmasPackageBuilder() {
   }
 
   const openBar = selected.has("open_bar");
-  const openBuffet = selected.has("open_buffet");
+
+  // Drinks + games + the live food packages — the full pick-and-mix set.
+  const allItems = useMemo(() => [...DRINKS, ...GAMES, ...foodPkgs], [foodPkgs]);
 
   const heads = Math.max(0, parseInt(headcount || "0", 10) || 0);
   const perHead = useMemo(() => {
     let sum = 0;
-    for (const i of ALL_ITEMS) {
+    for (const i of allItems) {
       if (i.qty) sum += i.price * (qty[i.id] || 0);
       else if (selected.has(i.id)) sum += i.price;
     }
     return sum;
-  }, [selected, qty]);
+  }, [selected, qty, allItems]);
   const packageTotal = perHead * heads;
   // Budget (no-private-hire path): how much of their budget is left.
   const budgetNum = Math.max(0, parseInt(budget || "0", 10) || 0);
@@ -224,11 +272,11 @@ export default function XmasPackageBuilder() {
       headcount: heads,
       items: [
         // Quantity drinks (× per head), then the toggled items.
-        ...ALL_ITEMS.filter((i) => i.qty && (qty[i.id] || 0) > 0).map((i) => ({
+        ...allItems.filter((i) => i.qty && (qty[i.id] || 0) > 0).map((i) => ({
           name: `${i.name} × ${qty[i.id]}`,
           price_per_head: i.price * (qty[i.id] || 0),
         })),
-        ...ALL_ITEMS.filter((i) => !i.qty && selected.has(i.id)).map((i) => ({
+        ...allItems.filter((i) => !i.qty && selected.has(i.id)).map((i) => ({
           name: i.name,
           price_per_head: i.price,
         })),
@@ -474,8 +522,8 @@ export default function XmasPackageBuilder() {
       <section>
         <StepHeading n={4} title="Build your package" />
         <p className="mt-1 text-sm text-cream/60">
-          Prices are per head. Open Bar or Bottomless Buffet cover everything in
-          their section.
+          Prices are per head. Open Bar covers all house drinks. Tap a food
+          package to see what&apos;s inside.
         </p>
         <div className="mt-5 space-y-6">
           <ItemGroup
@@ -487,12 +535,10 @@ export default function XmasPackageBuilder() {
             qty={qty}
             onQty={changeQty}
           />
-          <ItemGroup
-            label="Food"
-            items={FOOD}
+          <FoodPackageGroup
+            packages={foodPkgs}
             selected={selected}
-            disabledIds={openBuffet ? FOOD.filter((i) => !i.exclusive).map((i) => i.id) : []}
-            onToggle={(id) => toggleItem(FOOD, id)}
+            onToggle={(id) => toggleItem(foodPkgs, id)}
           />
           <ItemGroup
             label="Games"
@@ -779,6 +825,138 @@ function ItemGroup({
           );
         })}
       </div>
+    </div>
+  );
+}
+
+// Food packages come live from the On A Roll backend. Each is a selectable
+// pill with a dropdown revealing its dishes (works the same on phone + desktop
+// — an inline disclosure, not a native select). Selecting the pill adds it to
+// the package; the "what's included" row just expands the breakdown.
+function FoodPackageGroup({
+  packages,
+  selected,
+  onToggle,
+}: {
+  packages: Item[];
+  selected: Set<string>;
+  onToggle: (id: string) => void;
+}) {
+  const [open, setOpen] = useState<Set<string>>(new Set());
+  const toggleOpen = (id: string) =>
+    setOpen((prev) => {
+      const next = new Set(prev);
+      if (next.has(id)) next.delete(id);
+      else next.add(id);
+      return next;
+    });
+
+  return (
+    <div>
+      <div className="text-xs font-bold uppercase tracking-[0.22em] text-plonkYellow">
+        Food
+      </div>
+      {packages.length === 0 ? (
+        <p className="mt-2 text-sm text-cream/55">
+          Our festive food packages are being finalised — check back soon, or
+          add a note below and we&apos;ll build the food around you.
+        </p>
+      ) : (
+        <div className="mt-2 grid gap-2 sm:grid-cols-2">
+          {packages.map((p) => {
+            const isSel = selected.has(p.id);
+            const isOpen = open.has(p.id);
+            const hasDetail = (p.breakdown && p.breakdown.length > 0) || !!p.desc;
+            return (
+              <div
+                key={p.id}
+                className={`overflow-hidden rounded-2xl border transition ${
+                  isSel
+                    ? "border-nodiceRed bg-nodiceRed/10"
+                    : "border-cream/10 bg-white/[0.02]"
+                }`}
+              >
+                <button
+                  type="button"
+                  onClick={() => onToggle(p.id)}
+                  className="flex w-full items-center justify-between gap-3 px-4 py-3 text-left"
+                >
+                  <span className="flex items-start gap-2.5 text-sm text-cream/90">
+                    <span
+                      className={`mt-0.5 flex h-5 w-5 shrink-0 items-center justify-center rounded-md border text-[11px] ${
+                        isSel
+                          ? "border-nodiceRed bg-nodiceRed text-white"
+                          : "border-cream/25 text-transparent"
+                      }`}
+                      aria-hidden
+                    >
+                      ✓
+                    </span>
+                    <span className="min-w-0 font-medium">{p.name}</span>
+                  </span>
+                  <span className="whitespace-nowrap font-display text-lg text-nodiceRed">
+                    {p.price > 0 ? (
+                      <>
+                        £{p.price}
+                        <span className="ml-0.5 text-[10px] font-normal uppercase tracking-wider text-cream/45">
+                          /head
+                        </span>
+                      </>
+                    ) : (
+                      <span className="text-xs font-normal uppercase tracking-wider text-cream/45">
+                        Price TBC
+                      </span>
+                    )}
+                  </span>
+                </button>
+
+                {hasDetail && (
+                  <>
+                    <button
+                      type="button"
+                      onClick={() => toggleOpen(p.id)}
+                      aria-expanded={isOpen}
+                      className="flex w-full items-center gap-1.5 border-t border-cream/10 px-4 py-2 text-[11px] font-bold uppercase tracking-wider text-plonkYellow transition hover:bg-white/[0.03]"
+                    >
+                      {isOpen ? "Hide" : "See what's included"}
+                      <span
+                        className={`transition-transform ${isOpen ? "rotate-180" : ""}`}
+                        aria-hidden
+                      >
+                        ▾
+                      </span>
+                    </button>
+                    {isOpen && (
+                      <div className="px-4 pb-3.5 pt-0.5">
+                        {p.desc && (
+                          <p className="mb-2 text-xs italic leading-relaxed text-cream/60">
+                            {p.desc}
+                          </p>
+                        )}
+                        {p.breakdown && p.breakdown.length > 0 && (
+                          <ul className="space-y-1">
+                            {p.breakdown.map((dish) => (
+                              <li
+                                key={dish}
+                                className="flex gap-2 text-xs text-cream/80"
+                              >
+                                <span className="text-plonkYellow" aria-hidden>
+                                  ·
+                                </span>
+                                <span>{dish}</span>
+                              </li>
+                            ))}
+                          </ul>
+                        )}
+                      </div>
+                    )}
+                  </>
+                )}
+              </div>
+            );
+          })}
+        </div>
+      )}
     </div>
   );
 }

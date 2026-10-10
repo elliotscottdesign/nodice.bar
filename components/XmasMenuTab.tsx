@@ -133,13 +133,18 @@ export default function XmasMenuTab() {
 
       <section className="px-6 py-10">
         <div className="mx-auto max-w-3xl space-y-12">
-          {/* Packages */}
+          {/* Packages — the festive food bundles (same ones that drive the
+              package builder on the previous tab). Breakdown shown, no prices
+              (those live in the builder). */}
           {packages.length > 0 && (
             <div>
               <h3 className="font-display text-3xl uppercase tracking-wider text-cream sm:text-4xl">
-                Party packages
+                Festive food packages
               </h3>
-              <p className="mt-2 text-sm text-cream/60">Per head · minimum numbers may apply</p>
+              <p className="mt-2 text-sm text-cream/60">
+                What&apos;s in each bundle — build and price yours on the Package
+                builder tab.
+              </p>
               <div className="mt-5 grid gap-4 sm:grid-cols-2">
                 {packages.map((p) => (
                   <div key={p.name} className="rounded-2xl border border-pong/40 bg-pong/[0.04] p-5">
@@ -148,7 +153,14 @@ export default function XmasMenuTab() {
                     </span>
                     {p.blurb && <p className="mt-2 text-sm text-cream/70">{p.blurb}</p>}
                     {p.items.length > 0 && (
-                      <p className="mt-3 text-xs text-pongLight">{p.items.join(" · ")}</p>
+                      <ul className="mt-3 space-y-1">
+                        {p.items.map((dish) => (
+                          <li key={dish} className="flex gap-2 text-sm text-cream/85">
+                            <span className="text-pongLight" aria-hidden>·</span>
+                            <span>{dish}</span>
+                          </li>
+                        ))}
+                      </ul>
                     )}
                   </div>
                 ))}
