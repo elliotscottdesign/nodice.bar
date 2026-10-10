@@ -33,6 +33,9 @@ type Item = {
   qty?: boolean;
   // Food packages carry the list of dishes they include, shown in a dropdown.
   breakdown?: string[];
+  // Optional landscape hero image (a URL from the website media library,
+  // attached to the package/item in the On A Roll backend).
+  image?: string;
 };
 
 const DRINKS: Item[] = [
@@ -55,6 +58,15 @@ const num = (v: unknown) => {
   const n = parseFloat(String(v));
   return Number.isFinite(n) ? n : 0;
 };
+
+// Beyond the packages, two individual items are offered standalone in the
+// builder: the cheese board and the Christmas cake. They're matched from the
+// backend's items by name, and priced from each item's own per-head sell
+// price (its "sell override" in On A Roll) — set that to give them a price.
+const STANDALONE_FOOD: { match: RegExp }[] = [
+  { match: /camembert|cheese|charcuterie|baguette/i }, // the cheese board
+  { match: /cake/i }, // the Christmas cake
+];
 
 // Private-hire slots and their MINIMUM SPEND (not an extra fee — the
 // packages have to add up to at least this). The minimum depends on the
@@ -154,11 +166,28 @@ export default function XmasPackageBuilder() {
             name: p.name,
             price: num(p.pricePerHead),
             desc: p.blurb || "",
+            image: p.image || p.heroImage || "",
             breakdown: (p.items || [])
               .map((x: any) => byId[x.itemId]?.name)
               .filter(Boolean),
           }));
-        setFoodPkgs(pkgs);
+
+        // Standalone items (cheese board, cake) offered alongside the packages.
+        const extras: Item[] = [];
+        for (const cfg of STANDALONE_FOOD) {
+          const it = items.find((x) => cfg.match.test(String(x?.name || "")));
+          if (!it) continue;
+          extras.push({
+            id: `food_item_${it.id}`,
+            name: it.name,
+            price: num(it.sellOverride), // per-head sell set in On A Roll
+            desc: it.desc || "",
+            image: it.image || it.heroImage || "",
+            breakdown: [],
+          });
+        }
+
+        setFoodPkgs([...pkgs, ...extras]);
       })
       .catch(() => {});
     return () => {
@@ -876,6 +905,22 @@ function FoodPackageGroup({
                     : "border-cream/10 bg-white/[0.02]"
                 }`}
               >
+                {p.image && (
+                  <button
+                    type="button"
+                    onClick={() => onToggle(p.id)}
+                    className="block w-full"
+                    aria-label={`Select ${p.name}`}
+                  >
+                    {/* eslint-disable-next-line @next/next/no-img-element */}
+                    <img
+                      src={p.image}
+                      alt={p.name}
+                      className="aspect-[16/9] w-full object-cover"
+                      loading="lazy"
+                    />
+                  </button>
+                )}
                 <button
                   type="button"
                   onClick={() => onToggle(p.id)}

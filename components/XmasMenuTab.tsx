@@ -41,7 +41,7 @@ const sellOf = (it: any, settings: any) =>
       : 0;
 const gbp = (n: number) => "£" + (n % 1 === 0 ? n.toFixed(0) : n.toFixed(2));
 
-type Pkg = { name: string; pricePerHead: number; blurb: string; items: string[] };
+type Pkg = { name: string; pricePerHead: number; blurb: string; items: string[]; image: string };
 type Ala = { name: string; desc: string; sell: number; board: boolean };
 
 export default function XmasMenuTab() {
@@ -96,6 +96,7 @@ export default function XmasMenuTab() {
               name: p.name,
               pricePerHead: num(p.pricePerHead),
               blurb: p.blurb || "",
+              image: p.image || p.heroImage || "",
               items: (p.items || []).map((x: any) => byId[x.itemId]?.name).filter(Boolean),
             })),
         );
@@ -147,7 +148,17 @@ export default function XmasMenuTab() {
               </p>
               <div className="mt-5 grid grid-cols-1 gap-4 sm:auto-cols-fr sm:grid-flow-col">
                 {packages.map((p) => (
-                  <div key={p.name} className="rounded-2xl border border-pong/40 bg-pong/[0.04] p-5 text-center">
+                  <div key={p.name} className="overflow-hidden rounded-2xl border border-pong/40 bg-pong/[0.04] text-center">
+                    {p.image && (
+                      // eslint-disable-next-line @next/next/no-img-element
+                      <img
+                        src={p.image}
+                        alt={p.name}
+                        className="aspect-[16/9] w-full object-cover"
+                        loading="lazy"
+                      />
+                    )}
+                    <div className="p-5">
                     <span className="font-display text-xl uppercase tracking-wider text-cream">
                       {p.name}
                     </span>
@@ -162,6 +173,7 @@ export default function XmasMenuTab() {
                         ))}
                       </ul>
                     )}
+                    </div>
                   </div>
                 ))}
               </div>
