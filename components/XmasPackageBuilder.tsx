@@ -515,7 +515,7 @@ export default function XmasPackageBuilder() {
       {/* ── 3 · Numbers ─────────────────────────────── */}
       <section>
         <StepHeading n={3} title="How many people?" />
-        <div className="mt-3 flex flex-wrap items-end gap-5">
+        <div className="mt-3 flex flex-wrap items-end justify-center gap-5">
           <label className="block">
             <span className="text-xs font-bold uppercase tracking-widest text-cream/50">
               Guests
@@ -592,7 +592,7 @@ export default function XmasPackageBuilder() {
             onToggle={(id) => toggleItem(GAMES, id)}
           />
           {/* Informational only — DJ comes free on the Thu/Fri/Sat night slots. */}
-          <div className="flex">
+          <div className="flex justify-center">
             <span className="inline-flex items-center gap-2 rounded-full border border-pong/40 bg-pong/[0.08] px-4 py-2 text-xs font-bold uppercase tracking-wider text-pongLight">
               🎧 DJ included on Thu / Fri / Sat night sessions
             </span>
