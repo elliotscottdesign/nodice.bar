@@ -178,7 +178,7 @@ export default function XmasMenuTab() {
                     className="border-b border-dotted border-cream/25 pb-4 text-center"
                   >
                     <div className="font-display text-2xl normal-case tracking-normal text-cream sm:text-3xl">
-                      {it.name}
+                      {`  —  ${it.name}  —  `}
                     </div>
                     {it.desc && (
                       <div className="mx-auto mt-1.5 max-w-2xl text-sm leading-relaxed text-cream/90 sm:text-base">
