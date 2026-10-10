@@ -154,8 +154,8 @@ function cateringRows(s: string): { yes: string[]; no: string[] } {
 
 const DEFAULTS = {
   hero_image: "",
-  eyebrow: "Private hire · No Dice",
-  title: "Take Over No Dice",
+  eyebrow: "Private hire / Share the venue",
+  title: "Party With Us",
   intro:
     "London Fields' newest bar — yours for the night. Two arches of pool, drinks and snacks for parties of up to 65.",
   popular_heading: "No Dice is popular for",
@@ -388,7 +388,7 @@ export default function PrivateHirePage() {
 
       {/* Fact sheet. pt trimmed (founder, 9 Sep 2026): the capacity
           stats should sit close under the intro text, not a screen away. */}
-      <section className="tint-plumDeep-to-plum px-6 pb-14 pt-6">
+      <section className="tint-plumDeep-to-plum px-6 pb-2 pt-6">
         <div className="mx-auto max-w-6xl space-y-8">
           <FactPanel title={capacityTitle} titleKey="privatehire.hackney.capacity_title">
             {/* One row on every screen size (founder, 9 Sep 2026) —
@@ -523,7 +523,10 @@ export default function PrivateHirePage() {
         </div>
       </section>
 
-      <BigEmailCta subject="Private Hire Enquiry — No Dice" />
+      {/* Pulled up to shrink the gap after the fact sheet (founder 9 Oct). */}
+      <div className="-mt-16 sm:-mt-20">
+        <BigEmailCta subject="Private Hire Enquiry — No Dice" />
+      </div>
 
       {/* Instagram feed at the end of Venue details (founder 9 Oct 2026). */}
       <InstagramFeed

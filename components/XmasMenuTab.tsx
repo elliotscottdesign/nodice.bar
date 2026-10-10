@@ -140,9 +140,16 @@ export default function XmasMenuTab() {
               />
               <div className="mt-5 space-y-3">
                 {alacarte.map((it) => (
-                  <div key={it.name} className="border-b border-cream/10 pb-3">
-                    <span className="text-sm text-cream/90">{it.name}</span>
-                    {it.desc && <span className="ml-2 text-xs text-cream/50">{it.desc}</span>}
+                  <div
+                    key={it.name}
+                    className="border-b border-dotted border-cream/25 pb-4 text-center"
+                  >
+                    <div className="text-base text-cream/90">{it.name}</div>
+                    {it.desc && (
+                      <div className="mx-auto mt-1 max-w-xl text-xs leading-relaxed text-cream/50">
+                        {it.desc}
+                      </div>
+                    )}
                   </div>
                 ))}
               </div>
