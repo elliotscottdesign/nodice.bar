@@ -380,11 +380,11 @@ export default function XmasPackageBuilder() {
       {/* ── 1 · Dates ───────────────────────────────── */}
       <section>
         <StepHeading n={1} title="Pick your dates" />
-        <p className="mt-1 text-sm text-cream/60">
+        <p className="mt-1 text-center text-sm text-cream/60">
           Choose up to {MAX_DATES} options that work — we&apos;ll confirm
           availability.
         </p>
-        <div className="mt-4 max-w-sm rounded-2xl border border-cream/10 bg-white/[0.02] p-4">
+        <div className="mx-auto mt-4 max-w-sm rounded-2xl border border-cream/10 bg-white/[0.02] p-4">
           <div className="flex items-center justify-between">
             <button
               type="button"
@@ -441,7 +441,7 @@ export default function XmasPackageBuilder() {
           </div>
         </div>
         {dates.length > 0 && (
-          <div className="mt-3 flex flex-wrap gap-2">
+          <div className="mt-3 flex flex-wrap justify-center gap-2">
             {dates.map((d) => (
               <button
                 key={d}
@@ -565,7 +565,7 @@ export default function XmasPackageBuilder() {
       {/* ── 4 · Packages ────────────────────────────── */}
       <section>
         <StepHeading n={4} title="Build your package" />
-        <p className="mt-1 text-sm text-cream/60">
+        <p className="mt-1 text-center text-sm text-cream/60">
           Prices are per head. Open Bar covers all house drinks. Tap a food
           package to see what&apos;s inside.
         </p>
@@ -591,6 +591,12 @@ export default function XmasPackageBuilder() {
             disabledIds={[]}
             onToggle={(id) => toggleItem(GAMES, id)}
           />
+          {/* Informational only — DJ comes free on the Thu/Fri/Sat night slots. */}
+          <div className="flex">
+            <span className="inline-flex items-center gap-2 rounded-full border border-pong/40 bg-pong/[0.08] px-4 py-2 text-xs font-bold uppercase tracking-wider text-pongLight">
+              🎧 DJ included on Thu / Fri / Sat night sessions
+            </span>
+          </div>
         </div>
 
         {/* Live spend summary — min-spend tracker for private hire,
@@ -734,7 +740,7 @@ export default function XmasPackageBuilder() {
 // ── Sub-components ───────────────────────────────────────────
 function StepHeading({ n, title }: { n: number; title: string }) {
   return (
-    <div className="flex items-center gap-3">
+    <div className="flex items-center justify-center gap-3">
       <span className="flex h-7 w-7 shrink-0 items-center justify-center rounded-full bg-nodiceRed/20 text-xs font-bold text-nodiceRed">
         {n}
       </span>
