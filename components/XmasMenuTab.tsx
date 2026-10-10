@@ -15,6 +15,13 @@ import EditableText from "./EditableText";
 // =============================================================
 
 const MENU_FN = "https://rntcujcpsozvuxvmlejv.supabase.co/functions/v1/menu";
+const SUPABASE_URL =
+  process.env.NEXT_PUBLIC_SUPABASE_URL ??
+  "https://rntcujcpsozvuxvmlejv.supabase.co";
+const SUPABASE_ANON_KEY =
+  process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY ??
+  "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InJudGN1amNwc296dnV4dm1sZWp2Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODA0Nzk0MDIsImV4cCI6MjA5NjA1NTQwMn0.cUMy2GWme7quwDKns_sXq8OY-9SqWaIuZqhYSz3ZwrY";
+const allergenLabel = (k: string) => k.charAt(0).toUpperCase() + k.slice(1);
 
 const num = (v: unknown) => {
   const n = parseFloat(String(v));
@@ -41,6 +48,32 @@ export default function XmasMenuTab() {
   const [loading, setLoading] = useState(true);
   const [packages, setPackages] = useState<Pkg[]>([]);
   const [alacarte, setAlacarte] = useState<Ala[]>([]);
+  // Per-dish allergens from the kitchen matrix, keyed by lower-cased dish
+  // name (🎄 prefix stripped) so we can show markers under each item.
+  const [allergens, setAllergens] = useState<Record<string, Record<string, string>>>({});
+
+  useEffect(() => {
+    let cancelled = false;
+    fetch(
+      `${SUPABASE_URL}/rest/v1/kitchen_allergen_matrix?select=dish,allergens`,
+      { headers: { apikey: SUPABASE_ANON_KEY, Authorization: `Bearer ${SUPABASE_ANON_KEY}` } },
+    )
+      .then((r) => (r.ok ? r.json() : []))
+      .then((rows: Array<{ dish: string; allergens: Record<string, string> }>) => {
+        if (cancelled) return;
+        const map: Record<string, Record<string, string>> = {};
+        for (const r of Array.isArray(rows) ? rows : []) {
+          const d = String(r.dish || "").trim();
+          if (!d.startsWith("🎄")) continue;
+          map[d.replace(/^🎄\s*/, "").toLowerCase()] = r.allergens || {};
+        }
+        setAllergens(map);
+      })
+      .catch(() => {});
+    return () => {
+      cancelled = true;
+    };
+  }, []);
 
   useEffect(() => {
     let cancelled = false;
@@ -130,7 +163,7 @@ export default function XmasMenuTab() {
                 as="h3"
                 k="xmas.menutab.alacarte_heading"
                 fallback="Christmessy menu"
-                className="text-center font-display text-3xl uppercase tracking-wider text-cream sm:text-4xl"
+                className="text-center font-display text-5xl uppercase tracking-wider text-cream sm:text-6xl"
               />
               <EditableText
                 as="p"
@@ -148,10 +181,36 @@ export default function XmasMenuTab() {
                       {it.name}
                     </div>
                     {it.desc && (
-                      <div className="mx-auto mt-1 max-w-xl text-xs leading-relaxed text-cream/50">
+                      <div className="mx-auto mt-1.5 max-w-2xl text-sm leading-relaxed text-cream/90 sm:text-base">
                         {it.desc}
                       </div>
                     )}
+                    {/* Live allergen markers from the kitchen matrix. */}
+                    {(() => {
+                      const a = allergens[it.name.trim().toLowerCase()];
+                      if (!a) return null;
+                      const marks = Object.entries(a).filter(
+                        ([, s]) => s === "contains" || s === "trace",
+                      );
+                      if (marks.length === 0) return null;
+                      return (
+                        <div className="mt-2.5 flex flex-wrap justify-center gap-1.5">
+                          {marks.map(([key, status]) => (
+                            <span
+                              key={key}
+                              className={`rounded-full border px-2 py-0.5 text-[10px] uppercase tracking-wider ${
+                                status === "trace"
+                                  ? "border-plonkYellow/30 text-plonkYellow/70"
+                                  : "border-cream/25 text-cream/55"
+                              }`}
+                              title={status === "trace" ? "May contain" : "Contains"}
+                            >
+                              {allergenLabel(key)}
+                            </span>
+                          ))}
+                        </div>
+                      );
+                    })()}
                   </div>
                 ))}
               </div>
