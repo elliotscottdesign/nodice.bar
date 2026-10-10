@@ -146,7 +146,7 @@ export default function XmasMenuTab() {
                 What&apos;s in each bundle — build and price yours on the Package
                 builder tab.
               </p>
-              <div className="mt-5 grid grid-cols-1 gap-4 sm:auto-cols-fr sm:grid-flow-col">
+              <div className="mt-5 grid grid-cols-1 gap-4 sm:grid-cols-2">
                 {packages.map((p) => (
                   <div key={p.name} className="overflow-hidden rounded-2xl border border-pong/40 bg-pong/[0.04] text-center">
                     {p.image && (
