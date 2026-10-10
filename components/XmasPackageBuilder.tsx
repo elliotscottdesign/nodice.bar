@@ -106,6 +106,8 @@ export default function XmasPackageBuilder() {
     xmas_cocktail: 0,
   });
   const [headcount, setHeadcount] = useState("");
+  // Optional budget — used on the no-private-hire path to show what's left.
+  const [budget, setBudget] = useState("");
   const [name, setName] = useState("");
   const [email, setEmail] = useState("");
   const [phone, setPhone] = useState("");
@@ -193,6 +195,10 @@ export default function XmasPackageBuilder() {
     return sum;
   }, [selected, qty]);
   const packageTotal = perHead * heads;
+  // Budget (no-private-hire path): how much of their budget is left.
+  const budgetNum = Math.max(0, parseInt(budget || "0", 10) || 0);
+  const budgetLeft = budgetNum - packageTotal;
+  const overBudget = budgetNum > 0 && budgetLeft < 0;
 
   const chosenSlot = privateHire ? SLOTS.find((s) => s.id === slot) : undefined;
   const minSpend = chosenSlot?.min ?? 0;
@@ -214,6 +220,7 @@ export default function XmasPackageBuilder() {
       private_hire: privateHire,
       slot: chosenSlot ? chosenSlot.label : null,
       min_spend: privateHire ? minSpend : 0,
+      budget: !privateHire ? budgetNum : 0,
       headcount: heads,
       items: [
         // Quantity drinks (× per head), then the toggled items.
@@ -416,22 +423,50 @@ export default function XmasPackageBuilder() {
       {/* ── 3 · Numbers ─────────────────────────────── */}
       <section>
         <StepHeading n={3} title="How many people?" />
-        <div className="mt-3 flex flex-wrap items-center gap-3">
-          <input
-            type="number"
-            min={1}
-            max={privateHire ? MAX_HEADS_HIRE : MAX_HEADS_NO_HIRE}
-            inputMode="numeric"
-            value={headcount}
-            onChange={(e) => onHeadcountChange(e.target.value)}
-            placeholder="e.g. 20"
-            className="w-32 rounded-xl border border-cream/15 bg-ink/40 px-4 py-3 text-base text-cream placeholder:text-cream/35 focus:border-nodiceRed focus:outline-none"
-          />
-          <span className="text-sm text-cream/55">
-            {privateHire
-              ? `guests · up to ${MAX_HEADS_HIRE} with private hire`
-              : `guests · up to ${MAX_HEADS_NO_HIRE} without private hire`}
-          </span>
+        <div className="mt-3 flex flex-wrap items-end gap-5">
+          <label className="block">
+            <span className="text-xs font-bold uppercase tracking-widest text-cream/50">
+              Guests
+            </span>
+            <div className="mt-1.5 flex items-center gap-2">
+              <input
+                type="number"
+                min={1}
+                max={privateHire ? MAX_HEADS_HIRE : MAX_HEADS_NO_HIRE}
+                inputMode="numeric"
+                value={headcount}
+                onChange={(e) => onHeadcountChange(e.target.value)}
+                placeholder="e.g. 20"
+                className="w-28 rounded-xl border border-cream/15 bg-ink/40 px-4 py-3 text-base text-cream placeholder:text-cream/35 focus:border-nodiceRed focus:outline-none"
+              />
+              <span className="text-xs text-cream/50">
+                up to {privateHire ? MAX_HEADS_HIRE : MAX_HEADS_NO_HIRE}
+              </span>
+            </div>
+          </label>
+
+          {/* Budget — only on the no-private-hire path (private hire uses the
+              minimum-spend tracker instead). */}
+          {!privateHire && (
+            <label className="block">
+              <span className="text-xs font-bold uppercase tracking-widest text-cream/50">
+                What&apos;s your budget?{" "}
+                <span className="text-cream/35">(optional)</span>
+              </span>
+              <div className="mt-1.5 flex items-center gap-1.5 rounded-xl border border-cream/15 bg-ink/40 px-3 py-3 focus-within:border-nodiceRed">
+                <span className="text-cream/55">£</span>
+                <input
+                  type="number"
+                  min={0}
+                  inputMode="numeric"
+                  value={budget}
+                  onChange={(e) => setBudget(e.target.value)}
+                  placeholder="e.g. 500"
+                  className="w-24 bg-transparent text-base text-cream placeholder:text-cream/35 focus:outline-none"
+                />
+              </div>
+            </label>
+          )}
         </div>
       </section>
 
@@ -521,10 +556,28 @@ export default function XmasPackageBuilder() {
               Pick a private-hire slot above to see your minimum spend.
             </p>
           )}
-          {!privateHire && (
+          {!privateHire && budgetNum > 0 && (
+            <>
+              <div className="mt-4 h-2 w-full overflow-hidden rounded-full bg-cream/10">
+                <div
+                  className={`h-full rounded-full transition-all ${overBudget ? "bg-nodiceRed" : "bg-pong"}`}
+                  style={{
+                    width: `${Math.min(100, (packageTotal / budgetNum) * 100)}%`,
+                  }}
+                />
+              </div>
+              <p className={`mt-2 text-sm ${overBudget ? "text-nodiceRed" : "text-pongLight"}`}>
+                {overBudget
+                  ? `${gbp(-budgetLeft)} over your ${gbp(budgetNum)} budget.`
+                  : `${gbp(budgetLeft)} left of your ${gbp(budgetNum)} budget.`}
+              </p>
+            </>
+          )}
+          {!privateHire && budgetNum === 0 && (
             <p className="mt-3 text-xs text-cream/45">
-              No private-hire minimum — your total just adds up as you go. The
-              team will confirm a firm quote.
+              No private-hire minimum — your total adds up as you go. Pop in a
+              budget above to track what&apos;s left. The team will confirm a
+              firm quote.
             </p>
           )}
         </div>

@@ -38,6 +38,7 @@ type Enquiry = {
   private_hire?: boolean;
   slot?: string | null;
   min_spend?: number;
+  budget?: number;
   headcount?: number;
   items?: Item[];
   package_per_head?: number;
@@ -97,6 +98,7 @@ function buildHtml(e: Enquiry, forCustomer: boolean): string {
       ${row("Headcount", esc(e.headcount ?? "—"))}
       ${row("Preferred dates", dates)}
       ${row("Private hire", e.private_hire ? `${esc(e.slot || "Yes")} · min spend ${money(e.min_spend)}` : "No")}
+      ${!e.private_hire && e.budget ? row("Budget", money(e.budget)) : ""}
       ${row("Packages", items)}
       ${row("Package total", `${money(e.package_total)} <span style="color:#9a9a9a">(£${esc(e.package_per_head ?? 0)}/head)</span>`)}
       ${e.notes ? row("Notes", esc(e.notes).replace(/\n/g, "<br>")) : ""}
