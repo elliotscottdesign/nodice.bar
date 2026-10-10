@@ -145,9 +145,9 @@ export default function XmasMenuTab() {
                 What&apos;s in each bundle — build and price yours on the Package
                 builder tab.
               </p>
-              <div className="mt-5 grid gap-4 sm:grid-cols-2">
+              <div className="mt-5 grid grid-cols-1 gap-4 sm:auto-cols-fr sm:grid-flow-col">
                 {packages.map((p) => (
-                  <div key={p.name} className="rounded-2xl border border-pong/40 bg-pong/[0.04] p-5">
+                  <div key={p.name} className="rounded-2xl border border-pong/40 bg-pong/[0.04] p-5 text-center">
                     <span className="font-display text-xl uppercase tracking-wider text-cream">
                       {p.name}
                     </span>
@@ -155,7 +155,7 @@ export default function XmasMenuTab() {
                     {p.items.length > 0 && (
                       <ul className="mt-3 space-y-1">
                         {p.items.map((dish) => (
-                          <li key={dish} className="flex gap-2 text-sm text-cream/85">
+                          <li key={dish} className="flex justify-center gap-2 text-sm text-cream/85">
                             <span className="text-pongLight" aria-hidden>·</span>
                             <span>{dish}</span>
                           </li>
@@ -236,7 +236,7 @@ export default function XmasMenuTab() {
           )}
 
           {/* Allergen matrix */}
-          <div>
+          <div className="text-center">
             <h3 className="font-display text-3xl uppercase tracking-wider text-cream sm:text-4xl">
               Allergens
             </h3>

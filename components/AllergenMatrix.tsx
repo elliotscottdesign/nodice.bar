@@ -186,7 +186,7 @@ export default function AllergenMatrix({ menuPrefix = "🎄" }: { menuPrefix?: s
 
   return (
     <div>
-      <div className="flex flex-wrap items-center gap-3">
+      <div className="flex flex-wrap items-center justify-center gap-3">
         <button
           type="button"
           onClick={() => setOpen((o) => !o)}
@@ -254,7 +254,7 @@ export default function AllergenMatrix({ menuPrefix = "🎄" }: { menuPrefix?: s
           </tbody>
         </table>
       </div>
-      <div className="mt-3 flex flex-wrap gap-x-5 gap-y-1 text-xs text-cream/60">
+      <div className="mt-3 flex flex-wrap justify-center gap-x-5 gap-y-1 text-xs text-cream/60">
         <span><span className="text-nodiceRed">●</span> Contains</span>
         <span><span className="text-plonkYellow">○</span> May contain / trace</span>
         <span><span className="text-cream/40">⧗</span> Confirming</span>
