@@ -770,7 +770,7 @@ function ItemGroup({
 }) {
   return (
     <div>
-      <div className="text-xs font-bold uppercase tracking-[0.22em] text-plonkYellow">
+      <div className="text-center text-lg font-bold uppercase tracking-[0.22em] text-plonkYellow sm:text-xl">
         {label}
       </div>
       <div className="mt-2 grid gap-2 sm:grid-cols-2">
@@ -903,7 +903,7 @@ function FoodPackageGroup({
 
   return (
     <div>
-      <div className="text-xs font-bold uppercase tracking-[0.22em] text-plonkYellow">
+      <div className="text-center text-lg font-bold uppercase tracking-[0.22em] text-plonkYellow sm:text-xl">
         Food
       </div>
       {packages.length === 0 ? (
