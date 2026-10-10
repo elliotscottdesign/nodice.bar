@@ -52,52 +52,96 @@ export default function AllergenMatrix({ menuPrefix = "🎄" }: { menuPrefix?: s
   const [rows, setRows] = useState<Row[] | null>(null);
   const [open, setOpen] = useState(false);
 
-  // Download a print-friendly A4 sheet built from the LIVE matrix, so a
-  // customer's download always reflects the current kitchen data.
-  function downloadSheet() {
-    if (!rows || rows.length === 0) return;
-    const w = window.open("", "_blank");
-    if (!w) return;
-    const esc = (s: unknown) =>
-      String(s ?? "").replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;");
-    const sym = (s?: string) =>
-      s === "contains" ? "●" : s === "trace" ? "○" : s === "pending" ? "⧗" : "";
-    const head = ALLERGENS.map((a) => `<th>${esc(a.label)}</th>`).join("");
-    const body = rows
-      .map((r) => {
-        const cells = ALLERGENS.map(
-          (a) => `<td style="text-align:center">${sym(r.allergens?.[a.key])}</td>`,
-        ).join("");
-        return `<tr><td style="font-weight:600">${esc(r.dish.replace(/^🎄\s*/, ""))}</td>${cells}</tr>`;
-      })
-      .join("");
-    const today = new Date().toLocaleDateString("en-GB", {
-      day: "numeric",
-      month: "long",
-      year: "numeric",
-    });
-    w.document.write(
-      `<!doctype html><html><head><meta charset="utf-8"><title>No Dice — Christmas Allergen Matrix</title>
-      <style>
-        @page { size: A4 landscape; margin: 12mm; }
-        body { font-family: Arial, Helvetica, sans-serif; color:#111; }
-        h1 { font-size:18px; margin:0 0 2px; }
-        .sub { color:#666; font-size:11px; margin:0 0 14px; }
-        table { width:100%; border-collapse:collapse; font-size:11px; }
-        th,td { border:1px solid #ccc; padding:5px 6px; }
-        th { background:#f3f3f3; text-align:center; }
-        th:first-child, td:first-child { text-align:left; }
-        .legend { margin-top:10px; font-size:11px; color:#444; }
-      </style></head><body>
-      <h1>No Dice · Christmas Allergen Matrix</h1>
-      <p class="sub">London Fields, E8 · generated ${esc(today)} · always tell us about allergies when you book</p>
-      <table><thead><tr><th>Dish</th>${head}</tr></thead><tbody>${body}</tbody></table>
-      <p class="legend">● Contains &nbsp;&nbsp; ○ May contain / trace &nbsp;&nbsp; ⧗ Confirming</p>
-      </body></html>`,
-    );
-    w.document.close();
-    w.focus();
-    setTimeout(() => w.print(), 400);
+  const [downloading, setDownloading] = useState(false);
+
+  // Generate a real A4-landscape PDF (print-ready) from the LIVE matrix, so a
+  // customer's download always reflects the current kitchen data. jsPDF +
+  // autotable are loaded on demand to keep them out of the first page bundle.
+  async function downloadSheet() {
+    if (!rows || rows.length === 0 || downloading) return;
+    setDownloading(true);
+    try {
+      const [{ default: JsPDF }, autoTableMod] = await Promise.all([
+        import("jspdf"),
+        import("jspdf-autotable"),
+      ]);
+      // Interop shape differs between bundlers — the callable can be the
+      // module, its .default, or .default.default. Resolve whichever is a fn.
+      const m: any = autoTableMod;
+      const autoTable: (doc: any, opts: any) => void =
+        typeof m === "function"
+          ? m
+          : typeof m?.default === "function"
+            ? m.default
+            : typeof m?.default?.default === "function"
+              ? m.default.default
+              : () => {
+                  throw new Error("jspdf-autotable export not callable");
+                };
+
+      // jsPDF's built-in Helvetica is Latin-1 only, so ●/○ glyphs won't
+      // render — use plain words with per-cell colour instead (clear in print).
+      const cellFor = (s?: string) =>
+        s === "contains"
+          ? { content: "Yes", styles: { textColor: [192, 57, 43], fontStyle: "bold" } }
+          : s === "trace"
+            ? { content: "Trace", styles: { textColor: [176, 120, 0] } }
+            : s === "pending"
+              ? { content: "TBC", styles: { textColor: [150, 150, 150] } }
+              : "";
+      const today = new Date().toLocaleDateString("en-GB", {
+        day: "numeric",
+        month: "long",
+        year: "numeric",
+      });
+
+      const doc = new JsPDF({ orientation: "landscape", unit: "mm", format: "a4" });
+      const pageW = doc.internal.pageSize.getWidth();
+
+      doc.setFont("helvetica", "bold");
+      doc.setFontSize(16);
+      doc.setTextColor(192, 57, 43);
+      doc.text("No Dice · Christmas Allergen Matrix", 12, 15);
+
+      doc.setFont("helvetica", "normal");
+      doc.setFontSize(9);
+      doc.setTextColor(110, 110, 110);
+      doc.text(
+        `London Fields, E8  ·  generated ${today}  ·  always tell us about allergies when you book`,
+        12,
+        21,
+      );
+
+      const head = [["Dish", ...ALLERGENS.map((a) => a.label)]];
+      const body = rows.map((r) => [
+        r.dish.replace(/^🎄\s*/, ""),
+        ...ALLERGENS.map((a) => cellFor(r.allergens?.[a.key])),
+      ]);
+
+      autoTable(doc, {
+        head,
+        body,
+        startY: 26,
+        margin: { left: 12, right: 12 },
+        tableWidth: pageW - 24,
+        styles: { fontSize: 8, cellPadding: 1.6, halign: "center", valign: "middle", lineColor: [210, 210, 210], lineWidth: 0.1 },
+        headStyles: { fillColor: [243, 243, 243], textColor: [40, 40, 40], fontStyle: "bold" },
+        columnStyles: { 0: { halign: "left", fontStyle: "bold", cellWidth: 60 } },
+      });
+
+      const endY = (doc as any).lastAutoTable?.finalY ?? 26;
+      doc.setFontSize(9);
+      doc.setTextColor(70, 70, 70);
+      doc.text(
+        "Yes = contains       Trace = may contain / cross-contact       TBC = still confirming",
+        12,
+        endY + 8,
+      );
+
+      doc.save("No-Dice-Christmas-Allergen-Matrix.pdf");
+    } finally {
+      setDownloading(false);
+    }
   }
 
   useEffect(() => {
@@ -155,9 +199,10 @@ export default function AllergenMatrix({ menuPrefix = "🎄" }: { menuPrefix?: s
         <button
           type="button"
           onClick={downloadSheet}
-          className="inline-flex items-center gap-2 rounded-full bg-nodiceRed px-5 py-2.5 text-sm font-bold uppercase tracking-wider text-white transition hover:bg-nodiceRedDeep"
+          disabled={downloading}
+          className="inline-flex items-center gap-2 rounded-full bg-nodiceRed px-5 py-2.5 text-sm font-bold uppercase tracking-wider text-white transition hover:bg-nodiceRedDeep disabled:opacity-60"
         >
-          ⤓ Download
+          {downloading ? "Preparing PDF…" : "⤓ Download PDF"}
         </button>
       </div>
 
