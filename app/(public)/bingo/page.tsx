@@ -35,35 +35,6 @@ import type { DbTournament } from "@/lib/db/tournaments";
 
 const HERO_FALLBACK = "/bingo-header.jpg";
 
-function formatDate(iso: string): string {
-  const d = new Date(`${iso}T00:00:00`);
-  return d.toLocaleDateString("en-GB", { day: "numeric", month: "long" });
-}
-
-function formatFee(pence: number): string {
-  if (pence % 100 === 0) return `£${pence / 100}`;
-  return `£${(pence / 100).toFixed(2)}`;
-}
-
-const HOW_IT_WORKS: Array<{ title: string; body: string }> = [
-  {
-    title: "£10 a ticket — drink included",
-    body: "Your ticket gets you into the comedy night AND a drink on arrival. The bingo itself is free to play — no stakes, nothing to buy on the night.",
-  },
-  {
-    title: "Comedy + bingo, one night",
-    body: "A live host, proper laughs between the balls, and a room full of London Fields' finest. Turn up, grab your card, play along.",
-  },
-  {
-    title: "Bar-sponsored prizes",
-    body: "Every prize is put up by the bar — so it's a free game, not gambling. Win a line or the full house and the bar tab is yours.",
-  },
-  {
-    title: "Come as a crew",
-    body: "One ticket each — bring the whole table. Dauber in one hand, drink in the other.",
-  },
-];
-
 // Bar-sponsored prizes (founder, 11 Oct 2026) — free to play, bar puts up
 // the pot so it isn't gambling.
 const PRIZES: Array<{ label: string; amount: string }> = [
@@ -123,38 +94,6 @@ export default function BingoPage() {
     "£10 a ticket — one per person, drink included. Grab yours below.",
   );
   const ctaLabel = useContent("bingo.cta_label", "Book your ticket · £10");
-  const nightsTitle = useContent("bingo.nights_title", "Pick your night");
-  const nightsIntro = useContent(
-    "bingo.nights_intro",
-    "£10 a ticket, one per person. Your name, email and mobile at sign-up — we'll text you the details before the night.",
-  );
-
-  const cardTexts = [
-    {
-      titleKey: "bingo.card1_title",
-      title: useContent("bingo.card1_title", HOW_IT_WORKS[0].title),
-      bodyKey: "bingo.card1_body",
-      body: useContent("bingo.card1_body", HOW_IT_WORKS[0].body),
-    },
-    {
-      titleKey: "bingo.card2_title",
-      title: useContent("bingo.card2_title", HOW_IT_WORKS[1].title),
-      bodyKey: "bingo.card2_body",
-      body: useContent("bingo.card2_body", HOW_IT_WORKS[1].body),
-    },
-    {
-      titleKey: "bingo.card3_title",
-      title: useContent("bingo.card3_title", HOW_IT_WORKS[2].title),
-      bodyKey: "bingo.card3_body",
-      body: useContent("bingo.card3_body", HOW_IT_WORKS[2].body),
-    },
-    {
-      titleKey: "bingo.card4_title",
-      title: useContent("bingo.card4_title", HOW_IT_WORKS[3].title),
-      bodyKey: "bingo.card4_body",
-      body: useContent("bingo.card4_body", HOW_IT_WORKS[3].body),
-    },
-  ];
 
   const prizeTexts = [
     {
@@ -290,7 +229,10 @@ export default function BingoPage() {
           the same way the booking form is re-skinned below. */}
       <style
         dangerouslySetInnerHTML={{
-          __html: `.bingo-page [class~="text-plonkYellow"]{color:#e878f0 !important}`,
+          __html: `.bingo-page [class~="text-plonkYellow"]{color:#e878f0 !important}
+.bingo-page details > summary::-webkit-details-marker{display:none}
+.bingo-page .faq-chevron{transition:transform .2s ease}
+.bingo-page details[open] .faq-chevron{transform:rotate(180deg)}`,
         }}
       />
       {/* Hero banner — swap the image from admin Galleries → "hero.bingo",
@@ -320,33 +262,63 @@ export default function BingoPage() {
           <p className="mx-auto mt-4 max-w-md text-sm text-cream/80">
             <Editable k="bingo.book_line">{bookLine}</Editable>
           </p>
-          <a
-            href="#nights"
-            className="mt-6 inline-block rounded-full bg-[#e878f0] px-10 py-4 text-sm font-bold uppercase tracking-widest text-ink shadow-lg shadow-[#e878f0]/30 transition hover:bg-[#e878f0]/90"
+          <button
+            type="button"
+            onClick={() => {
+              const next = upcoming[0];
+              if (next) setExpandedId(next.id);
+            }}
+            disabled={!loading && upcoming.length === 0}
+            className="mt-6 inline-block rounded-full bg-[#e878f0] px-10 py-4 text-sm font-bold uppercase tracking-widest text-ink shadow-lg shadow-[#e878f0]/30 transition hover:bg-[#e878f0]/90 disabled:cursor-not-allowed disabled:opacity-50"
           >
             <Editable k="bingo.cta_label">{ctaLabel}</Editable>
-          </a>
+          </button>
+          {!loading && !err && upcoming.length === 0 && (
+            <p className="mt-4 text-sm text-cream/60">
+              Tickets aren&apos;t on sale just yet — check back soon.
+            </p>
+          )}
+          {err && <p className="mt-4 text-sm text-[#e878f0]">{err}</p>}
         </div>
       </section>
 
-      {/* ── How it works ── */}
-      <section className="px-6 py-14">
-        <div className="mx-auto grid max-w-5xl gap-4 sm:grid-cols-2 lg:grid-cols-4">
-          {cardTexts.map((c) => (
-            <div
-              key={c.titleKey}
-              className="rounded-2xl border border-[#e878f0]/25 bg-white/[0.03] p-6"
-            >
-              <div className="font-display text-2xl uppercase tracking-wider text-[#e878f0]">
-                <Editable k={c.titleKey}>{c.title}</Editable>
-              </div>
-              <p className="mt-2 text-sm leading-relaxed text-cream/75">
-                <Editable k={c.bodyKey}>{c.body}</Editable>
-              </p>
-            </div>
-          ))}
-        </div>
-      </section>
+      {/* Booking — opens inline from the header CTA above. The separate
+          "pick your night" section was removed (founder, 11 Oct 2026): one
+          book link, at the top. The booking form is the SHARED
+          InlineTournamentBooking (pool + ping pong use it too, in brand red);
+          we re-skin just this instance red → bingo pink via scoped overrides
+          on its exact utility classes (the Stripe card iframe's own accent,
+          set inside the shared component, stays red — page CSS can't reach it). */}
+      {selected && (
+        <section className="px-6 pb-8">
+          <div
+            ref={bookingRef}
+            className="bingo-pay mx-auto max-w-2xl scroll-mt-24"
+          >
+            <style
+              dangerouslySetInnerHTML={{
+                __html: `
+                  .bingo-pay [class~="text-plonkPink"]{color:#e878f0 !important}
+                  .bingo-pay [class~="bg-plonkPink"]{background-color:#e878f0 !important}
+                  .bingo-pay [class~="bg-plonkPink"][class~="text-white"]{color:#000 !important}
+                  .bingo-pay [class~="bg-plonkPink/5"]{background-color:rgb(232 120 240 / .05) !important}
+                  .bingo-pay [class~="bg-plonkPink/10"]{background-color:rgb(232 120 240 / .10) !important}
+                  .bingo-pay [class~="border-plonkPink/30"]{border-color:rgb(232 120 240 / .30) !important}
+                  .bingo-pay [class~="border-plonkPink/40"]{border-color:rgb(232 120 240 / .40) !important}
+                  .bingo-pay [class~="border-plonkPink/45"]{border-color:rgb(232 120 240 / .45) !important}
+                  .bingo-pay [class~="accent-plonkPink"]{accent-color:#e878f0 !important}
+                  .bingo-pay [class~="shadow-plonkPink/20"]{--tw-shadow-color:rgb(232 120 240 / .20) !important}
+                  .bingo-pay .focus\\:border-plonkPink:focus{border-color:#e878f0 !important}
+                `,
+              }}
+            />
+            <InlineTournamentBooking
+              tournament={selected}
+              onClose={() => setExpandedId(null)}
+            />
+          </div>
+        </section>
+      )}
 
       {/* ── Running order ── */}
       <section className="px-6 pb-4">
@@ -424,154 +396,6 @@ export default function BingoPage() {
         </div>
       </section>
 
-      {/* ── Upcoming nights + inline booking ── */}
-      <section id="nights" className="scroll-mt-24 px-6 py-16">
-        <div className="mx-auto max-w-3xl">
-          <div className="mb-3 text-center text-xs font-bold uppercase tracking-[0.3em] text-[#e878f0]">
-            Upcoming nights
-          </div>
-          <h2 className="text-center font-display text-5xl uppercase tracking-wider text-cream">
-            <Editable k="bingo.nights_title">{nightsTitle}</Editable>
-          </h2>
-          <p className="mx-auto mt-4 max-w-xl text-center text-base text-cream/75">
-            <Editable k="bingo.nights_intro">{nightsIntro}</Editable>
-          </p>
-
-          <div className="mt-10">
-            {loading && (
-              <p className="text-center text-sm text-cream/55">Loading…</p>
-            )}
-            {err && <p className="text-center text-sm text-[#e878f0]">{err}</p>}
-            {!loading && !err && upcoming.length === 0 && (
-              <p className="text-center text-sm text-cream/55">
-                No nights on sale just yet — check back soon, or follow us for
-                the next date.
-              </p>
-            )}
-
-            {upcoming.length > 0 && (
-              <RollerDeck ariaLabel="Upcoming bingo nights">
-                {upcoming.map((t) => {
-                  const isExpanded = expandedId === t.id;
-                  const spotsLeft = Math.max(
-                    0,
-                    t.max_teams - t.paid_entries_count,
-                  );
-                  const isSoldOut = spotsLeft <= 0;
-                  return (
-                    <button
-                      key={t.id}
-                      type="button"
-                      onClick={() =>
-                        !isSoldOut && setExpandedId(isExpanded ? null : t.id)
-                      }
-                      disabled={isSoldOut}
-                      className={`snap-start shrink-0 w-[240px] sm:w-[220px] rounded-2xl border p-5 text-left transition ${
-                        isSoldOut
-                          ? "cursor-not-allowed border-cream/10 bg-ink/20 opacity-60"
-                          : isExpanded
-                            ? "border-[#e878f0] bg-[#e878f0]/15 ring-1 ring-[#e878f0]/40"
-                            : "border-[#e878f0]/25 bg-white/5 hover:border-[#e878f0]/70 hover:bg-[#e878f0]/10"
-                      }`}
-                    >
-                      <div className="text-[10px] font-bold uppercase tracking-[0.28em] text-[#e878f0]">
-                        {new Date(`${t.event_date}T00:00:00`).toLocaleDateString(
-                          "en-GB",
-                          { weekday: "long" },
-                        )}
-                      </div>
-                      <div className="mt-2 font-display text-2xl uppercase leading-tight tracking-wider text-cream">
-                        {formatDate(t.event_date)}
-                      </div>
-                      <div className="mt-3 text-xs uppercase tracking-widest text-cream/55">
-                        {(t.start_time ?? "19:00").slice(0, 5)} ·{" "}
-                        {t.entry_fee_pence === 0
-                          ? "Free"
-                          : `${formatFee(t.entry_fee_pence)} a ticket`}
-                      </div>
-                      <div className="mt-4">
-                        <div className="h-1 w-full overflow-hidden rounded-full bg-cream/10">
-                          <div
-                            className={`h-full transition-all ${
-                              isSoldOut
-                                ? "bg-cream/20"
-                                : spotsLeft <= 5
-                                  ? "bg-[#e878f0]"
-                                  : "bg-plonkTeal"
-                            }`}
-                            style={{
-                              width: `${((t.max_teams - spotsLeft) / t.max_teams) * 100}%`,
-                            }}
-                          />
-                        </div>
-                        <div className="mt-1.5 text-[10px] uppercase tracking-widest text-cream/45">
-                          {isSoldOut
-                            ? "Sold out"
-                            : spotsLeft === 1
-                              ? "Last ticket"
-                              : `${spotsLeft} of ${t.max_teams} tickets left`}
-                        </div>
-                      </div>
-                      <div
-                        className={`mt-5 inline-block rounded-full px-4 py-2 text-[11px] font-bold uppercase tracking-widest ${
-                          isSoldOut
-                            ? "border border-cream/15 text-cream/50"
-                            : isExpanded
-                              ? "bg-cream/10 text-cream"
-                              : "bg-[#e878f0] text-ink"
-                        }`}
-                      >
-                        {isSoldOut
-                          ? "Sold out"
-                          : isExpanded
-                            ? "Selected"
-                            : "Book →"}
-                      </div>
-                    </button>
-                  );
-                })}
-              </RollerDeck>
-            )}
-
-            {selected && (
-              <div
-                ref={bookingRef}
-                className="bingo-pay mx-auto mt-8 max-w-2xl scroll-mt-24"
-              >
-                {/* The booking form is the SHARED InlineTournamentBooking
-                    (pool + ping pong use it too, in the brand red). Rather
-                    than recolour that shared component, we re-skin just this
-                    page's instance from red → bingo pink (#e878f0) with
-                    scoped overrides on its exact utility classes. The Stripe
-                    card iframe's own accent (set inside the shared component)
-                    stays red — it can't be reached from page CSS. */}
-                <style
-                  dangerouslySetInnerHTML={{
-                    __html: `
-                  .bingo-pay [class~="text-plonkPink"]{color:#e878f0 !important}
-                  .bingo-pay [class~="bg-plonkPink"]{background-color:#e878f0 !important}
-                  .bingo-pay [class~="bg-plonkPink"][class~="text-white"]{color:#000 !important}
-                  .bingo-pay [class~="bg-plonkPink/5"]{background-color:rgb(232 120 240 / .05) !important}
-                  .bingo-pay [class~="bg-plonkPink/10"]{background-color:rgb(232 120 240 / .10) !important}
-                  .bingo-pay [class~="border-plonkPink/30"]{border-color:rgb(232 120 240 / .30) !important}
-                  .bingo-pay [class~="border-plonkPink/40"]{border-color:rgb(232 120 240 / .40) !important}
-                  .bingo-pay [class~="border-plonkPink/45"]{border-color:rgb(232 120 240 / .45) !important}
-                  .bingo-pay [class~="accent-plonkPink"]{accent-color:#e878f0 !important}
-                  .bingo-pay [class~="shadow-plonkPink/20"]{--tw-shadow-color:rgb(232 120 240 / .20) !important}
-                  .bingo-pay .focus\\:border-plonkPink:focus{border-color:#e878f0 !important}
-                `,
-                  }}
-                />
-                <InlineTournamentBooking
-                  tournament={selected}
-                  onClose={() => setExpandedId(null)}
-                />
-              </div>
-            )}
-          </div>
-        </div>
-      </section>
-
       {/* ── Photo slider: hosts + the bingo machine ──
           Same component, uploader and behaviour as the parties-page strips
           (MediaStrip → the "Add / manage photos" pill in Edit mode →
@@ -620,17 +444,31 @@ export default function BingoPage() {
           </h2>
           <div className="mt-8 space-y-4">
             {faqTexts.map((f) => (
-              <div
+              <details
                 key={f.qKey}
-                className="rounded-2xl border border-[#e878f0]/20 bg-white/[0.03] p-5"
+                className="group rounded-2xl border border-[#e878f0]/20 bg-white/[0.03] p-5"
               >
-                <div className="font-bold text-[#e878f0]">
-                  <Editable k={f.qKey}>{f.q}</Editable>
-                </div>
-                <p className="mt-2 text-sm leading-relaxed text-cream/75">
+                <summary className="flex cursor-pointer list-none items-center justify-between gap-4 font-bold text-[#e878f0]">
+                  <span>
+                    <Editable k={f.qKey}>{f.q}</Editable>
+                  </span>
+                  <svg
+                    className="faq-chevron h-5 w-5 shrink-0"
+                    viewBox="0 0 24 24"
+                    fill="none"
+                    stroke="currentColor"
+                    strokeWidth="2.5"
+                    strokeLinecap="round"
+                    strokeLinejoin="round"
+                    aria-hidden
+                  >
+                    <polyline points="6 9 12 15 18 9" />
+                  </svg>
+                </summary>
+                <p className="mt-3 text-sm leading-relaxed text-cream/75">
                   <Editable k={f.aKey}>{f.a}</Editable>
                 </p>
-              </div>
+              </details>
             ))}
           </div>
           <p className="mt-10 text-center text-xs uppercase tracking-widest text-cream/45">
