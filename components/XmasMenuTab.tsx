@@ -49,6 +49,25 @@ const gbp = (n: number) => "£" + (n % 1 === 0 ? n.toFixed(0) : n.toFixed(2));
 type Pkg = { name: string; pricePerHead: number; blurb: string; items: string[]; image: string; imageX: number; imageY: number };
 type Ala = { name: string; desc: string; sell: number; board: boolean };
 
+// Little holly sprig (two leaves + red berries) used to frame festive item
+// names in place of plain dashes.
+function HollySprig({ flip = false }: { flip?: boolean }) {
+  return (
+    <svg
+      viewBox="0 0 48 30"
+      aria-hidden
+      className="h-[0.75em] w-auto shrink-0"
+      style={flip ? { transform: "scaleX(-1)" } : undefined}
+    >
+      <path d="M24 15 C15 6, 5 9, 2 15 C5 21, 15 24, 24 15 Z" fill="#2f7d3f" />
+      <path d="M24 15 C33 6, 43 9, 46 15 C43 21, 33 24, 24 15 Z" fill="#3c9150" />
+      <circle cx="24" cy="15" r="3.2" fill="#c0392b" />
+      <circle cx="19.5" cy="17.5" r="2.6" fill="#d8463a" />
+      <circle cx="28.5" cy="17.5" r="2.6" fill="#a5302a" />
+    </svg>
+  );
+}
+
 export default function XmasMenuTab() {
   const [loading, setLoading] = useState(true);
   const [packages, setPackages] = useState<Pkg[]>([]);
@@ -207,8 +226,10 @@ export default function XmasMenuTab() {
                     key={it.name}
                     className="border-b border-dotted border-cream/25 pb-9 text-center"
                   >
-                    <div className="font-festive capitalize text-xl text-cream sm:text-2xl">
-                      {`  —  ${it.name}  —  `}
+                    <div className="flex items-center justify-center gap-4 font-festive capitalize text-xl text-cream sm:gap-5 sm:text-2xl">
+                      <HollySprig />
+                      <span>{it.name}</span>
+                      <HollySprig flip />
                     </div>
                     {it.desc && (
                       <div className="mx-auto mt-1.5 max-w-2xl text-sm leading-relaxed text-cream/90 sm:text-base">
