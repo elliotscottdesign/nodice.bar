@@ -255,9 +255,9 @@ export default function TournamentSchedule() {
           </Editable>
         </p>
 
-        {availableTypes.length > 1 && (
-          <div className="mt-10 flex flex-wrap justify-center gap-2">
-            {availableTypes.map((t) => {
+        <div className="mt-10 flex flex-wrap items-center justify-center gap-2">
+          {availableTypes.length > 1 &&
+            availableTypes.map((t) => {
               const active = t === type;
               return (
                 <button
@@ -274,24 +274,22 @@ export default function TournamentSchedule() {
                 </button>
               );
             })}
-          </div>
-        )}
+          {/* Team sign in sits alongside the format pills (founder, 11 Oct 2026). */}
+          <a
+            href="https://team.nodice.bar/pool"
+            className="inline-flex items-center gap-2 rounded-full border border-violet-300/35 bg-white/5 px-6 py-3 text-sm font-bold uppercase tracking-widest text-violet-100/85 transition hover:border-violet-300/70 hover:bg-white/10 hover:text-white"
+          >
+            🎱 Team sign in
+          </a>
+        </div>
 
         <p className="mx-auto mt-4 max-w-md text-center text-xs uppercase tracking-widest text-cream/55">
           <Editable k={TYPE_TAGLINE_KEYS[type]}>{currentTagline}</Editable>
         </p>
 
-        {/* Already play here? Your team page — bets, pot, league, rules —
-            lives on the team hub (founder, 8 Oct 2026). */}
-        <div className="mt-5 flex justify-center">
-          <a
-            href="https://team.nodice.bar/pool"
-            className="inline-flex items-center gap-2 rounded-full border border-violet-300/35 bg-white/5 px-5 py-2.5 text-[12px] font-bold uppercase tracking-widest text-violet-100/85 transition hover:border-violet-300/70 hover:bg-white/10 hover:text-white"
-          >
-            🎱 Team sign in
-          </a>
-        </div>
-        <p className="mx-auto mt-2 max-w-sm text-center text-[11px] leading-relaxed text-cream/40">
+        {/* Team page (bets, pot, league, rules) lives on the team hub; the
+            sign-in pill moved up next to the format tabs (founder, 11 Oct 2026). */}
+        <p className="mx-auto mt-4 max-w-sm text-center text-[11px] leading-relaxed text-cream/40">
           Played before? Sign in to bet on the night, track your pot, prizes and league place.
         </p>
 
