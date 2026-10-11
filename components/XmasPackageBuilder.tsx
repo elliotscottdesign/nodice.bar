@@ -199,9 +199,9 @@ export default function XmasPackageBuilder() {
           });
         }
 
-        // Cheapest package first (packages with no price yet sink to the
-        // bottom of the packages), then the standalone cheese board + cake.
-        pkgs.sort((a, b) => (a.price || Infinity) - (b.price || Infinity));
+        // Packages render in the order the kitchen sets them in the On A Roll
+        // Xmas admin (drag-to-reorder) — backend array order, no price sort —
+        // then the standalone cheese board + cake appended as extras.
         setFoodPkgs([...pkgs, ...extras]);
       })
       .catch(() => {});

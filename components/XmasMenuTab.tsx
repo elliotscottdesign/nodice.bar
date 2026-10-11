@@ -124,8 +124,9 @@ export default function XmasMenuTab() {
               imageX: posN(p.imageX),
               imageY: posN(p.imageY),
               items: (p.items || []).map((x: any) => byId[x.itemId]?.name).filter(Boolean),
-            }))
-            .sort((a: Pkg, b: Pkg) => (a.pricePerHead || Infinity) - (b.pricePerHead || Infinity)),
+            })),
+          // Render in the order the kitchen sets in the On A Roll Xmas admin
+          // (drag-to-reorder) — backend array order, no price sort.
         );
         setAlacarte(
           items
