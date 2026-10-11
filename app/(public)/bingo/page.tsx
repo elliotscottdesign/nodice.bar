@@ -1,0 +1,605 @@
+"use client";
+
+import { useEffect, useMemo, useRef, useState } from "react";
+import { Download, FileText } from "lucide-react";
+import PageHero from "@/components/PageHero";
+import RollerDeck from "@/components/RollerDeck";
+import MediaStrip from "@/components/MediaStrip";
+import InlineTournamentBooking from "@/components/InlineTournamentBooking";
+import { useContent } from "@/lib/content";
+import { Editable } from "@/components/Editable";
+import { loadBingoNights } from "@/lib/db/bingo";
+import type { DbTournament } from "@/lib/db/tournaments";
+
+// =============================================================
+// /bingo — Comedy & Bingo Night at No Dice (London Fields)
+// =============================================================
+// Modelled on /pingpong: a PageHero banner (CMS-swappable image via the
+// "hero.bingo" gallery, falling back to the shipped placeholder), an
+// editable copy band, a rail of upcoming nights → inline Stripe booking
+// (£10 a ticket, one per person), a prizes block, a photo slider
+// ("bingo.gallery" — comedian/host headshots + the bingo machine), a
+// click-to-download rules sheet, and an FAQ.
+//
+// Every visible sentence is CMS-editable (useContent / <Editable>) so the
+// founder can change copy on-page in Edit mode. The booking + payment is
+// the SAME flow as the pool / ping-pong tournaments: the bingo night is
+// an events-platform row the shared `tournament-checkout` function and
+// InlineTournamentBooking already understand (see lib/db/bingo.ts) — no
+// bespoke booking code, no edge-function change.
+//
+// Accent: the No Dice brand red (plonkPink) for CTAs + the bar-sponsored
+// gold-ish prizes. Checked at 375px + 1280px before shipping.
+// =============================================================
+
+const HERO_FALLBACK = "/bingo-header.jpg";
+
+function formatDate(iso: string): string {
+  const d = new Date(`${iso}T00:00:00`);
+  return d.toLocaleDateString("en-GB", { day: "numeric", month: "long" });
+}
+
+function formatFee(pence: number): string {
+  if (pence % 100 === 0) return `£${pence / 100}`;
+  return `£${(pence / 100).toFixed(2)}`;
+}
+
+const HOW_IT_WORKS: Array<{ icon: string; title: string; body: string }> = [
+  {
+    icon: "🎟️",
+    title: "£10 a ticket — drink included",
+    body: "Your ticket gets you into the comedy night AND a drink on arrival. The bingo itself is free to play — no stakes, nothing to buy on the night.",
+  },
+  {
+    icon: "🎤",
+    title: "Comedy + bingo, one night",
+    body: "A live host, proper laughs between the balls, and a room full of London Fields' finest. Turn up, grab your card, play along.",
+  },
+  {
+    icon: "🏆",
+    title: "Bar-sponsored prizes",
+    body: "Every prize is put up by the bar — so it's a free game, not gambling. Win a line or the full house and the bar tab is yours.",
+  },
+  {
+    icon: "🍻",
+    title: "Come as a crew",
+    body: "One ticket each — bring the whole table. Dauber in one hand, drink in the other.",
+  },
+];
+
+// Bar-sponsored prizes (founder, 11 Oct 2026) — free to play, bar puts up
+// the pot so it isn't gambling.
+const PRIZES: Array<{ label: string; amount: string }> = [
+  { label: "First vertical line", amount: "£20" },
+  { label: "First horizontal line", amount: "£20" },
+  { label: "First diagonal line", amount: "£20" },
+  { label: "Full house — BINGO!", amount: "£40" },
+];
+
+// The shape of the evening (founder, 11 Oct 2026): alternating comedy
+// sets and bingo rounds, building to the headline act.
+const RUN_ORDER: Array<{ label: string; kind: "comedy" | "bingo" }> = [
+  { label: "Warm-up comedy set", kind: "comedy" },
+  { label: "Bingo round", kind: "bingo" },
+  { label: "Comedy set", kind: "comedy" },
+  { label: "Bingo round", kind: "bingo" },
+  { label: "Main comedy set", kind: "comedy" },
+];
+
+const FAQS: Array<{ q: string; a: string }> = [
+  {
+    q: "Is it gambling?",
+    a: "No. The bingo is free to play and every prize is sponsored by the bar — there's no stake and nothing to buy to join in. Your ticket is for the comedy night and your arrival drink.",
+  },
+  {
+    q: "What does my £10 get me?",
+    a: "Entry to the comedy & bingo night plus a drink on arrival. Bingo cards are handed out free on the night.",
+  },
+  {
+    q: "Can I just turn up?",
+    a: "Grab a ticket ahead to guarantee your spot — these nights fill up. Any spare spaces on the night can be bought at the bar while they last.",
+  },
+];
+
+export default function BingoPage() {
+  // CMS copy — editable in /admin or on-page in Edit mode. The KEY
+  // header the founder uses for the next event + its date lives in
+  // bingo.event_header / bingo.event_date (shown prominently below the
+  // hero), separate from the evergreen hero title.
+  const eyebrow = useContent("bingo.eyebrow", "Comedy & Bingo · London Fields");
+  const title = useContent("bingo.title", "Bingo Night");
+  const intro = useContent(
+    "bingo.intro",
+    "Comedy and bingo under one roof at No Dice. £10 a ticket gets you in and gets you a drink — the bingo's free to play, with prizes put up by the bar. Eyes down, London Fields.",
+  );
+  // The headline the founder points at the next event + its date(s).
+  const eventHeader = useContent("bingo.event_header", "Our first-ever Bingo Night");
+  const eventDate = useContent("bingo.event_date", "Wednesday 25 November 2026 · 7pm");
+
+  const bookLine = useContent(
+    "bingo.book_line",
+    "£10 a ticket — one per person, drink included. Grab yours below.",
+  );
+  const ctaLabel = useContent("bingo.cta_label", "Book your ticket · £10");
+  const nightsTitle = useContent("bingo.nights_title", "Pick your night");
+  const nightsIntro = useContent(
+    "bingo.nights_intro",
+    "£10 a ticket, one per person. Your name, email and mobile at sign-up — we'll text you the details before the night.",
+  );
+
+  const cardTexts = [
+    {
+      icon: HOW_IT_WORKS[0].icon,
+      titleKey: "bingo.card1_title",
+      title: useContent("bingo.card1_title", HOW_IT_WORKS[0].title),
+      bodyKey: "bingo.card1_body",
+      body: useContent("bingo.card1_body", HOW_IT_WORKS[0].body),
+    },
+    {
+      icon: HOW_IT_WORKS[1].icon,
+      titleKey: "bingo.card2_title",
+      title: useContent("bingo.card2_title", HOW_IT_WORKS[1].title),
+      bodyKey: "bingo.card2_body",
+      body: useContent("bingo.card2_body", HOW_IT_WORKS[1].body),
+    },
+    {
+      icon: HOW_IT_WORKS[2].icon,
+      titleKey: "bingo.card3_title",
+      title: useContent("bingo.card3_title", HOW_IT_WORKS[2].title),
+      bodyKey: "bingo.card3_body",
+      body: useContent("bingo.card3_body", HOW_IT_WORKS[2].body),
+    },
+    {
+      icon: HOW_IT_WORKS[3].icon,
+      titleKey: "bingo.card4_title",
+      title: useContent("bingo.card4_title", HOW_IT_WORKS[3].title),
+      bodyKey: "bingo.card4_body",
+      body: useContent("bingo.card4_body", HOW_IT_WORKS[3].body),
+    },
+  ];
+
+  const prizeTexts = [
+    {
+      labelKey: "bingo.prize1_label",
+      label: useContent("bingo.prize1_label", PRIZES[0].label),
+      amountKey: "bingo.prize1_amount",
+      amount: useContent("bingo.prize1_amount", PRIZES[0].amount),
+    },
+    {
+      labelKey: "bingo.prize2_label",
+      label: useContent("bingo.prize2_label", PRIZES[1].label),
+      amountKey: "bingo.prize2_amount",
+      amount: useContent("bingo.prize2_amount", PRIZES[1].amount),
+    },
+    {
+      labelKey: "bingo.prize3_label",
+      label: useContent("bingo.prize3_label", PRIZES[2].label),
+      amountKey: "bingo.prize3_amount",
+      amount: useContent("bingo.prize3_amount", PRIZES[2].amount),
+    },
+    {
+      labelKey: "bingo.prize4_label",
+      label: useContent("bingo.prize4_label", PRIZES[3].label),
+      amountKey: "bingo.prize4_amount",
+      amount: useContent("bingo.prize4_amount", PRIZES[3].amount),
+    },
+  ];
+  const prizesTitle = useContent("bingo.prizes_title", "Prizes on the night");
+  const prizesIntro = useContent(
+    "bingo.prizes_intro",
+    "All put up by the bar — free to play, so it's a game not a gamble. Win it, spend it over the bar.",
+  );
+
+  const runTexts = RUN_ORDER.map((r, i) => ({
+    key: `bingo.run${i + 1}`,
+    kind: r.kind,
+    label: useContent(`bingo.run${i + 1}`, r.label),
+  }));
+  const runTitle = useContent("bingo.run_title", "How the night runs");
+  const runIntro = useContent(
+    "bingo.run_intro",
+    "Comedy and bingo, back to back — building to the headline act.",
+  );
+
+  const faqTexts = [
+    {
+      qKey: "bingo.faq1_q",
+      q: useContent("bingo.faq1_q", FAQS[0].q),
+      aKey: "bingo.faq1_a",
+      a: useContent("bingo.faq1_a", FAQS[0].a),
+    },
+    {
+      qKey: "bingo.faq2_q",
+      q: useContent("bingo.faq2_q", FAQS[1].q),
+      aKey: "bingo.faq2_a",
+      a: useContent("bingo.faq2_a", FAQS[1].a),
+    },
+    {
+      qKey: "bingo.faq3_q",
+      q: useContent("bingo.faq3_q", FAQS[2].q),
+      aKey: "bingo.faq3_a",
+      a: useContent("bingo.faq3_a", FAQS[2].a),
+    },
+  ];
+  const faqTitle = useContent("bingo.faq_title", "Good to know");
+
+  // Rules sheet — click-to-download. The founder drops the real rules in
+  // by either replacing /bingo-rules.pdf in the repo's public/ folder OR
+  // setting the bingo.rules_url content key to a hosted file. A TBD
+  // placeholder ships until then.
+  const rulesTitle = useContent("bingo.rules_title", "How to play");
+  const rulesBlurb = useContent(
+    "bingo.rules_blurb",
+    "New to bingo, or just want the house rules? Download the one-pager.",
+  );
+  const rulesUrl = useContent("bingo.rules_url", "/bingo-rules.pdf");
+  const rulesLabel = useContent("bingo.rules_label", "Download the rules (PDF)");
+
+  // Photo slider — comedian/host headshots + the bingo machine. Founder
+  // uploads to the "bingo.gallery" gallery in /admin/content/galleries.
+  const galleryTitle = useContent("bingo.gallery_title", "The line-up");
+  const galleryIntro = useContent(
+    "bingo.gallery_intro",
+    "Your hosts for the night, and the machine that calls the shots.",
+  );
+  const [nights, setNights] = useState<DbTournament[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [err, setErr] = useState("");
+  const [expandedId, setExpandedId] = useState<string | null>(null);
+  const bookingRef = useRef<HTMLDivElement | null>(null);
+
+  useEffect(() => {
+    if (!expandedId) return;
+    const id = requestAnimationFrame(() => {
+      bookingRef.current?.scrollIntoView({ behavior: "smooth", block: "center" });
+    });
+    return () => cancelAnimationFrame(id);
+  }, [expandedId]);
+
+  useEffect(() => {
+    let cancelled = false;
+    loadBingoNights()
+      .then((rows) => {
+        if (!cancelled) setNights(rows);
+      })
+      .catch((e) => {
+        if (!cancelled)
+          setErr(e instanceof Error ? e.message : "Couldn't load the bingo nights.");
+      })
+      .finally(() => {
+        if (!cancelled) setLoading(false);
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, []);
+
+  const upcoming = useMemo(() => {
+    const today = new Date().toISOString().slice(0, 10);
+    return nights
+      .filter((t) => t.event_date >= today && t.bookable)
+      .sort((a, b) => a.event_date.localeCompare(b.event_date));
+  }, [nights]);
+
+  const selected = upcoming.find((t) => t.id === expandedId) ?? null;
+
+  return (
+    <main>
+      {/* Hero banner — swap the image from admin Galleries → "hero.bingo",
+          falls back to the shipped placeholder until the founder uploads. */}
+      <PageHero
+        eyebrow={eyebrow}
+        title={title}
+        intro={intro}
+        image={HERO_FALLBACK}
+        eyebrowKey="bingo.eyebrow"
+        titleKey="bingo.title"
+        introKey="bingo.intro"
+        sliderKey="hero.bingo"
+      />
+
+      {/* KEY EVENT HEADER — the next event + its date, big and bold.
+          Both lines are on-page editable so the founder can roll it to the
+          next date each month. */}
+      <section className="px-6 pb-4 pt-10 text-center">
+        <div className="mx-auto max-w-2xl rounded-3xl border border-plonkPink/30 bg-plonkPink/5 px-6 py-8">
+          <div className="text-xs font-bold uppercase tracking-[0.3em] text-plonkPink">
+            <Editable k="bingo.event_header">{eventHeader}</Editable>
+          </div>
+          <div className="mt-3 font-display text-3xl uppercase leading-tight tracking-wider text-cream sm:text-4xl">
+            <Editable k="bingo.event_date">{eventDate}</Editable>
+          </div>
+          <p className="mx-auto mt-4 max-w-md text-sm text-cream/80">
+            <Editable k="bingo.book_line">{bookLine}</Editable>
+          </p>
+          <a
+            href="#nights"
+            className="mt-6 inline-block rounded-full bg-plonkPink px-10 py-4 text-sm font-bold uppercase tracking-widest text-white shadow-lg shadow-plonkPink/30 transition hover:bg-plonkPink/90"
+          >
+            <Editable k="bingo.cta_label">{ctaLabel}</Editable>
+          </a>
+        </div>
+      </section>
+
+      {/* ── How it works ── */}
+      <section className="px-6 py-14">
+        <div className="mx-auto grid max-w-5xl gap-4 sm:grid-cols-2 lg:grid-cols-4">
+          {cardTexts.map((c) => (
+            <div
+              key={c.titleKey}
+              className="rounded-2xl border border-plonkPink/25 bg-white/[0.03] p-6"
+            >
+              <div className="text-2xl">{c.icon}</div>
+              <div className="mt-3 font-display text-lg uppercase tracking-wider text-plonkPink">
+                <Editable k={c.titleKey}>{c.title}</Editable>
+              </div>
+              <p className="mt-2 text-sm leading-relaxed text-cream/75">
+                <Editable k={c.bodyKey}>{c.body}</Editable>
+              </p>
+            </div>
+          ))}
+        </div>
+      </section>
+
+      {/* ── Running order ── */}
+      <section className="px-6 pb-4">
+        <div className="mx-auto max-w-2xl">
+          <div className="mb-3 text-center text-xs font-bold uppercase tracking-[0.3em] text-plonkPink">
+            The shape of the evening
+          </div>
+          <h2 className="text-center font-display text-3xl uppercase tracking-wider text-cream">
+            <Editable k="bingo.run_title">{runTitle}</Editable>
+          </h2>
+          <p className="mx-auto mt-4 max-w-md text-center text-sm text-cream/75">
+            <Editable k="bingo.run_intro">{runIntro}</Editable>
+          </p>
+          <ol className="mx-auto mt-8 max-w-md space-y-0">
+            {runTexts.map((r, i) => (
+              <li key={r.key} className="relative flex items-start gap-4 pb-6 last:pb-0">
+                {/* Connector line between steps */}
+                {i < runTexts.length - 1 && (
+                  <span
+                    aria-hidden
+                    className="absolute left-[15px] top-8 h-full w-px bg-plonkPink/25"
+                  />
+                )}
+                <span
+                  className={`relative z-10 mt-0.5 flex h-8 w-8 shrink-0 items-center justify-center rounded-full border text-sm ${
+                    r.kind === "bingo"
+                      ? "border-plonkPink/50 bg-plonkPink/15"
+                      : "border-cream/20 bg-white/5"
+                  }`}
+                >
+                  {r.kind === "bingo" ? "🎱" : "🎤"}
+                </span>
+                <div className="pt-1">
+                  <div className="text-sm font-semibold uppercase tracking-wider text-cream/90">
+                    <Editable k={r.key}>{r.label}</Editable>
+                  </div>
+                </div>
+              </li>
+            ))}
+          </ol>
+        </div>
+      </section>
+
+      {/* ── Prizes ── */}
+      <section className="bg-white/[0.02] px-6 py-16">
+        <div className="mx-auto max-w-3xl">
+          <div className="mb-3 text-center text-xs font-bold uppercase tracking-[0.3em] text-plonkPink">
+            Bar-sponsored · free to play
+          </div>
+          <h2 className="text-center font-display text-4xl uppercase tracking-wider text-cream">
+            <Editable k="bingo.prizes_title">{prizesTitle}</Editable>
+          </h2>
+          <p className="mx-auto mt-4 max-w-xl text-center text-base text-cream/75">
+            <Editable k="bingo.prizes_intro">{prizesIntro}</Editable>
+          </p>
+          <div className="mx-auto mt-10 grid max-w-2xl gap-3 sm:grid-cols-2">
+            {prizeTexts.map((p) => (
+              <div
+                key={p.labelKey}
+                className="flex items-center justify-between gap-4 rounded-2xl border border-plonkPink/25 bg-plonkPink/5 px-6 py-5"
+              >
+                <span className="text-sm font-semibold uppercase tracking-wider text-cream/85">
+                  <Editable k={p.labelKey}>{p.label}</Editable>
+                </span>
+                <span className="font-display text-2xl text-plonkPink">
+                  <Editable k={p.amountKey}>{p.amount}</Editable>
+                </span>
+              </div>
+            ))}
+          </div>
+        </div>
+      </section>
+
+      {/* ── Upcoming nights + inline booking ── */}
+      <section id="nights" className="scroll-mt-24 px-6 py-16">
+        <div className="mx-auto max-w-3xl">
+          <div className="mb-3 text-center text-xs font-bold uppercase tracking-[0.3em] text-plonkPink">
+            Upcoming nights
+          </div>
+          <h2 className="text-center font-display text-4xl uppercase tracking-wider text-cream">
+            <Editable k="bingo.nights_title">{nightsTitle}</Editable>
+          </h2>
+          <p className="mx-auto mt-4 max-w-xl text-center text-base text-cream/75">
+            <Editable k="bingo.nights_intro">{nightsIntro}</Editable>
+          </p>
+
+          <div className="mt-10">
+            {loading && (
+              <p className="text-center text-sm text-cream/55">Loading…</p>
+            )}
+            {err && <p className="text-center text-sm text-plonkPink">{err}</p>}
+            {!loading && !err && upcoming.length === 0 && (
+              <p className="text-center text-sm text-cream/55">
+                No nights on sale just yet — check back soon, or follow us for
+                the next date.
+              </p>
+            )}
+
+            {upcoming.length > 0 && (
+              <RollerDeck ariaLabel="Upcoming bingo nights">
+                {upcoming.map((t) => {
+                  const isExpanded = expandedId === t.id;
+                  const spotsLeft = Math.max(
+                    0,
+                    t.max_teams - t.paid_entries_count,
+                  );
+                  const isSoldOut = spotsLeft <= 0;
+                  return (
+                    <button
+                      key={t.id}
+                      type="button"
+                      onClick={() =>
+                        !isSoldOut && setExpandedId(isExpanded ? null : t.id)
+                      }
+                      disabled={isSoldOut}
+                      className={`snap-start shrink-0 w-[240px] sm:w-[220px] rounded-2xl border p-5 text-left transition ${
+                        isSoldOut
+                          ? "cursor-not-allowed border-cream/10 bg-ink/20 opacity-60"
+                          : isExpanded
+                            ? "border-plonkPink bg-plonkPink/15 ring-1 ring-plonkPink/40"
+                            : "border-plonkPink/25 bg-white/5 hover:border-plonkPink/70 hover:bg-plonkPink/10"
+                      }`}
+                    >
+                      <div className="text-[10px] font-bold uppercase tracking-[0.28em] text-plonkPink">
+                        {new Date(`${t.event_date}T00:00:00`).toLocaleDateString(
+                          "en-GB",
+                          { weekday: "long" },
+                        )}
+                      </div>
+                      <div className="mt-2 font-display text-2xl uppercase leading-tight tracking-wider text-cream">
+                        {formatDate(t.event_date)}
+                      </div>
+                      <div className="mt-3 text-xs uppercase tracking-widest text-cream/55">
+                        {(t.start_time ?? "19:00").slice(0, 5)} ·{" "}
+                        {t.entry_fee_pence === 0
+                          ? "Free"
+                          : `${formatFee(t.entry_fee_pence)} a ticket`}
+                      </div>
+                      <div className="mt-4">
+                        <div className="h-1 w-full overflow-hidden rounded-full bg-cream/10">
+                          <div
+                            className={`h-full transition-all ${
+                              isSoldOut
+                                ? "bg-cream/20"
+                                : spotsLeft <= 5
+                                  ? "bg-plonkPink"
+                                  : "bg-plonkTeal"
+                            }`}
+                            style={{
+                              width: `${((t.max_teams - spotsLeft) / t.max_teams) * 100}%`,
+                            }}
+                          />
+                        </div>
+                        <div className="mt-1.5 text-[10px] uppercase tracking-widest text-cream/45">
+                          {isSoldOut
+                            ? "Sold out"
+                            : spotsLeft === 1
+                              ? "Last ticket"
+                              : `${spotsLeft} of ${t.max_teams} tickets left`}
+                        </div>
+                      </div>
+                      <div
+                        className={`mt-5 inline-block rounded-full px-4 py-2 text-[11px] font-bold uppercase tracking-widest ${
+                          isSoldOut
+                            ? "border border-cream/15 text-cream/50"
+                            : isExpanded
+                              ? "bg-cream/10 text-cream"
+                              : "bg-plonkPink text-white"
+                        }`}
+                      >
+                        {isSoldOut
+                          ? "Sold out"
+                          : isExpanded
+                            ? "Selected"
+                            : "Book →"}
+                      </div>
+                    </button>
+                  );
+                })}
+              </RollerDeck>
+            )}
+
+            {selected && (
+              <div ref={bookingRef} className="mx-auto mt-8 max-w-2xl scroll-mt-24">
+                <InlineTournamentBooking
+                  tournament={selected}
+                  onClose={() => setExpandedId(null)}
+                />
+              </div>
+            )}
+          </div>
+        </div>
+      </section>
+
+      {/* ── Photo slider: hosts + the bingo machine ──
+          Same component, uploader and behaviour as the parties-page strips
+          (MediaStrip → the "Add / manage photos" pill in Edit mode →
+          /admin/content/galleries). Shows placeholder tiles until the
+          founder uploads to the "bingo.gallery" gallery. */}
+      <section className="bg-white/[0.02] py-8">
+        <MediaStrip
+          galleryKey="bingo.gallery"
+          heading={galleryTitle}
+          intro={galleryIntro}
+          headingKey="bingo.gallery_title"
+          introKey="bingo.gallery_intro"
+          aspect="4 / 5"
+          blankCount={4}
+          blankLabel="Host / machine photo"
+        />
+      </section>
+
+      {/* ── Rules download ── */}
+      <section className="px-6 py-16">
+        <div className="mx-auto max-w-2xl text-center">
+          <h2 className="font-display text-3xl uppercase tracking-wider text-cream">
+            <Editable k="bingo.rules_title">{rulesTitle}</Editable>
+          </h2>
+          <p className="mx-auto mt-4 max-w-md text-sm text-cream/75">
+            <Editable k="bingo.rules_blurb">{rulesBlurb}</Editable>
+          </p>
+          <a
+            href={rulesUrl}
+            target="_blank"
+            rel="noopener"
+            className="group mx-auto mt-7 inline-flex items-center gap-3 rounded-full border border-plonkPink/35 bg-plonkPink/5 px-7 py-3.5 text-xs font-bold uppercase tracking-widest text-cream transition hover:border-plonkPink/70 hover:bg-plonkPink/10"
+          >
+            <FileText className="h-4 w-4 text-plonkPink" />
+            <Editable k="bingo.rules_label">{rulesLabel}</Editable>
+            <Download className="h-4 w-4 text-cream/50 transition group-hover:text-plonkPink" />
+          </a>
+        </div>
+      </section>
+
+      {/* ── FAQ ── */}
+      <section className="bg-white/[0.02] px-6 py-16">
+        <div className="mx-auto max-w-2xl">
+          <h2 className="text-center font-display text-3xl uppercase tracking-wider text-cream">
+            <Editable k="bingo.faq_title">{faqTitle}</Editable>
+          </h2>
+          <div className="mt-8 space-y-4">
+            {faqTexts.map((f) => (
+              <div
+                key={f.qKey}
+                className="rounded-2xl border border-plonkPink/20 bg-white/[0.03] p-5"
+              >
+                <div className="font-bold text-plonkPink">
+                  <Editable k={f.qKey}>{f.q}</Editable>
+                </div>
+                <p className="mt-2 text-sm leading-relaxed text-cream/75">
+                  <Editable k={f.aKey}>{f.a}</Editable>
+                </p>
+              </div>
+            ))}
+          </div>
+          <p className="mt-10 text-center text-xs uppercase tracking-widest text-cream/45">
+            No Dice · 407 Mentmore Terrace, London Fields, E8 3PH
+          </p>
+        </div>
+      </section>
+    </main>
+  );
+}

@@ -92,6 +92,13 @@ const KNOWN_GALLERIES: {
     previewPath: "/worldcup",
   },
   {
+    key: "hero.bingo",
+    label: "HERO slider — Bingo",
+    description:
+      "Top-of-page banner on /bingo (Comedy & Bingo night). Upload 1 to set the header image, 2+ to make it a slider.",
+    previewPath: "/bingo",
+  },
+  {
     key: "hero.vouchers",
     label: "HERO slider — Vouchers",
     description: "Top-of-page slider on /vouchers.",
@@ -147,6 +154,13 @@ const KNOWN_GALLERIES: {
     description:
       "Curated grid at the bottom of the homepage. Upload 6–9 square photos that best represent the venue. Each tile links to the No Dice Instagram profile.",
     previewPath: "/",
+  },
+  {
+    key: "bingo.gallery",
+    label: "Bingo — hosts & machine slider",
+    description:
+      "Photo slider on /bingo: comedian / host headshots and shots of the bingo machine. Portrait (4:5) shots work best.",
+    previewPath: "/bingo",
   },
   {
     key: "about.gallery",
