@@ -220,7 +220,7 @@ export default function BingoPage() {
       {/* KEY EVENT HEADER — the next event + its date, big and bold.
           Both lines are on-page editable so the founder can roll it to the
           next date each month. */}
-      <section className="px-6 pb-4 pt-10 text-center">
+      <section className="px-6 pb-12 pt-12 text-center">
         <div className="mx-auto max-w-2xl rounded-3xl border border-[#e878f0]/30 bg-[#e878f0]/5 px-6 py-8">
           <div className="text-xs font-bold uppercase tracking-[0.3em] text-[#e878f0]">
             <Editable k="bingo.event_header">{eventHeader}</Editable>
@@ -288,7 +288,7 @@ export default function BingoPage() {
       )}
 
       {/* ── Running order ── */}
-      <section className="px-6 pb-4">
+      <section className="px-6 pb-8 pt-16">
         <div className="mx-auto max-w-2xl">
           <div className="mb-3 text-center text-xs font-bold uppercase tracking-[0.3em] text-[#e878f0]">
             The shape of the evening
