@@ -28,8 +28,9 @@ import type { DbTournament } from "@/lib/db/tournaments";
 // InlineTournamentBooking already understand (see lib/db/bingo.ts) — no
 // bespoke booking code, no edge-function change.
 //
-// Accent: the No Dice brand red (plonkPink) for CTAs + the bar-sponsored
-// gold-ish prizes. Checked at 375px + 1280px before shipping.
+// Accent: bright pink #e878f0, sampled from the founder's magenta halftone
+// hero artwork (11 Oct 2026 — "style all red to pink"), used for CTAs,
+// headings and the bar-sponsored prizes. Checked at 375px + 1280px.
 // =============================================================
 
 const HERO_FALLBACK = "/bingo-header.jpg";
@@ -44,24 +45,20 @@ function formatFee(pence: number): string {
   return `£${(pence / 100).toFixed(2)}`;
 }
 
-const HOW_IT_WORKS: Array<{ icon: string; title: string; body: string }> = [
+const HOW_IT_WORKS: Array<{ title: string; body: string }> = [
   {
-    icon: "🎟️",
     title: "£10 a ticket — drink included",
     body: "Your ticket gets you into the comedy night AND a drink on arrival. The bingo itself is free to play — no stakes, nothing to buy on the night.",
   },
   {
-    icon: "🎤",
     title: "Comedy + bingo, one night",
     body: "A live host, proper laughs between the balls, and a room full of London Fields' finest. Turn up, grab your card, play along.",
   },
   {
-    icon: "🏆",
     title: "Bar-sponsored prizes",
     body: "Every prize is put up by the bar — so it's a free game, not gambling. Win a line or the full house and the bar tab is yours.",
   },
   {
-    icon: "🍻",
     title: "Come as a crew",
     body: "One ticket each — bring the whole table. Dauber in one hand, drink in the other.",
   },
@@ -77,13 +74,18 @@ const PRIZES: Array<{ label: string; amount: string }> = [
 ];
 
 // The shape of the evening (founder, 11 Oct 2026): alternating comedy
-// sets and bingo rounds, building to the headline act.
-const RUN_ORDER: Array<{ label: string; kind: "comedy" | "bingo" }> = [
-  { label: "Warm-up comedy set", kind: "comedy" },
-  { label: "Bingo round", kind: "bingo" },
-  { label: "Comedy set", kind: "comedy" },
-  { label: "Bingo round", kind: "bingo" },
-  { label: "Main comedy set", kind: "comedy" },
+// sets and bingo rounds, building to the headline act. 15-minute slots
+// from the 7pm start; comedian/host names get added to each slot later.
+const RUN_ORDER: Array<{
+  label: string;
+  kind: "comedy" | "bingo";
+  time: string;
+}> = [
+  { label: "Warm-up comedy set", kind: "comedy", time: "7:00 – 7:15pm" },
+  { label: "Bingo round", kind: "bingo", time: "7:15 – 7:30pm" },
+  { label: "Comedy set", kind: "comedy", time: "7:30 – 7:45pm" },
+  { label: "Bingo round", kind: "bingo", time: "7:45 – 8:00pm" },
+  { label: "Main comedy set", kind: "comedy", time: "8:00 – 8:15pm" },
 ];
 
 const FAQS: Array<{ q: string; a: string }> = [
@@ -129,28 +131,24 @@ export default function BingoPage() {
 
   const cardTexts = [
     {
-      icon: HOW_IT_WORKS[0].icon,
       titleKey: "bingo.card1_title",
       title: useContent("bingo.card1_title", HOW_IT_WORKS[0].title),
       bodyKey: "bingo.card1_body",
       body: useContent("bingo.card1_body", HOW_IT_WORKS[0].body),
     },
     {
-      icon: HOW_IT_WORKS[1].icon,
       titleKey: "bingo.card2_title",
       title: useContent("bingo.card2_title", HOW_IT_WORKS[1].title),
       bodyKey: "bingo.card2_body",
       body: useContent("bingo.card2_body", HOW_IT_WORKS[1].body),
     },
     {
-      icon: HOW_IT_WORKS[2].icon,
       titleKey: "bingo.card3_title",
       title: useContent("bingo.card3_title", HOW_IT_WORKS[2].title),
       bodyKey: "bingo.card3_body",
       body: useContent("bingo.card3_body", HOW_IT_WORKS[2].body),
     },
     {
-      icon: HOW_IT_WORKS[3].icon,
       titleKey: "bingo.card4_title",
       title: useContent("bingo.card4_title", HOW_IT_WORKS[3].title),
       bodyKey: "bingo.card4_body",
@@ -192,8 +190,10 @@ export default function BingoPage() {
 
   const runTexts = RUN_ORDER.map((r, i) => ({
     key: `bingo.run${i + 1}`,
+    timeKey: `bingo.run${i + 1}_time`,
     kind: r.kind,
     label: useContent(`bingo.run${i + 1}`, r.label),
+    time: useContent(`bingo.run${i + 1}_time`, r.time),
   }));
   const runTitle = useContent("bingo.run_title", "How the night runs");
   const runIntro = useContent(
@@ -284,7 +284,15 @@ export default function BingoPage() {
   const selected = upcoming.find((t) => t.id === expandedId) ?? null;
 
   return (
-    <main>
+    <main className="bingo-page">
+      {/* The hero eyebrow is rendered by the SHARED PageHero in the brand
+          red (text-plonkYellow). Re-skin it to bingo pink page-wide here,
+          the same way the booking form is re-skinned below. */}
+      <style
+        dangerouslySetInnerHTML={{
+          __html: `.bingo-page [class~="text-plonkYellow"]{color:#e878f0 !important}`,
+        }}
+      />
       {/* Hero banner — swap the image from admin Galleries → "hero.bingo",
           falls back to the shipped placeholder until the founder uploads. */}
       <PageHero
@@ -302,11 +310,11 @@ export default function BingoPage() {
           Both lines are on-page editable so the founder can roll it to the
           next date each month. */}
       <section className="px-6 pb-4 pt-10 text-center">
-        <div className="mx-auto max-w-2xl rounded-3xl border border-plonkPink/30 bg-plonkPink/5 px-6 py-8">
-          <div className="text-xs font-bold uppercase tracking-[0.3em] text-plonkPink">
+        <div className="mx-auto max-w-2xl rounded-3xl border border-[#e878f0]/30 bg-[#e878f0]/5 px-6 py-8">
+          <div className="text-xs font-bold uppercase tracking-[0.3em] text-[#e878f0]">
             <Editable k="bingo.event_header">{eventHeader}</Editable>
           </div>
-          <div className="mt-3 font-display text-3xl uppercase leading-tight tracking-wider text-cream sm:text-4xl">
+          <div className="mt-3 font-display text-4xl uppercase leading-tight tracking-wider text-cream sm:text-5xl">
             <Editable k="bingo.event_date">{eventDate}</Editable>
           </div>
           <p className="mx-auto mt-4 max-w-md text-sm text-cream/80">
@@ -314,7 +322,7 @@ export default function BingoPage() {
           </p>
           <a
             href="#nights"
-            className="mt-6 inline-block rounded-full bg-plonkPink px-10 py-4 text-sm font-bold uppercase tracking-widest text-white shadow-lg shadow-plonkPink/30 transition hover:bg-plonkPink/90"
+            className="mt-6 inline-block rounded-full bg-[#e878f0] px-10 py-4 text-sm font-bold uppercase tracking-widest text-ink shadow-lg shadow-[#e878f0]/30 transition hover:bg-[#e878f0]/90"
           >
             <Editable k="bingo.cta_label">{ctaLabel}</Editable>
           </a>
@@ -327,10 +335,9 @@ export default function BingoPage() {
           {cardTexts.map((c) => (
             <div
               key={c.titleKey}
-              className="rounded-2xl border border-plonkPink/25 bg-white/[0.03] p-6"
+              className="rounded-2xl border border-[#e878f0]/25 bg-white/[0.03] p-6"
             >
-              <div className="text-2xl">{c.icon}</div>
-              <div className="mt-3 font-display text-lg uppercase tracking-wider text-plonkPink">
+              <div className="font-display text-2xl uppercase tracking-wider text-[#e878f0]">
                 <Editable k={c.titleKey}>{c.title}</Editable>
               </div>
               <p className="mt-2 text-sm leading-relaxed text-cream/75">
@@ -344,10 +351,10 @@ export default function BingoPage() {
       {/* ── Running order ── */}
       <section className="px-6 pb-4">
         <div className="mx-auto max-w-2xl">
-          <div className="mb-3 text-center text-xs font-bold uppercase tracking-[0.3em] text-plonkPink">
+          <div className="mb-3 text-center text-xs font-bold uppercase tracking-[0.3em] text-[#e878f0]">
             The shape of the evening
           </div>
-          <h2 className="text-center font-display text-3xl uppercase tracking-wider text-cream">
+          <h2 className="text-center font-display text-4xl uppercase tracking-wider text-cream">
             <Editable k="bingo.run_title">{runTitle}</Editable>
           </h2>
           <p className="mx-auto mt-4 max-w-md text-center text-sm text-cream/75">
@@ -360,21 +367,25 @@ export default function BingoPage() {
                 {i < runTexts.length - 1 && (
                   <span
                     aria-hidden
-                    className="absolute left-[15px] top-8 h-full w-px bg-plonkPink/25"
+                    className="absolute left-[17px] top-9 h-full w-px bg-[#e878f0]/25"
                   />
                 )}
                 <span
-                  className={`relative z-10 mt-0.5 flex h-8 w-8 shrink-0 items-center justify-center rounded-full border text-sm ${
+                  className={`relative z-10 mt-0.5 flex h-9 w-9 shrink-0 items-center justify-center rounded-full border text-base font-bold ${
                     r.kind === "bingo"
-                      ? "border-plonkPink/50 bg-plonkPink/15"
-                      : "border-cream/20 bg-white/5"
+                      ? "border-[#e878f0]/50 bg-[#e878f0]/15 text-[#e878f0]"
+                      : "border-cream/20 bg-white/5 text-cream/70"
                   }`}
                 >
-                  {r.kind === "bingo" ? "🎱" : "🎤"}
+                  {i + 1}
                 </span>
-                <div className="pt-1">
+                <div className="flex flex-1 flex-col gap-1 pt-1 sm:flex-row sm:items-center sm:justify-between sm:gap-3">
                   <div className="text-sm font-semibold uppercase tracking-wider text-cream/90">
                     <Editable k={r.key}>{r.label}</Editable>
+                    {/* Comedian / host names get added here later. */}
+                  </div>
+                  <div className="shrink-0 text-xs font-bold uppercase tracking-widest text-[#e878f0]">
+                    <Editable k={r.timeKey}>{r.time}</Editable>
                   </div>
                 </div>
               </li>
@@ -386,10 +397,10 @@ export default function BingoPage() {
       {/* ── Prizes ── */}
       <section className="bg-white/[0.02] px-6 py-16">
         <div className="mx-auto max-w-3xl">
-          <div className="mb-3 text-center text-xs font-bold uppercase tracking-[0.3em] text-plonkPink">
+          <div className="mb-3 text-center text-xs font-bold uppercase tracking-[0.3em] text-[#e878f0]">
             Bar-sponsored · free to play
           </div>
-          <h2 className="text-center font-display text-4xl uppercase tracking-wider text-cream">
+          <h2 className="text-center font-display text-5xl uppercase tracking-wider text-cream">
             <Editable k="bingo.prizes_title">{prizesTitle}</Editable>
           </h2>
           <p className="mx-auto mt-4 max-w-xl text-center text-base text-cream/75">
@@ -399,12 +410,12 @@ export default function BingoPage() {
             {prizeTexts.map((p) => (
               <div
                 key={p.labelKey}
-                className="flex items-center justify-between gap-4 rounded-2xl border border-plonkPink/25 bg-plonkPink/5 px-6 py-5"
+                className="flex items-center justify-between gap-4 rounded-2xl border border-[#e878f0]/25 bg-[#e878f0]/5 px-6 py-5"
               >
                 <span className="text-sm font-semibold uppercase tracking-wider text-cream/85">
                   <Editable k={p.labelKey}>{p.label}</Editable>
                 </span>
-                <span className="font-display text-2xl text-plonkPink">
+                <span className="font-display text-2xl text-[#e878f0]">
                   <Editable k={p.amountKey}>{p.amount}</Editable>
                 </span>
               </div>
@@ -416,10 +427,10 @@ export default function BingoPage() {
       {/* ── Upcoming nights + inline booking ── */}
       <section id="nights" className="scroll-mt-24 px-6 py-16">
         <div className="mx-auto max-w-3xl">
-          <div className="mb-3 text-center text-xs font-bold uppercase tracking-[0.3em] text-plonkPink">
+          <div className="mb-3 text-center text-xs font-bold uppercase tracking-[0.3em] text-[#e878f0]">
             Upcoming nights
           </div>
-          <h2 className="text-center font-display text-4xl uppercase tracking-wider text-cream">
+          <h2 className="text-center font-display text-5xl uppercase tracking-wider text-cream">
             <Editable k="bingo.nights_title">{nightsTitle}</Editable>
           </h2>
           <p className="mx-auto mt-4 max-w-xl text-center text-base text-cream/75">
@@ -430,7 +441,7 @@ export default function BingoPage() {
             {loading && (
               <p className="text-center text-sm text-cream/55">Loading…</p>
             )}
-            {err && <p className="text-center text-sm text-plonkPink">{err}</p>}
+            {err && <p className="text-center text-sm text-[#e878f0]">{err}</p>}
             {!loading && !err && upcoming.length === 0 && (
               <p className="text-center text-sm text-cream/55">
                 No nights on sale just yet — check back soon, or follow us for
@@ -459,11 +470,11 @@ export default function BingoPage() {
                         isSoldOut
                           ? "cursor-not-allowed border-cream/10 bg-ink/20 opacity-60"
                           : isExpanded
-                            ? "border-plonkPink bg-plonkPink/15 ring-1 ring-plonkPink/40"
-                            : "border-plonkPink/25 bg-white/5 hover:border-plonkPink/70 hover:bg-plonkPink/10"
+                            ? "border-[#e878f0] bg-[#e878f0]/15 ring-1 ring-[#e878f0]/40"
+                            : "border-[#e878f0]/25 bg-white/5 hover:border-[#e878f0]/70 hover:bg-[#e878f0]/10"
                       }`}
                     >
-                      <div className="text-[10px] font-bold uppercase tracking-[0.28em] text-plonkPink">
+                      <div className="text-[10px] font-bold uppercase tracking-[0.28em] text-[#e878f0]">
                         {new Date(`${t.event_date}T00:00:00`).toLocaleDateString(
                           "en-GB",
                           { weekday: "long" },
@@ -485,7 +496,7 @@ export default function BingoPage() {
                               isSoldOut
                                 ? "bg-cream/20"
                                 : spotsLeft <= 5
-                                  ? "bg-plonkPink"
+                                  ? "bg-[#e878f0]"
                                   : "bg-plonkTeal"
                             }`}
                             style={{
@@ -507,7 +518,7 @@ export default function BingoPage() {
                             ? "border border-cream/15 text-cream/50"
                             : isExpanded
                               ? "bg-cream/10 text-cream"
-                              : "bg-plonkPink text-white"
+                              : "bg-[#e878f0] text-ink"
                         }`}
                       >
                         {isSoldOut
@@ -523,7 +534,34 @@ export default function BingoPage() {
             )}
 
             {selected && (
-              <div ref={bookingRef} className="mx-auto mt-8 max-w-2xl scroll-mt-24">
+              <div
+                ref={bookingRef}
+                className="bingo-pay mx-auto mt-8 max-w-2xl scroll-mt-24"
+              >
+                {/* The booking form is the SHARED InlineTournamentBooking
+                    (pool + ping pong use it too, in the brand red). Rather
+                    than recolour that shared component, we re-skin just this
+                    page's instance from red → bingo pink (#e878f0) with
+                    scoped overrides on its exact utility classes. The Stripe
+                    card iframe's own accent (set inside the shared component)
+                    stays red — it can't be reached from page CSS. */}
+                <style
+                  dangerouslySetInnerHTML={{
+                    __html: `
+                  .bingo-pay [class~="text-plonkPink"]{color:#e878f0 !important}
+                  .bingo-pay [class~="bg-plonkPink"]{background-color:#e878f0 !important}
+                  .bingo-pay [class~="bg-plonkPink"][class~="text-white"]{color:#000 !important}
+                  .bingo-pay [class~="bg-plonkPink/5"]{background-color:rgb(232 120 240 / .05) !important}
+                  .bingo-pay [class~="bg-plonkPink/10"]{background-color:rgb(232 120 240 / .10) !important}
+                  .bingo-pay [class~="border-plonkPink/30"]{border-color:rgb(232 120 240 / .30) !important}
+                  .bingo-pay [class~="border-plonkPink/40"]{border-color:rgb(232 120 240 / .40) !important}
+                  .bingo-pay [class~="border-plonkPink/45"]{border-color:rgb(232 120 240 / .45) !important}
+                  .bingo-pay [class~="accent-plonkPink"]{accent-color:#e878f0 !important}
+                  .bingo-pay [class~="shadow-plonkPink/20"]{--tw-shadow-color:rgb(232 120 240 / .20) !important}
+                  .bingo-pay .focus\\:border-plonkPink:focus{border-color:#e878f0 !important}
+                `,
+                  }}
+                />
                 <InlineTournamentBooking
                   tournament={selected}
                   onClose={() => setExpandedId(null)}
@@ -555,7 +593,7 @@ export default function BingoPage() {
       {/* ── Rules download ── */}
       <section className="px-6 py-16">
         <div className="mx-auto max-w-2xl text-center">
-          <h2 className="font-display text-3xl uppercase tracking-wider text-cream">
+          <h2 className="font-display text-4xl uppercase tracking-wider text-cream">
             <Editable k="bingo.rules_title">{rulesTitle}</Editable>
           </h2>
           <p className="mx-auto mt-4 max-w-md text-sm text-cream/75">
@@ -565,11 +603,11 @@ export default function BingoPage() {
             href={rulesUrl}
             target="_blank"
             rel="noopener"
-            className="group mx-auto mt-7 inline-flex items-center gap-3 rounded-full border border-plonkPink/35 bg-plonkPink/5 px-7 py-3.5 text-xs font-bold uppercase tracking-widest text-cream transition hover:border-plonkPink/70 hover:bg-plonkPink/10"
+            className="group mx-auto mt-7 inline-flex items-center gap-3 rounded-full border border-[#e878f0]/35 bg-[#e878f0]/5 px-7 py-3.5 text-xs font-bold uppercase tracking-widest text-cream transition hover:border-[#e878f0]/70 hover:bg-[#e878f0]/10"
           >
-            <FileText className="h-4 w-4 text-plonkPink" />
+            <FileText className="h-4 w-4 text-[#e878f0]" />
             <Editable k="bingo.rules_label">{rulesLabel}</Editable>
-            <Download className="h-4 w-4 text-cream/50 transition group-hover:text-plonkPink" />
+            <Download className="h-4 w-4 text-cream/50 transition group-hover:text-[#e878f0]" />
           </a>
         </div>
       </section>
@@ -577,16 +615,16 @@ export default function BingoPage() {
       {/* ── FAQ ── */}
       <section className="bg-white/[0.02] px-6 py-16">
         <div className="mx-auto max-w-2xl">
-          <h2 className="text-center font-display text-3xl uppercase tracking-wider text-cream">
+          <h2 className="text-center font-display text-4xl uppercase tracking-wider text-cream">
             <Editable k="bingo.faq_title">{faqTitle}</Editable>
           </h2>
           <div className="mt-8 space-y-4">
             {faqTexts.map((f) => (
               <div
                 key={f.qKey}
-                className="rounded-2xl border border-plonkPink/20 bg-white/[0.03] p-5"
+                className="rounded-2xl border border-[#e878f0]/20 bg-white/[0.03] p-5"
               >
-                <div className="font-bold text-plonkPink">
+                <div className="font-bold text-[#e878f0]">
                   <Editable k={f.qKey}>{f.q}</Editable>
                 </div>
                 <p className="mt-2 text-sm leading-relaxed text-cream/75">
