@@ -1,7 +1,6 @@
 "use client";
 
 import { useEffect, useMemo, useRef, useState } from "react";
-import { Download, FileText } from "lucide-react";
 import PageHero from "@/components/PageHero";
 import RollerDeck from "@/components/RollerDeck";
 import MediaStrip from "@/components/MediaStrip";
@@ -49,29 +48,16 @@ const PRIZES: Array<{ label: string; amount: string }> = [
 // from the 7pm start; comedian/host names get added to each slot later.
 const RUN_ORDER: Array<{
   label: string;
-  kind: "comedy" | "bingo";
+  kind: "comedy" | "bingo" | "break";
   time: string;
 }> = [
-  { label: "Warm-up comedy set", kind: "comedy", time: "7:00 – 7:15pm" },
-  { label: "Bingo round", kind: "bingo", time: "7:15 – 7:30pm" },
-  { label: "Comedy set", kind: "comedy", time: "7:30 – 7:45pm" },
+  { label: "Warm-up comedy set", kind: "comedy", time: "7:30 – 7:45pm" },
   { label: "Bingo round", kind: "bingo", time: "7:45 – 8:00pm" },
-  { label: "Main comedy set", kind: "comedy", time: "8:00 – 8:15pm" },
-];
-
-const FAQS: Array<{ q: string; a: string }> = [
-  {
-    q: "Is it gambling?",
-    a: "No. The bingo is free to play and every prize is sponsored by the bar — there's no stake and nothing to buy to join in. Your ticket is for the comedy night and your arrival drink.",
-  },
-  {
-    q: "What does my £10 get me?",
-    a: "Entry to the comedy & bingo night plus a drink on arrival. Bingo cards are handed out free on the night.",
-  },
-  {
-    q: "Can I just turn up?",
-    a: "Grab a ticket ahead to guarantee your spot — these nights fill up. Any spare spaces on the night can be bought at the bar while they last.",
-  },
+  { label: "Break", kind: "break", time: "8:00 – 8:15pm" },
+  { label: "Comedy set", kind: "comedy", time: "8:15 – 8:30pm" },
+  { label: "Bingo round", kind: "bingo", time: "8:30 – 8:45pm" },
+  { label: "Break", kind: "break", time: "8:45 – 9:00pm" },
+  { label: "Main comedy set", kind: "comedy", time: "9:00 – 9:15pm" },
 ];
 
 export default function BingoPage() {
@@ -140,40 +126,6 @@ export default function BingoPage() {
     "Comedy and bingo, back to back — building to the headline act.",
   );
 
-  const faqTexts = [
-    {
-      qKey: "bingo.faq1_q",
-      q: useContent("bingo.faq1_q", FAQS[0].q),
-      aKey: "bingo.faq1_a",
-      a: useContent("bingo.faq1_a", FAQS[0].a),
-    },
-    {
-      qKey: "bingo.faq2_q",
-      q: useContent("bingo.faq2_q", FAQS[1].q),
-      aKey: "bingo.faq2_a",
-      a: useContent("bingo.faq2_a", FAQS[1].a),
-    },
-    {
-      qKey: "bingo.faq3_q",
-      q: useContent("bingo.faq3_q", FAQS[2].q),
-      aKey: "bingo.faq3_a",
-      a: useContent("bingo.faq3_a", FAQS[2].a),
-    },
-  ];
-  const faqTitle = useContent("bingo.faq_title", "Good to know");
-
-  // Rules sheet — click-to-download. The founder drops the real rules in
-  // by either replacing /bingo-rules.pdf in the repo's public/ folder OR
-  // setting the bingo.rules_url content key to a hosted file. A TBD
-  // placeholder ships until then.
-  const rulesTitle = useContent("bingo.rules_title", "How to play");
-  const rulesBlurb = useContent(
-    "bingo.rules_blurb",
-    "New to bingo, or just want the house rules? Download the one-pager.",
-  );
-  const rulesUrl = useContent("bingo.rules_url", "/bingo-rules.pdf");
-  const rulesLabel = useContent("bingo.rules_label", "Download the rules (PDF)");
-
   // Photo slider — comedian/host headshots + the bingo machine. Founder
   // uploads to the "bingo.gallery" gallery in /admin/content/galleries.
   const galleryTitle = useContent("bingo.gallery_title", "The line-up");
@@ -186,6 +138,10 @@ export default function BingoPage() {
   const [err, setErr] = useState("");
   const [expandedId, setExpandedId] = useState<string | null>(null);
   const bookingRef = useRef<HTMLDivElement | null>(null);
+  // Sticky "Book your ticket" CTA — shows once the header CTA scrolls out of
+  // view (so it follows the reader down the page on phone + desktop).
+  const headerCtaRef = useRef<HTMLButtonElement | null>(null);
+  const [showStickyCta, setShowStickyCta] = useState(false);
 
   useEffect(() => {
     if (!expandedId) return;
@@ -194,6 +150,22 @@ export default function BingoPage() {
     });
     return () => cancelAnimationFrame(id);
   }, [expandedId]);
+
+  useEffect(() => {
+    const el = headerCtaRef.current;
+    if (!el || typeof IntersectionObserver === "undefined") return;
+    const obs = new IntersectionObserver(
+      ([entry]) => setShowStickyCta(!entry.isIntersecting),
+      { rootMargin: "-80px 0px 0px 0px" },
+    );
+    obs.observe(el);
+    return () => obs.disconnect();
+  }, []);
+
+  const openBooking = () => {
+    const next = upcoming[0];
+    if (next) setExpandedId(next.id);
+  };
 
   useEffect(() => {
     let cancelled = false;
@@ -229,10 +201,7 @@ export default function BingoPage() {
           the same way the booking form is re-skinned below. */}
       <style
         dangerouslySetInnerHTML={{
-          __html: `.bingo-page [class~="text-plonkYellow"]{color:#e878f0 !important}
-.bingo-page details > summary::-webkit-details-marker{display:none}
-.bingo-page .faq-chevron{transition:transform .2s ease}
-.bingo-page details[open] .faq-chevron{transform:rotate(180deg)}`,
+          __html: `.bingo-page [class~="text-plonkYellow"]{color:#e878f0 !important}`,
         }}
       />
       {/* Hero banner — swap the image from admin Galleries → "hero.bingo",
@@ -263,11 +232,9 @@ export default function BingoPage() {
             <Editable k="bingo.book_line">{bookLine}</Editable>
           </p>
           <button
+            ref={headerCtaRef}
             type="button"
-            onClick={() => {
-              const next = upcoming[0];
-              if (next) setExpandedId(next.id);
-            }}
+            onClick={openBooking}
             disabled={!loading && upcoming.length === 0}
             className="mt-6 inline-block rounded-full bg-[#e878f0] px-10 py-4 text-sm font-bold uppercase tracking-widest text-ink shadow-lg shadow-[#e878f0]/30 transition hover:bg-[#e878f0]/90 disabled:cursor-not-allowed disabled:opacity-50"
           >
@@ -333,35 +300,59 @@ export default function BingoPage() {
             <Editable k="bingo.run_intro">{runIntro}</Editable>
           </p>
           <ol className="mx-auto mt-8 max-w-md space-y-0">
-            {runTexts.map((r, i) => (
-              <li key={r.key} className="relative flex items-start gap-4 pb-6 last:pb-0">
-                {/* Connector line between steps */}
-                {i < runTexts.length - 1 && (
-                  <span
-                    aria-hidden
-                    className="absolute left-[17px] top-9 h-full w-px bg-[#e878f0]/25"
-                  />
-                )}
-                <span
-                  className={`relative z-10 mt-0.5 flex h-9 w-9 shrink-0 items-center justify-center rounded-full border text-base font-bold ${
-                    r.kind === "bingo"
-                      ? "border-[#e878f0]/50 bg-[#e878f0]/15 text-[#e878f0]"
-                      : "border-cream/20 bg-white/5 text-cream/70"
-                  }`}
+            {runTexts.map((r, i) => {
+              const isBreak = r.kind === "break";
+              // Number only the acts — breaks sit between them as a pause.
+              const actNo = runTexts
+                .slice(0, i + 1)
+                .filter((x) => x.kind !== "break").length;
+              return (
+                <li
+                  key={r.key}
+                  className="relative flex items-start gap-4 pb-6 last:pb-0"
                 >
-                  {i + 1}
-                </span>
-                <div className="flex flex-1 flex-col gap-1 pt-1 sm:flex-row sm:items-center sm:justify-between sm:gap-3">
-                  <div className="text-sm font-semibold uppercase tracking-wider text-cream/90">
-                    <Editable k={r.key}>{r.label}</Editable>
-                    {/* Comedian / host names get added here later. */}
+                  {/* Connector line between steps */}
+                  {i < runTexts.length - 1 && (
+                    <span
+                      aria-hidden
+                      className="absolute left-[17px] top-9 h-full w-px bg-[#e878f0]/25"
+                    />
+                  )}
+                  <span
+                    className={`relative z-10 mt-0.5 flex h-9 w-9 shrink-0 items-center justify-center rounded-full border text-base font-bold ${
+                      isBreak
+                        ? "border-cream/15 bg-ink"
+                        : r.kind === "bingo"
+                          ? "border-[#e878f0]/50 bg-[#e878f0]/15 text-[#e878f0]"
+                          : "border-cream/20 bg-white/5 text-cream/70"
+                    }`}
+                  >
+                    {isBreak ? (
+                      <span className="h-1.5 w-1.5 rounded-full bg-cream/40" />
+                    ) : (
+                      actNo
+                    )}
+                  </span>
+                  <div className="flex flex-1 flex-col gap-1 pt-1 sm:flex-row sm:items-center sm:justify-between sm:gap-3">
+                    <div
+                      className={`text-sm font-semibold uppercase tracking-wider ${
+                        isBreak ? "text-cream/45" : "text-cream/90"
+                      }`}
+                    >
+                      <Editable k={r.key}>{r.label}</Editable>
+                      {/* Comedian / host names get added here later. */}
+                    </div>
+                    <div
+                      className={`shrink-0 text-xs font-bold uppercase tracking-widest ${
+                        isBreak ? "text-cream/40" : "text-[#e878f0]"
+                      }`}
+                    >
+                      <Editable k={r.timeKey}>{r.time}</Editable>
+                    </div>
                   </div>
-                  <div className="shrink-0 text-xs font-bold uppercase tracking-widest text-[#e878f0]">
-                    <Editable k={r.timeKey}>{r.time}</Editable>
-                  </div>
-                </div>
-              </li>
-            ))}
+                </li>
+              );
+            })}
           </ol>
         </div>
       </section>
@@ -414,68 +405,27 @@ export default function BingoPage() {
         />
       </section>
 
-      {/* ── Rules download ── */}
+      {/* Venue footer line */}
       <section className="px-6 py-16">
-        <div className="mx-auto max-w-2xl text-center">
-          <h2 className="font-display text-4xl uppercase tracking-wider text-cream">
-            <Editable k="bingo.rules_title">{rulesTitle}</Editable>
-          </h2>
-          <p className="mx-auto mt-4 max-w-md text-sm text-cream/75">
-            <Editable k="bingo.rules_blurb">{rulesBlurb}</Editable>
-          </p>
-          <a
-            href={rulesUrl}
-            target="_blank"
-            rel="noopener"
-            className="group mx-auto mt-7 inline-flex items-center gap-3 rounded-full border border-[#e878f0]/35 bg-[#e878f0]/5 px-7 py-3.5 text-xs font-bold uppercase tracking-widest text-cream transition hover:border-[#e878f0]/70 hover:bg-[#e878f0]/10"
-          >
-            <FileText className="h-4 w-4 text-[#e878f0]" />
-            <Editable k="bingo.rules_label">{rulesLabel}</Editable>
-            <Download className="h-4 w-4 text-cream/50 transition group-hover:text-[#e878f0]" />
-          </a>
-        </div>
+        <p className="text-center text-xs uppercase tracking-widest text-cream/45">
+          No Dice · 407 Mentmore Terrace, London Fields, E8 3PH
+        </p>
       </section>
 
-      {/* ── FAQ ── */}
-      <section className="bg-white/[0.02] px-6 py-16">
-        <div className="mx-auto max-w-2xl">
-          <h2 className="text-center font-display text-4xl uppercase tracking-wider text-cream">
-            <Editable k="bingo.faq_title">{faqTitle}</Editable>
-          </h2>
-          <div className="mt-8 space-y-4">
-            {faqTexts.map((f) => (
-              <details
-                key={f.qKey}
-                className="group rounded-2xl border border-[#e878f0]/20 bg-white/[0.03] p-5"
-              >
-                <summary className="flex cursor-pointer list-none items-center justify-between gap-4 font-bold text-[#e878f0]">
-                  <span>
-                    <Editable k={f.qKey}>{f.q}</Editable>
-                  </span>
-                  <svg
-                    className="faq-chevron h-5 w-5 shrink-0"
-                    viewBox="0 0 24 24"
-                    fill="none"
-                    stroke="currentColor"
-                    strokeWidth="2.5"
-                    strokeLinecap="round"
-                    strokeLinejoin="round"
-                    aria-hidden
-                  >
-                    <polyline points="6 9 12 15 18 9" />
-                  </svg>
-                </summary>
-                <p className="mt-3 text-sm leading-relaxed text-cream/75">
-                  <Editable k={f.aKey}>{f.a}</Editable>
-                </p>
-              </details>
-            ))}
-          </div>
-          <p className="mt-10 text-center text-xs uppercase tracking-widest text-cream/45">
-            No Dice · 407 Mentmore Terrace, London Fields, E8 3PH
-          </p>
+      {/* Sticky "Book your ticket" CTA — follows the reader down the page on
+          phone + desktop, once the header CTA has scrolled away. Hidden while
+          the booking form is open, or when there's no night on sale. */}
+      {showStickyCta && !selected && upcoming.length > 0 && (
+        <div className="pointer-events-none fixed inset-x-0 bottom-0 z-40 flex justify-center px-4 pb-[max(1rem,env(safe-area-inset-bottom))]">
+          <button
+            type="button"
+            onClick={openBooking}
+            className="pointer-events-auto rounded-full bg-[#e878f0] px-8 py-4 text-sm font-bold uppercase tracking-widest text-ink shadow-xl shadow-black/40 ring-1 ring-black/10 transition hover:bg-[#e878f0]/90"
+          >
+            {ctaLabel}
+          </button>
         </div>
-      </section>
+      )}
     </main>
   );
 }
