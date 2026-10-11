@@ -368,7 +368,7 @@ export default function PrivateHirePage() {
             </RollerDeck>
         </Reveal>
 
-        <div className="mx-auto max-w-4xl">
+        <div className="mx-auto max-w-4xl text-center">
           <Reveal delay={120}>
             <h2 className="mt-8 font-display text-3xl leading-tight sm:text-4xl">
               <Editable k="privatehire.hackney.about_heading">
