@@ -245,7 +245,7 @@ export default function OnARollClient() {
 
   // A live pop-up (sections are already filtered to non-archived at load) with a known
   // logo takes over the On A Roll header.
-  const headerLogo = (sections || []).map((s) => POPUP_LOGOS[(s as any).logo]).find(Boolean) || LOGO;
+  const headerLogo = (sections || []).map((s) => (s as any).logoImg || POPUP_LOGOS[(s as any).logo]).find(Boolean) || LOGO;
 
   if (err && !sections) return <Shell logo={headerLogo}><Note>Couldn't load the menu — {err}</Note><button onClick={() => load()} style={btn(RED, "#fff")}>Try again</button></Shell>;
   if (!sections || !status) return <Shell logo={headerLogo}><div style={{ color: MUTED, padding: "40px 0", textAlign: "center" }}>Loading the menu…</div></Shell>;
