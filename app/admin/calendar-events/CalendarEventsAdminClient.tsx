@@ -3,6 +3,7 @@
 import { useEffect, useState } from "react";
 import { AdminCard } from "@/components/admin/AdminCard";
 import MediaPicker from "@/components/admin/MediaPicker";
+import Notice from "@/components/Notice";
 import {
   loadAllCalendarEvents,
   createCalendarEvent,
@@ -239,17 +240,9 @@ export default function CalendarEventsAdminClient() {
 
   return (
     <div className="space-y-8">
-      {err && (
-        <div className="rounded-lg border border-plonkPink/40 bg-plonkPink/10 px-4 py-3 text-sm text-plonkPink">
-          {err}
-        </div>
-      )}
+      {err && <Notice variant="error">{err}</Notice>}
 
-      {notice && (
-        <div className="rounded-lg border border-cream/20 bg-cream/5 px-4 py-3 text-sm text-cream">
-          ✓ {notice}
-        </div>
-      )}
+      {notice && <Notice variant="success">✓ {notice}</Notice>}
 
       {/* ───── Add / edit form ───── */}
       <AdminCard title={draft.id ? "Edit event" : "Add new event"}>

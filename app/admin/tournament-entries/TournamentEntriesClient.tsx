@@ -10,6 +10,7 @@ import {
   type TournamentEntryStatus,
 } from "@/lib/db/tournaments";
 import AddTournamentEntryForm from "@/components/admin/AddTournamentEntryForm";
+import Notice from "@/components/Notice";
 import BookingLockedTag from "@/components/admin/BookingLockedTag";
 
 // Admin view of all tournament_entries. Two main jobs:
@@ -318,9 +319,7 @@ export default function TournamentEntriesClient() {
   return (
     <div className="space-y-6">
       {err && (
-        <div className="rounded-xl border border-red-400/30 bg-red-400/5 px-4 py-3 text-sm text-red-300">
-          {err}
-        </div>
+        <Notice variant="error">{err}</Notice>
       )}
 
       {/* Manual entry — phone / DM / walk-in sign-ups paying at the

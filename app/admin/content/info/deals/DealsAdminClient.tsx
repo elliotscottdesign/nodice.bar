@@ -2,6 +2,7 @@
 
 import { useEffect, useState } from "react";
 import AdminPageHeader from "@/components/admin/AdminPageHeader";
+import Notice from "@/components/Notice";
 import { AdminCard } from "@/components/admin/AdminCard";
 import ContentEditor from "@/components/admin/ContentEditor";
 import {
@@ -152,9 +153,7 @@ export default function DealsAdminClient() {
       </h2>
 
       {err && (
-        <div className="mb-6 rounded-xl border border-red-400/30 bg-red-400/5 px-4 py-3 text-sm text-red-300">
-          {err}
-        </div>
+        <Notice variant="error" className="mb-6">{err}</Notice>
       )}
 
       {loading ? (
@@ -347,9 +346,7 @@ function DealModal({
             Visible on the public site
           </label>
           {localErr && (
-            <p className="rounded-lg border border-red-400/30 bg-red-400/5 px-3 py-2 text-sm text-red-300">
-              {localErr}
-            </p>
+            <Notice variant="error">{localErr}</Notice>
           )}
         </div>
         <div className="mt-6 flex gap-2 justify-end">

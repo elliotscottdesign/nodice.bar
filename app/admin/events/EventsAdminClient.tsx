@@ -4,6 +4,7 @@ import { useEffect, useMemo, useRef, useState } from "react";
 import { createPortal } from "react-dom";
 import MediaPicker from "@/components/admin/MediaPicker";
 import DatePickerInput from "@/components/admin/DatePickerInput";
+import Notice from "@/components/Notice";
 import { EVENT_TYPES } from "@/lib/db/calendarEvents";
 
 // Category colour swatches — used by the dropdown and list-row
@@ -495,11 +496,7 @@ export default function EventsAdminClient() {
   // ----- Render -----
   return (
     <div className="space-y-6">
-      {err && (
-        <div className="rounded-xl border border-red-400/30 bg-red-400/5 px-4 py-3 text-sm text-red-300">
-          {err}
-        </div>
-      )}
+      {err && <Notice variant="error">{err}</Notice>}
 
       <div className="flex items-center justify-between">
         <h2 className="font-display text-xl uppercase tracking-wider text-cream">
@@ -1350,7 +1347,14 @@ function EditEventModal({
   return createPortal(
     <div
       className="fixed inset-0 z-[120] flex items-start justify-center overflow-y-auto bg-ink/85 p-4 sm:p-8"
-      onClick={onClose}
+      // Only close on a click of the backdrop ITSELF. The MediaPicker
+      // (poster artwork) portals to document.body but is a React child
+      // of this backdrop, so its click events bubble up the React tree
+      // to here — without this guard, picking/uploading artwork fired
+      // onClose, closing the edit modal and discarding the chosen image.
+      onClick={(e) => {
+        if (e.target === e.currentTarget) onClose();
+      }}
     >
       <div
         className="w-full max-w-2xl rounded-2xl border border-plonkTeal/40 bg-ink shadow-2xl"
@@ -1682,9 +1686,9 @@ function EditEventModal({
         </div>
 
         {err && (
-          <div className="mx-6 mb-4 rounded-lg border border-red-400/30 bg-red-400/5 px-4 py-3 text-sm text-red-300">
+          <Notice variant="error" className="mx-6 mb-4">
             {err}
-          </div>
+          </Notice>
         )}
 
         <div className="flex justify-end gap-3 border-t border-cream/10 px-6 py-4">

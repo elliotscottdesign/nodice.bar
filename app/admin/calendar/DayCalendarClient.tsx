@@ -2,6 +2,7 @@
 
 import { useEffect, useMemo, useState } from "react";
 import { AdminCard } from "@/components/admin/AdminCard";
+import Notice from "@/components/Notice";
 import { supabase } from "@/lib/supabase";
 import { loadBookings, type DbBookingRow } from "@/lib/db/bookings";
 import AddReservationForm from "@/components/admin/AddReservationForm";
@@ -255,9 +256,7 @@ export default function DayCalendarClient() {
   return (
     <div className="space-y-6">
       {err && (
-        <div className="rounded-lg border border-plonkPink/40 bg-plonkPink/10 px-4 py-3 text-sm text-plonkPink">
-          {err}
-        </div>
+        <Notice variant="error">{err}</Notice>
       )}
 
       {/* Legend + month navigation */}

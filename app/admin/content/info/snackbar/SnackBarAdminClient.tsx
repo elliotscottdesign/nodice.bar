@@ -2,6 +2,7 @@
 
 import { useEffect, useState } from "react";
 import AdminPageHeader from "@/components/admin/AdminPageHeader";
+import Notice from "@/components/Notice";
 import { AdminCard } from "@/components/admin/AdminCard";
 import {
   loadMenu,
@@ -179,9 +180,7 @@ export default function SnackBarAdminClient() {
       />
 
       {err && (
-        <div className="mb-6 rounded-xl border border-red-400/30 bg-red-400/5 px-4 py-3 text-sm text-red-300">
-          {err}
-        </div>
+        <Notice variant="error" className="mb-6">{err}</Notice>
       )}
 
       {loading ? (
