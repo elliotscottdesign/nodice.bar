@@ -61,7 +61,7 @@ const HOW_IT_WORKS: Array<{ icon: string; title: string; body: string }> = [
   {
     icon: "🏓",
     title: "Teams of two, Sundays 6pm",
-    body: "Grab a partner, pick a Sunday, £12 a team. Swiss rounds mean you play all night — nobody's knocked out early.",
+    body: "Grab a partner, pick a Sunday — free to enter. Swiss rounds mean you play all night — nobody's knocked out early.",
   },
   {
     icon: "🎯",
@@ -112,7 +112,7 @@ export default function PingPongPage() {
   const sundaysTitle = useContent("pingpong.sundays_title", "Pick your Sunday");
   const sundaysIntro = useContent(
     "pingpong.sundays_intro",
-    "£12 a team, paid by the captain. Both players' names and emails at sign-up — any prize you win splits between you.",
+    "Free to enter — grab a partner and sign up. Both players' names and emails at sign-up — any prize you win splits between you.",
   );
   // How-it-works cards + FAQ + league copy — every visible sentence on the
   // page is CMS-editable (founder hit the wall on the static cards, 7 Aug 2026).
@@ -349,7 +349,10 @@ export default function PingPongPage() {
                         {formatDate(t.event_date)}
                       </div>
                       <div className="mt-3 text-xs uppercase tracking-widest text-cream/55">
-                        6pm · {formatFee(t.entry_fee_pence)} a team
+                        6pm ·{" "}
+                        {t.entry_fee_pence === 0
+                          ? "Free entry"
+                          : `${formatFee(t.entry_fee_pence)} a team`}
                       </div>
                       <div className="mt-4">
                         <div className="h-1 w-full overflow-hidden rounded-full bg-cream/10">
