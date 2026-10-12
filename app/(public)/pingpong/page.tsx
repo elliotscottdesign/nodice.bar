@@ -57,24 +57,20 @@ function formatFee(pence: number): string {
   return `£${(pence / 100).toFixed(2)}`;
 }
 
-const HOW_IT_WORKS: Array<{ icon: string; title: string; body: string }> = [
+const HOW_IT_WORKS: Array<{ title: string; body: string }> = [
   {
-    icon: "🏓",
     title: "Teams of two, Sundays 6pm",
     body: "Grab a partner, pick a Sunday — free to enter. Swiss rounds mean you play all night — nobody's knocked out early.",
   },
   {
-    icon: "🎯",
     title: "First to 11, win by 2",
     body: "Proper table tennis scoring. Rounds are first to 11 (deuce past 10–10), the knockout is first to 21, and the final's best of 3.",
   },
   {
-    icon: "🍻",
     title: "Prizes for BOTH of you",
     body: "Bar-tab prizes — £30 / £20 / £10 — split half-and-half, one voucher each, straight to each player's inbox.",
   },
   {
-    icon: "🏆",
     title: "Season league",
     body: "Every night earns your team league points. The top 8 teams reach the Grand Final at the end of the season.",
   },
@@ -118,28 +114,24 @@ export default function PingPongPage() {
   // page is CMS-editable (founder hit the wall on the static cards, 7 Aug 2026).
   const cardTexts = [
     {
-      icon: "🏓",
       titleKey: "pingpong.card1_title",
       title: useContent("pingpong.card1_title", HOW_IT_WORKS[0].title),
       bodyKey: "pingpong.card1_body",
       body: useContent("pingpong.card1_body", HOW_IT_WORKS[0].body),
     },
     {
-      icon: "🎯",
       titleKey: "pingpong.card2_title",
       title: useContent("pingpong.card2_title", HOW_IT_WORKS[1].title),
       bodyKey: "pingpong.card2_body",
       body: useContent("pingpong.card2_body", HOW_IT_WORKS[1].body),
     },
     {
-      icon: "🍻",
       titleKey: "pingpong.card3_title",
       title: useContent("pingpong.card3_title", HOW_IT_WORKS[2].title),
       bodyKey: "pingpong.card3_body",
       body: useContent("pingpong.card3_body", HOW_IT_WORKS[2].body),
     },
     {
-      icon: "🏆",
       titleKey: "pingpong.card4_title",
       title: useContent("pingpong.card4_title", HOW_IT_WORKS[3].title),
       bodyKey: "pingpong.card4_body",
@@ -281,11 +273,10 @@ export default function PingPongPage() {
               key={c.titleKey}
               className="rounded-2xl border border-pong/25 bg-white/[0.03] p-6"
             >
-              <div className="text-2xl">{c.icon}</div>
-              <div className="mt-3 font-display text-lg uppercase tracking-wider text-pongLight">
+              <div className="text-center font-display text-lg uppercase tracking-wider text-pongLight">
                 <Editable k={c.titleKey}>{c.title}</Editable>
               </div>
-              <p className="mt-2 text-sm leading-relaxed text-cream/75">
+              <p className="mt-2 text-center text-sm leading-relaxed text-cream/75">
                 <Editable k={c.bodyKey}>{c.body}</Editable>
               </p>
             </div>
