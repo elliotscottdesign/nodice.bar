@@ -32,6 +32,11 @@ const posN = (v: unknown) => {
   const n = parseFloat(String(v));
   return Number.isFinite(n) ? Math.min(100, Math.max(0, n)) : 50;
 };
+// Zoom multiplier (matches the site gallery's position_zoom), 1 = fit, up to 2.5×.
+const zoomN = (v: unknown) => {
+  const n = parseFloat(String(v));
+  return Number.isFinite(n) ? Math.min(2.5, Math.max(1, n)) : 1;
+};
 const gcost = (g: any) =>
   num(g?.packSize) > 0 && g?.packPrice !== "" && g?.packPrice != null && g?.qtyUsed !== "" && g?.qtyUsed != null
     ? (num(g.packPrice) / num(g.packSize)) * num(g.qtyUsed)
@@ -46,7 +51,7 @@ const sellOf = (it: any, settings: any) =>
       : 0;
 const gbp = (n: number) => "£" + (n % 1 === 0 ? n.toFixed(0) : n.toFixed(2));
 
-type Pkg = { name: string; pricePerHead: number; blurb: string; items: string[]; image: string; imageX: number; imageY: number };
+type Pkg = { name: string; pricePerHead: number; blurb: string; items: string[]; image: string; imageX: number; imageY: number; imageZoom: number };
 type Ala = { name: string; desc: string; sell: number; board: boolean };
 
 // Little holly sprig (two leaves + red berries) used to frame festive item
@@ -123,6 +128,7 @@ export default function XmasMenuTab() {
               image: p.image || p.heroImage || "",
               imageX: posN(p.imageX),
               imageY: posN(p.imageY),
+              imageZoom: zoomN(p.imageZoom),
               items: (p.items || []).map((x: any) => byId[x.itemId]?.name).filter(Boolean),
             })),
           // Render in the order the kitchen sets in the On A Roll Xmas admin
@@ -180,7 +186,11 @@ export default function XmasMenuTab() {
                         src={p.image}
                         alt={p.name}
                         className="aspect-[16/9] w-full object-cover"
-                        style={{ objectPosition: `${p.imageX ?? 50}% ${p.imageY ?? 50}%` }}
+                        style={{
+                          objectPosition: `${p.imageX ?? 50}% ${p.imageY ?? 50}%`,
+                          transform: (p.imageZoom ?? 1) !== 1 ? `scale(${p.imageZoom})` : undefined,
+                          transformOrigin: `${p.imageX ?? 50}% ${p.imageY ?? 50}%`,
+                        }}
                         loading="lazy"
                       />
                     )}

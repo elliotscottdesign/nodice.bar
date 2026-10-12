@@ -38,19 +38,31 @@ type Item = {
   image?: string;
   imageX?: number;
   imageY?: number;
+  imageZoom?: number;
+  // Info-note options render as a non-clickable pill (e.g. "DJ included").
+  note?: boolean;
 };
 
-const DRINKS: Item[] = [
+// Drinks + entertainment are driven LIVE from the OFFICE "Xmas Packages" editor
+// (/ops → Office) via the xmas-packages edge fn. These arrays are the FALLBACK
+// used until that loads (or if the backend is ever empty/unreachable), so the
+// builder is never blank. The DJ info note lives in the same backend as a
+// note-type option.
+const FALLBACK_DRINKS: Item[] = [
   { id: "house_drink", name: "House drink", price: 8, qty: true, desc: "Pint / single & mix / wine / bottles / softs" },
   { id: "xmas_cocktail", name: "Xmas cocktail", price: 12, qty: true, desc: "One from our Xmas seasonal menu" },
   { id: "open_bar", name: "Open Bar — house drinks", price: 70, exclusive: true },
 ];
-const GAMES: Item[] = [
+const FALLBACK_GAMES: Item[] = [
   { id: "gaming_pack", name: "Gaming pack", price: 12, desc: "Golf · tokens · pool · darts · ping pong" },
   { id: "bingo", name: "Bingo", price: 5, desc: "5 cards per person, across the event" },
   { id: "treasure_hunt", name: "Xmas treasure hunt", price: 10 },
   { id: "karaoke", name: "Karaoke", price: 10 },
 ];
+const FALLBACK_NOTES: Item[] = [
+  { id: "dj_note", name: "🎧 DJ included on Thu / Fri / Sat night sessions", price: 0, note: true },
+];
+const XMAS_PKG_FN = `${SUPABASE_URL}/functions/v1/xmas-packages`;
 
 // Food is driven LIVE by the On A Roll Xmas menu backend — every package the
 // kitchen publishes there becomes a selectable food add-on here, with its
@@ -65,6 +77,11 @@ const num = (v: unknown) => {
 const posN = (v: unknown) => {
   const n = parseFloat(String(v));
   return Number.isFinite(n) ? Math.min(100, Math.max(0, n)) : 50;
+};
+// Zoom multiplier (matches the site gallery's position_zoom), 1 = fit, up to 2.5×.
+const zoomN = (v: unknown) => {
+  const n = parseFloat(String(v));
+  return Number.isFinite(n) ? Math.min(2.5, Math.max(1, n)) : 1;
 };
 
 // Beyond the packages, two individual items are offered standalone in the
@@ -127,6 +144,13 @@ export default function XmasPackageBuilder() {
   const [selected, setSelected] = useState<Set<string>>(new Set());
   // Food add-on packages, pulled live from the On A Roll Xmas backend.
   const [foodPkgs, setFoodPkgs] = useState<Item[]>([]);
+  // Drinks + entertainment, pulled live from the OFFICE Xmas Packages editor
+  // (fallback arrays until it loads / if the backend is empty).
+  const [drinks, setDrinks] = useState<Item[]>(FALLBACK_DRINKS);
+  const [games, setGames] = useState<Item[]>(FALLBACK_GAMES);
+  const [infoNotes, setInfoNotes] = useState<Item[]>(FALLBACK_NOTES);
+  const [drinksLabel, setDrinksLabel] = useState("Drinks");
+  const [gamesLabel, setGamesLabel] = useState("Games");
   // Per-head quantity for drink items (house drink + cocktail).
   const [qty, setQty] = useState<Record<string, number>>({
     house_drink: 0,
@@ -177,6 +201,7 @@ export default function XmasPackageBuilder() {
             image: p.image || p.heroImage || "",
             imageX: posN(p.imageX),
             imageY: posN(p.imageY),
+            imageZoom: zoomN(p.imageZoom),
             breakdown: (p.items || [])
               .map((x: any) => byId[x.itemId]?.name)
               .filter(Boolean),
@@ -195,6 +220,7 @@ export default function XmasPackageBuilder() {
             image: it.image || it.heroImage || "",
             imageX: posN(it.imageX),
             imageY: posN(it.imageY),
+            imageZoom: zoomN(it.imageZoom),
             breakdown: [],
           });
         }
@@ -203,6 +229,47 @@ export default function XmasPackageBuilder() {
         // Xmas admin (drag-to-reorder) — backend array order, no price sort —
         // then the standalone cheese board + cake appended as extras.
         setFoodPkgs([...pkgs, ...extras]);
+      })
+      .catch(() => {});
+    return () => {
+      cancelled = true;
+    };
+  }, []);
+
+  // Pull the live drinks + entertainment options from the OFFICE Xmas Packages
+  // editor. Order within each category = the backend array order (drag-to-reorder
+  // in /ops). Anything missing/unreachable → the fallback arrays already in state.
+  useEffect(() => {
+    let cancelled = false;
+    fetch(XMAS_PKG_FN, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ action: "get" }),
+    })
+      .then((r) => r.json())
+      .then((j) => {
+        if (cancelled) return;
+        const data = j?.data;
+        const opts: any[] = Array.isArray(data?.options) ? data.options : [];
+        if (opts.length === 0) return; // keep fallbacks
+        const toItem = (o: any): Item => ({
+          id: String(o.id),
+          name: String(o.name ?? ""),
+          price: num(o.price),
+          desc: o.desc || "",
+          qty: !!o.qty,
+          exclusive: !!o.exclusive,
+          note: !!o.note,
+          image: o.image || "",
+          imageX: posN(o.imageX),
+          imageY: posN(o.imageY),
+          imageZoom: zoomN(o.imageZoom),
+        });
+        setDrinks(opts.filter((o) => o.category === "drinks" && !o.note).map(toItem));
+        setGames(opts.filter((o) => o.category === "entertainment" && !o.note).map(toItem));
+        setInfoNotes(opts.filter((o) => o.note).map(toItem));
+        if (data?.categories?.drinks?.label) setDrinksLabel(String(data.categories.drinks.label));
+        if (data?.categories?.entertainment?.label) setGamesLabel(String(data.categories.entertainment.label));
       })
       .catch(() => {});
     return () => {
@@ -249,15 +316,16 @@ export default function XmasPackageBuilder() {
     }
   }
 
-  // Step a drink quantity up/down. Adding a drink clears Open Bar (they're
-  // exclusive within Drinks).
+  // Step a drink quantity up/down. Adding a drink clears any exclusive drink
+  // (e.g. Open Bar), since they can't both apply.
   function changeQty(id: string, delta: number) {
     setQty((prev) => ({ ...prev, [id]: Math.max(0, (prev[id] || 0) + delta) }));
     if (delta > 0) {
+      const exclusiveDrinkIds = drinks.filter((d) => d.exclusive).map((d) => d.id);
       setSelected((prev) => {
-        if (!prev.has("open_bar")) return prev;
+        if (!exclusiveDrinkIds.some((x) => prev.has(x))) return prev;
         const n = new Set(prev);
-        n.delete("open_bar");
+        for (const x of exclusiveDrinkIds) n.delete(x);
         return n;
       });
     }
@@ -272,10 +340,15 @@ export default function XmasPackageBuilder() {
     setHeadcount(String(Math.max(0, n)));
   }
 
-  const openBar = selected.has("open_bar");
+  // An exclusive drink (e.g. Open Bar) is picked → the per-head drink steppers
+  // are disabled/cleared.
+  const drinkExclusiveSelected = drinks.some((d) => d.exclusive && selected.has(d.id));
 
   // Drinks + games + the live food packages — the full pick-and-mix set.
-  const allItems = useMemo(() => [...DRINKS, ...GAMES, ...foodPkgs], [foodPkgs]);
+  const allItems = useMemo(
+    () => [...drinks, ...games, ...foodPkgs],
+    [drinks, games, foodPkgs],
+  );
 
   const heads = Math.max(0, parseInt(headcount || "0", 10) || 0);
   const perHead = useMemo(() => {
@@ -571,11 +644,11 @@ export default function XmasPackageBuilder() {
         </p>
         <div className="mt-5 space-y-6">
           <ItemGroup
-            label="Drinks"
-            items={DRINKS}
+            label={drinksLabel}
+            items={drinks}
             selected={selected}
-            disabledIds={openBar ? DRINKS.filter((i) => i.qty).map((i) => i.id) : []}
-            onToggle={(id) => toggleItem(DRINKS, id)}
+            disabledIds={drinkExclusiveSelected ? drinks.filter((i) => i.qty).map((i) => i.id) : []}
+            onToggle={(id) => toggleItem(drinks, id)}
             qty={qty}
             onQty={changeQty}
           />
@@ -585,18 +658,26 @@ export default function XmasPackageBuilder() {
             onToggle={(id) => toggleItem(foodPkgs, id)}
           />
           <ItemGroup
-            label="Games"
-            items={GAMES}
+            label={gamesLabel}
+            items={games}
             selected={selected}
             disabledIds={[]}
-            onToggle={(id) => toggleItem(GAMES, id)}
+            onToggle={(id) => toggleItem(games, id)}
           />
-          {/* Informational only — DJ comes free on the Thu/Fri/Sat night slots. */}
-          <div className="flex justify-center">
-            <span className="inline-flex items-center gap-2 rounded-full border border-pong/40 bg-pong/[0.08] px-4 py-2 text-xs font-bold uppercase tracking-wider text-pongLight">
-              🎧 DJ included on Thu / Fri / Sat night sessions
-            </span>
-          </div>
+          {/* Informational pills — e.g. "DJ included free on Thu/Fri/Sat". Driven
+              by note-type options in the OFFICE Xmas Packages editor. */}
+          {infoNotes.length > 0 && (
+            <div className="flex flex-wrap justify-center gap-2">
+              {infoNotes.map((nItem) => (
+                <span
+                  key={nItem.id}
+                  className="inline-flex items-center gap-2 rounded-full border border-pong/40 bg-pong/[0.08] px-4 py-2 text-xs font-bold uppercase tracking-wider text-pongLight"
+                >
+                  {nItem.name}
+                </span>
+              ))}
+            </div>
+          )}
         </div>
 
         {/* Live spend summary — min-spend tracker for private hire,
@@ -751,6 +832,28 @@ function StepHeading({ n, title }: { n: number; title: string }) {
   );
 }
 
+// Optional square thumbnail for a drink/entertainment option that has a hero
+// image, cropped with the same focal point + zoom as the rest of the site.
+function ItemThumb({ i }: { i: Item }) {
+  if (!i.image) return null;
+  return (
+    <span className="block h-12 w-12 shrink-0 overflow-hidden rounded-lg">
+      {/* eslint-disable-next-line @next/next/no-img-element */}
+      <img
+        src={i.image}
+        alt=""
+        className="h-full w-full object-cover"
+        style={{
+          objectPosition: `${i.imageX ?? 50}% ${i.imageY ?? 50}%`,
+          transform: (i.imageZoom ?? 1) !== 1 ? `scale(${i.imageZoom})` : undefined,
+          transformOrigin: `${i.imageX ?? 50}% ${i.imageY ?? 50}%`,
+        }}
+        loading="lazy"
+      />
+    </span>
+  );
+}
+
 function ItemGroup({
   label,
   items,
@@ -792,12 +895,15 @@ function ItemGroup({
                       : "border-cream/10 bg-white/[0.02]"
                 }`}
               >
-                <span className="min-w-0">
-                  <span className="block text-sm text-cream/90">{i.name}</span>
-                  {i.desc && (
-                    <span className="block text-[11px] text-cream/45">{i.desc}</span>
-                  )}
-                  <span className="text-[11px] text-cream/50">£{i.price}/head each</span>
+                <span className="flex min-w-0 items-center gap-3">
+                  <ItemThumb i={i} />
+                  <span className="min-w-0">
+                    <span className="block text-sm text-cream/90">{i.name}</span>
+                    {i.desc && (
+                      <span className="block text-[11px] text-cream/45">{i.desc}</span>
+                    )}
+                    <span className="text-[11px] text-cream/50">£{i.price}/head each</span>
+                  </span>
                 </span>
                 <span className="flex shrink-0 items-center gap-2">
                   <button
@@ -841,6 +947,7 @@ function ItemGroup({
               }`}
             >
               <span className="flex items-start gap-2.5 text-sm text-cream/90">
+                <ItemThumb i={i} />
                 <span
                   className={`mt-0.5 flex h-5 w-5 shrink-0 items-center justify-center rounded-md border text-[11px] ${
                     isSel
@@ -938,7 +1045,11 @@ function FoodPackageGroup({
                       src={p.image}
                       alt={p.name}
                       className="aspect-[16/9] w-full object-cover"
-                      style={{ objectPosition: `${p.imageX ?? 50}% ${p.imageY ?? 50}%` }}
+                      style={{
+                        objectPosition: `${p.imageX ?? 50}% ${p.imageY ?? 50}%`,
+                        transform: (p.imageZoom ?? 1) !== 1 ? `scale(${p.imageZoom})` : undefined,
+                        transformOrigin: `${p.imageX ?? 50}% ${p.imageY ?? 50}%`,
+                      }}
                       loading="lazy"
                     />
                   </button>
