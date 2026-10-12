@@ -42,6 +42,7 @@ export default function RollerDeck({
   children,
   ariaLabel,
   className,
+  center,
 }: {
   children: React.ReactNode;
   /** Optional aria-label for the scroll region (e.g. "Upcoming matches"). */
@@ -49,6 +50,9 @@ export default function RollerDeck({
   /** Optional extra classes for the OUTER wrapper. The rail itself
    *  always carries snap + scroll behaviour. */
   className?: string;
+  /** Centre the cards when they fit (e.g. a single date), falling back to
+   *  start alignment — no clipping — once they overflow and scroll. */
+  center?: boolean;
 }) {
   const railRef = useRef<HTMLDivElement | null>(null);
   const [canLeft, setCanLeft] = useState(false);
@@ -143,6 +147,7 @@ export default function RollerDeck({
           style={{
             scrollPaddingLeft: "12px",
             scrollPaddingRight: "12px",
+            ...(center ? { justifyContent: "safe center" } : null),
           }}
         >
           {children}

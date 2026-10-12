@@ -325,7 +325,7 @@ export default function TournamentSchedule() {
               tidy and avoids reflow on touch devices).
               ========================================================= */}
           {events.length > 0 && (
-            <RollerDeck ariaLabel={`Upcoming ${TYPE_LABELS[type].toLowerCase()}`}>
+            <RollerDeck center ariaLabel={`Upcoming ${TYPE_LABELS[type].toLowerCase()}`}>
               {events.map((t) => {
                   const isExpanded = expandedId === t.id;
                   const spotsLeft = Math.max(
@@ -403,7 +403,9 @@ export default function TournamentSchedule() {
                       {/* Time + fee */}
                       <div className="mt-3 text-xs uppercase tracking-widest text-cream/55">
                         {formatTime(t.start_time)} ·{" "}
-                        {formatFee(t.entry_fee_pence)}
+                        {t.entry_fee_pence === 0
+                          ? "Free"
+                          : formatFee(t.entry_fee_pence)}
                       </div>
 
                       {/* Spots-left bar */}
