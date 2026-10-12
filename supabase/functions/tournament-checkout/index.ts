@@ -401,7 +401,10 @@ Deno.serve(async (req) => {
     }
     feePence = tt?.price_pence ?? null;
   }
-  if (!feePence || feePence <= 0) {
+  // A real, configured £0 fee means a FREE night (handled below) — only a
+  // missing (null) or negative fee is a misconfiguration. Previously `<= 0`
+  // rejected free nights too; keeping `> 0` on the paid path unchanged.
+  if (feePence == null || feePence < 0) {
     return jsonResponse(
       { error: "Tournament has no entry fee configured" },
       { status: 500 },
@@ -432,6 +435,47 @@ Deno.serve(async (req) => {
       },
       { status: 409 },
     );
+  }
+
+  // ── Free entry (entry_fee_pence === 0) ────────────────────────────────────
+  // Free Sunday ping pong nights (founder, 11 Oct 2026): capture the sign-up
+  // exactly like a paid entry, but skip Stripe entirely — there is nothing to
+  // collect. Mark the row 'paid' (with paid_at) so it counts toward capacity
+  // and shows in the roster just like a confirmed team, mirroring the manual
+  // walk-up entry path. The Stripe path below is untouched and only runs when
+  // feePence > 0.
+  if (feePence === 0) {
+    const { data: freeEntry, error: freeErr } = await db
+      .from("tournament_entries")
+      .insert({
+        tournament_id: input.tournament_id,
+        team_name: input.team_name,
+        captain_name: input.captain_name,
+        captain_email: input.captain_email,
+        captain_phone: input.captain_phone,
+        partner_name: input.partner_name,
+        partner_email: input.partner_email,
+        partner_phone: input.partner_phone,
+        player_count: input.player_count,
+        notes: input.notes,
+        heard_from: input.heard_from,
+        marketing_opt_in: input.marketing_opt_in,
+        status: "paid",
+        paid_at: new Date().toISOString(),
+      })
+      .select("id")
+      .single();
+    if (freeErr || !freeEntry) {
+      return jsonResponse(
+        {
+          error: `Failed to save entry: ${
+            freeErr?.message ?? "unknown error"
+          }`,
+        },
+        { status: 500 },
+      );
+    }
+    return jsonResponse({ entry_id: freeEntry.id, free: true });
   }
 
   // Stripe FIRST — if it fails, we never write an orphan entry.
