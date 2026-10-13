@@ -45,6 +45,10 @@ export default function CookieConsent() {
   // back-of-house work.
   const pathname = usePathname() ?? "";
   const isAdmin = pathname.startsWith("/admin");
+  // Skip the banner on the self-serve KIOSK too — it's a physical, unattended
+  // ordering terminal (not a personal browser), it sets no per-visitor cookies,
+  // and the banner would cover the kiosk's bottom action bar.
+  const isKiosk = pathname.startsWith("/onaroll/kiosk");
 
   useEffect(() => {
     const existing = loadConsent();
@@ -80,7 +84,7 @@ export default function CookieConsent() {
     setCustomise(false);
   }
 
-  if (isAdmin || !visible) return null;
+  if (isAdmin || isKiosk || !visible) return null;
 
   return (
     <div
