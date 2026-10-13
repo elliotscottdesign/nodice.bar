@@ -591,6 +591,14 @@ export default function PrivateHirePage() {
           ].join(", "),
         } as React.CSSProperties}
       >
+        {/* Image scroller above the heading — its own gallery key, so it has
+            the same upload + reposition tools as the Venue / Xmas scrollers. */}
+        <MediaStrip
+          galleryKey="parties.kids"
+          blankLabel="Kids party photo"
+          aspect="16 / 9"
+          blankCount={6}
+        />
         <section className="px-6 py-10">
           <div className="mx-auto max-w-3xl">
             <div className="mb-8 text-center">
