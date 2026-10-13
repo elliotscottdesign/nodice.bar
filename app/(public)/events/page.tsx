@@ -96,6 +96,30 @@ function categoryColours(subcategory: string | null | undefined) {
   return CATEGORY_COLOURS[subcategory] ?? CATEGORY_FALLBACK;
 }
 
+// An event can carry SEVERAL calendar chips (founder 2026-10-13), stored
+// comma-joined in the one `subcategory` field ("DJ Night, Special Event").
+// subsOf() splits them; primarySub() picks the highest-priority tag present,
+// which drives the single colour swatch, default poster, and grid badge.
+function subsOf(s: string | null | undefined): string[] {
+  return (s ?? "")
+    .split(",")
+    .map((x) => x.trim())
+    .filter(Boolean);
+}
+const SUB_PRIORITY = [
+  "Special Event",
+  "DJ Night",
+  "Match Day",
+  "Pool Night",
+  "Food Night",
+  "Deals",
+];
+function primarySub(s: string | null | undefined): string | null {
+  const subs = subsOf(s);
+  if (!subs.length) return null;
+  return SUB_PRIORITY.find((p) => subs.includes(p)) ?? subs[0];
+}
+
 // When a single day has MULTIPLE events, pick which one leads the calendar
 // cell (its poster becomes the day's headline image). Founder rule
 // (2026-10-13): the SPECIAL / one-off / limited-edition thing headlines a busy
@@ -110,22 +134,17 @@ function categoryColours(subcategory: string | null | undefined) {
 // EVERY event — only the lead-image choice changes.
 function leadRank(e: DbCalendarEvent): number {
   const cat = e.category ?? "";
-  const sub = e.subcategory ?? "";
+  const subs = subsOf(e.subcategory); // an event may carry several tags
+  const has = (t: string) => subs.includes(t);
   const recurring = !!e.recurrence_type && e.recurrence_type !== "none";
-
-  // 5 — deals / standing promos (martini+fries et al) are wallpaper. They
-  // never headline over an actual event, one-off or not.
-  if (sub === "Deals" || cat === "drink_special") return 5;
-
-  // 4 — anything that explicitly recurs (weekly/monthly tournaments & nights)
-  // is a regular, so it sits below every one-off.
-  if (recurring) return 4;
 
   // 0 — explicit one-off / limited-edition special headlines above everything
   // (founder: a special outranks even a DJ night): a flagged "Special Event",
   // a special pool comp (pool_special), a food party / world-cup fixture.
+  // Checked FIRST so a multi-tagged event (e.g. "DJ Night, Special Event")
+  // leads as a special — its most special tag wins.
   if (
-    sub === "Special Event" ||
+    has("Special Event") ||
     cat === "pool_special" ||
     cat === "food_event" ||
     cat === "world_cup"
@@ -133,10 +152,18 @@ function leadRank(e: DbCalendarEvent): number {
     return 0;
 
   // 1 — a curated DJ night. The reliable DJ signals are the cross-origin feed
-  // id (isDjEvent) and an explicit "DJ Night" subcategory. (We deliberately
-  // DON'T treat category='dj_night' as DJ: that's the insert default for
-  // hand-added calendar events, so plenty of non-DJ rows carry it.)
-  if (isDjEvent(e) || sub === "DJ Night") return 1;
+  // id (isDjEvent) and an explicit "DJ Night" tag. (We deliberately DON'T
+  // treat category='dj_night' as DJ: that's the insert default for hand-added
+  // calendar events, so plenty of non-DJ rows carry it.)
+  if (isDjEvent(e) || has("DJ Night")) return 1;
+
+  // 5 — deals / standing promos (martini+fries et al) are wallpaper. They
+  // never headline over an actual event, one-off or not.
+  if (has("Deals") || cat === "drink_special") return 5;
+
+  // 4 — anything that explicitly recurs (weekly/monthly tournaments & nights)
+  // is a regular, so it sits below every one-off.
+  if (recurring) return 4;
 
   // 2 — standard one-off night / tournament (e.g. a plain singles comp, or an
   // untagged hand-added night). Above deals + recurring, below special/DJ.
@@ -320,7 +347,14 @@ export default function EventsPage() {
     () =>
       allCatsOn
         ? events
-        : events.filter((e) => selectedCats.has(e.subcategory ?? "")),
+        : events.filter((e) => {
+            const subs = subsOf(e.subcategory);
+            // Match if ANY of the event's tags is selected; keep untagged
+            // events out when the filter is narrowed (as before).
+            return subs.length === 0
+              ? false
+              : subs.some((s) => selectedCats.has(s));
+          }),
     [events, selectedCats, allCatsOn],
   );
 
@@ -769,13 +803,16 @@ function DayEventCard({
   const base = process.env.NEXT_PUBLIC_BASE_PATH || "";
   // No artwork of its own → fall back to the category default so a customer
   // never sees a blank tile.
-  const raw = ev.image_url || defaultPosterFor(ev.subcategory);
+  // An event can carry several tags; the primary (highest-priority) one drives
+  // its single colour swatch, default poster and grid badge.
+  const primary = primarySub(ev.subcategory);
+  const raw = ev.image_url || defaultPosterFor(primary);
   const src = raw && raw.startsWith("/") ? `${base}${raw}` : raw;
   // DJ nights are auto-fed from the team hub — shown everywhere but never
   // editable from this site's admin (the DJ system owns them).
   const dj = isDjEvent(ev);
 
-  const cc = categoryColours(ev.subcategory);
+  const cc = categoryColours(primary);
 
   const inner = (
     <div className="relative flex h-full flex-col">
@@ -810,11 +847,11 @@ function DayEventCard({
             (which sits top-left of the cell). Shows the event's type; DJ-fed
             nights keep the pink accent, a re-categorised DJ night shows its new
             category here so admin changes are visible publicly. */}
-        {ev.subcategory && (
+        {primary && (
           <span
             className={`absolute right-1 top-1 z-10 rounded-full px-1.5 py-0.5 text-[9px] font-bold uppercase tracking-wider ${cc.pill}`}
           >
-            {ev.subcategory}
+            {primary}
           </span>
         )}
         {editing && !dj && (
@@ -898,7 +935,7 @@ function MultiEventStack({
 }) {
   const base = process.env.NEXT_PUBLIC_BASE_PATH || "";
   const first = events[0];
-  const headlineRaw = first.image_url || defaultPosterFor(first.subcategory);
+  const headlineRaw = first.image_url || defaultPosterFor(primarySub(first.subcategory));
   const headlineSrc =
     headlineRaw && headlineRaw.startsWith("/")
       ? `${base}${headlineRaw}`
@@ -912,7 +949,7 @@ function MultiEventStack({
   const mobileThumbs = events.slice(0, MOBILE_THUMB_CAP);
   const mobileOverflow = Math.max(0, events.length - MOBILE_THUMB_CAP);
   function thumbSrc(ev: DbCalendarEvent): string {
-    const raw = ev.image_url || defaultPosterFor(ev.subcategory);
+    const raw = ev.image_url || defaultPosterFor(primarySub(ev.subcategory));
     if (!raw) return "";
     return raw.startsWith("/") ? `${base}${raw}` : raw;
   }
@@ -930,7 +967,7 @@ function MultiEventStack({
       <div className="relative flex w-full gap-0.5 overflow-hidden bg-ink sm:hidden">
         {mobileThumbs.map((ev) => {
           const src = thumbSrc(ev);
-          const c = categoryColours(ev.subcategory);
+          const c = categoryColours(primarySub(ev.subcategory));
           return (
             <div
               key={ev.id}
@@ -998,7 +1035,7 @@ function MultiEventStack({
           founder / customer can eyeball the day's mix at a glance. */}
       <div className="flex flex-col gap-0.5 px-1.5 py-1.5 sm:px-2 sm:py-2">
         {events.slice(0, 4).map((ev) => {
-          const c = categoryColours(ev.subcategory);
+          const c = categoryColours(primarySub(ev.subcategory));
           return (
             <div
               key={ev.id}

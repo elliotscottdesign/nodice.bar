@@ -32,9 +32,10 @@ function adminEventLeftStripe(ev: {
   category: string;
   subcategory: string | null;
 }): string {
-  const sub = ev.subcategory ?? "";
+  const sub = primarySub(ev.subcategory);
   // Subcategory (calendar_events) wins because it's the artwork-level
-  // tag; category is the fallback for events-platform rows.
+  // tag; category is the fallback for events-platform rows. A multi-tagged
+  // event uses its highest-priority tag for the single stripe colour.
   if (sub === "DJ Night")        return "bg-plonkPink";
   if (sub === "Match Day")       return "bg-plonkTeal";
   if (sub === "Pool Night")      return "bg-purple-400";
@@ -606,22 +607,11 @@ export default function EventsAdminClient() {
                 ))}
               </select>
             </Field>
-            {/* Subcategory drives the /events calendar filter chips.
-                Blank = untagged; the event still appears on the
-                calendar but doesn't match any chip. */}
-            <Field label="Subcategory (calendar chip)">
-              <select
-                value={subcategory}
-                onChange={(e) => setSubcategory(e.target.value)}
-                className={inputCls}
-              >
-                <option value="">— None —</option>
-                {EVENT_TYPES.map((t) => (
-                  <option key={t} value={t}>
-                    {t}
-                  </option>
-                ))}
-              </select>
+            {/* Subcategory drives the /events calendar filter chips. Tick as
+                many as apply (e.g. a DJ Night that's also a Special Event);
+                none ticked = untagged (still appears, matches no chip). */}
+            <Field label="Subcategories (calendar chips)">
+              <SubcategoryPicker value={subcategory} onChange={setSubcategory} />
             </Field>
             <Field label="Visibility">
               <div className="space-y-2">
@@ -1457,22 +1447,11 @@ function EditEventModal({
             </div>
           </ModalField>
 
-          {/* Subcategory — same list as the public /events calendar
-              filter chips. Blank keeps the event calendar-visible but
-              untagged. */}
-          <ModalField label="Subcategory (calendar chip)">
-            <select
-              value={subcategory}
-              onChange={(ev) => setSubcategory(ev.target.value)}
-              className={modalInputCls}
-            >
-              <option value="">— None —</option>
-              {EVENT_TYPES.map((t) => (
-                <option key={t} value={t}>
-                  {t}
-                </option>
-              ))}
-            </select>
+          {/* Subcategories — same list as the public /events calendar filter
+              chips. Tick as many as apply; none ticked keeps the event
+              calendar-visible but untagged. */}
+          <ModalField label="Subcategories (calendar chips)">
+            <SubcategoryPicker value={subcategory} onChange={setSubcategory} />
           </ModalField>
 
           {/* Recurrence — editable on every event, including children
@@ -1808,6 +1787,66 @@ function Field({
     <div>
       <label className={labelCls}>{label}</label>
       {children}
+    </div>
+  );
+}
+
+// Subcategories are stored in the single `events.subcategory` text column as a
+// comma-joined list ("DJ Night, Special Event") so an event can carry several
+// calendar chips. Single-value legacy rows parse fine (no comma → one tag).
+function parseSubs(s: string | null | undefined): string[] {
+  return (s ?? "")
+    .split(",")
+    .map((x) => x.trim())
+    .filter(Boolean);
+}
+// Re-join in the canonical EVENT_TYPES order so the stored string is stable
+// regardless of the order the founder ticked the boxes.
+function joinSubs(list: string[]): string {
+  return EVENT_TYPES.filter((t) => list.includes(t)).join(", ");
+}
+// The tag that drives a multi-tagged event's single colour swatch: the
+// highest-priority one present (Special Event first, then DJ Night, …).
+const SUB_PRIORITY = [
+  "Special Event",
+  "DJ Night",
+  "Match Day",
+  "Pool Night",
+  "Food Night",
+  "Deals",
+] as const;
+function primarySub(s: string | null | undefined): string {
+  const subs = parseSubs(s);
+  return SUB_PRIORITY.find((p) => subs.includes(p)) ?? subs[0] ?? "";
+}
+
+// Multi-select for the calendar chip(s). Replaces the old single <select>:
+// an event can now be tagged with several types at once (e.g. a DJ Night that
+// is also a Special Event). No ticks = untagged (null).
+function SubcategoryPicker({
+  value,
+  onChange,
+}: {
+  value: string;
+  onChange: (v: string) => void;
+}) {
+  const selected = parseSubs(value);
+  const toggle = (t: string) => {
+    const next = selected.includes(t)
+      ? selected.filter((x) => x !== t)
+      : [...selected, t];
+    onChange(joinSubs(next));
+  };
+  return (
+    <div className="space-y-2">
+      {EVENT_TYPES.map((t) => (
+        <Checkbox
+          key={t}
+          checked={selected.includes(t)}
+          onChange={() => toggle(t)}
+          label={t}
+        />
+      ))}
     </div>
   );
 }
@@ -2260,7 +2299,7 @@ function CalendarView({
   // and adminEventLeftStripe() above so the dropdown, list, and
   // calendar all agree. Every category has its own hue now.
   function chipClass(ev: DbEvent): string {
-    const sub = ev.subcategory ?? "";
+    const sub = primarySub(ev.subcategory);
     if (sub === "DJ Night")                     return "bg-plonkPink/35 text-white border-plonkPink";
     if (sub === "Match Day")                    return "bg-plonkTeal/35 text-white border-plonkTeal";
     if (sub === "Pool Night")                   return "bg-purple-500/35 text-white border-purple-400";
