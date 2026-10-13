@@ -96,6 +96,54 @@ function categoryColours(subcategory: string | null | undefined) {
   return CATEGORY_COLOURS[subcategory] ?? CATEGORY_FALLBACK;
 }
 
+// When a single day has MULTIPLE events, pick which one leads the calendar
+// cell (its poster becomes the day's headline image). Founder rule
+// (2026-10-13): the SPECIAL / one-off / limited-edition thing — or a DJ
+// night — should headline a busy night, never a recurring regular (a weekly
+// pool tournament, a monthly Pingers "Sunday Sports", a standing martini+fries
+// deal). Lower rank = shown first. Signals used:
+//   • DJ night        → isDjEvent() (feed id) or subcategory "DJ Night"
+//   • special/one-off → recurrence_type 'none', or an explicitly special
+//                        category ('pool_special'/'drink_special') /
+//                        subcategory ("Special Event")
+//   • recurring       → recurrence_type weekly/fortnightly/monthly/…
+// The badge + full list in the cell and the tap/expand view still show
+// EVERY event — only the lead-image choice changes.
+function leadRank(e: DbCalendarEvent): number {
+  // 0 — a curated DJ night always headlines. The reliable DJ signals are the
+  // cross-origin feed id (isDjEvent) and an explicit "DJ Night" subcategory.
+  // (We deliberately DON'T treat category='dj_night' as DJ: that's the insert
+  // default for hand-added calendar events, so plenty of non-DJ rows carry it.)
+  if (isDjEvent(e) || e.subcategory === "DJ Night") return 0;
+
+  const cat = e.category ?? "";
+  const sub = e.subcategory ?? "";
+  const recurring = !!e.recurrence_type && e.recurrence_type !== "none";
+
+  // 4 — deals / standing promos (martini+fries et al) are wallpaper. They
+  // never headline over an actual event, one-off or not.
+  if (sub === "Deals" || cat === "drink_special") return 4;
+
+  // 3 — anything that explicitly recurs (weekly/monthly tournaments & nights)
+  // is a regular, so it sits below one-off specials.
+  if (recurring) return 3;
+
+  // 1 — explicit one-off / limited-edition specials headline (after DJ):
+  // a flagged "Special Event", a special pool comp (pool_special), a food
+  // party / world-cup fixture.
+  if (
+    sub === "Special Event" ||
+    cat === "pool_special" ||
+    cat === "food_event" ||
+    cat === "world_cup"
+  )
+    return 1;
+
+  // 2 — standard one-off night / tournament (e.g. a plain singles comp, or an
+  // untagged hand-added night). Above deals + recurring, below true specials.
+  return 2;
+}
+
 // Show only the current month + next 3 — per founder direction,
 // the scroller stays focused on "what's coming up" rather than
 // inviting customers to browse historical events.
@@ -283,15 +331,15 @@ export default function EventsPage() {
       const d = parseInt(e.event_date.slice(-2), 10);
       (m[d] ??= []).push(e);
     }
-    // Founder 2026-09-29: when a night has multiple events / deals, the
-    // DJ night is the primary — its poster is the day's headline image
-    // and its link is the click target. So sort each day's list DJ-first
-    // (stable otherwise, so within a group the original order holds).
-    const isDj = (e: DbCalendarEvent) =>
-      isDjEvent(e) || e.subcategory === "DJ Night";
+    // Founder 2026-09-29 / 2026-10-13: when a night has multiple events /
+    // deals, the SPECIAL / one-off thing — or a DJ night — is the primary:
+    // its poster is the day's headline image and its link is the click
+    // target. A recurring regular (weekly tournament, monthly Pingers,
+    // standing deal) never headlines over a special. So sort each day's list
+    // by leadRank (stable within a tier, so original order holds).
     for (const day of Object.keys(m)) {
       const list = m[Number(day)];
-      list.sort((a, b) => (isDj(a) ? 0 : 1) - (isDj(b) ? 0 : 1));
+      list.sort((a, b) => leadRank(a) - leadRank(b));
     }
     return m;
   }, [visibleEvents]);

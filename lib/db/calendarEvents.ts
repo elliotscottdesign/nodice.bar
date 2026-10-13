@@ -33,6 +33,11 @@ export type DbCalendarEvent = {
   link_url: string | null;
   active: boolean;
   subcategory: string | null;   // event type: DJ Night / Match Day / Pool Night / Food Night / Special Event
+  // Signals the public calendar uses to pick a day's LEAD poster when a
+  // day has several events (one-off/special beats recurring; see /events).
+  // Optional because DJ-feed events (djNights.ts) don't carry them.
+  category?: string | null;         // underlying events.category (pool_special, dj_night, drink_special, …)
+  recurrence_type?: string | null;  // 'none' = one-off/special; weekly/monthly/… = recurring/regular
   created_at: string;
   updated_at: string;
 };
@@ -82,12 +87,14 @@ type EventsRow = {
   external_link: string | null;
   registration_open: boolean;
   subcategory: string | null;
+  category: string | null;
+  recurrence_type: string | null;
   created_at: string;
   updated_at: string;
 };
 
 const SELECT =
-  "id, event_date, start_time, name, description, poster_url, external_link, registration_open, subcategory, created_at, updated_at";
+  "id, event_date, start_time, name, description, poster_url, external_link, registration_open, subcategory, category, recurrence_type, created_at, updated_at";
 
 function toCalendar(r: EventsRow): DbCalendarEvent {
   return {
@@ -100,6 +107,8 @@ function toCalendar(r: EventsRow): DbCalendarEvent {
     link_url: r.external_link,
     active: r.registration_open,
     subcategory: r.subcategory,
+    category: r.category,
+    recurrence_type: r.recurrence_type,
     created_at: r.created_at,
     updated_at: r.updated_at,
   };
