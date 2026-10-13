@@ -368,7 +368,7 @@ export default function KidsPartyBuilder() {
                 <button key={i} type="button" disabled={past}
                   onClick={() => toggleDate(ds)}
                   className={`aspect-square rounded-lg text-sm transition ${
-                    on ? "bg-nodiceRed text-white"
+                    on ? "bg-[#F97316] text-white"
                     : past ? "cursor-not-allowed text-cream/15"
                     : "text-cream/80 hover:bg-white/10"}`}>{d}</button>
               );
@@ -378,7 +378,7 @@ export default function KidsPartyBuilder() {
         {dates.length > 0 && (
           <div className="mt-3 flex flex-wrap justify-center gap-2">
             {dates.map((d) => (
-              <span key={d} className="inline-flex items-center gap-1.5 rounded-full border border-nodiceRed/40 bg-nodiceRed/10 px-3 py-1 text-xs text-cream">
+              <span key={d} className="inline-flex items-center gap-1.5 rounded-full border border-[#F97316]/40 bg-[#F97316]/10 px-3 py-1 text-xs text-cream">
                 {prettyDate(d)}
                 <button type="button" aria-label={`Remove ${d}`} onClick={() => toggleDate(d)} className="text-cream/60 hover:text-cream">×</button>
               </span>
@@ -397,7 +397,7 @@ export default function KidsPartyBuilder() {
           {TIME_SLOTS.map((t) => (
             <button key={t} type="button" onClick={() => setTime(t)}
               className={`rounded-2xl border px-4 py-3 text-sm font-bold transition ${
-                time === t ? "border-nodiceRed bg-nodiceRed/10 text-cream"
+                time === t ? "border-[#F97316] bg-[#F97316]/10 text-cream"
                 : "border-cream/10 bg-white/[0.02] text-cream/80 hover:border-cream/30"}`}>{t}</button>
           ))}
         </div>
@@ -459,7 +459,7 @@ export default function KidsPartyBuilder() {
           <div className="flex items-end justify-between gap-4">
             <div>
               <div className="text-xs font-bold uppercase tracking-widest text-cream/45">Your party so far</div>
-              <div className="mt-1 font-display text-3xl text-nodiceRed">{gbp(partyTotal)}</div>
+              <div className="mt-1 font-display text-3xl text-[#F97316]">{gbp(partyTotal)}</div>
               {heads > 0 && perHead > 0 && (
                 <div className="text-xs text-cream/50">{gbp(perHead)}/head × {heads}</div>
               )}
@@ -469,7 +469,7 @@ export default function KidsPartyBuilder() {
                 <div className="text-xs font-bold uppercase tracking-widest text-cream/45">
                   {overBudget ? "Over budget" : "Budget left"}
                 </div>
-                <div className={`mt-1 font-display text-2xl ${overBudget ? "text-nodiceRed" : "text-pongLight"}`}>
+                <div className={`mt-1 font-display text-2xl ${overBudget ? "text-[#F97316]" : "text-pongLight"}`}>
                   {gbp(Math.abs(budgetLeft))}
                 </div>
               </div>
@@ -491,15 +491,15 @@ export default function KidsPartyBuilder() {
           <span className="text-xs font-bold uppercase tracking-widest text-cream/50">Anything else?</span>
           <textarea value={notes} onChange={(e) => setNotes(e.target.value)} rows={3}
             placeholder="Allergies, themes, special requests…"
-            className="mt-1.5 w-full rounded-xl border border-cream/15 bg-ink/40 px-4 py-3 text-base text-cream placeholder:text-cream/35 focus:border-nodiceRed focus:outline-none" />
+            className="mt-1.5 w-full rounded-xl border border-cream/15 bg-ink/40 px-4 py-3 text-base text-cream placeholder:text-cream/35 focus:border-[#F97316] focus:outline-none" />
         </label>
 
-        {error && <p className="mx-auto mt-4 max-w-xl text-center text-sm text-nodiceRed">{error}</p>}
+        {error && <p className="mx-auto mt-4 max-w-xl text-center text-sm text-[#F97316]">{error}</p>}
 
         <div className="mx-auto mt-5 max-w-xl">
           <button type="submit" disabled={!canSend}
             className={`w-full rounded-2xl px-6 py-4 font-display text-xl uppercase tracking-wider transition ${
-              canSend ? "bg-nodiceRed text-white hover:bg-nodiceRed/90"
+              canSend ? "bg-[#F97316] text-white hover:bg-[#F97316]/90"
               : "cursor-not-allowed bg-white/10 text-cream/40"}`}>
             {state === "sending" ? "Sending…" : "Send my party 🎈"}
           </button>
@@ -516,7 +516,7 @@ export default function KidsPartyBuilder() {
 function StepHeading({ n, title }: { n: number; title: string }) {
   return (
     <div className="flex items-center justify-center gap-3">
-      <span className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-nodiceRed font-display text-base text-white">{n}</span>
+      <span className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-[#F97316] font-display text-base text-white">{n}</span>
       <h3 className="font-display text-xl uppercase tracking-wider text-cream sm:text-2xl">{title}</h3>
     </div>
   );
@@ -552,7 +552,7 @@ function ItemGroup({
   if (items.length === 0) return null;
   return (
     <div>
-      <div className="text-center text-lg font-bold uppercase tracking-[0.22em] text-plonkYellow sm:text-xl">{label}</div>
+      <div className="text-center text-lg font-bold uppercase tracking-[0.22em] text-[#F97316] sm:text-xl">{label}</div>
       <div className="mt-2 grid gap-2 sm:grid-cols-2">
         {items.map((i) => {
           const isDisabled = disabledIds.includes(i.id);
@@ -561,7 +561,7 @@ function ItemGroup({
             const active = n > 0 && !isDisabled;
             return (
               <div key={i.id} className={`flex items-center justify-between gap-3 rounded-2xl border px-4 py-3 ${
-                active ? "border-nodiceRed bg-nodiceRed/10"
+                active ? "border-[#F97316] bg-[#F97316]/10"
                 : isDisabled ? "border-cream/5 bg-white/[0.01] opacity-40"
                 : "border-cream/10 bg-white/[0.02]"}`}>
                 <span className="flex min-w-0 items-center gap-3">
@@ -586,13 +586,13 @@ function ItemGroup({
           return (
             <button key={i.id} type="button" disabled={isDisabled} onClick={() => onToggle(i.id)}
               className={`flex items-center justify-between gap-3 rounded-2xl border px-4 py-3 text-left transition ${
-                isSel ? "border-nodiceRed bg-nodiceRed/10"
+                isSel ? "border-[#F97316] bg-[#F97316]/10"
                 : isDisabled ? "cursor-not-allowed border-cream/5 bg-white/[0.01] opacity-40"
                 : "border-cream/10 bg-white/[0.02] hover:border-cream/30"}`}>
               <span className="flex items-start gap-2.5 text-sm text-cream/90">
                 <ItemThumb i={i} />
                 <span className={`mt-0.5 flex h-5 w-5 shrink-0 items-center justify-center rounded-md border text-[11px] ${
-                  isSel ? "border-nodiceRed bg-nodiceRed text-white" : "border-cream/25 text-transparent"}`} aria-hidden>✓</span>
+                  isSel ? "border-[#F97316] bg-[#F97316] text-white" : "border-cream/25 text-transparent"}`} aria-hidden>✓</span>
                 <span className="min-w-0">
                   <span className="flex flex-wrap items-center gap-2">
                     {i.name}
@@ -603,7 +603,7 @@ function ItemGroup({
                   {i.desc && <span className="block text-[11px] text-cream/45">{i.desc}</span>}
                 </span>
               </span>
-              <span className="whitespace-nowrap font-display text-lg text-nodiceRed">
+              <span className="whitespace-nowrap font-display text-lg text-[#F97316]">
                 £{i.price}
                 <span className="ml-0.5 text-[10px] font-normal uppercase tracking-wider text-cream/45">/head</span>
               </span>
@@ -627,10 +627,10 @@ function Field({
   return (
     <label className="block">
       <span className="text-xs font-bold uppercase tracking-widest text-cream/50">
-        {label}{required && <span className="text-nodiceRed"> *</span>}
+        {label}{required && <span className="text-[#F97316]"> *</span>}
       </span>
       <input type={type} value={value} required={required} onChange={(e) => onChange(e.target.value)}
-        className="mt-1.5 w-full rounded-xl border border-cream/15 bg-ink/40 px-4 py-3 text-base text-cream placeholder:text-cream/35 focus:border-nodiceRed focus:outline-none" />
+        className="mt-1.5 w-full rounded-xl border border-cream/15 bg-ink/40 px-4 py-3 text-base text-cream placeholder:text-cream/35 focus:border-[#F97316] focus:outline-none" />
     </label>
   );
 }

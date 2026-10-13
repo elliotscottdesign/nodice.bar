@@ -574,7 +574,9 @@ export default function PrivateHirePage() {
       </div>
 
       {/* ═══════════ KIDS PARTIES ═══════════ */}
-      <div hidden={activeTab !== "kids"}>
+      {/* Kids page gets its own playful display font (Fredoka) + a mid-orange
+          accent — scoped here by overriding --font-display for this panel only. */}
+      <div hidden={activeTab !== "kids"} style={{ ["--font-display" as string]: "'Fredoka', 'Bebas Neue', system-ui, sans-serif" } as React.CSSProperties}>
         <section className="px-6 py-10">
           <div className="mx-auto max-w-3xl">
             <div className="mb-8 text-center">
