@@ -47,7 +47,7 @@ const FALLBACK_CARDS = [
     tagline: "Private hire · Groups of 10+",
     blurb: "Birthdays, leaving dos, brand activations — whole-venue or arch-end hires.",
     image: "",
-    href: "/privatehire",
+    href: "/parties",
   },
   // Mini Golf restored 2026-07-19: the standalone plonkgolf.co.uk site
   // is still being finished, so tee times are being sold on nodice.bar

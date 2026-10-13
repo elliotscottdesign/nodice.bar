@@ -28,7 +28,7 @@ const FALLBACK_NAV: NavRow[] = [
   { label: "Deals", href: "/deals" },
   { label: "DJs & Events", href: "/events" },
   { label: "Mini Golf", href: "/minigolf" },
-  { label: "Parties", href: "/privatehire" },
+  { label: "Parties", href: "/parties" },
   { label: "Contact", href: "/contact" },
 ];
 

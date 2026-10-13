@@ -308,7 +308,7 @@ export default async function XmasPage() {
                 Email the team
               </a>
               <Link
-                href="/privatehire"
+                href="/parties"
                 className="inline-flex items-center rounded-full border border-cream/30 px-6 py-3 text-sm font-semibold uppercase tracking-wider text-cream/90 transition hover:border-cream/60"
               >
                 Private hire & spaces

@@ -34,6 +34,12 @@ function pathToAdminContent(pathname: string): {
     [/^\/$/, "/admin/content/home", "Home"],
     [/^\/venue\/hackney/, "/admin/content/venue/hackney", "Hackney venue"],
     [/^\/venue\/borough-market/, "/admin/content/venue/borough", "Borough venue"],
+    // Public URL renamed /privatehire → /parties (Oct 2026). The admin
+    // editor + CMS content keys still live under .../privatehire, so the
+    // new /parties paths map to the same editors. Old /privatehire paths
+    // are kept too (redirect stubs still resolve there briefly).
+    [/^\/parties\/hackney/, "/admin/content/privatehire/hackney", "Private hire — Hackney"],
+    [/^\/parties/, "/admin/content/privatehire", "Private hire"],
     [/^\/privatehire\/hackney/, "/admin/content/privatehire/hackney", "Private hire — Hackney"],
     [/^\/privatehire\/borough-market/, "/admin/content/privatehire/borough", "Private hire — Borough"],
     [/^\/privatehire/, "/admin/content/privatehire", "Private hire"],

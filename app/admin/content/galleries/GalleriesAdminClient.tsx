@@ -126,14 +126,14 @@ const KNOWN_GALLERIES: {
   {
     key: "hero.privatehire",
     label: "HERO slider — Private hire overview",
-    description: "Top-of-page slider on /privatehire.",
-    previewPath: "/privatehire",
+    description: "Top-of-page slider on /parties.",
+    previewPath: "/parties",
   },
   {
     key: "hero.privatehire.hackney",
     label: "HERO slider — Private hire (Hackney)",
-    description: "Top-of-page slider on /privatehire/hackney.",
-    previewPath: "/privatehire/hackney",
+    description: "Top-of-page slider on /parties/hackney.",
+    previewPath: "/parties/hackney",
   },
 
   // ----- Inline content galleries -----
@@ -206,22 +206,22 @@ const KNOWN_GALLERIES: {
     key: "privatehire.games",
     label: "Private hire — Games kit scroller",
     description:
-      "Full-width scroller under the Capacity section on /privatehire. Upload photos of the games kit (pool, ping pong, board games, etc.). Shows blank placeholders until you add photos.",
-    previewPath: "/privatehire",
+      "Full-width scroller under the Capacity section on /parties. Upload photos of the games kit (pool, ping pong, board games, etc.). Shows blank placeholders until you add photos.",
+    previewPath: "/parties",
   },
   {
     key: "privatehire.floorplan",
     label: "Private hire — Venue floorplan",
     description:
-      "A single floorplan image shown between Capacity and Room Features on /privatehire. Transparent PNG works best — it sits straight on the page. Upload one; the newest is used.",
-    previewPath: "/privatehire",
+      "A single floorplan image shown between Capacity and Room Features on /parties. Transparent PNG works best — it sits straight on the page. Upload one; the newest is used.",
+    previewPath: "/parties",
   },
   {
     key: "parties.venue",
     label: "Parties — Venue scroller",
     description:
-      "Full-width venue photo scroller at the top of /privatehire AND /xmas. Upload landscape shots of the space — shared across both party pages. Shows blank placeholders until you add photos.",
-    previewPath: "/privatehire",
+      "Full-width venue photo scroller at the top of /parties AND /xmas. Upload landscape shots of the space — shared across both party pages. Shows blank placeholders until you add photos.",
+    previewPath: "/parties",
   },
   {
     key: "xmas.menu",

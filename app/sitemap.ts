@@ -28,7 +28,7 @@ export default function sitemap(): MetadataRoute.Sitemap {
     // in the sitemap so search engines can drop it.
     { path: "/events", priority: 0.9, changeFrequency: "daily" },
     { path: "/deals", priority: 0.8, changeFrequency: "weekly" },
-    { path: "/privatehire", priority: 0.7, changeFrequency: "monthly" },
+    { path: "/parties", priority: 0.7, changeFrequency: "monthly" },
     // Mini-golf coming-soon landing — replaces the previous external
     // Plonk Golf link in the header. Email-capture page until the
     // course opens.

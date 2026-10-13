@@ -171,7 +171,7 @@ export default function HackneyPage() {
                   Book Hackney
                 </Link>
                 <Link
-                  href="/privatehire"
+                  href="/parties"
                   className="inline-flex items-center text-sm font-semibold uppercase tracking-wider text-cream/80 transition hover:text-cream"
                 >
                   Private hire →
