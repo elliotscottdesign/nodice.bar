@@ -38,7 +38,7 @@ type Item = {
 // Fallbacks (mirror KIDS_DEFAULT_DOC in the team hub) — used until the backend
 // loads, or if it's ever empty/unreachable, so the builder is never blank.
 const FALLBACK_GAMES: Item[] = [
-  { id: "kids_games_pack", name: "Games pack", price: 8, desc: "Golf · pool · ping pong — supervised" },
+  { id: "kids_games_pack", name: "Games pack", price: 8, desc: "Golf · pool · ping pong — parental supervision at all times" },
   { id: "kids_treasure", name: "Treasure hunt", price: 6, desc: "Around the venue, prizes for the winners" },
   { id: "kids_karaoke", name: "Karaoke", price: 5 },
   { id: "kids_face_paint", name: "Face painting", price: 7, desc: "Professional face painter" },
