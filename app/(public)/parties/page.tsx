@@ -574,9 +574,23 @@ export default function PrivateHirePage() {
       </div>
 
       {/* ═══════════ KIDS PARTIES ═══════════ */}
-      {/* Kids page gets its own playful display font (Fredoka) + a mid-orange
-          accent — scoped here by overriding --font-display for this panel only. */}
-      <div hidden={activeTab !== "kids"} style={{ ["--font-display" as string]: "'Fredoka', 'Bebas Neue', system-ui, sans-serif" } as React.CSSProperties}>
+      {/* Kids page gets its own playful display font (Fredoka), a mid-orange
+          accent + a soft mixing mesh gradient (dark orange / pink / green,
+          Plonk-golf style) — all scoped to this panel only. */}
+      <div
+        hidden={activeTab !== "kids"}
+        style={{
+          ["--font-display" as string]: "'Fredoka', 'Bebas Neue', system-ui, sans-serif",
+          backgroundColor: "#0a0507",
+          backgroundImage: [
+            "radial-gradient(75% 55% at 16% 10%, rgba(249,115,22,0.30), transparent 70%)",  // dark orange, top-left
+            "radial-gradient(65% 55% at 90% 16%, rgba(201,43,110,0.28), transparent 70%)",  // dark pink, top-right
+            "radial-gradient(70% 60% at 82% 70%, rgba(26,132,82,0.26), transparent 72%)",   // green, bottom-right
+            "radial-gradient(65% 55% at 12% 82%, rgba(183,33,96,0.22), transparent 72%)",   // deep pink, bottom-left
+            "radial-gradient(55% 50% at 50% 48%, rgba(240,120,30,0.12), transparent 70%)",  // warm centre glow
+          ].join(", "),
+        } as React.CSSProperties}
+      >
         <section className="px-6 py-10">
           <div className="mx-auto max-w-3xl">
             <div className="mb-8 text-center">
