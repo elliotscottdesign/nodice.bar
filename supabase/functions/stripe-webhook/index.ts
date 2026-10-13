@@ -405,9 +405,15 @@ async function handleFoodOrderPaymentIntent(
   if (!r) return new Response("food order not found (will retry)", { status: 200 });
   if (r.paid) return new Response("already settled", { status: 200 });
 
+  // Stamp created_at to NOW — the moment the order is actually SENT to the kitchen
+  // (payment confirmed). The row was inserted at checkout-START (status 'pending'),
+  // so without this the kitchen clock + 12-min flag + avg-service-time would count
+  // the customer's time on the payment screen, landing fresh tickets already "10 min
+  // on". The r.paid guard above makes this run exactly once. Code/tab orders are
+  // inserted paid, so their created_at is already the send time.
   const { error: updErr } = await db
     .from("food_orders")
-    .update({ paid: true, status: "new", payment_ref: pi.id })
+    .update({ paid: true, status: "new", payment_ref: pi.id, created_at: new Date().toISOString() })
     .eq("id", r.id);
   if (updErr) return new Response(`DB update error: ${updErr.message}`, { status: 500 });
 
