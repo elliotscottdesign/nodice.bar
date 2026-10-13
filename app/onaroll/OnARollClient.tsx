@@ -42,7 +42,7 @@ type Item = {
 };
 type StockLevel = { count: number; override: string | null; soldOut: boolean; label?: string };
 type Section = { id: string; name: string; items: Item[] };
-type Bundle = { id: string; name?: string; burger_id: string; beer_pence?: number; price_pence?: number; days?: string[]; drink?: string };
+type Bundle = { id: string; name?: string; active?: boolean; burger_id: string; beer_pence?: number; price_pence?: number; days?: string[]; drink?: string };
 // A deal is a normal cart line with a SYNTHETIC item (name/price/allergens taken from
 // the bundle + its burger) so all the existing cart/allergy/pricing code just works;
 // `bundle_id` marks it so we send the deal — not a plain item — to the server.
@@ -150,7 +150,7 @@ export default function OnARollClient() {
     return bundles
       .map((bn) => ({ bn, burger: items.get(bn.burger_id) }))
       .filter((d): d is { bn: Bundle; burger: Item } =>
-        !!d.burger && (parseInt(String(d.bn.price_pence), 10) || 0) > 0 && (!d.bn.days?.length || d.bn.days.includes(dow)));
+        !!d.burger && (d.bn as any).active !== false && (parseInt(String(d.bn.price_pence), 10) || 0) > 0 && (!d.bn.days?.length || d.bn.days.includes(dow)));
   }, [bundles, sections]);
 
   // Starred items are pulled OUT of their section into a "Specials" group at the TOP
