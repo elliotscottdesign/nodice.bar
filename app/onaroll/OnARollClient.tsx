@@ -42,7 +42,7 @@ type Item = {
 };
 type StockLevel = { count: number; override: string | null; soldOut: boolean; label?: string };
 type Section = { id: string; name: string; items: Item[] };
-type Bundle = { id: string; name?: string; active?: boolean; burger_id: string; beer_pence?: number; price_pence?: number; days?: string[]; drink?: string };
+type Bundle = { id: string; name?: string; active?: boolean; burger_id?: string; burger_ids?: string[]; beer_pence?: number; price_pence?: number; days?: string[]; drink?: string };
 // A deal is a normal cart line with a SYNTHETIC item (name/price/allergens taken from
 // the bundle + its burger) so all the existing cart/allergy/pricing code just works;
 // `bundle_id` marks it so we send the deal — not a plain item — to the server.
@@ -142,16 +142,25 @@ export default function OnARollClient() {
 
   // Beer + Burger deals live today: bundle's burger must be on the (non-archived)
   // menu, priced, and running on today's London weekday.
+  // A deal can offer several food options; the customer picks one. We resolve each
+  // bundle's burger_ids (falling back to the legacy single burger_id) to the foods
+  // that are actually on the live menu, and keep the deal if at least one is.
   const deals = useMemo(() => {
-    if (!sections) return [] as { bn: Bundle; burger: Item }[];
+    if (!sections) return [] as { bn: Bundle; foods: Item[] }[];
     const dow = new Intl.DateTimeFormat("en-GB", { timeZone: "Europe/London", weekday: "short" }).format(new Date());
     const items = new Map<string, Item>();
     sections.forEach((s) => s.items.forEach((it) => items.set(it.id, it)));
     return bundles
-      .map((bn) => ({ bn, burger: items.get(bn.burger_id) }))
-      .filter((d): d is { bn: Bundle; burger: Item } =>
-        !!d.burger && (d.bn as any).active !== false && (parseInt(String(d.bn.price_pence), 10) || 0) > 0 && (!d.bn.days?.length || d.bn.days.includes(dow)));
+      .map((bn) => {
+        const ids = Array.isArray(bn.burger_ids) && bn.burger_ids.length ? bn.burger_ids : (bn.burger_id ? [bn.burger_id] : []);
+        const foods = ids.map((id) => items.get(id)).filter(Boolean) as Item[];
+        return { bn, foods };
+      })
+      .filter((d) =>
+        d.foods.length > 0 && d.bn.active !== false && (parseInt(String(d.bn.price_pence), 10) || 0) > 0 && (!d.bn.days?.length || d.bn.days.includes(dow)));
   }, [bundles, sections]);
+  // Which food the customer has picked per deal (defaults to the first option).
+  const [dealFood, setDealFood] = useState<Record<string, string>>({});
 
   // Starred items are pulled OUT of their section into a "Specials" group at the TOP
   // — same as the printed menu — then the rest follow with specials removed.
@@ -216,7 +225,7 @@ export default function OnARollClient() {
         name: name.trim(), phone: phone.trim(), email: email.trim(), note: note.trim(), allergen_note: allergyNote(),
         tip_pct: tipChoice === "5" ? 5 : tipChoice === "10" ? 10 : 0,
         tip_pence: tipChoice === "custom" ? tipPence : 0,
-        cart: cart.map((l) => l.bundle_id ? { bundle_id: l.bundle_id, qty: l.qty } : { id: l.item.id, qty: l.qty, addon_ids: l.addons.map((a) => a.id) }),
+        cart: cart.map((l) => l.bundle_id ? { bundle_id: l.bundle_id, food_id: l.item.id, qty: l.qty } : { id: l.item.id, qty: l.qty, addon_ids: l.addons.map((a) => a.id) }),
       }, true);
       setClientSecret(r.client_secret); setOrderNo(r.order_no); setPhase("pay");
     } catch (e) {
@@ -470,7 +479,10 @@ export default function OnARollClient() {
       {deals.length > 0 && (
         <div style={{ marginBottom: 22 }}>
           <div style={{ fontFamily: HEAVY, fontSize: 24, color: RED, borderBottom: `2px solid ${RED}`, paddingBottom: 4, marginBottom: 10, textTransform: "uppercase", letterSpacing: "0.5px" }}>🎟 Deals</div>
-          {deals.map(({ bn, burger }) => {
+          {deals.map(({ bn, foods }) => {
+            const multi = foods.length > 1;
+            const chosenId = (dealFood[bn.id] && foods.some((f) => f.id === dealFood[bn.id])) ? dealFood[bn.id] : foods[0].id;
+            const burger = foods.find((f) => f.id === chosenId) || foods[0];
             const soldOut = avail(burger) <= 0;
             const beer = parseInt(String(bn.beer_pence), 10) || 0;
             const price = parseInt(String(bn.price_pence), 10) || 0;
@@ -484,10 +496,27 @@ export default function OnARollClient() {
                     <span style={{ fontWeight: 800, fontSize: 16 }}>🎟 {bn.name || "Beer + Burger"}</span>
                     <span style={{ fontFamily: HEAVY, color: RED, fontSize: 18 }}>{gbp(price)}</span>
                   </div>
-                  <div style={{ fontSize: 13, color: MUTED, lineHeight: 1.4, margin: "3px 0" }}>{burger.name} + a {drink} — <b>poured at the bar</b>{save > 0 ? ` · save ${gbp(save)}` : ""}</div>
+                  <div style={{ fontSize: 13, color: MUTED, lineHeight: 1.4, margin: "3px 0" }}>
+                    {multi ? <>Pick your food + a {drink} — <b>poured at the bar</b></> : <>{burger.name} + a {drink} — <b>poured at the bar</b>{save > 0 ? ` · save ${gbp(save)}` : ""}</>}
+                  </div>
+                  {multi && (
+                    <div style={{ display: "flex", flexWrap: "wrap", gap: 6, margin: "7px 0 2px" }}>
+                      {foods.map((f) => {
+                        const fSold = avail(f) <= 0;
+                        const sel = f.id === chosenId;
+                        return (
+                          <button key={f.id} onClick={() => setDealFood((m) => ({ ...m, [bn.id]: f.id }))} disabled={fSold}
+                            style={{ fontSize: 13, fontWeight: 700, padding: "6px 11px", borderRadius: 999, cursor: fSold ? "not-allowed" : "pointer",
+                              border: `1.5px solid ${sel ? BLUE : LINE}`, background: sel ? BLUE : "transparent", color: sel ? "#fff" : fSold ? "#b9ad8e" : INK, opacity: fSold ? 0.5 : 1, textDecoration: fSold ? "line-through" : "none" }}>
+                            {f.name}{fSold ? " · sold out" : ""}
+                          </button>
+                        );
+                      })}
+                    </div>
+                  )}
                   <AllergenTags allergens={burger.allergens} />
                   {soldOut
-                    ? <div style={{ display: "inline-block", marginTop: 7, padding: "8px 16px", borderRadius: 10, background: "#efe6cf", color: "#8a7f63", fontFamily: HEAVY, fontSize: 15, textTransform: "uppercase", letterSpacing: "0.5px" }}>Sold out</div>
+                    ? <div style={{ display: "inline-block", marginTop: 7, padding: "8px 16px", borderRadius: 10, background: "#efe6cf", color: "#8a7f63", fontFamily: HEAVY, fontSize: 15, textTransform: "uppercase", letterSpacing: "0.5px" }}>{multi ? "Pick another option" : "Sold out"}</div>
                     : <button onClick={() => addBundleToCart(bn, burger)} style={{ ...btn(BLUE, "#fff"), padding: "8px 16px", marginTop: 7, width: "auto", display: "inline-block" }}>Add deal</button>}
                 </div>
               </div>
