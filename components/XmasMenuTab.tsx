@@ -169,53 +169,6 @@ export default function XmasMenuTab() {
 
       <section className="px-6 py-10">
         <div className="mx-auto max-w-3xl space-y-12">
-          {/* Packages — the festive food bundles (same ones that drive the
-              package builder on the previous tab). Breakdown shown, no prices
-              (those live in the builder). */}
-          {packages.length > 0 && (
-            <div>
-              <h3 className="text-center font-festive capitalize text-2xl text-cream sm:text-3xl">
-                Festive food packages
-              </h3>
-              <div className="mt-5 grid grid-cols-1 gap-4 sm:grid-cols-2">
-                {packages.map((p) => (
-                  <div key={p.name} className="overflow-hidden rounded-2xl border border-pong/40 bg-pong/[0.04] text-center">
-                    {p.image && (
-                      // eslint-disable-next-line @next/next/no-img-element
-                      <img
-                        src={p.image}
-                        alt={p.name}
-                        className="aspect-[16/9] w-full object-cover"
-                        style={{
-                          objectPosition: `${p.imageX ?? 50}% ${p.imageY ?? 50}%`,
-                          transform: (p.imageZoom ?? 1) !== 1 ? `scale(${p.imageZoom})` : undefined,
-                          transformOrigin: `${p.imageX ?? 50}% ${p.imageY ?? 50}%`,
-                        }}
-                        loading="lazy"
-                      />
-                    )}
-                    <div className="p-5">
-                    <span className="font-festive capitalize text-xl text-cream">
-                      {p.name}
-                    </span>
-                    {p.blurb && <p className="mt-2 text-sm text-cream/70">{p.blurb}</p>}
-                    {p.items.length > 0 && (
-                      <ul className="mt-3 space-y-1">
-                        {p.items.map((dish) => (
-                          <li key={dish} className="flex justify-center gap-2 text-sm text-cream/85">
-                            <span className="text-pongLight" aria-hidden>·</span>
-                            <span className="capitalize">{dish}</span>
-                          </li>
-                        ))}
-                      </ul>
-                    )}
-                    </div>
-                  </div>
-                ))}
-              </div>
-            </div>
-          )}
-
           {/* À la carte */}
           {alacarte.length > 0 && (
             <div>
@@ -295,6 +248,53 @@ export default function XmasMenuTab() {
             </p>
             <AllergenMatrix menuPrefix="🎄" />
           </div>
+
+          {/* Packages — moved to the bottom, below the menu list (founder,
+              13 Oct 2026). The festive food bundles that drive the package
+              builder on the previous tab; breakdown shown, no prices. */}
+          {packages.length > 0 && (
+            <div>
+              <h3 className="text-center font-festive capitalize text-2xl text-cream sm:text-3xl">
+                Festive food packages
+              </h3>
+              <div className="mt-5 grid grid-cols-1 gap-4 sm:grid-cols-2">
+                {packages.map((p) => (
+                  <div key={p.name} className="overflow-hidden rounded-2xl border border-pong/40 bg-pong/[0.04] text-center">
+                    {p.image && (
+                      // eslint-disable-next-line @next/next/no-img-element
+                      <img
+                        src={p.image}
+                        alt={p.name}
+                        className="aspect-[16/9] w-full object-cover"
+                        style={{
+                          objectPosition: `${p.imageX ?? 50}% ${p.imageY ?? 50}%`,
+                          transform: (p.imageZoom ?? 1) !== 1 ? `scale(${p.imageZoom})` : undefined,
+                          transformOrigin: `${p.imageX ?? 50}% ${p.imageY ?? 50}%`,
+                        }}
+                        loading="lazy"
+                      />
+                    )}
+                    <div className="p-5">
+                    <span className="font-festive capitalize text-xl text-cream">
+                      {p.name}
+                    </span>
+                    {p.blurb && <p className="mt-2 text-sm text-cream/70">{p.blurb}</p>}
+                    {p.items.length > 0 && (
+                      <ul className="mt-3 space-y-1">
+                        {p.items.map((dish) => (
+                          <li key={dish} className="flex justify-center gap-2 text-sm text-cream/85">
+                            <span className="text-pongLight" aria-hidden>·</span>
+                            <span className="capitalize">{dish}</span>
+                          </li>
+                        ))}
+                      </ul>
+                    )}
+                    </div>
+                  </div>
+                ))}
+              </div>
+            </div>
+          )}
         </div>
       </section>
     </div>
