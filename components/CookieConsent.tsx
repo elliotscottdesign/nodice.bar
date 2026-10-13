@@ -48,7 +48,7 @@ export default function CookieConsent() {
   // Skip the banner on the self-serve KIOSK too — it's a physical, unattended
   // ordering terminal (not a personal browser), it sets no per-visitor cookies,
   // and the banner would cover the kiosk's bottom action bar.
-  const isKiosk = pathname.startsWith("/onaroll/kiosk");
+  const isKiosk = pathname.startsWith("/onaroll/kiosk") || pathname === "/kiosk" || pathname.startsWith("/kiosk/");
 
   useEffect(() => {
     const existing = loadConsent();
