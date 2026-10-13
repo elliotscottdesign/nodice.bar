@@ -403,24 +403,32 @@ export default function KidsPartyBuilder() {
         </div>
       </section>
 
-      {/* 3 · People + budget */}
+      {/* 3 · People + birthday age + budget */}
       <section>
         <StepHeading n={3} title="How many children?" />
-        <div className="mx-auto mt-4 flex max-w-xl flex-col gap-3 sm:flex-row sm:items-stretch sm:justify-center">
-          <label className="flex items-center justify-between gap-3 rounded-2xl border border-cream/10 bg-white/[0.02] px-5 py-4 sm:flex-1">
+        <div className="mx-auto mt-4 grid max-w-2xl gap-3 sm:grid-cols-3">
+          <label className="flex items-center justify-between gap-3 rounded-2xl border border-cream/10 bg-white/[0.02] px-5 py-4">
             <span className="text-sm text-cream/70">Children</span>
             <input inputMode="numeric" value={headcount} onChange={(e) => onHeadcountChange(e.target.value)} placeholder="e.g. 12"
-              className="w-24 bg-transparent text-right text-base text-cream placeholder:text-cream/35 focus:outline-none" />
+              className="w-16 bg-transparent text-right text-base text-cream placeholder:text-cream/35 focus:outline-none" />
           </label>
-          <label className="flex items-center justify-between gap-3 rounded-2xl border border-cream/10 bg-white/[0.02] px-5 py-4 sm:flex-1">
-            <span className="text-sm text-cream/70">Budget <span className="text-cream/40">(optional)</span></span>
+          <label className="flex items-center justify-between gap-3 rounded-2xl border border-cream/10 bg-white/[0.02] px-5 py-4">
+            <span className="text-sm text-cream/70">Birthday age</span>
+            <input inputMode="numeric" value={childAge} onChange={(e) => setChildAge(e.target.value.replace(/[^0-9]/g, ""))} placeholder="e.g. 7"
+              className="w-16 bg-transparent text-right text-base text-cream placeholder:text-cream/35 focus:outline-none" />
+          </label>
+          <label className="flex items-center justify-between gap-3 rounded-2xl border border-cream/10 bg-white/[0.02] px-5 py-4">
+            <span className="text-sm text-cream/70">Budget <span className="text-cream/40">(opt)</span></span>
             <div className="flex items-center gap-1">
               <span className="text-cream/50">£</span>
-              <input inputMode="numeric" value={budget} onChange={(e) => setBudget(e.target.value.replace(/[^0-9]/g, ""))} placeholder="e.g. 300"
-                className="w-24 bg-transparent text-base text-cream placeholder:text-cream/35 focus:outline-none" />
+              <input inputMode="numeric" value={budget} onChange={(e) => setBudget(e.target.value.replace(/[^0-9]/g, ""))} placeholder="300"
+                className="w-16 bg-transparent text-base text-cream placeholder:text-cream/35 focus:outline-none" />
             </div>
           </label>
         </div>
+        <p className="mx-auto mt-3 max-w-2xl text-center text-xs text-cream/50">
+          Parties start from age 6 and up.
+        </p>
       </section>
 
       {/* 4 · Build */}
@@ -478,7 +486,6 @@ export default function KidsPartyBuilder() {
           <Field label="Email" value={email} onChange={setEmail} type="email" required />
           <Field label="Phone" value={phone} onChange={setPhone} type="tel" />
           <Field label="Birthday child's name" value={childName} onChange={setChildName} />
-          <Field label="Child's age turning" value={childAge} onChange={setChildAge} />
         </div>
         <label className="mx-auto mt-3 block max-w-xl">
           <span className="text-xs font-bold uppercase tracking-widest text-cream/50">Anything else?</span>
