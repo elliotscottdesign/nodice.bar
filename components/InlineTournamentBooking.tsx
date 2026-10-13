@@ -13,6 +13,7 @@ import {
   useStripe,
 } from "@stripe/react-stripe-js";
 import type { DbTournament } from "@/lib/db/tournaments";
+import { loadEventTiers, type EventTier } from "@/lib/db/tournaments";
 import BrandSelect from "@/components/BrandSelect";
 
 const HEARD_FROM_OPTIONS = [
@@ -143,6 +144,10 @@ export default function InlineTournamentBooking({
   const isDoubles =
     tournament.tournament_type === "doubles" ||
     tournament.tournament_type === "teams";   // ping pong teams = pairs too
+  // Free nights (entry_fee_pence === 0) collect the SAME sign-up details but
+  // skip Stripe entirely (founder, 11 Oct 2026). The checkout function returns
+  // { free: true } and no client_secret, so we go straight to confirmation.
+  const isFree = tournament.entry_fee_pence === 0;
 
   const [teamName, setTeamName] = useState("");
   const [captainName, setCaptainName] = useState("");
@@ -150,6 +155,24 @@ export default function InlineTournamentBooking({
   const [captainPhone, setCaptainPhone] = useState("");
   const [heardFrom, setHeardFrom] = useState("");
   const [marketingOptIn, setMarketingOptIn] = useState(false);
+  // Skill tiers (Macmillan 12-hour marathon): when this event has child tiers,
+  // the player picks which one they're entering and we book THAT slot.
+  const [tiers, setTiers] = useState<EventTier[]>([]);
+  const [tierId, setTierId] = useState<string | null>(null);
+  useEffect(() => {
+    let dead = false;
+    loadEventTiers(tournament.id)
+      .then((rows) => {
+        if (dead) return;
+        setTiers(rows);
+        const open = rows.filter((r) => !r.full);
+        if (open.length === 1) setTierId(open[0].id);
+      })
+      .catch(() => {});
+    return () => {
+      dead = true;
+    };
+  }, [tournament.id]);
   // Returning player? The email they type is matched against every email we
   // hold for a team (captain, partner or named squad member) and we ASK before
   // assuming — players cross teams (founder, 8 Oct 2026).
@@ -219,6 +242,10 @@ export default function InlineTournamentBooking({
         if (n.startsWith("44")) n = "0" + n.slice(2);
         return /^07\d{9}$/.test(n) ? n : null;
       };
+      if (tiers.length > 0 && !tierId) {
+        setError("Pick which session you're playing in first.");
+        return;
+      }
       const capMob = normUkMobile(captainPhone);
       if (!capMob) {
         setError("Please enter a UK mobile number (starting 07 or +44 7) — we text you when you're up to play.");
@@ -239,7 +266,7 @@ export default function InlineTournamentBooking({
             Authorization: `Bearer ${SUPABASE_ANON_KEY}`,
           },
           body: JSON.stringify({
-            tournament_id: tournament.id,
+            tournament_id: tierId ?? tournament.id,
             // Singles: the player's name stands in for the team name.
             team_name: (isSingles ? captainName : teamName).trim(),
             captain_name: captainName.trim(),
@@ -259,13 +286,22 @@ export default function InlineTournamentBooking({
         if (!res.ok) {
           const txt = await res.text().catch(() => "");
           throw new Error(
-            `Couldn't start payment (${res.status}): ${txt || "no detail"}`,
+            `${
+              isFree ? "Couldn't complete sign-up" : "Couldn't start payment"
+            } (${res.status}): ${txt || "no detail"}`,
           );
         }
         const body = (await res.json()) as {
           client_secret?: string;
           entry_id?: string;
+          free?: boolean;
         };
+        // Free night: the entry is already saved, there's nothing to pay —
+        // jump straight to the "you're in" confirmation.
+        if (isFree || body.free) {
+          setPhase("paid");
+          return;
+        }
         if (!body.client_secret) {
           throw new Error("Server returned no client_secret");
         }
@@ -285,12 +321,15 @@ export default function InlineTournamentBooking({
     },
     [
       tournament.id,
+      tierId,
+      tiers,
       teamName,
       captainName,
       captainEmail,
       captainPhone,
       isSingles,
       isDoubles,
+      isFree,
       heardFrom,
       marketingOptIn,
     ],
@@ -300,14 +339,24 @@ export default function InlineTournamentBooking({
     return (
       <div className="mt-3 rounded-xl border border-plonkTeal/40 bg-plonkTeal/10 px-6 py-8 text-center">
         <div className="text-xs font-bold uppercase tracking-[0.3em] text-plonkTeal">
-          Payment received
+          {isFree ? "Spot reserved" : "Payment received"}
         </div>
         <h3 className="mt-3 font-display text-2xl uppercase tracking-wider text-cream">
           You're in
         </h3>
         <p className="mt-3 text-sm text-cream/75">
-          Confirmation email is on its way to <strong>{captainEmail}</strong>.
-          See you on the night — bring your best stick.
+          {isFree ? (
+            <>
+              No payment needed — your spot's booked. Confirmation is on its way
+              to <strong>{captainEmail}</strong>. See you on the night — bring
+              your best stick.
+            </>
+          ) : (
+            <>
+              Confirmation email is on its way to <strong>{captainEmail}</strong>.
+              See you on the night — bring your best stick.
+            </>
+          )}
         </p>
         <button
           type="button"
@@ -324,6 +373,57 @@ export default function InlineTournamentBooking({
     <div className="mt-3 rounded-xl border border-plonkPink/30 bg-plonkPink/5 p-6">
       {phase === "form" && (
         <form onSubmit={handleSubmit} className="space-y-5">
+          {/* Skill-tier picker (Macmillan marathon): one sign-up sheet, three
+              sessions. Each tier is capped on its own, so a full one closes
+              without touching the others. */}
+          {tiers.length > 0 && (
+            <div>
+              <label className="mb-2 block text-[10px] font-bold uppercase tracking-[0.28em] text-plonkPink">
+                Which session?
+              </label>
+              <div className="grid gap-2 sm:grid-cols-3">
+                {tiers.map((t) => {
+                  const chosen = tierId === t.id;
+                  const time = (t.start_time ?? "").slice(0, 5);
+                  const till = (t.end_time ?? "").slice(0, 5);
+                  return (
+                    <button
+                      key={t.id}
+                      type="button"
+                      disabled={t.full}
+                      onClick={() => setTierId(t.id)}
+                      className={`rounded-lg border p-3 text-left transition ${
+                        t.full
+                          ? "cursor-not-allowed border-cream/10 bg-cream/[0.02] opacity-50"
+                          : chosen
+                            ? "border-plonkPink bg-plonkPink/15"
+                            : "border-cream/15 bg-ink/40 hover:border-plonkPink/60"
+                      }`}
+                    >
+                      <div className="font-display text-base uppercase tracking-wide text-cream">
+                        {t.name}
+                      </div>
+                      {time && (
+                        <div className="mt-0.5 text-[11px] text-cream/60">
+                          {time}{till ? `–${till}` : ""}
+                        </div>
+                      )}
+                      <div className={`mt-1 text-[11px] font-bold ${t.full ? "text-cream/50" : "text-plonkPink"}`}>
+                        {t.full
+                          ? "Full"
+                          : t.spotsLeft == null
+                            ? "Places available"
+                            : `${t.spotsLeft} of ${t.max_attendees} left`}
+                      </div>
+                    </button>
+                  );
+                })}
+              </div>
+              <p className="mt-1.5 text-[11px] text-cream/50">
+                Not sure? Pick the one that sounds like you — we'll move you if the standard isn't right on the day.
+              </p>
+            </div>
+          )}
           {/* Team name only exists on team/doubles nights — a singles entrant
               just gives their own name. */}
           {!isSingles && (
@@ -487,7 +587,9 @@ export default function InlineTournamentBooking({
             >
               {submitting
                 ? "One sec…"
-                : `Continue to payment · ${formatPounds(tournament.entry_fee_pence)}`}
+                : isFree
+                  ? "Reserve your spot — free"
+                  : `Continue to payment · ${formatPounds(tournament.entry_fee_pence)}`}
             </button>
           </div>
         </form>
