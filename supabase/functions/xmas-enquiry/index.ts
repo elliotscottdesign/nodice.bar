@@ -22,8 +22,11 @@ function json(body: unknown, status = 200) {
 }
 
 const RESEND_API_KEY = Deno.env.get("RESEND_API_KEY") ?? "";
-const SENDER = "No Dice Christmas <info@nodice.bar>";
 const RECIPIENT = "info@nodice.bar";
+// One function serves every party builder; `party_type` decides the wording.
+const isKids = (e: Enquiry) => e.party_type === "kids";
+const senderFor = (e: Enquiry) =>
+  isKids(e) ? "No Dice Parties <info@nodice.bar>" : "No Dice Christmas <info@nodice.bar>";
 const EMAIL_RE = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
 
 const esc = (s: unknown) =>
@@ -34,6 +37,10 @@ const esc = (s: unknown) =>
 
 type Item = { name: string; price_per_head: number };
 type Enquiry = {
+  party_type?: string;      // "kids" | "xmas" (default xmas)
+  time?: string | null;     // kids party time slot
+  child_name?: string;      // kids
+  child_age?: string;       // kids
   dates?: string[];
   private_hire?: boolean;
   slot?: string | null;
@@ -79,12 +86,14 @@ function buildHtml(e: Enquiry, forCustomer: boolean): string {
           .join("<br>")
       : "None selected";
 
+  const kids = isKids(e);
   const title = forCustomer
-    ? "Your No Dice Christmas party"
-    : "🎄 Christmas party enquiry";
+    ? (kids ? "Your No Dice kids' party" : "Your No Dice Christmas party")
+    : (kids ? "🎈 Kids party enquiry" : "🎄 Christmas party enquiry");
   const intro = forCustomer
-    ? `Thanks ${esc((e.name || "").split(" ")[0])} — here's the package you built. Our team will be in touch to confirm availability and send a firm quote.`
-    : "From the /xmas package builder";
+    ? `Thanks ${esc((e.name || "").split(" ")[0])} — here's the party you built. Our team will be in touch to confirm availability and send a firm quote.`
+    : (kids ? "From the kids-party builder" : "From the /xmas package builder");
+  const headLabel = kids ? "Children" : "Headcount";
 
   return `
   <div style="font-family:Arial,Helvetica,sans-serif;max-width:560px;margin:0 auto">
@@ -95,10 +104,11 @@ function buildHtml(e: Enquiry, forCustomer: boolean): string {
       ${forCustomer ? "" : row("Email", `<a href="mailto:${esc(e.email)}" style="color:#c0392b">${esc(e.email)}</a>`)}
       ${!forCustomer && e.phone ? row("Phone", esc(e.phone)) : ""}
       ${!forCustomer && e.company ? row("Company", esc(e.company)) : ""}
-      ${row("Headcount", esc(e.headcount ?? "—"))}
+      ${kids && e.child_name ? row("Birthday child", `${esc(e.child_name)}${e.child_age ? ` (turning ${esc(e.child_age)})` : ""}`) : ""}
+      ${row(headLabel, esc(e.headcount ?? "—"))}
       ${row("Preferred dates", dates)}
-      ${row("Private hire", e.private_hire ? `${esc(e.slot || "Yes")} · min spend ${money(e.min_spend)}` : "No")}
-      ${!e.private_hire && e.budget ? row("Budget", money(e.budget)) : ""}
+      ${kids ? (e.time ? row("Time slot", esc(e.time)) : "") : row("Private hire", e.private_hire ? `${esc(e.slot || "Yes")} · min spend ${money(e.min_spend)}` : "No")}
+      ${e.budget && (kids || !e.private_hire) ? row("Budget", money(e.budget)) : ""}
       ${row("Packages", items)}
       ${row("Package total", `${money(e.package_total)} <span style="color:#9a9a9a">(£${esc(e.package_per_head ?? 0)}/head)</span>`)}
       ${e.notes ? row("Notes", esc(e.notes).replace(/\n/g, "<br>")) : ""}
@@ -127,6 +137,8 @@ Deno.serve(async (req) => {
     return json({ error: "Headcount is required" }, 400);
   }
 
+  const kids = isKids(e);
+  const SENDER = senderFor(e);
   const send = (to: string[], subject: string, html: string, replyTo?: string) =>
     fetch("https://api.resend.com/emails", {
       method: "POST",
@@ -138,12 +150,10 @@ Deno.serve(async (req) => {
     });
 
   // 1) The team enquiry (the one that must land). Reply goes to the customer.
-  const teamRes = await send(
-    [RECIPIENT],
-    `🎄 Xmas party enquiry — ${e.name}${e.company ? ` (${e.company})` : ""}, ${e.headcount} guests`,
-    buildHtml(e, false),
-    e.email,
-  );
+  const teamSubject = kids
+    ? `🎈 Kids party enquiry — ${e.name}, ${e.headcount} children`
+    : `🎄 Xmas party enquiry — ${e.name}${e.company ? ` (${e.company})` : ""}, ${e.headcount} guests`;
+  const teamRes = await send([RECIPIENT], teamSubject, buildHtml(e, false), e.email);
   if (!teamRes.ok) {
     const txt = await teamRes.text().catch(() => "");
     return json({ error: `Email send failed: ${txt.slice(0, 200)}` }, 502);
@@ -154,7 +164,7 @@ Deno.serve(async (req) => {
   try {
     await send(
       [e.email!],
-      "Your No Dice Christmas party package 🎄",
+      kids ? "Your No Dice kids' party 🎈" : "Your No Dice Christmas party package 🎄",
       buildHtml(e, true),
       RECIPIENT,
     );

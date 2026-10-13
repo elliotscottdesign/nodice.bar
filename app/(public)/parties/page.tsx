@@ -31,6 +31,7 @@ import RollerDeck from "@/components/RollerDeck";
 import ManageGalleryLink from "@/components/ManageGalleryLink";
 import XmasMenuTab from "@/components/XmasMenuTab";
 import XmasPackageBuilder from "@/components/XmasPackageBuilder";
+import KidsPartyBuilder from "@/components/KidsPartyBuilder";
 import { useEditMode } from "@/lib/editMode";
 import Reveal from "@/components/Reveal";
 import BigEmailCta from "@/components/BigEmailCta";
@@ -260,6 +261,7 @@ export default function PrivateHirePage() {
     { id: "venue" as const, label: "Venue details" },
     { id: "menu" as const, label: "Xmas menu" },
     { id: "builder" as const, label: "Xmas package builder" },
+    { id: "kids" as const, label: "Kids parties" },
   ];
   type TabId = (typeof TABS)[number]["id"];
   const [activeTab, setActiveTab] = useState<TabId>("venue");
@@ -269,7 +271,7 @@ export default function PrivateHirePage() {
   useEffect(() => {
     const fromHash = () => {
       const h = window.location.hash.replace("#", "");
-      if (h === "venue" || h === "menu" || h === "builder") setActiveTab(h);
+      if (h === "venue" || h === "menu" || h === "builder" || h === "kids") setActiveTab(h);
     };
     fromHash();
     window.addEventListener("hashchange", fromHash);
@@ -567,6 +569,21 @@ export default function PrivateHirePage() {
         <section className="px-6 py-10">
           <div className="mx-auto max-w-3xl">
             <XmasPackageBuilder />
+          </div>
+        </section>
+      </div>
+
+      {/* ═══════════ KIDS PARTIES ═══════════ */}
+      <div hidden={activeTab !== "kids"}>
+        <section className="px-6 py-10">
+          <div className="mx-auto max-w-3xl">
+            <div className="mb-8 text-center">
+              <h2 className="font-display text-3xl uppercase tracking-wider text-cream sm:text-4xl">Kids parties</h2>
+              <p className="mx-auto mt-2 max-w-xl text-sm text-cream/60">
+                Pick a date and time, tell us how many little ones, then build the party — games, drinks and food. We&apos;ll confirm availability and send a firm quote.
+              </p>
+            </div>
+            <KidsPartyBuilder />
           </div>
         </section>
       </div>
