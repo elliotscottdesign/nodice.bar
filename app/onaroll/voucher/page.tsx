@@ -1,15 +1,16 @@
 "use client";
 
 import { useCallback, useEffect, useRef, useState } from "react";
-import { useParams } from "next/navigation";
 import { SUPABASE_URL } from "@/lib/stripe";
 
 // ── 🍺 On A Roll drinks voucher ──────────────────────────────────────────────
 // The short-life page the customer opens from the 🍺 DRINKS VOUCHER link in their
-// order-confirmation text. They SHOW it to the bar staff, who HOLD the button on
-// the phone to redeem it. Single-use, valid tonight only. Styled to match the On A
-// Roll order page (diner kit), not the staff hub.
-const CREAM = "#fdf2e0", BLUE = "#183fa0", RED = "#e0231b", GREEN = "#1f8a4d",
+// order-confirmation text (/onaroll/voucher/?o=<order_id>). They SHOW it to the bar
+// staff, who HOLD the button on the phone to redeem it. Single-use, valid tonight
+// only. Styled to match the On A Roll order page (diner kit), not the staff hub.
+// A query param (not a path segment) because the site is a static export — order
+// ids aren't known at build time.
+const CREAM = "#fdf2e0", RED = "#e0231b", GREEN = "#1f8a4d",
   INK = "#15305c", MUTED = "#8a7f63";
 const HEAVY = "Impact, 'Arial Narrow Bold', 'Haettenschweiler', sans-serif";
 const HOLD_MS = 1600;
@@ -29,8 +30,7 @@ type V = {
 };
 
 export default function VoucherPage() {
-  const params = useParams();
-  const id = String((params as any)?.id || "");
+  const [id, setId] = useState<string | null>(null);
   const [v, setV] = useState<V>({ loaded: false, exists: false });
   const [redeemed, setRedeemed] = useState<string | null>(null);
   const [expired, setExpired] = useState(false);
@@ -40,23 +40,30 @@ export default function VoucherPage() {
   const raf = useRef<number | null>(null);
   const startedAt = useRef(0);
 
+  // Static export → read the order id from the query string on the client.
+  useEffect(() => {
+    try { setId(new URLSearchParams(window.location.search).get("o") || ""); }
+    catch { setId(""); }
+  }, []);
+
   const load = useCallback(async () => {
+    if (!id) { setV({ loaded: true, exists: false }); return; }
     const r = await call("drinkVoucher", id);
     setV({ loaded: true, exists: !!r.exists, order_no: r.order_no, deals: r.deals, redeemed_at: r.redeemed_at, valid: r.valid });
     if (r.redeemed_at) setRedeemed(r.redeemed_at);
     if (r.exists && r.valid === false && !r.redeemed_at) setExpired(true);
   }, [id]);
 
-  useEffect(() => { load(); }, [load]);
+  useEffect(() => { if (id !== null) load(); }, [id, load]);
 
   const doRedeem = useCallback(async () => {
-    if (busy || redeemed) return;
+    if (busy || redeemed || !id) return;
     setBusy(true);
     try {
       const r = await call("redeemDrinkVoucher", id);
-      if (r.expired) { setExpired(true); }
-      else if (r.redeemed) { setRedeemed(r.redeemed_at || new Date().toISOString()); }
-      else if (r.error) { alert(r.error); }
+      if (r.expired) setExpired(true);
+      else if (r.redeemed) setRedeemed(r.redeemed_at || new Date().toISOString());
+      else if (r.error) alert(r.error);
     } finally { setBusy(false); setProgress(0); }
   }, [busy, redeemed, id]);
 
