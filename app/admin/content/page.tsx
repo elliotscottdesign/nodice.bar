@@ -71,10 +71,10 @@ const PAGES: { label: string; href: string; description: string; group: string }
   },
   {
     group: "Nav pages",
-    label: "World Cup",
-    href: "/admin/content/info/worldcup",
+    label: "Bingo",
+    href: "/admin/content/info/bingo",
     description:
-      "Hero and copy on /worldcup. Match fixtures live in /admin/events (category 'World Cup — Match').",
+      "Comedy & Bingo night on /bingo — edit the copy in place on the live page. Header + photo-slider images live under Galleries ('hero.bingo' / 'bingo.gallery').",
   },
   {
     group: "Nav pages",
