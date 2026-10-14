@@ -3,6 +3,7 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 import { createPortal } from "react-dom";
 import MediaPicker from "@/components/admin/MediaPicker";
+import EventPosterStudio from "@/components/admin/EventPosterStudio";
 import DatePickerInput from "@/components/admin/DatePickerInput";
 import Notice from "@/components/Notice";
 import { EVENT_TYPES } from "@/lib/db/calendarEvents";
@@ -251,6 +252,22 @@ export default function EventsAdminClient() {
   const [tickets, setTickets] = useState<TicketDraft[]>([
     { name: "General entry", description: "", price: "", capacity: "" },
   ]);
+
+  // Price wording suggested to the poster maker — the cheapest ticket price,
+  // "£8+" when the tiers differ, "Free entry" at zero. Blank when there's no
+  // ticket price to go on, so the poster just doesn't carry a price line.
+  const posterPriceHint = (() => {
+    if (!requiresTicket) return "";
+    const nums = tickets
+      .map((t) => parseFloat(t.price))
+      .filter((n) => !isNaN(n) && n >= 0);
+    if (!nums.length) return "";
+    const lo = Math.min(...nums);
+    const hi = Math.max(...nums);
+    if (lo === 0 && hi === 0) return "Free entry";
+    const money = lo % 1 === 0 ? `£${lo}` : `£${lo.toFixed(2)}`;
+    return hi > lo ? `${money}+` : money;
+  })();
 
   function resetForm() {
     setName("");
@@ -590,6 +607,24 @@ export default function EventsAdminClient() {
                 </div>
               </div>
             </Field>
+
+            {/* Poster maker — build the artwork from the fields above instead
+                of uploading one. Same engine as the DJ night posters. On a new
+                event there's no row to write to yet, so it fills the artwork
+                field and goes live when the event is created. */}
+            <EventPosterStudio
+              name={name}
+              date={eventDate}
+              start={startTime}
+              end={endTime}
+              description={description}
+              defaultPrice={posterPriceHint}
+              currentPosterUrl={posterUrl || null}
+              isDeal={isDealEvent(category, subcategory)}
+              saveLabel="Use as this event's artwork"
+              saveHint="Sets the artwork above. It goes live when you create the event."
+              onSave={(url) => setPosterUrl(url)}
+            />
           </Section>
 
           {/* Category + visibility */}
@@ -1062,6 +1097,18 @@ export default function EventsAdminClient() {
             setEvents(evs);
             setTicketTypes(tts);
           }}
+          // Re-pull the lists WITHOUT closing the modal — used after the
+          // poster maker writes artwork straight onto the event, so the row
+          // behind updates while the founder stays put to download the
+          // Instagram files.
+          onRefresh={async () => {
+            const [evs, tts] = await Promise.all([
+              loadAllEvents(),
+              loadAllTicketTypes(),
+            ]);
+            setEvents(evs);
+            setTicketTypes(tts);
+          }}
         />
       )}
     </div>
@@ -1082,11 +1129,14 @@ function EditEventModal({
   tickets,
   onClose,
   onSaved,
+  onRefresh,
 }: {
   event: DbEvent;
   tickets: DbTicketType[];
   onClose: () => void;
   onSaved: () => void | Promise<void>;
+  /** Reload the lists behind the modal without closing it. */
+  onRefresh?: () => void | Promise<void>;
 }) {
   // ---- Event fields ----
   const [name, setName] = useState(event.name);
@@ -1162,6 +1212,21 @@ function EditEventModal({
 
   const [busy, setBusy] = useState(false);
   const [err, setErr] = useState("");
+
+  // Price wording suggested to the poster maker — cheapest live ticket tier,
+  // "£8+" when they differ. Blank means the poster carries no price line.
+  const posterPriceHint = (() => {
+    const nums = ticketRows
+      .filter((r) => !r.deleted)
+      .map((r) => parseFloat(r.priceStr.replace(/[^0-9.]/g, "")))
+      .filter((n) => !isNaN(n) && n >= 0);
+    if (!nums.length) return "";
+    const lo = Math.min(...nums);
+    const hi = Math.max(...nums);
+    if (lo === 0 && hi === 0) return "Free entry";
+    const money = lo % 1 === 0 ? `£${lo}` : `£${lo.toFixed(2)}`;
+    return hi > lo ? `${money}+` : money;
+  })();
 
   function patchRow(i: number, patch: Partial<TicketRow>) {
     setTicketRows((rows) =>
@@ -1446,6 +1511,28 @@ function EditEventModal({
               </div>
             </div>
           </ModalField>
+
+          {/* Poster maker — fed by the fields above. Saving writes the poster
+              straight onto this event so it's live on /events immediately;
+              the modal stays open so the Instagram files can be downloaded. */}
+          <EventPosterStudio
+            name={name}
+            date={eventDate}
+            start={startTime}
+            end={endTime}
+            description={description}
+            defaultPrice={posterPriceHint}
+            currentPosterUrl={posterUrl || null}
+            isDeal={isDealEvent(event.category, subcategory)}
+            saveHint="Saves straight onto this event — it shows on nodice.bar/events right away."
+            onSave={async (url) => {
+              // Write first, then mirror into local state, so a failed write
+              // surfaces in the studio and leaves the live poster alone.
+              await updateEvent(event.id, { poster_url: url });
+              setPosterUrl(url);
+              await onRefresh?.();
+            }}
+          />
 
           {/* Subcategories — same list as the public /events calendar filter
               chips. Tick as many as apply; none ticked keeps the event
@@ -1799,6 +1886,16 @@ function parseSubs(s: string | null | undefined): string[] {
     .split(",")
     .map((x) => x.trim())
     .filter(Boolean);
+}
+// A drinks DEAL — category drink_special OR a "Deals" calendar chip. Its poster
+// is built page-shaped so it fills the team-hub drinks zine's front cover (the
+// zine pulls the deal event's poster_url). Matches the zine edge function's own
+// "deal" test.
+function isDealEvent(
+  category: string | null | undefined,
+  subcategory: string | null | undefined,
+): boolean {
+  return category === "drink_special" || parseSubs(subcategory).includes("Deals");
 }
 // Re-join in the canonical EVENT_TYPES order so the stored string is stable
 // regardless of the order the founder ticked the boxes.
