@@ -620,6 +620,7 @@ export default function EventsAdminClient() {
               description={description}
               defaultPrice={posterPriceHint}
               currentPosterUrl={posterUrl || null}
+              isDeal={isDealEvent(category, subcategory)}
               saveLabel="Use as this event's artwork"
               saveHint="Sets the artwork above. It goes live when you create the event."
               onSave={(url) => setPosterUrl(url)}
@@ -1522,6 +1523,7 @@ function EditEventModal({
             description={description}
             defaultPrice={posterPriceHint}
             currentPosterUrl={posterUrl || null}
+            isDeal={isDealEvent(event.category, subcategory)}
             saveHint="Saves straight onto this event — it shows on nodice.bar/events right away."
             onSave={async (url) => {
               // Write first, then mirror into local state, so a failed write
@@ -1884,6 +1886,16 @@ function parseSubs(s: string | null | undefined): string[] {
     .split(",")
     .map((x) => x.trim())
     .filter(Boolean);
+}
+// A drinks DEAL — category drink_special OR a "Deals" calendar chip. Its poster
+// is built page-shaped so it fills the team-hub drinks zine's front cover (the
+// zine pulls the deal event's poster_url). Matches the zine edge function's own
+// "deal" test.
+function isDealEvent(
+  category: string | null | undefined,
+  subcategory: string | null | undefined,
+): boolean {
+  return category === "drink_special" || parseSubs(subcategory).includes("Deals");
 }
 // Re-join in the canonical EVENT_TYPES order so the stored string is stable
 // regardless of the order the founder ticked the boxes.

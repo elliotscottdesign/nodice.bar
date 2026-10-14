@@ -61,6 +61,15 @@ function suggestDetail(desc: string | null | undefined): string {
 const PILL =
   "rounded-full border px-3 py-1.5 text-[11px] font-bold uppercase tracking-wider transition";
 
+// CSS aspect-ratio for each preview shape, so the canvas box matches the file.
+// 'zine' is the A-series page ratio (1:√2) — the deal / zine-cover shape.
+const PREVIEW_AR: Record<PosterSize, string> = {
+  ig: "4 / 5",
+  story: "9 / 16",
+  zine: "1 / 1.41421",
+  a3: "1 / 1.41421",
+};
+
 export default function EventPosterStudio({
   name,
   date,
@@ -69,6 +78,7 @@ export default function EventPosterStudio({
   description,
   defaultPrice,
   currentPosterUrl,
+  isDeal,
   onSave,
   saveLabel = "Save onto this event",
   saveHint,
@@ -83,6 +93,15 @@ export default function EventPosterStudio({
   /** The artwork this event has now — what "save" would replace. */
   currentPosterUrl?: string | null;
   /**
+   * True for a drinks DEAL (category drink_special, or a "Deals" calendar chip).
+   * A deal's poster is shaped to the A-series page ratio ("zine" size) so it
+   * fills the team-hub drinks zine's front cover, which pulls the deal event's
+   * poster_url and inverts it to print black-on-pink. When set, the page shape
+   * is the default preview and the one "Save" writes onto the event, and the ink
+   * defaults to Cream so it inverts to near-black on the stock.
+   */
+  isDeal?: boolean;
+  /**
    * Called with the uploaded poster's public URL once it's safely in storage.
    * Omit to hide the save button (e.g. nothing to save onto yet).
    */
@@ -90,6 +109,9 @@ export default function EventPosterStudio({
   saveLabel?: string;
   saveHint?: string;
 }) {
+  // A deal's saved poster is page-shaped ("zine"); everything else saves the
+  // 4:5 Instagram post exactly as before.
+  const saveSize: PosterSize = isDeal ? "zine" : "ig";
   // ---- Picture ----
   const [picUrl, setPicUrl] = useState("");
   const [picName, setPicName] = useState("");
@@ -98,8 +120,13 @@ export default function EventPosterStudio({
   const fileRef = useRef<HTMLInputElement | null>(null);
 
   // ---- Look ----
+  // Deals default to Cream — the lightest ink — because the drinks zine inverts
+  // the saved poster to print it, and light ink on the black ground inverts to
+  // near-black on the coloured stock. Everything else keeps the house Pink.
   const [colour, setColour] = useState(
-    (PALETTE.find((p) => p.name === "Pink") || PALETTE[0]).hex,
+    (
+      PALETTE.find((p) => p.name === (isDeal ? "Cream" : "Pink")) || PALETTE[0]
+    ).hex,
   );
   const [showRal, setShowRal] = useState(false);
   const [ralQ, setRalQ] = useState("");
@@ -124,7 +151,8 @@ export default function EventPosterStudio({
   }, [defaultPrice, priceTouched]);
 
   // ---- Chrome ----
-  const [previewSize, setPreviewSize] = useState<PosterSize>("ig");
+  // Deals open on the page shape (what the zine cover uses); others on the post.
+  const [previewSize, setPreviewSize] = useState<PosterSize>(saveSize);
   const [busy, setBusy] = useState("");
   const [err, setErr] = useState("");
   const [done, setDone] = useState("");
@@ -354,7 +382,7 @@ export default function EventPosterStudio({
     setErr("");
     setDone("");
     try {
-      const cv = await render("ig", "colour");
+      const cv = await render(saveSize, "colour");
       const blob = await canvasToBlob(cv);
       const file = new File([blob], posterName(name, date, "poster"), {
         type: "image/png",
@@ -396,10 +424,16 @@ export default function EventPosterStudio({
         <div className="shrink-0 lg:w-[236px]">
           <div className="mb-2 inline-flex rounded-full border border-cream/15 p-0.5">
             {(
-              [
-                ["ig", "Post"],
-                ["story", "Story"],
-              ] as [PosterSize, string][]
+              isDeal
+                ? ([
+                    ["zine", "Deal page"],
+                    ["ig", "Post"],
+                    ["story", "Story"],
+                  ] as [PosterSize, string][])
+                : ([
+                    ["ig", "Post"],
+                    ["story", "Story"],
+                  ] as [PosterSize, string][])
             ).map(([k, label]) => (
               <button
                 key={k}
@@ -420,7 +454,7 @@ export default function EventPosterStudio({
               <canvas
                 ref={previewRef}
                 className="block w-full rounded-md border border-cream/15 bg-black"
-                style={{ aspectRatio: previewSize === "story" ? "9 / 16" : "4 / 5" }}
+                style={{ aspectRatio: PREVIEW_AR[previewSize] }}
               />
               {previewSize === "story" && (
                 // Instagram's own UI sits over these bands. Guides only — they
@@ -446,7 +480,10 @@ export default function EventPosterStudio({
               )}
             </div>
           ) : (
-            <div className="flex aspect-[4/5] w-full max-w-[236px] items-center justify-center rounded-md border border-dashed border-cream/20 px-4 text-center text-xs leading-relaxed text-cream/55">
+            <div
+              className="flex w-full max-w-[236px] items-center justify-center rounded-md border border-dashed border-cream/20 px-4 text-center text-xs leading-relaxed text-cream/55"
+              style={{ aspectRatio: PREVIEW_AR[previewSize] }}
+            >
               Pick a picture below and the poster appears here.
             </div>
           )}
@@ -715,6 +752,15 @@ export default function EventPosterStudio({
 
           {/* Export + save */}
           <div className="space-y-2 border-t border-cream/10 pt-4">
+            {isDeal && (
+              <p className="mb-1 rounded-lg border border-plonkYellow/25 bg-plonkYellow/5 p-2 text-[10px] leading-relaxed text-cream/60">
+                This is a <strong className="text-plonkYellow">deal</strong>, so
+                its poster is built page-shaped. Saving it puts it on
+                nodice.bar/events and makes it the front cover of the printed
+                drinks zine — where it&apos;s flipped to black ink on the
+                coloured paper, so a light colour here reads cleanest.
+              </p>
+            )}
             {onSave && (
               <>
                 {currentPosterUrl && (
@@ -745,6 +791,18 @@ export default function EventPosterStudio({
                   </p>
                 )}
               </>
+            )}
+            {isDeal && (
+              <button
+                type="button"
+                disabled={disabled}
+                onClick={() => exportFile("zine", "colour", "Deal-page")}
+                className="w-full rounded-full border border-plonkYellow/40 px-4 py-2.5 text-xs font-bold uppercase tracking-wider text-plonkYellow transition hover:bg-plonkYellow/10 disabled:opacity-40"
+              >
+                {busy === "Deal-page"
+                  ? "Building…"
+                  : "⬇ Deal poster · page shape"}
+              </button>
             )}
             <button
               type="button"

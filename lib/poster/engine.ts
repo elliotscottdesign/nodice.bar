@@ -16,11 +16,17 @@
 //
 // Added here for events (see the NOTES below each one):
 //   • 'story' size — 1080x1920 with Instagram's safe areas respected
+//   • 'zine'  size — 1080x1527, the A-series page ratio (1:√2), for the DRINKS
+//     DEAL poster that the team-hub drinks zine prints as its front cover. See
+//     the NOTE on SIZES. This is EVENTS-ONLY (DJ nights have no deals), so unlike
+//     the layout/scale/border/halftone rules above it does NOT need mirroring in
+//     the team-hub engine — it adds a size, it doesn't change any existing one.
 //   • event text block — name (wraps), optional detail line, optional price
 //   • AM/PM worked out per time instead of the DJ engine's hardcoded "PM"
 //
 //   size:  'ig'    (1080x1350 Instagram post)
 //          'story' (1080x1920 Instagram story)
+//          'zine'  (1080x1527 A-page / deal poster, 1:√2)
 //          'a3'    (3508x4961 A3 @ 300dpi)
 //   mode:  'colour'   = the colour on black (screen / IG)
 //          'negative' = BLACK on TRANSPARENT, to print black ink on coloured paper
@@ -87,7 +93,7 @@ export const PALETTE: { name: string; hex: string }[] = [
   { name: "Green", hex: "#3FA535" }, // R63 G165 B53
 ];
 
-export type PosterSize = "ig" | "story" | "a3";
+export type PosterSize = "ig" | "story" | "zine" | "a3";
 export type PosterMode = "colour" | "negative";
 export type PosterTreatment = "scatter" | "natural";
 
@@ -104,25 +110,38 @@ export type PosterTreatment = "scatter" | "natural";
 // scale base is therefore the POST's height, so a story's type lands at exactly
 // the same pixel size as the post's — the extra height goes to the photo, which
 // is the whole point of the taller frame.
+// NOTE (added for events): 'zine' is the DEAL poster, shaped to the A-series
+// page ratio (1:√2 ≈ 0.7071) so it FILLS the team-hub drinks zine's front cover
+// — a 9:16 story only fit that page with big side margins. 1080 wide keeps it in
+// the same type/border family as the post; 1080×1527 gives the A ratio. No
+// Instagram safe areas — it's a printed page, not a story. It uses the post's
+// type scale (like 'story', see scaleBaseFor) so the lettering lands at the same
+// size as the post and it reads as the same artwork. The zine INVERTS this
+// poster (invert + grayscale + multiply) to print black ink on coloured paper,
+// so it works best with LIGHT ink on the black ground — Cream is the default the
+// studio picks for deals — which inverts to near-black on the stock.
 const SIZES: Record<
   PosterSize,
   { w: number; h: number; safeTop: number; safeBottom: number }
 > = {
   ig: { w: 1080, h: 1350, safeTop: 0, safeBottom: 0 },
   story: { w: 1080, h: 1920, safeTop: 250, safeBottom: 250 },
+  zine: { w: 1080, h: 1527, safeTop: 0, safeBottom: 0 },
   a3: { w: 3508, h: 4961, safeTop: 0, safeBottom: 0 },
 };
 
 export const SIZE_LABEL: Record<PosterSize, string> = {
   ig: "Instagram post · 1080×1350",
   story: "Instagram story · 1080×1920",
+  zine: "Deal poster · page shape",
   a3: "A3 print · 3508×4961",
 };
 
 function scaleBaseFor(size: PosterSize, w: number, h: number): number {
-  // 'story' borrows the post's type scale (see the NOTE above); the others use
-  // their own height exactly as the DJ engine does.
-  return size === "story" ? 1350 * (w / 1080) : h;
+  // 'story' and 'zine' borrow the post's type scale (see the NOTEs above) so
+  // their lettering matches the post pixel-for-pixel; the others use their own
+  // height exactly as the DJ engine does.
+  return size === "story" || size === "zine" ? 1350 * (w / 1080) : h;
 }
 
 type RGB = [number, number, number];
