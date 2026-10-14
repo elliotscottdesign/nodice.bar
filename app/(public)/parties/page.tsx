@@ -31,6 +31,7 @@ import RollerDeck from "@/components/RollerDeck";
 import ManageGalleryLink from "@/components/ManageGalleryLink";
 import XmasMenuTab from "@/components/XmasMenuTab";
 import XmasPackageBuilder from "@/components/XmasPackageBuilder";
+import KidsPartyBuilder from "@/components/KidsPartyBuilder";
 import { useEditMode } from "@/lib/editMode";
 import Reveal from "@/components/Reveal";
 import BigEmailCta from "@/components/BigEmailCta";
@@ -260,6 +261,7 @@ export default function PrivateHirePage() {
     { id: "venue" as const, label: "Venue details" },
     { id: "menu" as const, label: "Xmas menu" },
     { id: "builder" as const, label: "Xmas package builder" },
+    { id: "kids" as const, label: "Kids parties" },
   ];
   type TabId = (typeof TABS)[number]["id"];
   const [activeTab, setActiveTab] = useState<TabId>("venue");
@@ -269,7 +271,7 @@ export default function PrivateHirePage() {
   useEffect(() => {
     const fromHash = () => {
       const h = window.location.hash.replace("#", "");
-      if (h === "venue" || h === "menu" || h === "builder") setActiveTab(h);
+      if (h === "venue" || h === "menu" || h === "builder" || h === "kids") setActiveTab(h);
     };
     fromHash();
     window.addEventListener("hashchange", fromHash);
@@ -567,6 +569,45 @@ export default function PrivateHirePage() {
         <section className="px-6 py-10">
           <div className="mx-auto max-w-3xl">
             <XmasPackageBuilder />
+          </div>
+        </section>
+      </div>
+
+      {/* ═══════════ KIDS PARTIES ═══════════ */}
+      {/* Kids page gets its own playful display font (Fredoka), a mid-orange
+          accent + a soft mixing mesh gradient (dark orange / pink / green,
+          Plonk-golf style) — all scoped to this panel only. */}
+      <div
+        hidden={activeTab !== "kids"}
+        style={{
+          ["--font-display" as string]: "'Fredoka', 'Bebas Neue', system-ui, sans-serif",
+          backgroundColor: "#0a0507",
+          backgroundImage: [
+            "radial-gradient(75% 55% at 16% 10%, rgba(249,115,22,0.30), transparent 70%)",  // dark orange, top-left
+            "radial-gradient(65% 55% at 90% 16%, rgba(201,43,110,0.28), transparent 70%)",  // dark pink, top-right
+            "radial-gradient(70% 60% at 82% 70%, rgba(26,132,82,0.26), transparent 72%)",   // green, bottom-right
+            "radial-gradient(65% 55% at 12% 82%, rgba(183,33,96,0.22), transparent 72%)",   // deep pink, bottom-left
+            "radial-gradient(55% 50% at 50% 48%, rgba(240,120,30,0.12), transparent 70%)",  // warm centre glow
+          ].join(", "),
+        } as React.CSSProperties}
+      >
+        {/* Image scroller above the heading — its own gallery key, so it has
+            the same upload + reposition tools as the Venue / Xmas scrollers. */}
+        <MediaStrip
+          galleryKey="parties.kids"
+          blankLabel="Kids party photo"
+          aspect="16 / 9"
+          blankCount={6}
+        />
+        <section className="px-6 py-10">
+          <div className="mx-auto max-w-3xl">
+            <div className="mb-8 text-center">
+              <h2 className="font-display text-3xl uppercase tracking-wider text-cream sm:text-4xl">Kids parties</h2>
+              <p className="mx-auto mt-2 max-w-xl text-sm text-cream/60">
+                Pick a date and time, tell us how many little ones, then build the party — games, drinks and food. We&apos;ll confirm availability and send a firm quote.
+              </p>
+            </div>
+            <KidsPartyBuilder />
           </div>
         </section>
       </div>

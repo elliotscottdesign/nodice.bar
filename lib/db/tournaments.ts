@@ -314,3 +314,50 @@ export async function setTournamentEntryStatus(
   if (error) throw error;
   return data as DbTournamentEntry;
 }
+
+// ── Skill tiers on a single event ────────────────────────────────────────────
+// A big event can be split into several bookable slots that share one public
+// card: the Macmillan 12-hour marathon runs Amateur / Intermediate / Pro, four
+// hours each, 16 players apiece. Each tier is its own events row (so it has its
+// own cap, start time and paid count, and the checkout validates it unchanged)
+// whose `recurrence_parent_id` points at the event customers actually see, and
+// whose `show_on_pool_schedule` is false so it never appears as a card of its
+// own. In the engine each tier is a separate competition with the same id.
+export type EventTier = {
+  id: string;
+  name: string;
+  start_time: string | null;
+  end_time: string | null;
+  max_attendees: number | null;
+  paid_entries_count: number;
+  registration_open: boolean;
+  spotsLeft: number | null;
+  full: boolean;
+};
+
+export async function loadEventTiers(parentId: string): Promise<EventTier[]> {
+  const { data, error } = await supabase()
+    .from("events")
+    .select(
+      "id, name, start_time, end_time, max_attendees, paid_entries_count, registration_open",
+    )
+    .eq("recurrence_parent_id", parentId)
+    .order("start_time", { ascending: true });
+  // A tier lookup must never block a booking — fall back to "no tiers".
+  if (error) return [];
+  return (data ?? []).map((e) => {
+    const cap = e.max_attendees ?? null;
+    const left = cap == null ? null : Math.max(0, cap - (e.paid_entries_count ?? 0));
+    return {
+      id: e.id as string,
+      name: e.name as string,
+      start_time: e.start_time as string | null,
+      end_time: e.end_time as string | null,
+      max_attendees: cap,
+      paid_entries_count: (e.paid_entries_count ?? 0) as number,
+      registration_open: Boolean(e.registration_open),
+      spotsLeft: left,
+      full: left === 0 || !e.registration_open,
+    };
+  });
+}

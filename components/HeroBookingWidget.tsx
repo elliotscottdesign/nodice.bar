@@ -125,11 +125,12 @@ export default function HeroBookingWidget() {
     if (size > 0 && size > maxPartySize) setSize(maxPartySize);
     if (size > 0 && size < minPartySize) setSize(minPartySize);
   }, [size, maxPartySize, minPartySize]);
-  // Trim the default 1..12 list down to the product's range. Keeps the
-  // hand-picked "1,2,3,4,5,6,7,8,10,12" choices (no 9/11) for table
-  // bookings, but caps at 8 for pool.
+  // Trim the default list down to the product's range. Keeps the
+  // hand-picked "1..8,10,12" singles then even jumps to 20 (no odd
+  // numbers past 8 — a table "for 13" is just the 14 layout) so big
+  // groups can book up to the table max of 20; pool still caps at 8.
   const partySizeOptions = useMemo(() => {
-    const base = [1, 2, 3, 4, 5, 6, 7, 8, 10, 12];
+    const base = [1, 2, 3, 4, 5, 6, 7, 8, 10, 12, 14, 16, 18, 20];
     return base.filter((n) => n >= minPartySize && n <= maxPartySize);
   }, [minPartySize, maxPartySize]);
 

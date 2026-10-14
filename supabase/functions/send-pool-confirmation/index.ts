@@ -101,13 +101,24 @@ function renderEmailHtml(o: {
   partySize: number;
   amountPaid: string;
   notes: string | null;
+  officeReview?: boolean;
 }): string {
   const isPool = o.kind === "pool";
-  const kicker = isPool ? "Pool table confirmed" : "Table confirmed";
-  const headline = isPool
+  // Office-review variant (busy-day hold): a warm "with our team" message,
+  // NOT a confirmation — nothing's guaranteed until staff come back.
+  const kicker = o.officeReview
+    ? "Request received"
+    : isPool
+    ? "Pool table confirmed"
+    : "Table confirmed";
+  const headline = o.officeReview
+    ? `${o.firstName}, your request is with our team.`
+    : isPool
     ? `${o.firstName}, your pool table's locked in.`
     : `${o.firstName}, your table's locked in.`;
-  const introLine = o.amountPaid && o.amountPaid !== "£0"
+  const introLine = o.officeReview
+    ? "Thanks for booking with us. It's a busy day, so to make sure we can look after you properly a member of our team will be in touch shortly to confirm the details. Nothing's held just yet — we'll sort it out with you first."
+    : o.amountPaid && o.amountPaid !== "£0"
     ? "Payment landed — see you on the night. Bring this email or just show up with your name at the door."
     : "See you on the night. Bring this email or just show up with your name at the door.";
   return `<!DOCTYPE html>
@@ -168,10 +179,12 @@ function renderEmailHtml(o: {
               <div style="font-size:15px;color:#f5efe3;line-height:1.55;">${VENUE_NAME}<br>${VENUE_ADDRESS}</div>
             </div>
             <div style="margin-top:24px;padding-top:24px;border-top:1px solid rgba(245,239,227,0.12);">
-              <div style="font-size:10px;font-weight:700;letter-spacing:0.3em;text-transform:uppercase;color:#DA1B33;margin-bottom:8px;">On the night</div>
+              <div style="font-size:10px;font-weight:700;letter-spacing:0.3em;text-transform:uppercase;color:#DA1B33;margin-bottom:8px;">${o.officeReview ? "What happens next" : "On the night"}</div>
               <div style="font-size:14px;color:rgba(245,239,227,0.85);line-height:1.6;">
                 ${
-                  isPool
+                  o.officeReview
+                    ? "We'll be in touch at this email (or by phone if you left a number) to confirm we can seat your group and sort any details. If you'd rather talk it through now, just reply to this email."
+                    : isPool
                     ? "We hold the table for 15 minutes past your slot. After that we may give it to walk-ins, so please arrive on time. The table's set up and chalked when you get there — just say your name at the bar."
                     : "We hold your table for 15 minutes past your slot. After that we may give it to walk-ins, so please arrive on time. Just say your name at the door and the team will bring you over."
                 }
@@ -203,17 +216,28 @@ function renderEmailText(o: {
   partySize: number;
   amountPaid: string;
   notes: string | null;
+  officeReview?: boolean;
 }): string {
   const isPool = o.kind === "pool";
-  const kicker = isPool ? "POOL TABLE CONFIRMED" : "TABLE CONFIRMED";
-  const headline = isPool
+  const kicker = o.officeReview
+    ? "REQUEST RECEIVED"
+    : isPool
+    ? "POOL TABLE CONFIRMED"
+    : "TABLE CONFIRMED";
+  const headline = o.officeReview
+    ? `${o.firstName}, your request is with our team.`
+    : isPool
     ? `${o.firstName}, your pool table's locked in.`
     : `${o.firstName}, your table's locked in.`;
   const paid = o.amountPaid && o.amountPaid !== "£0";
-  const introLine = paid
+  const introLine = o.officeReview
+    ? "Thanks for booking with us. It's a busy day, so to make sure we can look after you properly a member of our team will be in touch shortly to confirm the details. Nothing's held just yet — we'll sort it out with you first."
+    : paid
     ? "Payment landed — see you on the night. Bring this email or just show up with your name at the door."
     : "See you on the night. Bring this email or just show up with your name at the door.";
-  const onTheNight = isPool
+  const onTheNight = o.officeReview
+    ? "We'll be in touch at this email (or by phone if you left a number) to confirm we can seat your group and sort any details. If you'd rather talk it through now, just reply to this email."
+    : isPool
     ? "We hold the table for 15 minutes past your slot. After that we may give it to walk-ins, so please arrive on time. The table's set up and chalked when you get there — just say your name at the bar."
     : "We hold your table for 15 minutes past your slot. After that we may give it to walk-ins, so please arrive on time. Just say your name at the door and the team will bring you over.";
   return [
@@ -236,7 +260,7 @@ function renderEmailText(o: {
     `${VENUE_NAME}`,
     `${VENUE_ADDRESS}`,
     ``,
-    `ON THE NIGHT`,
+    o.officeReview ? `WHAT HAPPENS NEXT` : `ON THE NIGHT`,
     onTheNight,
     ``,
     `Need to change or cancel? Reply to this email.`,
@@ -260,7 +284,11 @@ Deno.serve(async (req) => {
     );
   }
 
-  let body: { reservation_id?: string; include_notes?: boolean };
+  let body: {
+    reservation_id?: string;
+    include_notes?: boolean;
+    office_review?: boolean;
+  };
   try {
     body = await req.json();
   } catch {
@@ -274,6 +302,10 @@ Deno.serve(async (req) => {
   // include_notes: false unless the staff ticks "Include staff notes
   // in email" (default off) — internal notes stay internal.
   const includeNotes = body.include_notes !== false;
+  // Busy-day hold: send the "with our team, we'll be in touch" variant
+  // instead of a confirmation. Caller (create-table-reservation) sets this
+  // when the day is over DAILY_CAPACITY.
+  const officeReview = body.office_review === true;
   if (!reservation_id) {
     return jsonResponse(
       { error: "Missing reservation_id" },
@@ -315,9 +347,12 @@ Deno.serve(async (req) => {
     partySize: r.party_size,
     amountPaid: formatPounds(r.amount_pence ?? 0),
     notes: includeNotes ? r.notes : null,
+    officeReview,
   };
 
-  const subject = kind === "pool"
+  const subject = officeReview
+    ? `Request received — we'll be in touch · ${opts.bookingDate}`
+    : kind === "pool"
     ? `Pool table confirmed — ${opts.bookingDate} ${opts.startTime}`
     : `Table confirmed — ${opts.bookingDate} ${opts.startTime}`;
 

@@ -92,6 +92,24 @@ type TableBookingInput = {
 // =============================================================
 const BOOKING_CLOSE_LEAD_MIN = 60;
 
+// =============================================================
+// Capacity gate (founder rule, 2026-10-13)
+// =============================================================
+// Two easy-to-change knobs:
+//   MAX_PARTY_SIZE  — biggest single table group we take online. The
+//                     widget dropdown and /book/table clamp to this, and
+//                     we enforce it here so a crafted request can't beat
+//                     it. Bigger groups go through private hire.
+//   DAILY_CAPACITY  — how many covers (people) we'll auto-confirm across
+//                     ALL confirmed TABLE reservations on one date. Once
+//                     a new booking would push the day's confirmed covers
+//                     past this, we DON'T auto-confirm it — we hold it for
+//                     the office to review (the customer still gets a warm
+//                     "we'll be in touch" message, never a rejection).
+//                     This is a PER-DAY total, not per time-slot.
+const MAX_PARTY_SIZE = 20;
+const DAILY_CAPACITY = 60;
+
 function timeToMin(t: string): number {
   const [h, m] = t.split(":").map(Number);
   return h * 60 + (m || 0);
@@ -180,9 +198,13 @@ function validate(body: Partial<TableBookingInput>): {
   if (
     typeof body.party_size !== "number" ||
     body.party_size <= 0 ||
-    body.party_size > 50
+    body.party_size > MAX_PARTY_SIZE
   ) {
-    return { ok: false, error: "party_size must be 1-50" };
+    return {
+      ok: false,
+      error:
+        `For groups over ${MAX_PARTY_SIZE} we'll sort you out personally — drop us a line at info@nodice.bar or ask about private hire.`,
+    };
   }
   if (
     typeof body.resource_count !== "number" ||
@@ -315,30 +337,29 @@ Deno.serve(async (req) => {
   }
 
   // ---------------------------------------------------------
-  // Auto-confirm vs hold for review (founder 2026-09-18).
-  // A website booking auto-confirms UNLESS the venue is already at
-  // capacity in an overlapping window — i.e. CAPACITY_THRESHOLD+ people
-  // are already reserved across pool AND tables at the same time. When
-  // that's the case the booking is saved as 'pending' for staff to
-  // review (no customer confirmation email); otherwise it's 'confirmed'
-  // and the customer gets their email right away.
-  //
-  // "already reserved" = existing overlapping covers BEFORE this booking
-  // (matches the founder's wording "already sixty people reserved").
-  // Counts confirmed + paid + pending rows so a pile of pending web
-  // requests can't quietly blow past the cap either.
+  // Auto-confirm vs hold for office review (founder 2026-10-13).
+  // Sum the covers ALREADY CONFIRMED across every table reservation on
+  // this SAME DATE (per-day, not per time-slot — a busy day is a busy
+  // day), add this booking's party, and:
+  //   total <= DAILY_CAPACITY  → auto-confirm, email the customer now.
+  //   total  > DAILY_CAPACITY  → DON'T auto-confirm. Save as 'pending'
+  //        so it lands in the office's review queue (/admin/table-
+  //        reservations → Pending), send the customer a warm "gone to
+  //        our office, we'll be in touch" message (NOT a guarantee), and
+  //        flag the office alert as needing a look.
+  // Only confirmed + paid rows count toward the running total — a pile
+  // of not-yet-reviewed 'pending' holds doesn't block the cap (they're
+  // not promised covers yet; the office confirms them, at which point
+  // they start to count).
   // ---------------------------------------------------------
-  const CAPACITY_THRESHOLD = 60;
-  const [nbh, nbm] = input.start_time.split(":").map((s) => parseInt(s, 10));
-  const newStart = nbh * 60 + (nbm || 0);
-  const newEnd = newStart + input.duration_minutes;
-  let concurrentCovers = 0;
+  let confirmedCoversToday = 0;
   {
     const { data: sameDay, error: coverErr } = await db
       .from("bar_reservations")
-      .select("start_time, duration_minutes, party_size, status")
+      .select("party_size, status")
       .eq("reservation_date", input.reservation_date)
-      .in("status", ["confirmed", "paid", "pending"]);
+      .eq("kind", "table")
+      .in("status", ["confirmed", "paid"]);
     if (coverErr) {
       return jsonResponse(
         { error: `Capacity lookup failed: ${coverErr.message}` },
@@ -346,17 +367,11 @@ Deno.serve(async (req) => {
       );
     }
     for (const row of sameDay ?? []) {
-      const [rh, rm] = String(row.start_time).split(":").map((s) => parseInt(s, 10));
-      const s = rh * 60 + (rm || 0);
-      const e = s + (row.duration_minutes ?? 0);
-      // Overlap: existing starts before the new one ends AND ends after
-      // the new one starts.
-      if (s < newEnd && e > newStart) {
-        concurrentCovers += row.party_size ?? 0;
-      }
+      confirmedCoversToday += row.party_size ?? 0;
     }
   }
-  const overCapacity = concurrentCovers >= CAPACITY_THRESHOLD;
+  const dayTotalWithThis = confirmedCoversToday + input.party_size;
+  const overCapacity = dayTotalWithThis > DAILY_CAPACITY;
   const bookingStatus = overCapacity ? "pending" : "confirmed";
 
   const { data: r, error: insertErr } = await db
@@ -403,25 +418,28 @@ Deno.serve(async (req) => {
     console.error(`Booking alert failed for reservation ${r.id}:`, e);
   });
 
-  // Auto-confirmed bookings email the customer their confirmation now
-  // (via send-pool-confirmation, which handles kind 'table' too).
-  // Over-capacity 'pending' bookings get NO email — staff review them
-  // and confirm from /admin, which sends the email at that point.
+  // Email the customer either way — but with clearly different copy:
+  //   confirmed    → the normal "your table's locked in" confirmation.
+  //   pending      → a warm "gone to our office, we'll be in touch to
+  //                  confirm" message (NOT a guaranteed table). The
+  //                  office_review flag switches send-pool-confirmation
+  //                  over to that variant. When staff later confirm the
+  //                  hold from /admin, the standard confirmation goes out.
   // Never email the info@ walk-in placeholder.
-  if (
-    bookingStatus === "confirmed" &&
-    input.email &&
-    input.email.trim().toLowerCase() !== "info@nodice.bar"
-  ) {
+  if (input.email && input.email.trim().toLowerCase() !== "info@nodice.bar") {
     fetch(`${SUPABASE_URL}/functions/v1/send-pool-confirmation`, {
       method: "POST",
       headers: {
         "Content-Type": "application/json",
         Authorization: `Bearer ${SUPABASE_SERVICE_ROLE_KEY}`,
       },
-      body: JSON.stringify({ reservation_id: r.id, include_notes: false }),
+      body: JSON.stringify({
+        reservation_id: r.id,
+        include_notes: false,
+        office_review: bookingStatus === "pending",
+      }),
     }).catch((e) => {
-      console.error(`Customer confirmation email failed for ${r.id}:`, e);
+      console.error(`Customer email failed for ${r.id}:`, e);
     });
   }
 
