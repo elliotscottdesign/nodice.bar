@@ -35,6 +35,7 @@ export default function MediaStrip({
   aspect = "16 / 10",
   tint,
   headingClassName,
+  fade = true,
 }: {
   galleryKey: string;
   heading?: string;
@@ -53,6 +54,9 @@ export default function MediaStrip({
   tint?: string;
   /** Optional override for the heading's font classes (Xmas pages use Shrikhand). */
   headingClassName?: string;
+  /** Edge-fade blends cards into a BLACK page; set false on a coloured/
+   *  gradient background (e.g. the kids-party page) where it shows as a band. */
+  fade?: boolean;
 }) {
   const images = useGallery(galleryKey, []);
   const hasImages = images.length > 0;
@@ -93,7 +97,7 @@ export default function MediaStrip({
             mobile bleed reach the screen edge; on sm+ it keeps a small
             inset so the scroll arrows sit in the gutter, not over a tile. */}
         <div className="relative px-6">
-          <RollerDeck ariaLabel={heading || "Photo gallery"}>
+          <RollerDeck ariaLabel={heading || "Photo gallery"} fade={fade}>
             {(hasImages ? images : Array.from({ length: blankCount })).map(
               (tile, i) => {
                 const img = hasImages
