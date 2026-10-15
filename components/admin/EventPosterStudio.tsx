@@ -344,7 +344,9 @@ export default function EventPosterStudio({
   }
 
   // A3 is black-on-paper for the halftone; a real photo can't print as black
-  // ink, so Natural makes the A3 a full-colour poster instead.
+  // ink, so Natural makes the A3 a full-colour poster instead. "Whites to
+  // colour" stays on the negative — knocking the whites out is exactly how the
+  // coloured paper is meant to show through.
   const a3Mode = treatment === "natural" ? "colour" : "negative";
 
   async function exportFile(
@@ -593,11 +595,16 @@ export default function EventPosterStudio({
                     className="w-full touch-none py-1 accent-plonkPink"
                   />
                 </label>
-                <div className="flex gap-2">
+                <div className="flex flex-wrap gap-2">
                   {(
                     [
                       ["scatter", "Scatter", "The house grainy halftone look"],
                       ["natural", "Natural", "The real photo, not rasterised"],
+                      [
+                        "whites",
+                        "Whites to colour",
+                        "Greyscale photo — anything white in it turns the poster colour",
+                      ],
                     ] as [PosterTreatment, string, string][]
                   ).map(([k, label, hint]) => (
                     <button
@@ -618,7 +625,9 @@ export default function EventPosterStudio({
                 <p className="text-[10px] leading-relaxed text-cream/40">
                   {treatment === "natural"
                     ? "The full photo — the A3 prints in colour, not black on coloured paper."
-                    : "Scatter halftone — the standard No Dice look. The A3 prints black on coloured paper."}
+                    : treatment === "whites"
+                      ? "Grey photo with the white bits turned the poster colour. Use Exposure to let more or less colour through. The A3 prints black on coloured paper."
+                      : "Scatter halftone — the standard No Dice look. The A3 prints black on coloured paper."}
                 </p>
               </div>
             </div>

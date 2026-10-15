@@ -95,7 +95,10 @@ export const PALETTE: { name: string; hex: string }[] = [
 
 export type PosterSize = "ig" | "story" | "zine" | "a3";
 export type PosterMode = "colour" | "negative";
-export type PosterTreatment = "scatter" | "natural";
+// 'whites' = greyscale with the whites knocked out so the poster colour shows
+// through them (see drawWhitesToColour). Shown to the founder as "Whites to
+// colour" — never as "knockout" or "alpha".
+export type PosterTreatment = "scatter" | "natural" | "whites";
 
 // NOTE (added for events): 'story' is the new size.
 //
@@ -505,6 +508,66 @@ function drawHalftone(
   ctx.imageSmoothingEnabled = true;
 }
 
+// Third treatment: greyscale with the whites knocked out to alpha, laid over the
+// poster's colour — so white areas of the photo become the poster colour and
+// darks stay dark. Between the Scatter halftone and the untouched photo.
+//
+// THE ALGORITHM IS FIXED. The same treatment exists in the team hub's DJ poster
+// maker and the two have to come out identical, so per pixel it is exactly:
+//
+//   lum   = 0.299*R + 0.587*G + 0.114*B      (Rec. 601, as the hub already uses)
+//   R=G=B = lum                              (greyscale)
+//   alpha = (255 - lum) * (srcAlpha / 255)   (white → clear, black → solid, and
+//                                             a transparent source stays clear)
+//
+// Exposure is applied to the luminance BEFORE the alpha is derived, so the dial
+// moves how much colour comes through — which is the control that's actually
+// reached for here. No autocontrast: the halftone's 1% stretch would change the
+// look and the hub's version doesn't do it either.
+function drawWhitesToColour(
+  ctx: CanvasRenderingContext2D,
+  img: HTMLImageElement,
+  dx: number,
+  dy: number,
+  dw: number,
+  dh: number,
+  colour: RGB,
+  exposure: number,
+  mode: PosterMode,
+  src?: SrcRect | null,
+): void {
+  const { sx, sy, sw, sh } = src || smartCrop(img, dw / dh);
+  // On screen the whites show the poster colour; on the A3 negative there is no
+  // colour to lay down — the coloured PAPER is what shows through instead.
+  if (mode !== "negative") {
+    ctx.fillStyle = `rgb(${colour[0]},${colour[1]},${colour[2]})`;
+    ctx.fillRect(dx, dy, dw, dh);
+  }
+  // Work at the smaller of the frame and the source crop: processing above the
+  // photo's own resolution adds no detail and would mean a 9-megapixel
+  // getImageData on the A3.
+  const pw = Math.max(1, Math.min(Math.round(dw), sw));
+  const ph = Math.max(1, Math.min(Math.round(dh), sh));
+  const c = document.createElement("canvas");
+  c.width = pw;
+  c.height = ph;
+  const cx = c.getContext("2d")!;
+  cx.drawImage(img, sx, sy, sw, sh, 0, 0, pw, ph);
+  const id = cx.getImageData(0, 0, pw, ph);
+  const px = id.data;
+  for (let i = 0; i < px.length; i += 4) {
+    let lum = 0.299 * px[i] + 0.587 * px[i + 1] + 0.114 * px[i + 2];
+    lum *= exposure;
+    lum = lum < 0 ? 0 : lum > 255 ? 255 : lum;
+    px[i] = px[i + 1] = px[i + 2] = lum;
+    px[i + 3] = ((255 - lum) * px[i + 3]) / 255;
+  }
+  cx.putImageData(id, 0, 0);
+  // drawImage (not putImageData) so the result COMPOSITES over the colour laid
+  // down above — putImageData would overwrite it and the whites would go black.
+  ctx.drawImage(c, 0, 0, pw, ph, dx, dy, dw, dh);
+}
+
 // Draw the photo "natural" (not rasterised): the real image, cover-fitted into
 // the frame, with exposure applied as brightness.
 function drawNatural(
@@ -558,7 +621,8 @@ export type EventPosterInput = {
 };
 
 // Render to a canvas. Images are pre-loaded HTMLImageElements (see loadImage).
-//   treatment: 'scatter' = Scatter halftone (default) | 'natural' = the real photo.
+//   treatment: 'scatter' = Scatter halftone (default) | 'natural' = the real photo
+//              | 'whites' = greyscale with the whites showing the poster colour.
 //   imgs: optional array of { img, exposure } — one entry = single image,
 //         two entries = a split of two portrait columns with a gap.
 export async function renderEventPoster({
@@ -685,6 +749,8 @@ export async function renderEventPoster({
         : null;
     if (treatment === "natural")
       drawNatural(ctx, im, iX, iY, iW, iH, exp, src);
+    else if (treatment === "whites")
+      drawWhitesToColour(ctx, im, iX, iY, iW, iH, C, exp, mode, src);
     else drawHalftone(ctx, im, iX, iY, iW, iH, dark, light, exp, src);
   };
   const list: PosterImage[] = (

@@ -6,7 +6,7 @@ import MediaPicker from "@/components/admin/MediaPicker";
 import EventPosterStudio from "@/components/admin/EventPosterStudio";
 import DatePickerInput from "@/components/admin/DatePickerInput";
 import Notice from "@/components/Notice";
-import { EVENT_TYPES } from "@/lib/db/calendarEvents";
+import { EVENT_TYPES, isDealEvent } from "@/lib/db/calendarEvents";
 
 // Category colour swatches — used by the dropdown and list-row
 // left-stripe so the palette in the calendar view is discoverable
@@ -1887,16 +1887,9 @@ function parseSubs(s: string | null | undefined): string[] {
     .map((x) => x.trim())
     .filter(Boolean);
 }
-// A drinks DEAL — category drink_special OR a "Deals" calendar chip. Its poster
-// is built page-shaped so it fills the team-hub drinks zine's front cover (the
-// zine pulls the deal event's poster_url). Matches the zine edge function's own
-// "deal" test.
-function isDealEvent(
-  category: string | null | undefined,
-  subcategory: string | null | undefined,
-): boolean {
-  return category === "drink_special" || parseSubs(subcategory).includes("Deals");
-}
+// isDealEvent moved to lib/db/calendarEvents.ts (imported above) so the
+// Calendar posters tab builds deal posters page-shaped too — it was still
+// making them Instagram-shaped, which doesn't fill the zine cover.
 // Re-join in the canonical EVENT_TYPES order so the stored string is stable
 // regardless of the order the founder ticked the boxes.
 function joinSubs(list: string[]): string {
