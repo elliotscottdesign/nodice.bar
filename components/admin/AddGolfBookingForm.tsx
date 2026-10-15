@@ -26,7 +26,7 @@ const GOLF_TICKETS: { name: string; label: string; hint: string }[] = [
   { name: "Adult round", label: "Adult", hint: "£7" },
   { name: "Child round", label: "Child", hint: "£7" },
   { name: "Golf + 4 Tokens", label: "Golf + 4 Tokens", hint: "£10" },
-  { name: "Drink, Golf & Game", label: "Drink · Golf · Game", hint: "£12" },
+  { name: "Drink, Golf & Game", label: "Drink · Golf · Game", hint: "£14" },
 ];
 
 export default function AddGolfBookingForm({
