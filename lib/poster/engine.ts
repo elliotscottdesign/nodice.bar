@@ -33,6 +33,8 @@
 // Same inputs always produce the same output — no randomness.
 // ─────────────────────────────────────────────────────────────────────────────
 
+import { qrMatrix, eventQrUrl } from "./qr";
+
 const FONT_FAMILY = "AmsiProCondUltra";
 
 // Static export can be served under a basePath (GitHub Pages), so the font URL
@@ -235,18 +237,21 @@ function fitFont(
 // the headline wraps: it stays at the FULL display size and takes more lines,
 // and only shrinks once it would need more lines than it's allowed. A short name
 // still renders identically to the DJ poster — one line, 0.135 of the scale base.
-function wrapAt(
+
+// Greedy wrap where each line gets its OWN measure — the lines that run beside
+// the QR code have to stop short of it, the ones below it don't.
+function wrapVarying(
   ctx: CanvasRenderingContext2D,
   words: string[],
-  maxW: number,
   px: number,
+  widthFor: (lineIndex: number) => number,
 ): string[] {
   ctx.font = `${px}px "${FONT_FAMILY}"`;
   const lines: string[] = [];
   let cur = "";
   for (const w of words) {
     const next = cur ? `${cur} ${w}` : w;
-    if (cur && ctx.measureText(next).width > maxW) {
+    if (cur && ctx.measureText(next).width > widthFor(lines.length)) {
       lines.push(cur);
       cur = w;
     } else {
@@ -257,6 +262,8 @@ function wrapAt(
   return lines;
 }
 
+// `narrowW` / `narrowH`: a measure to use for however many leading lines fall
+// within `narrowH` of the block's top — i.e. the ones running beside the QR.
 function fitDisplayBlock(
   ctx: CanvasRenderingContext2D,
   text: string,
@@ -264,21 +271,28 @@ function fitDisplayBlock(
   targetPx: number,
   maxLines: number,
   maxBlockH: number,
+  narrowW = 0,
+  narrowH = 0,
 ): { px: number; lines: string[] } {
   const words = String(text || "").split(/\s+/).filter(Boolean);
   if (!words.length) return { px: targetPx, lines: [] };
   let px = targetPx;
   for (let guard = 0; guard < 60 && px > 8; guard++) {
-    const lines = wrapAt(ctx, words, maxW, px);
-    // A single word longer than the measure can't wrap — fitFont it instead.
-    const tooWide = lines.some((l) => ctx.measureText(l).width > maxW);
-    const blockH = lines.length * px * 1.05;
+    const lineH = px * 1.05;
+    const widthFor = (i: number) =>
+      narrowW > 0 && i * lineH < narrowH ? narrowW : maxW;
+    const lines = wrapVarying(ctx, words, px, widthFor);
+    // A single word longer than its measure can't wrap — fitFont it instead.
+    const tooWide = lines.some(
+      (l, i) => ctx.measureText(l).width > widthFor(i),
+    );
+    const blockH = lines.length * lineH;
     if (!tooWide && lines.length <= maxLines && blockH <= maxBlockH) {
       return { px, lines };
     }
     px -= Math.max(2, px * 0.04);
   }
-  const px2 = fitFont(ctx, words.join(" "), maxW, targetPx);
+  const px2 = fitFont(ctx, words.join(" "), narrowW || maxW, targetPx);
   return { px: px2, lines: [words.join(" ")] };
 }
 
@@ -618,6 +632,11 @@ export type EventPosterInput = {
   img?: HTMLImageElement | null;
   exposure?: number;
   imgs?: PosterImage[] | null;
+  /**
+   * What the QR code in the top-right corner points at. Left out, it's the
+   * calendar link for this event's date. Pass "" for no QR at all.
+   */
+  qrUrl?: string;
 };
 
 // Render to a canvas. Images are pre-loaded HTMLImageElements (see loadImage).
@@ -639,6 +658,7 @@ export async function renderEventPoster({
   treatment = "scatter",
   img,
   imgs = null,
+  qrUrl,
 }: EventPosterInput): Promise<HTMLCanvasElement> {
   await ensureFont();
   const S = SIZES[size] || SIZES.ig;
@@ -680,8 +700,35 @@ export async function renderEventPoster({
     y += asc + desc + Math.round(SB * extra);
   };
 
+  // ── QR code, top right ────────────────────────────────────────────────────
+  // Scans through to the event on the calendar. Measured out BEFORE the
+  // headline so the headline knows to stop short of it.
+  const link = qrUrl === undefined ? eventQrUrl(date) : qrUrl;
+  let qrDrawn = 0;
+  let qrModules: boolean[][] | null = null;
+  let qrModulePx = 0;
+  if (link) {
+    try {
+      qrModules = qrMatrix(link);
+      const QUIET = 4; // modules of clear space the spec wants around the code
+      const units = qrModules.length + QUIET * 2;
+      // Whole-pixel modules only: a fractional module size gives soft edges and
+      // soft edges are what stops a phone locking on.
+      qrModulePx = Math.max(1, Math.floor((W * 0.155) / units));
+      qrDrawn = qrModulePx * units;
+    } catch {
+      // Too long to encode — carry on without one rather than lose the poster.
+      qrModules = null;
+      qrDrawn = 0;
+    }
+  }
+  const qrX = x1 - qrDrawn;
+  const qrY = y;
+  const qrGap = Math.round(W * 0.02);
+
   // Headline. Same 0.135 scale and 0.018 trailing gap as the DJ name, but it may
-  // take up to 3 lines (see fitDisplayBlock).
+  // take up to 3 lines (see fitDisplayBlock), and the lines level with the QR
+  // code stop short of it.
   const usableH = H - S.safeTop - S.safeBottom - 2 * m;
   const head = fitDisplayBlock(
     ctx,
@@ -690,6 +737,8 @@ export async function renderEventPoster({
     Math.round(SB * 0.135),
     3,
     usableH * 0.45,
+    qrDrawn ? qrX - qrGap - x0 : 0,
+    qrDrawn ? qrDrawn + qrGap : 0,
   );
   ctx.font = `${head.px}px "${FONT_FAMILY}"`;
   for (const l of head.lines) {
@@ -794,6 +843,30 @@ export async function renderEventPoster({
   ctx.fillStyle = inkCss;
   ctx.font = `${fitFont(ctx, bottom, x1 - x0, Math.round(SB * 0.09))}px "${FONT_FAMILY}"`;
   ctx.fillText(bottom, x0, imgBottom + basc);
+
+  // Draw the QR last so nothing can land on top of it.
+  //   screen  — the poster colour behind it, black modules on top. The poster's
+  //             own background is black, so the code needs its own light bed or
+  //             there's no contrast to read and the quiet zone disappears.
+  //   A3 print — no bed: the knocked-out background IS the coloured paper, and
+  //             the modules print in the same black ink as the rest.
+  if (qrModules) {
+    const QUIET = 4;
+    if (mode !== "negative") {
+      ctx.fillStyle = `rgb(${C[0]},${C[1]},${C[2]})`;
+      ctx.fillRect(qrX, qrY, qrDrawn, qrDrawn);
+    }
+    ctx.fillStyle = "#000";
+    for (let r = 0; r < qrModules.length; r++)
+      for (let c = 0; c < qrModules.length; c++)
+        if (qrModules[r][c])
+          ctx.fillRect(
+            qrX + (c + QUIET) * qrModulePx,
+            qrY + (r + QUIET) * qrModulePx,
+            qrModulePx,
+            qrModulePx,
+          );
+  }
   return cv;
 }
 

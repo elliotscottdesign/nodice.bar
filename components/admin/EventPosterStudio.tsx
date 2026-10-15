@@ -23,6 +23,7 @@ import MediaPicker from "@/components/admin/MediaPicker";
 import Notice from "@/components/Notice";
 import { uploadImage } from "@/lib/db/media";
 import { RAL, ralLabel, ralSearch } from "@/lib/poster/ralColours";
+import { eventQrUrl } from "@/lib/poster/qr";
 import {
   PALETTE,
   canvasToBlob,
@@ -489,6 +490,15 @@ export default function EventPosterStudio({
               Pick a picture below and the poster appears here.
             </div>
           )}
+          {/* Every poster carries a QR code in its top right corner — including
+              the A3 print, where it comes out in the same black ink. */}
+          <p className="mt-2 max-w-[236px] text-[10px] leading-relaxed text-cream/40">
+            The QR code top right opens{" "}
+            <span className="break-all text-cream/60">
+              {eventQrUrl(date).replace(/^https:\/\//, "")}
+            </span>{" "}
+            when it&apos;s scanned.
+          </p>
         </div>
 
         {/* ───── Controls ───── */}
