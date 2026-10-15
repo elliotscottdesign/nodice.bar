@@ -98,6 +98,7 @@ type Booking = {
   customer_name: string;
   customer_email: string;
   party_size: number;
+  notes: string | null;
   subtotal_pence: number;
   discount_pence: number;
   total_pence: number;
@@ -128,6 +129,13 @@ function composeEmail(booking: Booking): {
   const date = formatDate(slots[0].slot_date);
   const timesLine = slots.map((s) => formatTime(s.slot_time)).join(", ");
   const firstName = booking.customer_name.split(" ")[0] || booking.customer_name;
+  // Customer-typed free text — escape before dropping into the HTML email.
+  const noteHtml = booking.notes
+    ? booking.notes
+        .replace(/&/g, "&amp;")
+        .replace(/</g, "&lt;")
+        .replace(/>/g, "&gt;")
+    : "";
 
   const ticketLines = booking.tickets.map(
     (t) =>
@@ -175,6 +183,7 @@ function composeEmail(booking: Booking): {
     ...(addonLines.length
       ? [``, `Extras:`, ...addonLines.map((l) => `  • ${l}`)]
       : []),
+    ...(booking.notes ? [``, `Your note: ${booking.notes}`] : []),
     ``,
     ...totalsLines,
     ``,
@@ -221,6 +230,14 @@ function composeEmail(booking: Booking): {
     <ul style="padding-left:20px;margin:0 0 8px;">
       ${addonLines.map((l) => `<li style="margin:4px 0;">${l}</li>`).join("")}
     </ul>`
+      : ""
+  }
+
+    ${
+    booking.notes
+      ? `<div style="background:#ffffff;border-left:4px solid #0E2A21;padding:12px 16px;margin:20px 0;border-radius:2px;">
+      <p style="margin:0;font-size:13px;color:#4a5d52;"><strong>Your note:</strong> ${noteHtml}</p>
+    </div>`
       : ""
   }
 
@@ -274,7 +291,7 @@ Deno.serve(async (req) => {
     .from("bookings")
     .select(`
       id, reference, status,
-      customer_name, customer_email, party_size,
+      customer_name, customer_email, party_size, notes,
       subtotal_pence, discount_pence, total_pence,
       venue:venues!inner(name, slug),
       slots:booking_slots(slot_date, slot_time, count),
@@ -347,6 +364,9 @@ Deno.serve(async (req) => {
       : "date TBC";
     const total = (b.total_pence / 100).toFixed(2);
     const line = `${b.customer_name} · ${b.party_size} player${b.party_size === 1 ? "" : "s"} · ${when} · £${total} paid · ref ${b.reference}`;
+    const noteBlock = b.notes
+      ? [``, `📝 Customer note: ${b.notes}`]
+      : [];
     await fetch("https://api.resend.com/emails", {
       method: "POST",
       headers: {
@@ -363,6 +383,7 @@ Deno.serve(async (req) => {
           ``,
           line,
           `Customer email: ${booking.customer_email}`,
+          ...noteBlock,
           ``,
           `Manage: https://nodice.bar/admin/bookings`,
           `Reply to this email to reach the customer directly.`,

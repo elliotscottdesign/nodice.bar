@@ -284,6 +284,11 @@ export default function BookingsClient() {
                       <td className="px-5 py-3">
                         <p className="font-medium">{b.customer_name}</p>
                         <p className="text-xs text-cream/55">{b.customer_email}</p>
+                        {b.notes && (
+                          <p className="mt-1 max-w-[320px] rounded border border-plonkYellow/30 bg-plonkYellow/5 px-2 py-1 text-xs text-plonkYellow">
+                            📝 {b.notes}
+                          </p>
+                        )}
                       </td>
                       <td className="px-5 py-3 text-cream/85">{b.party_size}</td>
                       <td className="px-5 py-3 font-medium">{fmtMoney(b.total_pence)}</td>

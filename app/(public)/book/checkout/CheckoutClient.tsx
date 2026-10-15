@@ -116,6 +116,7 @@ function CheckoutInner() {
   const [lastName, setLastName] = useState("");
   const [phone, setPhone] = useState("");
   const [heardFrom, setHeardFrom] = useState("");
+  const [notes, setNotes] = useState("");
   const [marketingOptIn, setMarketingOptIn] = useState(false);
 
   const { msLeft, expired } = useHoldTimer();
@@ -213,6 +214,7 @@ function CheckoutInner() {
             phone,
             heard_from: heardFrom,
             marketing_opt_in: marketingOptIn,
+            notes: notes.trim() || undefined,
           },
         }),
       });
@@ -356,6 +358,23 @@ function CheckoutInner() {
                   />
                 </div>
               </div>
+              <label className="mt-5 block">
+                <span className="text-xs font-bold uppercase tracking-widest text-cream/55">
+                  Anything we should know?{" "}
+                  <span className="font-normal normal-case tracking-normal text-cream/40">
+                    (optional)
+                  </span>
+                </span>
+                <textarea
+                  value={notes}
+                  onChange={(e) => setNotes(e.target.value.slice(0, 500))}
+                  rows={3}
+                  maxLength={500}
+                  placeholder="Birthday or special occasion? Accessibility needs? Anything else — our team will see it."
+                  className="mt-1.5 w-full resize-y rounded-lg border border-cream/15 bg-ink/40 px-4 py-2.5 text-base text-cream placeholder:text-cream/30 focus:border-plonkPink focus:outline-none"
+                />
+              </label>
+
               <label className="mt-4 flex items-start gap-3 text-sm text-cream/70">
                 <input
                   type="checkbox"
