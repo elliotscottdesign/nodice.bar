@@ -214,18 +214,9 @@ export default function MediaPicker({
     if (f) handleUpload(f);
   }
 
-  // Escape key closes the whole picker, in case the Close button
-  // gets covered by something or a click handler misfires.
-  useEffect(() => {
-    function onKey(e: KeyboardEvent) {
-      if (e.key === "Escape") {
-        if (staged) setStaged(null);
-        else onClose();
-      }
-    }
-    window.addEventListener("keydown", onKey);
-    return () => window.removeEventListener("keydown", onKey);
-  }, [staged, onClose]);
+  // No Escape-to-close. The picker can be holding an in-flight upload or
+  // a staged crop, and a stray Escape threw that away just as an outside
+  // click did. The Close button in the header is the only way out.
 
   function handleCloseClick() {
     setStaged(null);
@@ -242,11 +233,10 @@ export default function MediaPicker({
   return createPortal(
     <div
       className="fixed inset-0 z-[130] flex items-stretch justify-center bg-ink/90 p-2 sm:p-6"
-      // The click-outside-closes target — only on the backdrop, not
-      // bubbled through the panel itself.
-      onClick={(e) => {
-        if (e.target === e.currentTarget) handleCloseClick();
-      }}
+      // No click-off. The picker can be holding an upload in flight or a
+      // staged crop, so the backdrop deliberately has NO onClick — it used
+      // to close and throw that away. Close with the header Close button,
+      // or by saving the image.
     >
       <div
         className="flex h-full w-full max-w-6xl flex-col overflow-hidden rounded-2xl border border-cream/15 bg-ink shadow-2xl"
