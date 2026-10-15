@@ -49,47 +49,56 @@ const MONTHS_SHORT = [
 //   - `stripe`  — a 3px accent bar down the left of the artwork
 //   - `pill`    — the top-right badge that already showed subcategory
 //   - `dot`     — a small round marker for lists/day-detail
+//   - `hoverBorder` — desktop hover outline on a clickable card (2026-10-15),
+//                     so the lift picks up the colour the card already uses
 // Blank / unknown subcategory → neutral cream fallback so the grid
 // stays consistent for untagged events.
 const CATEGORY_COLOURS: Record<
   string,
-  { stripe: string; pill: string; dot: string }
+  { stripe: string; pill: string; dot: string; hoverBorder: string }
 > = {
   "DJ Night": {
     stripe: "bg-plonkPink",
     pill: "bg-plonkPink/90 text-white",
     dot: "bg-plonkPink",
+    hoverBorder: "group-hover/card:border-plonkPink",
   },
   "Match Day": {
     stripe: "bg-plonkTeal",
     pill: "bg-plonkTeal/90 text-ink",
     dot: "bg-plonkTeal",
+    hoverBorder: "group-hover/card:border-plonkTeal",
   },
   "Pool Night": {
     stripe: "bg-purple-400",
     pill: "bg-purple-500/90 text-white",
     dot: "bg-purple-400",
+    hoverBorder: "group-hover/card:border-purple-400",
   },
   "Food Night": {
     stripe: "bg-orange-400",
     pill: "bg-orange-500/90 text-white",
     dot: "bg-orange-400",
+    hoverBorder: "group-hover/card:border-orange-400",
   },
   Deals: {
     stripe: "bg-plonkYellow",
     pill: "bg-plonkYellow/90 text-ink",
     dot: "bg-plonkYellow",
+    hoverBorder: "group-hover/card:border-plonkYellow",
   },
   "Special Event": {
     stripe: "bg-sky-400",
     pill: "bg-sky-500/90 text-white",
     dot: "bg-sky-400",
+    hoverBorder: "group-hover/card:border-sky-400",
   },
 };
 const CATEGORY_FALLBACK = {
   stripe: "bg-cream/40",
   pill: "bg-ink/80 text-cream/85",
   dot: "bg-cream/50",
+  hoverBorder: "group-hover/card:border-cream/40",
 };
 function categoryColours(subcategory: string | null | undefined) {
   if (!subcategory) return CATEGORY_FALLBACK;
@@ -118,6 +127,22 @@ function primarySub(s: string | null | undefined): string | null {
   const subs = subsOf(s);
   if (!subs.length) return null;
   return SUB_PRIORITY.find((p) => subs.includes(p)) ?? subs[0];
+}
+
+// Where a card goes when you click it.
+//
+// Founder 2026-10-15, on whether events without a link should fall back to
+// their category page (/pool, /deals, …): "if there isn't a link in event
+// info then it's fine — this is only when there is a URL, like for special
+// events." So: NO invented destinations. A card is a link when, and only
+// when, the event carries its own link, and an event with no link stays a
+// plain, honestly non-clickable card with no ↗ glyph.
+//
+// Add a link to an event in /admin/events and it becomes clickable on its
+// own. Never build a per-event URL here either — the site is a static
+// export, so a dynamic route that wasn't pre-rendered 404s.
+function eventDestination(ev: DbCalendarEvent): string | null {
+  return ev.link_url || null;
 }
 
 // When a single day has MULTIPLE events, pick which one leads the calendar
@@ -791,6 +816,24 @@ export default function EventsPage() {
 // In admin Edit mode (`editing=true`), the whole card becomes a
 // button that calls onEdit instead of opening the public link. A
 // small pencil pill in the top-right hints at the click target.
+//
+// CLICK AFFORDANCE (founder 2026-10-15). A card with a link used to look
+// IDENTICAL to one without, so customers couldn't tell which posters opened
+// anything. Now a linked card says so, in this order of importance:
+//   1. A ↗ glyph on the title line, ALWAYS visible — never hover-only.
+//      Load-bearing: most of these customers are on a phone, where there is
+//      no hover, so a hover-only hint just reads as a dead card. It sits on
+//      the title line and NOT on the artwork — the posters are the point of
+//      this page, and both poster corners are already taken (category chip
+//      top-right, EDIT pill bottom-right in edit mode).
+//   2. The whole card is the hit target, not just the title.
+//   3. The title underlines and lightens on hover, like any other link.
+//   4. Desktop-only lift: the poster brightens a touch and a 1px outline
+//      picks up the card's own category colour. A bonus on top of 1, never
+//      the only signal.
+// A card with no link gets NONE of this — that's the point: the glyph is
+// what tells the two apart. No glyph in edit mode either, where the EDIT
+// pill is the affordance and the card opens the editor instead.
 function DayEventCard({
   ev,
   editing,
@@ -814,6 +857,16 @@ function DayEventCard({
 
   const cc = categoryColours(primary);
 
+  // Edit mode wins over the public link (see the return below), so a card is
+  // only "clickable" in the public sense when we're NOT editing it.
+  const editable = editing && !dj;
+  const href = editable ? null : eventDestination(ev);
+  // A link typed as root-relative ("/bingo") gets the same basePath prefix the
+  // artwork above does, so it survives a future move onto a subpath. Absolute
+  // links (the usual case) pass through untouched.
+  const resolvedHref =
+    href && href.startsWith("/") ? `${base}${href}` : href;
+
   const inner = (
     <div className="relative flex h-full flex-col">
       {/* Left-edge accent stripe — instant visual signal of which
@@ -823,6 +876,15 @@ function DayEventCard({
       <span
         aria-hidden="true"
         className={`pointer-events-none absolute inset-y-0 left-0 z-10 w-1 ${cc.stripe}`}
+      />
+      {/* Desktop hover outline in the card's own category colour. Absolute +
+          pointer-events-none so it costs no layout and never eats a click;
+          `group-hover/card` only matches the <a> below, so a non-clickable
+          card never lights up (the day cell itself carries a plain `group`,
+          which is why this variant is NAMED). */}
+      <span
+        aria-hidden="true"
+        className={`pointer-events-none absolute inset-0 z-20 border border-transparent transition-colors duration-200 ${cc.hoverBorder}`}
       />
       {/* 4:5 artwork slot. object-contain (founder rule 2026-07-02)
           so uploaded posters are shown WHOLE — portrait DJ flyers,
@@ -836,7 +898,7 @@ function DayEventCard({
             src={src}
             alt={ev.title}
             loading="lazy"
-            className="h-full w-full object-contain"
+            className="h-full w-full object-contain transition duration-200 group-hover/card:brightness-110"
           />
         ) : (
           <div className="flex h-full w-full items-center justify-center text-[10px] uppercase tracking-widest text-cream/40">
@@ -862,9 +924,22 @@ function DayEventCard({
       </div>
       {/* Title + time + body */}
       <div className="px-1.5 py-1.5 sm:px-2 sm:py-2">
-        <p className="line-clamp-2 text-[10px] font-bold uppercase tracking-wider text-cream sm:text-[11px]">
-          {ev.title}
-        </p>
+        {/* Title line doubles as the link affordance: the ↗ is pinned to its
+            right edge (off the poster, see the note above the component) and
+            the title underlines + lightens on hover like any other link. */}
+        <div className="flex items-start gap-1">
+          <p className="line-clamp-2 min-w-0 flex-1 text-[10px] font-bold uppercase tracking-wider text-cream transition-colors group-hover/card:text-white group-hover/card:underline sm:text-[11px]">
+            {ev.title}
+          </p>
+          {resolvedHref && (
+            <span
+              aria-hidden="true"
+              className="mt-px shrink-0 text-[10px] leading-none text-cream/70 transition-colors group-hover/card:text-cream sm:text-[11px]"
+            >
+              ↗
+            </span>
+          )}
+        </div>
         {ev.start_time && (
           <p className="mt-1 text-[9px] font-bold uppercase tracking-[0.18em] text-plonkPink sm:text-[10px]">
             {formatTime(ev.start_time)}
@@ -882,7 +957,7 @@ function DayEventCard({
   // Edit mode wins over the public link — clicking always opens the
   // editor instead of navigating away. DJ nights are read-only (managed
   // in the team hub), so they fall through to the normal display.
-  if (editing && !dj) {
+  if (editable) {
     return (
       <button
         type="button"
@@ -894,16 +969,22 @@ function DayEventCard({
     );
   }
 
-  return ev.link_url ? (
+  // The whole card is the hit target, and it opens in a new tab per the
+  // founder's brief, so a customer browsing the diary never loses their
+  // place in it.
+  return resolvedHref ? (
     <a
-      href={ev.link_url}
+      href={resolvedHref}
       target="_blank"
       rel="noopener noreferrer"
-      className="group block flex-1 overflow-hidden"
+      className="group/card block flex-1 overflow-hidden"
     >
       {inner}
+      <span className="sr-only"> (opens in a new tab)</span>
     </a>
   ) : (
+    // No link on the event — stays a plain, honestly non-clickable card with
+    // no ↗ and no hover lift. Add a link in /admin/events to change that.
     <div className="flex-1">{inner}</div>
   );
 }
