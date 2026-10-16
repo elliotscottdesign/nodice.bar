@@ -134,6 +134,9 @@ export default function EventPosterStudio({
   const [exposure, setExposure] = useState(1);
   const [pos, setPos] = useState({ ox: 0.5, oy: 0.5 });
   const [zoom, setZoom] = useState(1);
+  // Headline size dial (1 = the standard DJ-poster size). The founder can make
+  // the event name bigger (photo shrinks) or smaller (photo grows).
+  const [titleScale, setTitleScale] = useState(1);
 
   // ---- Copy that goes on the poster ----
   // Both lines are SUGGESTED from the event above and keep following it as the
@@ -141,6 +144,10 @@ export default function EventPosterStudio({
   // wins and nothing overwrites it.
   const [detail, setDetail] = useState(() => suggestDetail(description));
   const [detailTouched, setDetailTouched] = useState(false);
+  // On/off switch for the line under the title. When off it's hidden even if
+  // there's text in the field, so the founder can keep the wording but drop the
+  // line without deleting it.
+  const [showDetail, setShowDetail] = useState(true);
   const [price, setPrice] = useState(defaultPrice || "");
   const [priceTouched, setPriceTouched] = useState(false);
   useEffect(() => {
@@ -218,12 +225,13 @@ export default function EventPosterStudio({
         date,
         start,
         end,
-        detail,
+        detail: showDetail ? detail : "",
         price,
         colour,
         size,
         mode,
         treatment,
+        titleScale,
         imgs: imgRef.current
           ? [
               {
@@ -242,9 +250,11 @@ export default function EventPosterStudio({
       start,
       end,
       detail,
+      showDetail,
       price,
       colour,
       treatment,
+      titleScale,
       exposure,
       pos,
       zoom,
@@ -276,7 +286,12 @@ export default function EventPosterStudio({
   }, [render, previewSize, hasPic, tick]);
 
   // The little crop well — exact crop, no halftone, so dragging feels direct.
-  const wellAspect = frameAspect(previewSize, !!detail.trim(), !!price.trim());
+  const wellAspect = frameAspect(
+    previewSize,
+    showDetail && !!detail.trim(),
+    !!price.trim(),
+    titleScale,
+  );
   const WELL_W = 116;
   const WELL_H = Math.round(WELL_W / wellAspect);
   useEffect(() => {
@@ -593,11 +608,16 @@ export default function EventPosterStudio({
                     className="w-full touch-none py-1 accent-plonkPink"
                   />
                 </label>
-                <div className="flex gap-2">
+                <div className="flex flex-wrap gap-2">
                   {(
                     [
                       ["scatter", "Scatter", "The house grainy halftone look"],
                       ["natural", "Natural", "The real photo, not rasterised"],
+                      [
+                        "colourthrough",
+                        "Colour through",
+                        "Black-and-white photo — the white areas turn the poster colour",
+                      ],
                     ] as [PosterTreatment, string, string][]
                   ).map(([k, label, hint]) => (
                     <button
@@ -618,7 +638,9 @@ export default function EventPosterStudio({
                 <p className="text-[10px] leading-relaxed text-cream/40">
                   {treatment === "natural"
                     ? "The full photo — the A3 prints in colour, not black on coloured paper."
-                    : "Scatter halftone — the standard No Dice look. The A3 prints black on coloured paper."}
+                    : treatment === "colourthrough"
+                      ? "Black-and-white photo — anything white turns the poster colour. The Exposure dial sets how much colour comes through. The A3 prints onto coloured paper (the paper shows through the whites)."
+                      : "Scatter halftone — the standard No Dice look. The A3 prints black on coloured paper."}
                 </p>
               </div>
             </div>
@@ -706,6 +728,31 @@ export default function EventPosterStudio({
             )}
           </div>
 
+          {/* Title size */}
+          <div>
+            <p className="mb-2 text-[10px] font-bold uppercase tracking-widest text-cream/55">
+              Title size
+            </p>
+            <label className="block">
+              <span className="flex justify-between text-[10px] text-cream/45">
+                <span>The event name on the poster</span>
+                <span>{Math.round(titleScale * 100)}%</span>
+              </span>
+              <input
+                type="range"
+                min="0.7"
+                max="1.4"
+                step="0.05"
+                value={titleScale}
+                onChange={(e) => setTitleScale(Number(e.target.value))}
+                className="w-full touch-none py-1 accent-plonkPink"
+              />
+            </label>
+            <p className="text-[10px] leading-relaxed text-cream/40">
+              Bigger title, smaller picture — and the other way round.
+            </p>
+          </div>
+
           {/* Words on the poster */}
           <div>
             <p className="mb-2 text-[10px] font-bold uppercase tracking-widest text-cream/55">
@@ -718,18 +765,33 @@ export default function EventPosterStudio({
             </p>
             <div className="grid gap-2 sm:grid-cols-2">
               <label className="block">
-                <span className="mb-1 block text-[10px] text-cream/45">
-                  One short line (optional)
+                <span className="mb-1 flex items-center justify-between gap-2 text-[10px] text-cream/45">
+                  <span>One short line (optional)</span>
+                  <button
+                    type="button"
+                    onClick={() => setShowDetail((v) => !v)}
+                    title="Show or hide the line under the title"
+                    className={`shrink-0 rounded-full border px-2 py-0.5 text-[9px] font-bold uppercase tracking-wider transition ${
+                      showDetail
+                        ? "border-plonkTeal/60 bg-plonkTeal/15 text-plonkTeal"
+                        : "border-cream/20 text-cream/50 hover:bg-cream/5"
+                    }`}
+                  >
+                    {showDetail ? "● On" : "Off"}
+                  </button>
                 </span>
                 <input
                   value={detail}
+                  disabled={!showDetail}
                   onChange={(e) => {
                     setDetailTouched(true);
                     setDetail(e.target.value);
                   }}
                   maxLength={70}
                   placeholder="e.g. Prizes all night"
-                  className="w-full rounded-md border border-cream/20 bg-ink px-2.5 py-1.5 text-xs text-cream placeholder:text-cream/35"
+                  className={`w-full rounded-md border border-cream/20 bg-ink px-2.5 py-1.5 text-xs text-cream placeholder:text-cream/35 ${
+                    showDetail ? "" : "opacity-40"
+                  }`}
                 />
               </label>
               <label className="block">

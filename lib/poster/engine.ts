@@ -95,7 +95,7 @@ export const PALETTE: { name: string; hex: string }[] = [
 
 export type PosterSize = "ig" | "story" | "zine" | "a3";
 export type PosterMode = "colour" | "negative";
-export type PosterTreatment = "scatter" | "natural";
+export type PosterTreatment = "scatter" | "natural" | "colourthrough";
 
 // NOTE (added for events): 'story' is the new size.
 //
@@ -528,6 +528,57 @@ function drawNatural(
   ctx.filter = prev || "none";
 }
 
+// Greyscale photo with the whites knocked out so the poster colour floods
+// through. PORTED from the DJ engine (src/dj/poster.js — commit "Colour through")
+// and kept byte-identical; mirror any change there.
+//   lum   = 0.299R + 0.587G + 0.114B    (exposure applied BEFORE the alpha, so the
+//                                         exposure dial sets how much colour comes through)
+//   R=G=B = lum                         (greyscale)
+//   alpha = (255 - lum) * srcAlpha/255  (white → clear, black → solid; an already
+//                                         transparent source pixel stays transparent)
+// `under` is the poster colour painted behind it. In negative/mono mode it's
+// null — the file stays transparent and the coloured PAPER shows through the
+// whites instead (so the A3 prints onto coloured stock).
+function drawColourThrough(
+  ctx: CanvasRenderingContext2D,
+  img: HTMLImageElement,
+  dx: number,
+  dy: number,
+  dw: number,
+  dh: number,
+  exposure: number,
+  src?: SrcRect | null,
+  under?: string | null,
+): void {
+  const { sx, sy, sw, sh } = src || smartCrop(img, dw / dh);
+  if (under) {
+    ctx.fillStyle = under;
+    ctx.fillRect(dx, dy, dw, dh);
+  }
+  // Work at the source resolution, capped to the frame — keeps the A3 sharp
+  // without a 17-megapixel pass.
+  const ww = Math.max(1, Math.min(sw, Math.round(dw)));
+  const wh = Math.max(1, Math.round(sh * (ww / sw)));
+  const c = document.createElement("canvas");
+  c.width = ww;
+  c.height = wh;
+  const cx = c.getContext("2d")!;
+  cx.drawImage(img, sx, sy, sw, sh, 0, 0, ww, wh);
+  const id = cx.getImageData(0, 0, ww, wh),
+    px = id.data;
+  const e = exposure || 1;
+  for (let i = 0; i < px.length; i += 4) {
+    let lum = (0.299 * px[i] + 0.587 * px[i + 1] + 0.114 * px[i + 2]) * e;
+    lum = lum < 0 ? 0 : lum > 255 ? 255 : lum;
+    px[i] = lum;
+    px[i + 1] = lum;
+    px[i + 2] = lum;
+    px[i + 3] = ((255 - lum) * px[i + 3]) / 255;
+  }
+  cx.putImageData(id, 0, 0);
+  ctx.drawImage(c, 0, 0, ww, wh, dx, dy, dw, dh);
+}
+
 export type PosterImage = {
   img: HTMLImageElement;
   exposure?: number;
@@ -548,6 +599,15 @@ export type EventPosterInput = {
   detail?: string | null;
   /** Price wording, e.g. "£5 on the door" / "Free entry". Optional. */
   price?: string | null;
+  /**
+   * Headline size multiplier (default 1 = the DJ poster's exact 0.135 scale).
+   * EVENTS-ONLY and purely additive — at 1 the output is byte-identical to the
+   * DJ engine, so this does NOT need mirroring in the team-hub poster.js (same
+   * rule as the 'zine' size and the AM/PM change). >1 grows the headline (and
+   * may take a 4th line), shrinking the photo below it; <1 shrinks it, giving
+   * the photo more room. Clamped to a sane range.
+   */
+  titleScale?: number;
   colour: string;
   size?: PosterSize;
   mode?: PosterMode;
@@ -573,6 +633,7 @@ export async function renderEventPoster({
   mode = "colour",
   exposure = 1,
   treatment = "scatter",
+  titleScale = 1,
   img,
   imgs = null,
 }: EventPosterInput): Promise<HTMLCanvasElement> {
@@ -617,15 +678,19 @@ export async function renderEventPoster({
   };
 
   // Headline. Same 0.135 scale and 0.018 trailing gap as the DJ name, but it may
-  // take up to 3 lines (see fitDisplayBlock).
+  // take up to 3 lines (see fitDisplayBlock). titleScale (default 1) is the
+  // founder's size dial: at 1 this is byte-identical to the DJ poster; >1 grows
+  // the headline (and allows a 4th line + more block height, so it visibly gets
+  // bigger and the photo below it shrinks); <1 shrinks it, giving the photo room.
+  const ts = Math.max(0.6, Math.min(1.6, titleScale || 1));
   const usableH = H - S.safeTop - S.safeBottom - 2 * m;
   const head = fitDisplayBlock(
     ctx,
     (name || "EVENT").toUpperCase(),
     x1 - x0,
-    Math.round(SB * 0.135),
-    3,
-    usableH * 0.45,
+    Math.round(SB * 0.135 * ts),
+    ts > 1 ? 4 : 3,
+    usableH * Math.min(0.72, 0.45 * Math.max(1, ts)),
   );
   ctx.font = `${head.px}px "${FONT_FAMILY}"`;
   for (const l of head.lines) {
@@ -685,6 +750,18 @@ export async function renderEventPoster({
         : null;
     if (treatment === "natural")
       drawNatural(ctx, im, iX, iY, iW, iH, exp, src);
+    else if (treatment === "colourthrough")
+      drawColourThrough(
+        ctx,
+        im,
+        iX,
+        iY,
+        iW,
+        iH,
+        exp,
+        src,
+        mode === "negative" ? null : inkCss,
+      );
     else drawHalftone(ctx, im, iX, iY, iW, iH, dark, light, exp, src);
   };
   const list: PosterImage[] = (
@@ -737,12 +814,14 @@ export function frameAspect(
   size: PosterSize,
   hasDetail: boolean,
   hasPrice: boolean,
+  titleScale = 1,
 ): number {
   // Rough but stable: the text block eats a fairly predictable share of height.
   const S = SIZES[size] || SIZES.ig;
   const SB = scaleBaseFor(size, S.w, S.h);
   const m = Math.round(S.w * 0.037);
-  const head = SB * 0.135 * 1.05 + SB * 0.018;
+  const ts = Math.max(0.6, Math.min(1.6, titleScale || 1));
+  const head = SB * 0.135 * ts * 1.05 + SB * 0.018;
   const extra =
     (hasDetail ? SB * 0.044 + SB * 0.02 : 0) +
     (hasPrice ? SB * 0.058 + SB * 0.02 : 0) ||
