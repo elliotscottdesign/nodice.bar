@@ -404,6 +404,13 @@ export default function EventPosterStudio({
 
   const disabled = !hasPic || !!busy || fontOk === false;
 
+  // True when the active colour is one of the quick-pick swatches. When it isn't,
+  // it came from the RAL chart (or the custom picker), so the RAL pill shows that
+  // colour and reads as "active" — the quick-pick row has nothing to highlight.
+  const colourIsPalette = PALETTE.some(
+    (p) => p.hex.toLowerCase() === colour.toLowerCase(),
+  );
+
   return (
     <div className="space-y-4 rounded-xl border border-plonkTeal/25 bg-ink/30 p-4">
       <div className="flex flex-wrap items-baseline justify-between gap-2">
@@ -683,13 +690,24 @@ export default function EventPosterStudio({
               <button
                 type="button"
                 onClick={() => setShowRal((o) => !o)}
-                className={`${PILL} ${
+                className={`${PILL} inline-flex items-center gap-1.5 ${
                   showRal
                     ? "border-plonkPink bg-plonkPink/15 text-plonkPink"
-                    : "border-cream/20 text-cream/85 hover:bg-cream/5"
+                    : !colourIsPalette
+                      ? "border-cream/60 text-cream"
+                      : "border-cream/20 text-cream/85 hover:bg-cream/5"
                 }`}
               >
-                {showRal ? "Hide RAL" : `🎨 RAL chart (${RAL.length})`}
+                {/* Reflects the active colour, so a RAL pick shows on the pill. */}
+                <span
+                  className="h-3.5 w-3.5 shrink-0 rounded-full border border-cream/30"
+                  style={{ background: colour }}
+                />
+                {showRal
+                  ? "Hide RAL"
+                  : !colourIsPalette
+                    ? ralLabel(colour)
+                    : `RAL chart (${RAL.length})`}
               </button>
             </div>
             {showRal && (
@@ -711,7 +729,13 @@ export default function EventPosterStudio({
                       key={r.c}
                       type="button"
                       title={`RAL ${r.c} · ${r.n}`}
-                      onClick={() => setColour(r.hex)}
+                      // Picking a colour saves it and closes the chart. (The
+                      // chart deliberately does NOT close on an outside click, so
+                      // selecting is the way out.)
+                      onClick={() => {
+                        setColour(r.hex);
+                        setShowRal(false);
+                      }}
                       style={{ background: r.hex }}
                       className={`h-6 rounded ${
                         colour.toLowerCase() === r.hex.toLowerCase()
