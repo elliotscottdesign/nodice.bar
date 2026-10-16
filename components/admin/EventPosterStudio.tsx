@@ -23,6 +23,7 @@ import MediaPicker from "@/components/admin/MediaPicker";
 import Notice from "@/components/Notice";
 import { uploadImage } from "@/lib/db/media";
 import { RAL, ralLabel, ralSearch } from "@/lib/poster/ralColours";
+import { eventQrUrl } from "@/lib/poster/qr";
 import {
   PALETTE,
   canvasToBlob,
@@ -359,7 +360,9 @@ export default function EventPosterStudio({
   }
 
   // A3 is black-on-paper for the halftone; a real photo can't print as black
-  // ink, so Natural makes the A3 a full-colour poster instead.
+  // ink, so Natural makes the A3 a full-colour poster instead. "Whites to
+  // colour" stays on the negative — knocking the whites out is exactly how the
+  // coloured paper is meant to show through.
   const a3Mode = treatment === "natural" ? "colour" : "negative";
 
   async function exportFile(
@@ -415,6 +418,13 @@ export default function EventPosterStudio({
   }
 
   const disabled = !hasPic || !!busy || fontOk === false;
+
+  // True when the active colour is one of the quick-pick swatches. When it isn't,
+  // it came from the RAL chart (or the custom picker), so the RAL pill shows that
+  // colour and reads as "active" — the quick-pick row has nothing to highlight.
+  const colourIsPalette = PALETTE.some(
+    (p) => p.hex.toLowerCase() === colour.toLowerCase(),
+  );
 
   return (
     <div className="space-y-4 rounded-xl border border-plonkTeal/25 bg-ink/30 p-4">
@@ -502,6 +512,15 @@ export default function EventPosterStudio({
               Pick a picture below and the poster appears here.
             </div>
           )}
+          {/* Every poster carries a QR code in its top right corner — including
+              the A3 print, where it comes out in the same black ink. */}
+          <p className="mt-2 max-w-[236px] text-[10px] leading-relaxed text-cream/40">
+            The QR code top right opens{" "}
+            <span className="break-all text-cream/60">
+              {eventQrUrl(date).replace(/^https:\/\//, "")}
+            </span>{" "}
+            when it&apos;s scanned.
+          </p>
         </div>
 
         {/* ───── Controls ───── */}
@@ -614,9 +633,9 @@ export default function EventPosterStudio({
                       ["scatter", "Scatter", "The house grainy halftone look"],
                       ["natural", "Natural", "The real photo, not rasterised"],
                       [
-                        "colourthrough",
+                        "whites",
                         "Colour through",
-                        "Black-and-white photo — the white areas turn the poster colour",
+                        "Greyscale photo — anything white in it turns the poster colour",
                       ],
                     ] as [PosterTreatment, string, string][]
                   ).map(([k, label, hint]) => (
@@ -638,8 +657,8 @@ export default function EventPosterStudio({
                 <p className="text-[10px] leading-relaxed text-cream/40">
                   {treatment === "natural"
                     ? "The full photo — the A3 prints in colour, not black on coloured paper."
-                    : treatment === "colourthrough"
-                      ? "Black-and-white photo — anything white turns the poster colour. The Exposure dial sets how much colour comes through. The A3 prints onto coloured paper (the paper shows through the whites)."
+                    : treatment === "whites"
+                      ? "Greyscale photo — anything white turns the poster colour. The Exposure dial sets how much colour comes through. The A3 prints onto coloured paper."
                       : "Scatter halftone — the standard No Dice look. The A3 prints black on coloured paper."}
                 </p>
               </div>
@@ -686,13 +705,24 @@ export default function EventPosterStudio({
               <button
                 type="button"
                 onClick={() => setShowRal((o) => !o)}
-                className={`${PILL} ${
+                className={`${PILL} inline-flex items-center gap-1.5 ${
                   showRal
                     ? "border-plonkPink bg-plonkPink/15 text-plonkPink"
-                    : "border-cream/20 text-cream/85 hover:bg-cream/5"
+                    : !colourIsPalette
+                      ? "border-cream/60 text-cream"
+                      : "border-cream/20 text-cream/85 hover:bg-cream/5"
                 }`}
               >
-                {showRal ? "Hide RAL" : `🎨 RAL chart (${RAL.length})`}
+                {/* Reflects the active colour, so a RAL pick shows on the pill. */}
+                <span
+                  className="h-3.5 w-3.5 shrink-0 rounded-full border border-cream/30"
+                  style={{ background: colour }}
+                />
+                {showRal
+                  ? "Hide RAL"
+                  : !colourIsPalette
+                    ? ralLabel(colour)
+                    : `RAL chart (${RAL.length})`}
               </button>
             </div>
             {showRal && (
@@ -714,7 +744,13 @@ export default function EventPosterStudio({
                       key={r.c}
                       type="button"
                       title={`RAL ${r.c} · ${r.n}`}
-                      onClick={() => setColour(r.hex)}
+                      // Picking a colour saves it and closes the chart. (The
+                      // chart deliberately does NOT close on an outside click, so
+                      // selecting is the way out.)
+                      onClick={() => {
+                        setColour(r.hex);
+                        setShowRal(false);
+                      }}
                       style={{ background: r.hex }}
                       className={`h-6 rounded ${
                         colour.toLowerCase() === r.hex.toLowerCase()

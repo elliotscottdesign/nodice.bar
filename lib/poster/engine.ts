@@ -33,6 +33,8 @@
 // Same inputs always produce the same output — no randomness.
 // ─────────────────────────────────────────────────────────────────────────────
 
+import { qrMatrix, eventQrUrl } from "./qr";
+
 const FONT_FAMILY = "AmsiProCondUltra";
 
 // Static export can be served under a basePath (GitHub Pages), so the font URL
@@ -95,7 +97,11 @@ export const PALETTE: { name: string; hex: string }[] = [
 
 export type PosterSize = "ig" | "story" | "zine" | "a3";
 export type PosterMode = "colour" | "negative";
-export type PosterTreatment = "scatter" | "natural" | "colourthrough";
+// 'whites' = greyscale with the whites knocked out so the poster colour shows
+// through them (see drawWhitesToColour). Shown to the founder as "Colour
+// through" (matching the DJ poster maker's label) — never as "knockout" or
+// "alpha".
+export type PosterTreatment = "scatter" | "natural" | "whites";
 
 // NOTE (added for events): 'story' is the new size.
 //
@@ -232,18 +238,21 @@ function fitFont(
 // the headline wraps: it stays at the FULL display size and takes more lines,
 // and only shrinks once it would need more lines than it's allowed. A short name
 // still renders identically to the DJ poster — one line, 0.135 of the scale base.
-function wrapAt(
+
+// Greedy wrap where each line gets its OWN measure — the lines that run beside
+// the QR code have to stop short of it, the ones below it don't.
+function wrapVarying(
   ctx: CanvasRenderingContext2D,
   words: string[],
-  maxW: number,
   px: number,
+  widthFor: (lineIndex: number) => number,
 ): string[] {
   ctx.font = `${px}px "${FONT_FAMILY}"`;
   const lines: string[] = [];
   let cur = "";
   for (const w of words) {
     const next = cur ? `${cur} ${w}` : w;
-    if (cur && ctx.measureText(next).width > maxW) {
+    if (cur && ctx.measureText(next).width > widthFor(lines.length)) {
       lines.push(cur);
       cur = w;
     } else {
@@ -254,6 +263,8 @@ function wrapAt(
   return lines;
 }
 
+// `narrowW` / `narrowH`: a measure to use for however many leading lines fall
+// within `narrowH` of the block's top — i.e. the ones running beside the QR.
 function fitDisplayBlock(
   ctx: CanvasRenderingContext2D,
   text: string,
@@ -261,21 +272,28 @@ function fitDisplayBlock(
   targetPx: number,
   maxLines: number,
   maxBlockH: number,
+  narrowW = 0,
+  narrowH = 0,
 ): { px: number; lines: string[] } {
   const words = String(text || "").split(/\s+/).filter(Boolean);
   if (!words.length) return { px: targetPx, lines: [] };
   let px = targetPx;
   for (let guard = 0; guard < 60 && px > 8; guard++) {
-    const lines = wrapAt(ctx, words, maxW, px);
-    // A single word longer than the measure can't wrap — fitFont it instead.
-    const tooWide = lines.some((l) => ctx.measureText(l).width > maxW);
-    const blockH = lines.length * px * 1.05;
+    const lineH = px * 1.05;
+    const widthFor = (i: number) =>
+      narrowW > 0 && i * lineH < narrowH ? narrowW : maxW;
+    const lines = wrapVarying(ctx, words, px, widthFor);
+    // A single word longer than its measure can't wrap — fitFont it instead.
+    const tooWide = lines.some(
+      (l, i) => ctx.measureText(l).width > widthFor(i),
+    );
+    const blockH = lines.length * lineH;
     if (!tooWide && lines.length <= maxLines && blockH <= maxBlockH) {
       return { px, lines };
     }
     px -= Math.max(2, px * 0.04);
   }
-  const px2 = fitFont(ctx, words.join(" "), maxW, targetPx);
+  const px2 = fitFont(ctx, words.join(" "), narrowW || maxW, targetPx);
   return { px: px2, lines: [words.join(" ")] };
 }
 
@@ -505,6 +523,66 @@ function drawHalftone(
   ctx.imageSmoothingEnabled = true;
 }
 
+// Third treatment: greyscale with the whites knocked out to alpha, laid over the
+// poster's colour — so white areas of the photo become the poster colour and
+// darks stay dark. Between the Scatter halftone and the untouched photo.
+//
+// THE ALGORITHM IS FIXED. The same treatment exists in the team hub's DJ poster
+// maker and the two have to come out identical, so per pixel it is exactly:
+//
+//   lum   = 0.299*R + 0.587*G + 0.114*B      (Rec. 601, as the hub already uses)
+//   R=G=B = lum                              (greyscale)
+//   alpha = (255 - lum) * (srcAlpha / 255)   (white → clear, black → solid, and
+//                                             a transparent source stays clear)
+//
+// Exposure is applied to the luminance BEFORE the alpha is derived, so the dial
+// moves how much colour comes through — which is the control that's actually
+// reached for here. No autocontrast: the halftone's 1% stretch would change the
+// look and the hub's version doesn't do it either.
+function drawWhitesToColour(
+  ctx: CanvasRenderingContext2D,
+  img: HTMLImageElement,
+  dx: number,
+  dy: number,
+  dw: number,
+  dh: number,
+  colour: RGB,
+  exposure: number,
+  mode: PosterMode,
+  src?: SrcRect | null,
+): void {
+  const { sx, sy, sw, sh } = src || smartCrop(img, dw / dh);
+  // On screen the whites show the poster colour; on the A3 negative there is no
+  // colour to lay down — the coloured PAPER is what shows through instead.
+  if (mode !== "negative") {
+    ctx.fillStyle = `rgb(${colour[0]},${colour[1]},${colour[2]})`;
+    ctx.fillRect(dx, dy, dw, dh);
+  }
+  // Work at the smaller of the frame and the source crop: processing above the
+  // photo's own resolution adds no detail and would mean a 9-megapixel
+  // getImageData on the A3.
+  const pw = Math.max(1, Math.min(Math.round(dw), sw));
+  const ph = Math.max(1, Math.min(Math.round(dh), sh));
+  const c = document.createElement("canvas");
+  c.width = pw;
+  c.height = ph;
+  const cx = c.getContext("2d")!;
+  cx.drawImage(img, sx, sy, sw, sh, 0, 0, pw, ph);
+  const id = cx.getImageData(0, 0, pw, ph);
+  const px = id.data;
+  for (let i = 0; i < px.length; i += 4) {
+    let lum = 0.299 * px[i] + 0.587 * px[i + 1] + 0.114 * px[i + 2];
+    lum *= exposure;
+    lum = lum < 0 ? 0 : lum > 255 ? 255 : lum;
+    px[i] = px[i + 1] = px[i + 2] = lum;
+    px[i + 3] = ((255 - lum) * px[i + 3]) / 255;
+  }
+  cx.putImageData(id, 0, 0);
+  // drawImage (not putImageData) so the result COMPOSITES over the colour laid
+  // down above — putImageData would overwrite it and the whites would go black.
+  ctx.drawImage(c, 0, 0, pw, ph, dx, dy, dw, dh);
+}
+
 // Draw the photo "natural" (not rasterised): the real image, cover-fitted into
 // the frame, with exposure applied as brightness.
 function drawNatural(
@@ -528,57 +606,6 @@ function drawNatural(
   ctx.filter = prev || "none";
 }
 
-// Greyscale photo with the whites knocked out so the poster colour floods
-// through. PORTED from the DJ engine (src/dj/poster.js — commit "Colour through")
-// and kept byte-identical; mirror any change there.
-//   lum   = 0.299R + 0.587G + 0.114B    (exposure applied BEFORE the alpha, so the
-//                                         exposure dial sets how much colour comes through)
-//   R=G=B = lum                         (greyscale)
-//   alpha = (255 - lum) * srcAlpha/255  (white → clear, black → solid; an already
-//                                         transparent source pixel stays transparent)
-// `under` is the poster colour painted behind it. In negative/mono mode it's
-// null — the file stays transparent and the coloured PAPER shows through the
-// whites instead (so the A3 prints onto coloured stock).
-function drawColourThrough(
-  ctx: CanvasRenderingContext2D,
-  img: HTMLImageElement,
-  dx: number,
-  dy: number,
-  dw: number,
-  dh: number,
-  exposure: number,
-  src?: SrcRect | null,
-  under?: string | null,
-): void {
-  const { sx, sy, sw, sh } = src || smartCrop(img, dw / dh);
-  if (under) {
-    ctx.fillStyle = under;
-    ctx.fillRect(dx, dy, dw, dh);
-  }
-  // Work at the source resolution, capped to the frame — keeps the A3 sharp
-  // without a 17-megapixel pass.
-  const ww = Math.max(1, Math.min(sw, Math.round(dw)));
-  const wh = Math.max(1, Math.round(sh * (ww / sw)));
-  const c = document.createElement("canvas");
-  c.width = ww;
-  c.height = wh;
-  const cx = c.getContext("2d")!;
-  cx.drawImage(img, sx, sy, sw, sh, 0, 0, ww, wh);
-  const id = cx.getImageData(0, 0, ww, wh),
-    px = id.data;
-  const e = exposure || 1;
-  for (let i = 0; i < px.length; i += 4) {
-    let lum = (0.299 * px[i] + 0.587 * px[i + 1] + 0.114 * px[i + 2]) * e;
-    lum = lum < 0 ? 0 : lum > 255 ? 255 : lum;
-    px[i] = lum;
-    px[i + 1] = lum;
-    px[i + 2] = lum;
-    px[i + 3] = ((255 - lum) * px[i + 3]) / 255;
-  }
-  cx.putImageData(id, 0, 0);
-  ctx.drawImage(c, 0, 0, ww, wh, dx, dy, dw, dh);
-}
-
 export type PosterImage = {
   img: HTMLImageElement;
   exposure?: number;
@@ -592,6 +619,13 @@ export type EventPosterInput = {
   name: string;
   /** Event date, YYYY-MM-DD. Prints as "18.10" in the NO DICE line. */
   date: string;
+  /**
+   * Recurring deals repeat across many dated rows, so a single date in the NO
+   * DICE line would be wrong on all but one. Pass a day label (e.g. "TUESDAYS")
+   * and the line shows that instead of the date — "NO DICE - TUESDAYS / 7-10PM".
+   * Left out, the line shows the date as before (every non-deal poster).
+   */
+  dayLabel?: string | null;
   /** Start / end time, HH:MM. Print as "7-11PM" in the NO DICE line. */
   start?: string | null;
   end?: string | null;
@@ -615,15 +649,22 @@ export type EventPosterInput = {
   img?: HTMLImageElement | null;
   exposure?: number;
   imgs?: PosterImage[] | null;
+  /**
+   * What the QR code in the top-right corner points at. Left out, it's the
+   * calendar link for this event's date. Pass "" for no QR at all.
+   */
+  qrUrl?: string;
 };
 
 // Render to a canvas. Images are pre-loaded HTMLImageElements (see loadImage).
-//   treatment: 'scatter' = Scatter halftone (default) | 'natural' = the real photo.
+//   treatment: 'scatter' = Scatter halftone (default) | 'natural' = the real photo
+//              | 'whites' = greyscale with the whites showing the poster colour.
 //   imgs: optional array of { img, exposure } — one entry = single image,
 //         two entries = a split of two portrait columns with a gap.
 export async function renderEventPoster({
   name,
   date,
+  dayLabel,
   start,
   end,
   detail,
@@ -636,6 +677,7 @@ export async function renderEventPoster({
   titleScale = 1,
   img,
   imgs = null,
+  qrUrl,
 }: EventPosterInput): Promise<HTMLCanvasElement> {
   await ensureFont();
   const S = SIZES[size] || SIZES.ig;
@@ -677,11 +719,38 @@ export async function renderEventPoster({
     y += asc + desc + Math.round(SB * extra);
   };
 
+  // ── QR code, top right ────────────────────────────────────────────────────
+  // Scans through to the event on the calendar. Measured out BEFORE the
+  // headline so the headline knows to stop short of it.
+  const link = qrUrl === undefined ? eventQrUrl(date) : qrUrl;
+  let qrDrawn = 0;
+  let qrModules: boolean[][] | null = null;
+  let qrModulePx = 0;
+  if (link) {
+    try {
+      qrModules = qrMatrix(link);
+      const QUIET = 4; // modules of clear space the spec wants around the code
+      const units = qrModules.length + QUIET * 2;
+      // Whole-pixel modules only: a fractional module size gives soft edges and
+      // soft edges are what stops a phone locking on.
+      qrModulePx = Math.max(1, Math.floor((W * 0.155) / units));
+      qrDrawn = qrModulePx * units;
+    } catch {
+      // Too long to encode — carry on without one rather than lose the poster.
+      qrModules = null;
+      qrDrawn = 0;
+    }
+  }
+  const qrX = x1 - qrDrawn;
+  const qrY = y;
+  const qrGap = Math.round(W * 0.02);
+
   // Headline. Same 0.135 scale and 0.018 trailing gap as the DJ name, but it may
-  // take up to 3 lines (see fitDisplayBlock). titleScale (default 1) is the
-  // founder's size dial: at 1 this is byte-identical to the DJ poster; >1 grows
-  // the headline (and allows a 4th line + more block height, so it visibly gets
-  // bigger and the photo below it shrinks); <1 shrinks it, giving the photo room.
+  // take up to 3 lines (see fitDisplayBlock), and the lines level with the QR
+  // code stop short of it. titleScale (default 1) is the founder's size dial: at
+  // 1 this is byte-identical to the DJ poster; >1 grows the headline (and allows
+  // a 4th line + more block height, so it visibly gets bigger and the photo
+  // below it shrinks); <1 shrinks it, giving the photo room.
   const ts = Math.max(0.6, Math.min(1.6, titleScale || 1));
   const usableH = H - S.safeTop - S.safeBottom - 2 * m;
   const head = fitDisplayBlock(
@@ -691,6 +760,8 @@ export async function renderEventPoster({
     Math.round(SB * 0.135 * ts),
     ts > 1 ? 4 : 3,
     usableH * Math.min(0.72, 0.45 * Math.max(1, ts)),
+    qrDrawn ? qrX - qrGap - x0 : 0,
+    qrDrawn ? qrDrawn + qrGap : 0,
   );
   ctx.font = `${head.px}px "${FONT_FAMILY}"`;
   for (const l of head.lines) {
@@ -715,7 +786,9 @@ export async function renderEventPoster({
   const imgTop = y;
 
   const timeStr = fmtTime(start, end);
-  const bottom = `NO DICE - ${fmtDate(date)}${timeStr ? ` / ${timeStr}` : ""}`;
+  // A recurring deal shows its day ("TUESDAYS"); everything else shows the date.
+  const when = (dayLabel || "").trim() || fmtDate(date);
+  const bottom = `NO DICE - ${when}${timeStr ? ` / ${timeStr}` : ""}`;
   fitFont(ctx, bottom, x1 - x0, Math.round(SB * 0.09));
   const bm = ctx.measureText(bottom);
   const basc = bm.actualBoundingBoxAscent,
@@ -750,18 +823,8 @@ export async function renderEventPoster({
         : null;
     if (treatment === "natural")
       drawNatural(ctx, im, iX, iY, iW, iH, exp, src);
-    else if (treatment === "colourthrough")
-      drawColourThrough(
-        ctx,
-        im,
-        iX,
-        iY,
-        iW,
-        iH,
-        exp,
-        src,
-        mode === "negative" ? null : inkCss,
-      );
+    else if (treatment === "whites")
+      drawWhitesToColour(ctx, im, iX, iY, iW, iH, C, exp, mode, src);
     else drawHalftone(ctx, im, iX, iY, iW, iH, dark, light, exp, src);
   };
   const list: PosterImage[] = (
@@ -805,6 +868,30 @@ export async function renderEventPoster({
   ctx.fillStyle = inkCss;
   ctx.font = `${fitFont(ctx, bottom, x1 - x0, Math.round(SB * 0.09))}px "${FONT_FAMILY}"`;
   ctx.fillText(bottom, x0, imgBottom + basc);
+
+  // Draw the QR last so nothing can land on top of it.
+  //   screen  — the poster colour behind it, black modules on top. The poster's
+  //             own background is black, so the code needs its own light bed or
+  //             there's no contrast to read and the quiet zone disappears.
+  //   A3 print — no bed: the knocked-out background IS the coloured paper, and
+  //             the modules print in the same black ink as the rest.
+  if (qrModules) {
+    const QUIET = 4;
+    if (mode !== "negative") {
+      ctx.fillStyle = `rgb(${C[0]},${C[1]},${C[2]})`;
+      ctx.fillRect(qrX, qrY, qrDrawn, qrDrawn);
+    }
+    ctx.fillStyle = "#000";
+    for (let r = 0; r < qrModules.length; r++)
+      for (let c = 0; c < qrModules.length; c++)
+        if (qrModules[r][c])
+          ctx.fillRect(
+            qrX + (c + QUIET) * qrModulePx,
+            qrY + (r + QUIET) * qrModulePx,
+            qrModulePx,
+            qrModulePx,
+          );
+  }
   return cv;
 }
 

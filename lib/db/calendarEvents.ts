@@ -52,6 +52,22 @@ export const EVENT_TYPES = [
   "Special Event",
 ] as const;
 
+// A drinks DEAL — category drink_special OR a "Deals" calendar chip. Its poster
+// is built page-shaped so it fills the team-hub drinks zine's front cover (the
+// zine pulls the deal event's poster_url). Matches the zine edge function's own
+// "deal" test. Lives here, next to EVENT_TYPES, because BOTH admin tabs build
+// deal posters and each needs the same answer.
+export function isDealEvent(
+  category: string | null | undefined,
+  subcategory: string | null | undefined,
+): boolean {
+  const subs = (subcategory ?? "")
+    .split(",")
+    .map((x) => x.trim())
+    .filter(Boolean);
+  return category === "drink_special" || subs.includes("Deals");
+}
+
 // Fallback poster shown on the PUBLIC calendar when an event has no artwork of
 // its own — keyed by category, so a customer never sees a blank tile (e.g. a
 // recurring pool night nobody added art to). The admin still shows the real

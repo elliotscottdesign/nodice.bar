@@ -12,6 +12,7 @@ import {
   deleteCalendarEvent,
   setPosterForEvents,
   EVENT_TYPES,
+  isDealEvent,
   type DbCalendarEvent,
   type NewCalendarEvent,
 } from "@/lib/db/calendarEvents";
@@ -405,6 +406,9 @@ export default function CalendarEventsAdminClient() {
               start={draft.start_time}
               description={draft.body}
               currentPosterUrl={draft.image_url || null}
+              // A "Deals"-chipped event builds its poster page-shaped for the
+              // drinks zine cover, same as the ticketed tab does.
+              isDeal={isDealEvent(null, draft.subcategory)}
               saveLabel={
                 draft.id ? "Save onto this event" : "Use as this event's artwork"
               }
