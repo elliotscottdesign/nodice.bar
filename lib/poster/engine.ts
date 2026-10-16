@@ -618,6 +618,13 @@ export type EventPosterInput = {
   name: string;
   /** Event date, YYYY-MM-DD. Prints as "18.10" in the NO DICE line. */
   date: string;
+  /**
+   * Recurring deals repeat across many dated rows, so a single date in the NO
+   * DICE line would be wrong on all but one. Pass a day label (e.g. "TUESDAYS")
+   * and the line shows that instead of the date — "NO DICE - TUESDAYS / 7-10PM".
+   * Left out, the line shows the date as before (every non-deal poster).
+   */
+  dayLabel?: string | null;
   /** Start / end time, HH:MM. Print as "7-11PM" in the NO DICE line. */
   start?: string | null;
   end?: string | null;
@@ -647,6 +654,7 @@ export type EventPosterInput = {
 export async function renderEventPoster({
   name,
   date,
+  dayLabel,
   start,
   end,
   detail,
@@ -763,7 +771,9 @@ export async function renderEventPoster({
   const imgTop = y;
 
   const timeStr = fmtTime(start, end);
-  const bottom = `NO DICE - ${fmtDate(date)}${timeStr ? ` / ${timeStr}` : ""}`;
+  // A recurring deal shows its day ("TUESDAYS"); everything else shows the date.
+  const when = (dayLabel || "").trim() || fmtDate(date);
+  const bottom = `NO DICE - ${when}${timeStr ? ` / ${timeStr}` : ""}`;
   fitFont(ctx, bottom, x1 - x0, Math.round(SB * 0.09));
   const bm = ctx.measureText(bottom);
   const basc = bm.actualBoundingBoxAscent,
