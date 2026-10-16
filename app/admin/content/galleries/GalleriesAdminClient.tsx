@@ -224,6 +224,13 @@ const KNOWN_GALLERIES: {
     previewPath: "/parties",
   },
   {
+    key: "parties.kids",
+    label: "Parties — Kids party scroller",
+    description:
+      "Full-width photo scroller at the top of the Kids parties tab on /parties. Upload landscape shots of kids' parties. Shows blank placeholders until you add photos.",
+    previewPath: "/parties",
+  },
+  {
     key: "xmas.menu",
     label: "Xmas — Festive menu scroller",
     description:

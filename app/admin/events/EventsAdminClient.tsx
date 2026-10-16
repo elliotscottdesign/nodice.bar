@@ -1402,14 +1402,13 @@ function EditEventModal({
   return createPortal(
     <div
       className="fixed inset-0 z-[120] flex items-start justify-center overflow-y-auto bg-ink/85 p-4 sm:p-8"
-      // Only close on a click of the backdrop ITSELF. The MediaPicker
-      // (poster artwork) portals to document.body but is a React child
-      // of this backdrop, so its click events bubble up the React tree
-      // to here — without this guard, picking/uploading artwork fired
-      // onClose, closing the edit modal and discarding the chosen image.
-      onClick={(e) => {
-        if (e.target === e.currentTarget) onClose();
-      }}
+      // No click-off. This modal holds a whole unsaved event (name, times,
+      // prices, poster artwork), so the backdrop deliberately has NO
+      // onClick. It used to close on an outside click, which threw the
+      // work away — and because the MediaPicker portals to document.body
+      // while staying a React child of this backdrop, its clicks bubbled
+      // up here too and closed the editor mid-upload. Close with Cancel,
+      // or by saving.
     >
       <div
         className="w-full max-w-2xl rounded-2xl border border-plonkTeal/40 bg-ink shadow-2xl"

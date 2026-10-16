@@ -107,8 +107,23 @@ function computePricingContext(
   };
 }
 
+// A bundle whose ONLY available day is Tuesday is the "Drink, Golf & Game"
+// Tuesday special — that's the one that earns the "Tuesday special" badge.
+// Other bundles (everyday "Golf + 4 Tokens", weekend "Hackney Fun Club") are
+// still bundles for PRICING (fixed price, exempt from happy-hour / BOGOF) but
+// must not wear the Tuesday label on days they're not tied to.
+function isTuesdayBundle(ticket: Ticket): boolean {
+  return (
+    ticket.kind === "bundle" &&
+    Array.isArray(ticket.availableDaysOfWeek) &&
+    ticket.availableDaysOfWeek.length === 1 &&
+    ticket.availableDaysOfWeek[0] === 2
+  );
+}
+
 // Returns the effective unit price for a ticket given context.
-// Bundle (Tuesday special) and add-ons are not affected by happy hour / BOGOF.
+// Bundles (Tuesday special, token bundle, etc.) and add-ons are not affected
+// by happy hour / BOGOF.
 function effectiveUnitPrice(ticket: Ticket, ctx: PricingContext): number {
   if (ticket.kind === "bundle") return ticket.pricePence;
   if (ctx.happyHour) return 500; // £5 happy-hour price
@@ -615,7 +630,7 @@ export default function BookingFlow({
                       <div className="min-w-0">
                         <div className="flex flex-wrap items-center gap-2">
                           <p className="font-medium">{t.name}</p>
-                          {t.kind === "bundle" && (
+                          {isTuesdayBundle(t) && (
                             <span className="rounded-full bg-plonkYellow/15 px-2 py-0.5 text-[10px] font-bold uppercase tracking-widest text-plonkYellow">
                               Tuesday special
                             </span>

@@ -18,16 +18,30 @@ const PAGES: { label: string; href: string; description: string; group: string }
     description: "Title, intro, body copy, hero image for /venue/hackney.",
   },
   {
-    group: "Private hire",
-    label: "Private hire — overview",
+    group: "Parties",
+    label: "Parties — overview",
     href: "/admin/content/privatehire",
-    description: "Headline + body for /privatehire.",
+    description: "Headline + body for the Parties page (/parties).",
   },
   {
-    group: "Private hire",
-    label: "Private hire — Hackney",
+    group: "Parties",
+    label: "Parties — Hackney",
     href: "/admin/content/privatehire/hackney",
-    description: "Headline + body for /privatehire/hackney.",
+    description: "Headline + body for /parties/hackney.",
+  },
+  {
+    group: "Parties",
+    label: "Xmas package builder ↗",
+    href: "https://team.nodice.bar/ops?tab=xmas-packages",
+    description:
+      "Drinks, entertainment + info notes on the Xmas party builder — edited in the team hub (Office → Xmas Packages). Food is set in On A Roll. Scroller photos live under Galleries.",
+  },
+  {
+    group: "Parties",
+    label: "Kids party builder ↗",
+    href: "https://team.nodice.bar/ops?tab=kids-packages",
+    description:
+      "Games, drinks + food on the kids-party builder — edited in the team hub (Office → Kids Party). Scroller photos live under Galleries.",
   },
 
   // ──────────────────────────────────────────────────────────────
@@ -57,10 +71,10 @@ const PAGES: { label: string; href: string; description: string; group: string }
   },
   {
     group: "Nav pages",
-    label: "World Cup",
-    href: "/admin/content/info/worldcup",
+    label: "Bingo",
+    href: "/admin/content/info/bingo",
     description:
-      "Hero and copy on /worldcup. Match fixtures live in /admin/events (category 'World Cup — Match').",
+      "Comedy & Bingo night on /bingo — edit the copy in place on the live page. Header + photo-slider images live under Galleries ('hero.bingo' / 'bingo.gallery').",
   },
   {
     group: "Nav pages",
@@ -160,7 +174,7 @@ const PAGES: { label: string; href: string; description: string; group: string }
   },
 ];
 
-const GROUPS = ["Marketing", "Nav pages", "Private hire", "Info pages", "Seasonal", "Media", "Site-wide"];
+const GROUPS = ["Marketing", "Nav pages", "Parties", "Info pages", "Seasonal", "Media", "Site-wide"];
 
 export default function ContentLandingPage() {
   return (
@@ -179,18 +193,36 @@ export default function ContentLandingPage() {
                 {g}
               </h2>
               <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
-                {items.map((item) => (
-                  <Link
-                    key={item.href}
-                    href={item.href}
-                    className="block rounded-2xl border border-cream/10 bg-ink/40 p-5 transition hover:border-plonkPink/60 hover:bg-cream/5"
-                  >
-                    <p className="font-display text-lg">{item.label}</p>
-                    <p className="mt-1 text-xs text-cream/60">
-                      {item.description}
-                    </p>
-                  </Link>
-                ))}
+                {items.map((item) => {
+                  const external = item.href.startsWith("http");
+                  const cardClass =
+                    "block rounded-2xl border border-cream/10 bg-ink/40 p-5 transition hover:border-plonkPink/60 hover:bg-cream/5";
+                  const inner = (
+                    <>
+                      <p className="font-display text-lg">{item.label}</p>
+                      <p className="mt-1 text-xs text-cream/60">
+                        {item.description}
+                      </p>
+                    </>
+                  );
+                  // External (team-hub) editors open in a new tab; internal
+                  // content pages use Next client navigation.
+                  return external ? (
+                    <a
+                      key={item.href}
+                      href={item.href}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className={cardClass}
+                    >
+                      {inner}
+                    </a>
+                  ) : (
+                    <Link key={item.href} href={item.href} className={cardClass}>
+                      {inner}
+                    </Link>
+                  );
+                })}
               </div>
             </section>
           );

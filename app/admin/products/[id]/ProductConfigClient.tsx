@@ -748,8 +748,10 @@ function PriceWindowAddModal({
 
   return (
     <div
+      // No click-off. This form holds unsaved typing, so the backdrop
+      // deliberately has NO onClick — it used to call onCancel and throw
+      // the work away. Close with the X / Cancel, or by saving.
       className="fixed inset-0 z-50 flex items-end justify-center bg-ink/80 p-3 sm:items-center sm:p-6"
-      onClick={onCancel}
     >
       <div
         className="w-full max-w-lg rounded-2xl border border-plonkTeal/40 bg-ink p-6 shadow-2xl"
@@ -1003,8 +1005,10 @@ function OverrideAddModal({
 
   return (
     <div
+      // No click-off. This form holds unsaved typing, so the backdrop
+      // deliberately has NO onClick — it used to call onCancel and throw
+      // the work away. Close with the X / Cancel, or by saving.
       className="fixed inset-0 z-50 flex items-end justify-center bg-ink/80 p-3 sm:items-center sm:p-6"
-      onClick={onCancel}
     >
       <div
         className="w-full max-w-md rounded-2xl border border-plonkTeal/40 bg-ink p-6 shadow-2xl"

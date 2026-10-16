@@ -598,6 +598,7 @@ export default function PrivateHirePage() {
           blankLabel="Kids party photo"
           aspect="16 / 9"
           blankCount={6}
+          fade={false}
         />
         <section className="px-6 py-10">
           <div className="mx-auto max-w-3xl">

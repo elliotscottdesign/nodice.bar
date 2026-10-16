@@ -43,6 +43,7 @@ export default function RollerDeck({
   ariaLabel,
   className,
   center,
+  fade = true,
 }: {
   children: React.ReactNode;
   /** Optional aria-label for the scroll region (e.g. "Upcoming matches"). */
@@ -53,6 +54,9 @@ export default function RollerDeck({
   /** Centre the cards when they fit (e.g. a single date), falling back to
    *  start alignment — no clipping — once they overflow and scroll. */
   center?: boolean;
+  /** Edge-fade gradients fade cards into a BLACK page. Set false on a
+   *  coloured/gradient background where the black fade would show as a band. */
+  fade?: boolean;
 }) {
   const railRef = useRef<HTMLDivElement | null>(null);
   const [canLeft, setCanLeft] = useState(false);
@@ -98,6 +102,7 @@ export default function RollerDeck({
       {/* Edge-fade gradients sit at the RAIL edges (inset by the arrow
           gutter on sm+) so they fade the cards near the arrows, not the
           empty gutter. pointer-events: none so they never block a tap. */}
+      {fade && (<>
       <div
         aria-hidden
         className="pointer-events-none absolute left-0 top-0 z-10 h-full w-8 bg-gradient-to-r from-ink to-transparent sm:left-14"
@@ -106,6 +111,7 @@ export default function RollerDeck({
         aria-hidden
         className="pointer-events-none absolute right-0 top-0 z-10 h-full w-8 bg-gradient-to-l from-ink to-transparent sm:right-14"
       />
+      </>)}
 
       {/* Arrow buttons — hidden on mobile (touch swipe is intuitive),
           shown sm+. They sit in the reserved side gutter (the sm:px-14
