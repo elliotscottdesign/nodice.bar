@@ -630,14 +630,17 @@ function AddonSheet({ item, onClose, onAdd }: { item: Item; onClose: () => void;
       <div onClick={(e) => e.stopPropagation()} style={{ background: CREAM, width: "100%", maxWidth: 560, borderRadius: "18px 18px 0 0", padding: "18px 16px 20px", maxHeight: "82vh", overflowY: "auto" }}>
         <div style={{ fontFamily: HEAVY, fontSize: 24, color: INK }}>{item.name}</div>
         {item.desc && <div style={{ fontSize: 13, color: MUTED, margin: "3px 0 12px", lineHeight: 1.4 }}>{item.desc}</div>}
-        <div style={{ fontSize: 12.5, color: MUTED, textTransform: "uppercase", letterSpacing: "0.06em", marginBottom: 8 }}>Add extras</div>
+        <div style={{ fontSize: 12.5, color: MUTED, textTransform: "uppercase", letterSpacing: "0.06em", marginBottom: 8 }}>Tap to add extras</div>
         {addons.map((a) => {
           const on = sel.has(a.id);
           return (
             <button key={a.id} onClick={() => setSel((s) => { const n = new Set(s); n.has(a.id) ? n.delete(a.id) : n.add(a.id); return n; })}
-              style={{ display: "flex", justifyContent: "space-between", width: "100%", padding: "11px 13px", borderRadius: 10, marginBottom: 8, cursor: "pointer",
-                border: `2px solid ${on ? RED : LINE}`, background: on ? "#fff" : "transparent", fontSize: 15, fontWeight: 700, color: INK }}>
-              <span>{on ? "✓ " : ""}{a.name}</span><span style={{ color: RED }}>+{gbp(a.price_pence)}</span>
+              style={{ display: "flex", alignItems: "center", gap: 11, width: "100%", textAlign: "left", padding: "13px 14px", borderRadius: 12, marginBottom: 9, cursor: "pointer",
+                border: `2px solid ${on ? RED : BLUE}`, background: on ? "rgba(224,35,27,0.07)" : "#fff", fontSize: 15.5, fontWeight: 700, color: INK, boxShadow: on ? "none" : "0 1px 4px rgba(21,48,92,0.12)" }}>
+              <span aria-hidden style={{ flexShrink: 0, width: 26, height: 26, borderRadius: 8, display: "flex", alignItems: "center", justifyContent: "center", fontSize: 17, fontWeight: 800, lineHeight: 1,
+                border: `2px solid ${on ? RED : BLUE}`, background: on ? RED : "#fff", color: on ? "#fff" : BLUE }}>{on ? "✓" : "+"}</span>
+              <span style={{ flex: 1, minWidth: 0 }}>{a.name}</span>
+              <span style={{ color: RED, fontWeight: 800, whiteSpace: "nowrap" }}>+{gbp(a.price_pence)}</span>
             </button>
           );
         })}
