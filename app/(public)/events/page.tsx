@@ -229,6 +229,7 @@ function isoFor(year: number, month: number, day: number): string {
 function buildMonthGrid(
   year: number,
   month: number,
+  skipBeforeDay?: number,
 ): (number | null)[] {
   const firstDow = (new Date(year, month, 1).getDay() + 6) % 7; // 0 = Mon
   const daysInMonth = new Date(year, month + 1, 0).getDate();
@@ -236,6 +237,23 @@ function buildMonthGrid(
   for (let i = 0; i < firstDow; i++) cells.push(null);
   for (let d = 1; d <= daysInMonth; d++) cells.push(d);
   while (cells.length % 7 !== 0) cells.push(null);
+  // Collapse fully-past weeks (founder, Oct 2026): for the CURRENT month,
+  // drop any leading Mon-Sun week whose days are all before today, so the
+  // calendar opens on the current week instead of making you scroll down
+  // past the empty past weeks. The week containing today stays.
+  if (skipBeforeDay != null) {
+    let start = 0;
+    while (start + 7 <= cells.length) {
+      const week = cells.slice(start, start + 7);
+      const lastDay = week.reduce<number>(
+        (m, c) => (c != null && c > m ? c : m),
+        0,
+      );
+      if (lastDay > 0 && lastDay < skipBeforeDay) start += 7;
+      else break;
+    }
+    return cells.slice(start);
+  }
   return cells;
 }
 
@@ -359,8 +377,15 @@ export default function EventsPage() {
   }, [active.year, active.month]);
 
   const grid = useMemo(
-    () => buildMonthGrid(active.year, active.month),
-    [active.year, active.month],
+    () =>
+      buildMonthGrid(
+        active.year,
+        active.month,
+        active.year === today.year && active.month === today.month
+          ? today.day
+          : undefined,
+      ),
+    [active.year, active.month, today.year, today.month, today.day],
   );
 
   // Index events by day-of-month for fast cell lookup. Multiple
