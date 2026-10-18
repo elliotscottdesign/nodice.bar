@@ -32,7 +32,12 @@ import type { DbTournament } from "@/lib/db/tournaments";
 // headings and the bar-sponsored prizes. Checked at 375px + 1280px.
 // =============================================================
 
-const HERO_FALLBACK = "/bingo-header.jpg";
+// No baked-in fallback image. The hero is driven by the admin Galleries
+// → "hero.bingo" upload (the founder's pink header). While that loads we
+// show the plain hero background, NOT the old black/red word-stamped
+// placeholder, which used to flash in behind the title on every load
+// (founder, 18 Oct 2026 — "didn't want the old one coming up as it loads").
+const HERO_FALLBACK = "";
 
 // Bar-sponsored prizes (founder, 11 Oct 2026) — free to play, bar puts up
 // the pot so it isn't gambling.
