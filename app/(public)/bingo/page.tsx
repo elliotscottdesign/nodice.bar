@@ -43,21 +43,21 @@ const PRIZES: Array<{ label: string; amount: string }> = [
   { label: "Full house — BINGO!", amount: "£40" },
 ];
 
-// The shape of the evening (founder, 11 Oct 2026): alternating comedy
-// sets and bingo rounds, building to the headline act. 15-minute slots
-// from the 7pm start; comedian/host names get added to each slot later.
+// The shape of the evening (founder, 18 Oct 2026): two comics, a round of
+// bingo, a break — twice — then the headline set. Times are a guide from the
+// 7:30 start; comedian/host names get added to each comic slot later.
 const RUN_ORDER: Array<{
   label: string;
   kind: "comedy" | "bingo" | "break";
   time: string;
 }> = [
-  { label: "Warm-up comedy set", kind: "comedy", time: "7:30 – 7:45pm" },
-  { label: "Bingo round", kind: "bingo", time: "7:45 – 8:00pm" },
-  { label: "Break", kind: "break", time: "8:00 – 8:15pm" },
-  { label: "Comedy set", kind: "comedy", time: "8:15 – 8:30pm" },
-  { label: "Bingo round", kind: "bingo", time: "8:30 – 8:45pm" },
-  { label: "Break", kind: "break", time: "8:45 – 9:00pm" },
-  { label: "Main comedy set", kind: "comedy", time: "9:00 – 9:15pm" },
+  { label: "Two comics", kind: "comedy", time: "7:30 – 8:00pm" },
+  { label: "Round of bingo", kind: "bingo", time: "8:00 – 8:15pm" },
+  { label: "Break", kind: "break", time: "8:15 – 8:30pm" },
+  { label: "Two comics", kind: "comedy", time: "8:30 – 9:00pm" },
+  { label: "Round of bingo", kind: "bingo", time: "9:00 – 9:15pm" },
+  { label: "Break", kind: "break", time: "9:15 – 9:30pm" },
+  { label: "Headline set", kind: "comedy", time: "9:30 – 10:00pm" },
 ];
 
 export default function BingoPage() {
