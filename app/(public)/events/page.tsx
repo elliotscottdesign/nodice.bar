@@ -769,20 +769,11 @@ export default function EventsPage() {
           came for the calendar. */}
       <RecordStores />
 
-      {/* Live @nodice.bar feed under the calendar. Same Behold widget
-          as the homepage; copy is independently editable via its own
-          CMS keys so the wording can vary between pages. */}
-      <InstagramFeed
-        eyebrowKey="events.instagram.eyebrow"
-        eyebrowFallback="@nodice.bar"
-        headingKey="events.instagram.heading"
-        headingFallback="What's been going on."
-      />
-
-      {/* Open call — end-of-page CTA so any DJ can put themselves forward to play.
-          The DJ portal lives on the team hub, so this links out to
-          team.nodice.bar/dj/join (a code-gated profile form, not a booking). */}
-      <section className="px-6 pb-20 pt-4">
+      {/* Open call — put yourself forward to play. Moved to sit directly below
+          Record Stores (founder, 18 Oct 2026). The DJ portal lives on the team
+          hub, so this links out to team.nodice.bar/dj/join (a code-gated
+          profile form, not a booking). */}
+      <section className="px-6 pb-8 pt-4">
         <div className="mx-auto flex max-w-6xl flex-wrap items-center gap-4 rounded-2xl border border-plonkPink/30 bg-plonkPink/10 px-5 py-4 sm:px-6 sm:py-5">
           <div className="min-w-[200px] flex-1">
             <p className="font-display text-lg uppercase tracking-wide text-cream sm:text-xl">
@@ -801,6 +792,16 @@ export default function EventsPage() {
           </a>
         </div>
       </section>
+
+      {/* Live @nodice.bar feed under the calendar. Same Behold widget
+          as the homepage; copy is independently editable via its own
+          CMS keys so the wording can vary between pages. */}
+      <InstagramFeed
+        eyebrowKey="events.instagram.eyebrow"
+        eyebrowFallback="@nodice.bar"
+        headingKey="events.instagram.heading"
+        headingFallback="What's been going on."
+      />
 
       {/* Inline create/edit modal — only mounted when something is
           open. Save / delete refresh the month's events. */}
