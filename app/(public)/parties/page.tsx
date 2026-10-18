@@ -260,7 +260,7 @@ export default function PrivateHirePage() {
   const TABS = [
     { id: "venue" as const, label: "Venue details" },
     { id: "menu" as const, label: "Xmas menu" },
-    { id: "builder" as const, label: "Xmas package builder" },
+    { id: "builder" as const, label: "Package builder" },
     { id: "kids" as const, label: "Kids parties" },
   ];
   type TabId = (typeof TABS)[number]["id"];
