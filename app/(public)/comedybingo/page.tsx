@@ -222,6 +222,25 @@ export default function BingoPage() {
         sliderKey="hero.bingo"
       />
 
+      {/* ── Photo slider: hosts + the bingo machine ──
+          Moved ABOVE the ticket booking (founder, 18 Oct 2026) so the acts /
+          machine are seen before the CTA. Same component, uploader and
+          behaviour as the parties-page strips (MediaStrip → the "Add / manage
+          photos" pill in Edit mode → /admin/content/galleries). Shows
+          placeholder tiles until the founder uploads to "bingo.gallery". */}
+      <section className="bg-white/[0.02] py-8">
+        <MediaStrip
+          galleryKey="bingo.gallery"
+          heading={galleryTitle}
+          intro={galleryIntro}
+          headingKey="bingo.gallery_title"
+          introKey="bingo.gallery_intro"
+          aspect="4 / 5"
+          blankCount={4}
+          blankLabel="Host / machine photo"
+        />
+      </section>
+
       {/* KEY EVENT HEADER — the next event + its date, big and bold.
           Both lines are on-page editable so the founder can roll it to the
           next date each month. */}
@@ -390,24 +409,6 @@ export default function BingoPage() {
             ))}
           </div>
         </div>
-      </section>
-
-      {/* ── Photo slider: hosts + the bingo machine ──
-          Same component, uploader and behaviour as the parties-page strips
-          (MediaStrip → the "Add / manage photos" pill in Edit mode →
-          /admin/content/galleries). Shows placeholder tiles until the
-          founder uploads to the "bingo.gallery" gallery. */}
-      <section className="bg-white/[0.02] py-8">
-        <MediaStrip
-          galleryKey="bingo.gallery"
-          heading={galleryTitle}
-          intro={galleryIntro}
-          headingKey="bingo.gallery_title"
-          introKey="bingo.gallery_intro"
-          aspect="4 / 5"
-          blankCount={4}
-          blankLabel="Host / machine photo"
-        />
       </section>
 
       {/* Venue footer line */}
