@@ -93,6 +93,8 @@ export async function loadBingoNights(): Promise<DbTournament[]> {
     start_time: e.start_time,
     max_teams: e.max_attendees ?? 60,
     paid_entries_count: e.paid_entries_count,
+    poster_url: null,          // bingo books inline, not via a poster link
+    external_link: null,
     entry_fee_pence: firstTicket.get(e.id) ?? 0,
     registration_open: e.registration_open,
     bookable: e.bookable,

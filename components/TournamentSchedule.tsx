@@ -344,6 +344,49 @@ export default function TournamentSchedule() {
                   const baseCardCls =
                     "snap-start shrink-0 w-[240px] sm:w-[220px] rounded-2xl border p-5 text-left transition";
 
+                  // ── SPECIAL EVENTS (founder rule, 18 Oct 2026) ──
+                  // A special night is presented by its POSTER, and its button
+                  // goes to the organiser's own page — these are run or
+                  // ticketed elsewhere (Macmillan's fundraising page, Ball
+                  // Breakers on clyx, Pocket Society on Ticket Tailor), so the
+                  // inline booking form and a places-left count would both be
+                  // wrong. Any special event with a link gets this treatment.
+                  if (t.tournament_type === "special" && t.external_link) {
+                    return (
+                      <a
+                        key={t.id}
+                        href={t.external_link}
+                        target="_blank"
+                        rel="noreferrer"
+                        className={`${baseCardCls} group block overflow-hidden border-plonkPink/30 bg-white/5 p-0 hover:border-plonkPink/70`}
+                      >
+                        {t.poster_url ? (
+                          // eslint-disable-next-line @next/next/no-img-element
+                          <img
+                            src={t.poster_url}
+                            alt={t.name}
+                            className="aspect-[4/5] w-full object-cover transition group-hover:opacity-90"
+                          />
+                        ) : (
+                          <div className="flex aspect-[4/5] w-full items-center justify-center bg-ink/60 text-4xl">
+                            🎱
+                          </div>
+                        )}
+                        <div className="p-4">
+                          <div className="text-[10px] font-bold uppercase tracking-[0.28em] text-plonkPink">
+                            {formatDate(t.event_date)}
+                          </div>
+                          <div className="mt-1.5 font-display text-lg uppercase leading-tight tracking-wider text-cream">
+                            {t.name}
+                          </div>
+                          <div className="mt-3 inline-flex items-center gap-1.5 rounded-full bg-plonkPink px-4 py-2 text-[11px] font-bold uppercase tracking-widest text-white">
+                            Find out more →
+                          </div>
+                        </div>
+                      </a>
+                    );
+                  }
+
                   if (!t.bookable) {
                     return (
                       <div

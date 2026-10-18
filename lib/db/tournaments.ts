@@ -42,6 +42,13 @@ export type DbTournament = {
   /** True = customers can actually pay to enter. False = display
    *  only, e.g. GRAND FINAL which is invitation-only. */
   bookable: boolean;
+  /** SPECIAL EVENTS (founder rule, 18 Oct 2026): a special event is
+   *  presented by its POSTER and its button goes to the organiser's own
+   *  page — these nights are run or ticketed elsewhere (Macmillan's
+   *  fundraising page, Ball Breakers on clyx, Pocket Society on Ticket
+   *  Tailor), so the inline booking form would be wrong. */
+  poster_url: string | null;
+  external_link: string | null;
   tournament_type: TournamentType;
   created_at: string;
   updated_at: string;
@@ -104,7 +111,7 @@ export async function loadOpenTournaments(): Promise<DbTournament[]> {
       sb
         .from("events")
         .select(
-          "id, name, description, event_date, start_time, category, max_attendees, bookable, registration_open, paid_entries_count, created_at, updated_at",
+          "id, name, description, event_date, start_time, category, max_attendees, bookable, registration_open, paid_entries_count, poster_url, external_link, created_at, updated_at",
         )
         .in("category", [
           "pool_tournament_doubles",
@@ -149,6 +156,8 @@ export async function loadOpenTournaments(): Promise<DbTournament[]> {
     bookable: boolean;
     registration_open: boolean;
     paid_entries_count: number;
+    poster_url: string | null;
+    external_link: string | null;
     created_at: string;
     updated_at: string;
   }>).map<DbTournament>((e) => ({
@@ -162,6 +171,8 @@ export async function loadOpenTournaments(): Promise<DbTournament[]> {
     entry_fee_pence: firstTicket.get(e.id) ?? 0,
     registration_open: e.registration_open,
     bookable: e.bookable,
+    poster_url: e.poster_url,
+    external_link: e.external_link,
     tournament_type:
       e.category === "pool_tournament_doubles"
         ? "doubles"
