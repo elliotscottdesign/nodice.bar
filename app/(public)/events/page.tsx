@@ -728,6 +728,7 @@ export default function EventsPage() {
                         ev={dayEvents[0]}
                         editing={editing}
                         onEdit={() => openEdit(dayEvents[0])}
+                        onOpen={() => setOpenDayIso(dayIso)}
                       />
                     ) : (
                       <MultiEventStack
@@ -864,10 +865,17 @@ function DayEventCard({
   ev,
   editing,
   onEdit,
+  onOpen,
 }: {
   ev: DbCalendarEvent;
   editing: boolean;
   onEdit: () => void;
+  /** When set (and not editing), a public click opens the big day popup instead
+   *  of navigating to the event's own link — so EVERY event opens large first,
+   *  the way a multi-event day already does (founder, 18 Oct 2026). The event's
+   *  own link is still reachable from the copy of this card rendered INSIDE the
+   *  popup, which is given no onOpen and so keeps its normal link behaviour. */
+  onOpen?: () => void;
 }) {
   const base = process.env.NEXT_PUBLIC_BASE_PATH || "";
   // No artwork of its own → fall back to the category default so a customer
@@ -886,7 +894,12 @@ function DayEventCard({
   // Edit mode wins over the public link (see the return below), so a card is
   // only "clickable" in the public sense when we're NOT editing it.
   const editable = editing && !dj;
-  const href = editable ? null : eventDestination(ev);
+  // When onOpen is provided (the grid's single-event card), a public click opens
+  // the big day popup rather than following the event's own link. In that case
+  // the ↗ new-tab affordance is suppressed and the whole card is that button —
+  // the link itself lives on the card INSIDE the popup.
+  const opensPopup = !editable && !!onOpen;
+  const href = editable || opensPopup ? null : eventDestination(ev);
   // A link typed as root-relative ("/bingo") gets the same basePath prefix the
   // artwork above does, so it survives a future move onto a subpath. Absolute
   // links (the usual case) pass through untouched.
@@ -989,6 +1002,21 @@ function DayEventCard({
         type="button"
         onClick={onEdit}
         className="flex-1 cursor-pointer overflow-hidden text-left transition hover:opacity-90"
+      >
+        {inner}
+      </button>
+    );
+  }
+
+  // Public single-event card asked to open the day popup — the whole card is a
+  // button that opens it large (same destination as a multi-event day). group/card
+  // keeps the hover lift so it still reads as clickable.
+  if (opensPopup) {
+    return (
+      <button
+        type="button"
+        onClick={onOpen}
+        className="group/card block flex-1 cursor-pointer overflow-hidden text-left transition hover:opacity-90"
       >
         {inner}
       </button>
@@ -1239,7 +1267,7 @@ function DayEventsPopup({
         </button>
 
         <div className="mb-1 text-[11px] font-bold uppercase tracking-[0.28em] text-plonkPink">
-          {events.length} events
+          {events.length} event{events.length === 1 ? "" : "s"}
         </div>
         <h2 className="font-display text-2xl uppercase tracking-wider sm:text-3xl">
           {heading}
