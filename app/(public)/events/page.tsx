@@ -993,6 +993,22 @@ function DayEventCard({
           )}
         </div>
       )}
+      {/* Poster-only cards have NO title line to hang the ↗ on — and DJ nights
+          are always poster-only (showDesc is forced off for them above). They
+          can still be links, and a link that looks identical to a dead card is
+          the very problem the affordance note above exists to fix. So give
+          them their own slim ↗ row UNDER the poster. Deliberately not ON the
+          artwork: founder rule 19 Oct 2026 is that nothing covers the poster. */}
+      {!showDesc && resolvedHref && (
+        <div className="flex justify-end px-1.5 py-1 sm:px-2">
+          <span
+            aria-hidden="true"
+            className="text-[10px] leading-none text-cream/70 transition-colors group-hover/card:text-cream sm:text-[11px]"
+          >
+            ↗
+          </span>
+        </div>
+      )}
     </div>
   );
 
