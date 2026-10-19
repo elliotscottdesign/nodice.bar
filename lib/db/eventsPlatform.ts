@@ -90,6 +90,8 @@ export type DbEvent = {
   poster_day_label?: string | null;
   /** Print-ready black-on-transparent A-page render for the team-hub flyer. */
   flyer_poster_url?: string | null;
+  /** Show the title/time/description under the poster on the /events card. */
+  show_description?: boolean | null;
   created_at: string;
   updated_at: string;
 };

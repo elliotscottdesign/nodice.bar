@@ -38,6 +38,8 @@ export type DbCalendarEvent = {
   // Optional because DJ-feed events (djNights.ts) don't carry them.
   category?: string | null;         // underlying events.category (pool_special, dj_night, drink_special, …)
   recurrence_type?: string | null;  // 'none' = one-off/special; weekly/monthly/… = recurring/regular
+  /** Show the title/time/body under the poster on the calendar card. */
+  show_description?: boolean | null;
   created_at: string;
   updated_at: string;
 };
@@ -105,12 +107,13 @@ type EventsRow = {
   subcategory: string | null;
   category: string | null;
   recurrence_type: string | null;
+  show_description: boolean | null;
   created_at: string;
   updated_at: string;
 };
 
 const SELECT =
-  "id, event_date, start_time, name, description, poster_url, external_link, registration_open, subcategory, category, recurrence_type, created_at, updated_at";
+  "id, event_date, start_time, name, description, poster_url, external_link, registration_open, subcategory, category, recurrence_type, show_description, created_at, updated_at";
 
 function toCalendar(r: EventsRow): DbCalendarEvent {
   return {
@@ -125,6 +128,7 @@ function toCalendar(r: EventsRow): DbCalendarEvent {
     subcategory: r.subcategory,
     category: r.category,
     recurrence_type: r.recurrence_type,
+    show_description: r.show_description ?? true,
     created_at: r.created_at,
     updated_at: r.updated_at,
   };

@@ -254,6 +254,8 @@ export default function EventsAdminClient() {
   }, [eventDate, recurrenceType]);
   const [showOnPool, setShowOnPool] = useState(false);
   const [showOnCalendar, setShowOnCalendar] = useState(true);
+  // Show the title/time/description under the poster on the /events card.
+  const [showDescription, setShowDescription] = useState(true);
   const [showOnBar, setShowOnBar] = useState(false);
   // "Blocks /book/table" — closes free dining-table reservations
   // for the event's date. Auto-defaults to true when the category
@@ -302,6 +304,7 @@ export default function EventsAdminClient() {
     setOccurrences(8);
     setShowOnPool(false);
     setShowOnCalendar(true);
+    setShowDescription(true);
     setShowOnBar(false);
     setBlocksTableBookings(false);
     setRequiresTicket(true);
@@ -482,6 +485,7 @@ export default function EventsAdminClient() {
               : null,
           show_on_pool_schedule: showOnPool,
           show_on_events_calendar: showOnCalendar,
+          show_description: showDescription,
           show_on_bar_page: showOnBar,
           requires_ticket: requiresTicket,
           bookable: true,
@@ -711,6 +715,11 @@ export default function EventsAdminClient() {
                   checked={showOnCalendar}
                   onChange={setShowOnCalendar}
                   label="Show on /events calendar"
+                />
+                <Checkbox
+                  checked={showDescription}
+                  onChange={setShowDescription}
+                  label="Show title + description on the calendar card"
                 />
                 <Checkbox
                   checked={showOnBar}
@@ -1203,6 +1212,9 @@ function EditEventModal({
   const [showOnCalendar, setShowOnCalendar] = useState(
     event.show_on_events_calendar,
   );
+  const [showDescription, setShowDescription] = useState(
+    event.show_description ?? true,
+  );
   const [showOnPool, setShowOnPool] = useState(event.show_on_pool_schedule);
   const [showOnBar, setShowOnBar] = useState(event.show_on_bar_page);
   const [registrationOpen, setRegistrationOpen] = useState(
@@ -1395,6 +1407,7 @@ function EditEventModal({
             recurrence_weekday: null,
             show_on_pool_schedule: showOnPool,
             show_on_events_calendar: showOnCalendar,
+          show_description: showDescription,
             show_on_bar_page: showOnBar,
             requires_ticket: event.requires_ticket,
             bookable: true,
@@ -1750,6 +1763,11 @@ function EditEventModal({
               label="Show on events calendar"
               checked={showOnCalendar}
               onChange={setShowOnCalendar}
+            />
+            <ModalCheck
+              label="Show title + description on card"
+              checked={showDescription}
+              onChange={setShowDescription}
             />
             <ModalCheck
               label="Show on pool page"

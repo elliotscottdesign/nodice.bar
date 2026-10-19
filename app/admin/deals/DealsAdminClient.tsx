@@ -209,6 +209,10 @@ function DealForm({
   const [showOnCalendar, setShowOnCalendar] = useState(
     deal?.show_on_events_calendar ?? true,
   );
+  // Deals default to a clean calendar card (poster only, no title/description).
+  const [showDescription, setShowDescription] = useState(
+    deal?.show_description ?? false,
+  );
 
   // Artwork (filled by the poster maker's "Use this artwork").
   const [posterUrl, setPosterUrl] = useState(deal?.poster_url ?? "");
@@ -263,6 +267,7 @@ function DealForm({
       end_time: endTime || null,
       show_on_pool_schedule: false,
       show_on_events_calendar: showOnCalendar,
+      show_description: showDescription,
       show_on_bar_page: false,
       requires_ticket: false,
       bookable: false,
@@ -525,7 +530,7 @@ function DealForm({
           </div>
         )}
 
-        <div className="sm:col-span-2">
+        <div className="sm:col-span-2 space-y-2">
           <label className="flex items-center gap-2 text-sm text-cream/80">
             <input
               type="checkbox"
@@ -534,6 +539,18 @@ function DealForm({
               className="accent-plonkPink"
             />
             Show on the public /events calendar
+          </label>
+          <label className="flex items-center gap-2 text-sm text-cream/80">
+            <input
+              type="checkbox"
+              checked={showDescription}
+              onChange={(e) => setShowDescription(e.target.checked)}
+              className="accent-plonkPink"
+            />
+            Show the title &amp; description under the poster
+            <span className="text-[11px] text-cream/40">
+              (off = clean, poster only)
+            </span>
           </label>
         </div>
       </div>

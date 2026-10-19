@@ -888,6 +888,10 @@ function DayEventCard({
   // DJ nights are auto-fed from the team hub — shown everywhere but never
   // editable from this site's admin (the DJ system owns them).
   const dj = isDjEvent(ev);
+  // The description (title / time / body) under the poster is a per-event
+  // toggle — off for deals and DJ nights whose poster already says it all, on
+  // for events that want the extra context. DJ-fed nights are always off.
+  const showDesc = !dj && (ev.show_description ?? true);
 
   const cc = categoryColours(primary);
 
@@ -908,14 +912,6 @@ function DayEventCard({
 
   const inner = (
     <div className="relative flex h-full flex-col">
-      {/* Left-edge accent stripe — instant visual signal of which
-          subcategory this event belongs to. Fully hidden for untagged
-          events (fallback stripe is cream/40 — subtle enough to feel
-          intentional). */}
-      <span
-        aria-hidden="true"
-        className={`pointer-events-none absolute inset-y-0 left-0 z-10 w-1 ${cc.stripe}`}
-      />
       {/* Desktop hover outline in the card's own category colour. Absolute +
           pointer-events-none so it costs no layout and never eats a click;
           `group-hover/card` only matches the <a> below, so a non-clickable
@@ -961,35 +957,38 @@ function DayEventCard({
           </span>
         )}
       </div>
-      {/* Title + time + body */}
-      <div className="px-1.5 py-1.5 sm:px-2 sm:py-2">
-        {/* Title line doubles as the link affordance: the ↗ is pinned to its
-            right edge (off the poster, see the note above the component) and
-            the title underlines + lightens on hover like any other link. */}
-        <div className="flex items-start gap-1">
-          <p className="line-clamp-2 min-w-0 flex-1 text-[10px] font-bold uppercase tracking-wider text-cream transition-colors group-hover/card:text-white group-hover/card:underline sm:text-[11px]">
-            {ev.title}
-          </p>
-          {resolvedHref && (
-            <span
-              aria-hidden="true"
-              className="mt-px shrink-0 text-[10px] leading-none text-cream/70 transition-colors group-hover/card:text-cream sm:text-[11px]"
-            >
-              ↗
-            </span>
+      {/* Title + time + body — a per-event toggle (showDesc). When off, the
+          poster stands alone and the whole card is still the link. */}
+      {showDesc && (
+        <div className="px-1.5 py-1.5 sm:px-2 sm:py-2">
+          {/* Title line doubles as the link affordance: the ↗ is pinned to its
+              right edge (off the poster, see the note above the component) and
+              the title underlines + lightens on hover like any other link. */}
+          <div className="flex items-start gap-1">
+            <p className="line-clamp-2 min-w-0 flex-1 text-[10px] font-bold uppercase tracking-wider text-cream transition-colors group-hover/card:text-white group-hover/card:underline sm:text-[11px]">
+              {ev.title}
+            </p>
+            {resolvedHref && (
+              <span
+                aria-hidden="true"
+                className="mt-px shrink-0 text-[10px] leading-none text-cream/70 transition-colors group-hover/card:text-cream sm:text-[11px]"
+              >
+                ↗
+              </span>
+            )}
+          </div>
+          {ev.start_time && (
+            <p className="mt-1 text-[9px] font-bold uppercase tracking-[0.18em] text-plonkPink sm:text-[10px]">
+              {formatTime(ev.start_time)}
+            </p>
+          )}
+          {ev.body && (
+            <p className="mt-1 line-clamp-2 text-[9px] leading-snug text-cream/65 sm:text-[10px]">
+              {ev.body}
+            </p>
           )}
         </div>
-        {ev.start_time && (
-          <p className="mt-1 text-[9px] font-bold uppercase tracking-[0.18em] text-plonkPink sm:text-[10px]">
-            {formatTime(ev.start_time)}
-          </p>
-        )}
-        {ev.body && (
-          <p className="mt-1 line-clamp-2 text-[9px] leading-snug text-cream/65 sm:text-[10px]">
-            {ev.body}
-          </p>
-        )}
-      </div>
+      )}
     </div>
   );
 
