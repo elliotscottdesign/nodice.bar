@@ -4,7 +4,6 @@ import { useCallback, useEffect, useMemo, useState } from "react";
 import {
   loadCalendarEventsInRange,
   defaultPosterFor,
-  EVENT_TYPES,
   type DbCalendarEvent,
 } from "@/lib/db/calendarEvents";
 import { loadDjNightsInRange, isDjEvent } from "@/lib/db/djNights";
@@ -75,6 +74,12 @@ const CATEGORY_COLOURS: Record<
     dot: "bg-purple-400",
     hoverBorder: "group-hover/card:border-purple-400",
   },
+  "Ping Pong": {
+    stripe: "bg-cyan-400",
+    pill: "bg-cyan-500/90 text-white",
+    dot: "bg-cyan-400",
+    hoverBorder: "group-hover/card:border-cyan-400",
+  },
   "Food Night": {
     stripe: "bg-orange-400",
     pill: "bg-orange-500/90 text-white",
@@ -105,28 +110,36 @@ function categoryColours(subcategory: string | null | undefined) {
   return CATEGORY_COLOURS[subcategory] ?? CATEGORY_FALLBACK;
 }
 
-// An event can carry SEVERAL calendar chips (founder 2026-10-13), stored
-// comma-joined in the one `subcategory` field ("DJ Night, Special Event").
-// subsOf() splits them; primarySub() picks the highest-priority tag present,
-// which drives the single colour swatch, default poster, and grid badge.
-function subsOf(s: string | null | undefined): string[] {
-  return (s ?? "")
-    .split(",")
-    .map((x) => x.trim())
-    .filter(Boolean);
-}
-const SUB_PRIORITY = [
-  "Special Event",
+// The public calendar colours + labels every event by its CATEGORY — the one
+// unified tag (founder 19 Oct 2026). The old free-text "subcategory chips" are
+// retired. chipForEvent() maps a category to the display chip name, which keys
+// the colour (CATEGORY_COLOURS) and the default poster (defaultPosterFor).
+// DJ-feed events carry no category, so they fall back to "DJ Night".
+const CATEGORY_TO_CHIP: Record<string, string> = {
+  dj_night: "DJ Night",
+  pool_tournament_doubles: "Pool Night",
+  pool_tournament_singles: "Pool Night",
+  pool_special: "Pool Night",
+  ping_pong: "Ping Pong",
+  food_event: "Food Night",
+  drink_special: "Deals",
+  special_event: "Special Event",
+  world_cup: "Match Day",
+  // arcade / golf / other → no chip (neutral fallback, no filter match)
+};
+// The public filter chips, in display order.
+const FILTER_CHIPS = [
   "DJ Night",
   "Match Day",
   "Pool Night",
+  "Ping Pong",
   "Food Night",
   "Deals",
+  "Special Event",
 ];
-function primarySub(s: string | null | undefined): string | null {
-  const subs = subsOf(s);
-  if (!subs.length) return null;
-  return SUB_PRIORITY.find((p) => subs.includes(p)) ?? subs[0];
+function chipForEvent(ev: DbCalendarEvent): string | null {
+  if (isDjEvent(ev)) return "DJ Night";
+  return CATEGORY_TO_CHIP[ev.category ?? ""] ?? null;
 }
 
 // Where a card goes when you click it.
@@ -159,39 +172,29 @@ function eventDestination(ev: DbCalendarEvent): string | null {
 // EVERY event — only the lead-image choice changes.
 function leadRank(e: DbCalendarEvent): number {
   const cat = e.category ?? "";
-  const subs = subsOf(e.subcategory); // an event may carry several tags
-  const has = (t: string) => subs.includes(t);
   const recurring = !!e.recurrence_type && e.recurrence_type !== "none";
 
-  // 0 — explicit one-off / limited-edition special headlines above everything
-  // (founder: a special outranks even a DJ night): a flagged "Special Event",
-  // a special pool comp (pool_special), a food party / world-cup fixture.
-  // Checked FIRST so a multi-tagged event (e.g. "DJ Night, Special Event")
-  // leads as a special — its most special tag wins.
+  // 0 — one-off / limited-edition SPECIAL headlines above everything (founder:
+  // a special outranks even a DJ night): a special event, a special pool comp,
+  // a food party, a world-cup fixture.
   if (
-    has("Special Event") ||
+    cat === "special_event" ||
     cat === "pool_special" ||
     cat === "food_event" ||
     cat === "world_cup"
   )
     return 0;
 
-  // 1 — a curated DJ night. The reliable DJ signals are the cross-origin feed
-  // id (isDjEvent) and an explicit "DJ Night" tag. (We deliberately DON'T
-  // treat category='dj_night' as DJ: that's the insert default for hand-added
-  // calendar events, so plenty of non-DJ rows carry it.)
-  if (isDjEvent(e) || has("DJ Night")) return 1;
+  // 1 — a DJ night (the cross-origin feed, or a category='dj_night' row).
+  if (isDjEvent(e) || cat === "dj_night") return 1;
 
-  // 5 — deals / standing promos (martini+fries et al) are wallpaper. They
-  // never headline over an actual event, one-off or not.
-  if (has("Deals") || cat === "drink_special") return 5;
+  // 5 — deals / standing promos (martini+fries et al) are wallpaper.
+  if (cat === "drink_special") return 5;
 
-  // 4 — anything that explicitly recurs (weekly/monthly tournaments & nights)
-  // is a regular, so it sits below every one-off.
+  // 4 — anything that explicitly recurs (weekly/monthly regulars) sits low.
   if (recurring) return 4;
 
-  // 2 — standard one-off night / tournament (e.g. a plain singles comp, or an
-  // untagged hand-added night). Above deals + recurring, below special/DJ.
+  // 2 — standard one-off night / tournament (pool / ping pong comps, etc.).
   return 2;
 }
 
@@ -307,9 +310,9 @@ export default function EventsPage() {
 
   // Category filter — tick which kinds of event to show. All on by default.
   const [selectedCats, setSelectedCats] = useState<Set<string>>(
-    () => new Set(EVENT_TYPES),
+    () => new Set(FILTER_CHIPS),
   );
-  const allCatsOn = selectedCats.size === EVENT_TYPES.length;
+  const allCatsOn = selectedCats.size === FILTER_CHIPS.length;
   // "Event types" dropdown open state (founder 2026-09-11: the row of
   // pills was messy — collapse it into one labelled dropdown).
   const [typesOpen, setTypesOpen] = useState(false);
@@ -398,12 +401,10 @@ export default function EventsPage() {
       allCatsOn
         ? events
         : events.filter((e) => {
-            const subs = subsOf(e.subcategory);
-            // Match if ANY of the event's tags is selected; keep untagged
-            // events out when the filter is narrowed (as before).
-            return subs.length === 0
-              ? false
-              : subs.some((s) => selectedCats.has(s));
+            // Match on the event's category-derived chip; events with no chip
+            // (arcade/golf/other) drop out when the filter is narrowed.
+            const chip = chipForEvent(e);
+            return chip ? selectedCats.has(chip) : false;
           }),
     [events, selectedCats, allCatsOn],
   );
@@ -486,7 +487,7 @@ export default function EventsPage() {
                   ? "· All"
                   : selectedCats.size === 0
                     ? "· None"
-                    : `· ${selectedCats.size} of ${EVENT_TYPES.length}`}
+                    : `· ${selectedCats.size} of ${FILTER_CHIPS.length}`}
               </span>
               <svg
                 width="10"
@@ -527,7 +528,7 @@ export default function EventsPage() {
                       type="button"
                       onClick={() =>
                         setSelectedCats(
-                          allCatsOn ? new Set() : new Set(EVENT_TYPES),
+                          allCatsOn ? new Set() : new Set(FILTER_CHIPS),
                         )
                       }
                       className="text-[10px] font-bold uppercase tracking-[0.14em] text-plonkPink hover:text-plonkPink/80"
@@ -536,7 +537,7 @@ export default function EventsPage() {
                     </button>
                   </div>
                   <ul className="mt-1">
-                    {EVENT_TYPES.map((c) => {
+                    {FILTER_CHIPS.map((c) => {
                       const on = selectedCats.has(c);
                       return (
                         <li key={c}>
@@ -884,7 +885,7 @@ function DayEventCard({
   // never sees a blank tile.
   // An event can carry several tags; the primary (highest-priority) one drives
   // its single colour swatch, default poster and grid badge.
-  const primary = primarySub(ev.subcategory);
+  const primary = chipForEvent(ev);
   const raw = ev.image_url || defaultPosterFor(primary);
   const src = raw && raw.startsWith("/") ? `${base}${raw}` : raw;
   // DJ nights are auto-fed from the team hub — shown everywhere but never
@@ -1089,7 +1090,7 @@ function MultiEventStack({
 }) {
   const base = process.env.NEXT_PUBLIC_BASE_PATH || "";
   const first = events[0];
-  const headlineRaw = first.image_url || defaultPosterFor(primarySub(first.subcategory));
+  const headlineRaw = first.image_url || defaultPosterFor(chipForEvent(first));
   const headlineSrc =
     headlineRaw && headlineRaw.startsWith("/")
       ? `${base}${headlineRaw}`
@@ -1103,7 +1104,7 @@ function MultiEventStack({
   const mobileThumbs = events.slice(0, MOBILE_THUMB_CAP);
   const mobileOverflow = Math.max(0, events.length - MOBILE_THUMB_CAP);
   function thumbSrc(ev: DbCalendarEvent): string {
-    const raw = ev.image_url || defaultPosterFor(primarySub(ev.subcategory));
+    const raw = ev.image_url || defaultPosterFor(chipForEvent(ev));
     if (!raw) return "";
     return raw.startsWith("/") ? `${base}${raw}` : raw;
   }
@@ -1121,7 +1122,7 @@ function MultiEventStack({
       <div className="relative flex w-full gap-0.5 overflow-hidden bg-ink sm:hidden">
         {mobileThumbs.map((ev) => {
           const src = thumbSrc(ev);
-          const c = categoryColours(primarySub(ev.subcategory));
+          const c = categoryColours(chipForEvent(ev));
           return (
             <div
               key={ev.id}
@@ -1187,7 +1188,7 @@ function MultiEventStack({
           {events.length} events
         </span>
         {events.slice(0, 4).map((ev) => {
-          const c = categoryColours(primarySub(ev.subcategory));
+          const c = categoryColours(chipForEvent(ev));
           return (
             <div
               key={ev.id}

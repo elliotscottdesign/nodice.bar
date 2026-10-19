@@ -81,6 +81,9 @@ export const CATEGORY_DEFAULT_POSTERS: Record<string, string> = {
   "DJ Night": MEDIA + "gallery/hero.events/1780755968715-red-decks-bitmap.png",
   "Match Day": MEDIA + "page/1780867523626-football-300x-colour.png",
   "Pool Night": MEDIA + "gallery/hero.pool/1780752253680-pool-bitmap.png",
+  // No bespoke ping-pong fallback art yet — reuse the pool bitmap (only shows
+  // when a ping-pong event has no poster of its own, which is rare).
+  "Ping Pong": MEDIA + "gallery/hero.pool/1780752253680-pool-bitmap.png",
   "Food Night": MEDIA + "library/1781565605067-food-night-burger.jpg",
   "Deals": MEDIA + "gallery/hero.deals/1780768681209-deal-header-bitmap.png",
   "Special Event": MEDIA + "library/1781564278755-happy-hour-pics.png",
