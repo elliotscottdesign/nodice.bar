@@ -2,6 +2,7 @@
 
 import { useState } from "react";
 import { AdminCard } from "@/components/admin/AdminCard";
+import TimeField from "@/components/admin/TimeField";
 import { createManualGolfBooking } from "@/lib/db/bookings";
 
 // =============================================================
@@ -150,11 +151,9 @@ export default function AddGolfBookingForm({
             <label className="text-[10px] font-bold uppercase tracking-widest text-cream/55">
               Tee time
             </label>
-            <input
-              type="time"
-              required
+            <TimeField
               value={time}
-              onChange={(e) => setTime(e.target.value)}
+              onChange={setTime}
               className={inputCls + " mt-1"}
             />
           </div>
