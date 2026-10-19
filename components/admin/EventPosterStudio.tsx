@@ -71,6 +71,19 @@ const PREVIEW_AR: Record<PosterSize, string> = {
   a3: "1 / 1.41421",
 };
 
+// What "Save onto this event" hands back. For an ordinary event it's just the
+// poster_url. For a deal (isDeal) it also carries the print-ready flyer render
+// and the structured fields, so the event can be regenerated and the team-hub
+// Events flyer can drop in `flyer_poster_url`.
+export type PosterSaveResult = {
+  poster_url: string;
+  flyer_poster_url?: string | null;
+  poster_subcopy?: string | null;
+  poster_footer?: string | null;
+  poster_image_url?: string | null;
+  poster_qr_url?: string | null;
+};
+
 export default function EventPosterStudio({
   name,
   date,
@@ -80,6 +93,11 @@ export default function EventPosterStudio({
   defaultPrice,
   currentPosterUrl,
   isDeal,
+  exportFlyer,
+  defaultFooter,
+  defaultSubcopy,
+  defaultQrUrl,
+  defaultImageUrl,
   onSave,
   saveLabel = "Save onto this event",
   saveHint,
@@ -98,15 +116,29 @@ export default function EventPosterStudio({
    * A deal's poster is shaped to the A-series page ratio ("zine" size) so it
    * fills the team-hub drinks zine's front cover, which pulls the deal event's
    * poster_url and inverts it to print black-on-pink. When set, the page shape
-   * is the default preview and the one "Save" writes onto the event, and the ink
-   * defaults to Cream so it inverts to near-black on the stock.
+   * is the default preview and the one "Save" writes onto the event, the ink
+   * defaults to Cream so it inverts to near-black on the stock, and Save also
+   * writes a print-ready flyer render + the structured fields below.
    */
   isDeal?: boolean;
   /**
-   * Called with the uploaded poster's public URL once it's safely in storage.
+   * When true, Save also renders the print-ready flyer (black-on-transparent)
+   * and returns the structured deal fields. Only the events-platform table has
+   * the columns to store them, so the calendar-events CMS leaves this off and
+   * gets just poster_url.
+   */
+  exportFlyer?: boolean;
+  /** Deal fields stored on the event, used to prefill the maker. */
+  defaultFooter?: string | null;
+  defaultSubcopy?: string | null;
+  defaultQrUrl?: string | null;
+  defaultImageUrl?: string | null;
+  /**
+   * Called once the poster(s) are safely in storage. Ordinary events get just
+   * `poster_url`; a deal also gets the flyer render + the structured fields.
    * Omit to hide the save button (e.g. nothing to save onto yet).
    */
-  onSave?: (url: string) => void | Promise<void>;
+  onSave?: (result: PosterSaveResult) => void | Promise<void>;
   saveLabel?: string;
   saveHint?: string;
 }) {
@@ -114,8 +146,15 @@ export default function EventPosterStudio({
   // 4:5 Instagram post exactly as before.
   const saveSize: PosterSize = isDeal ? "zine" : "ig";
   // ---- Picture ----
-  const [picUrl, setPicUrl] = useState("");
-  const [picName, setPicName] = useState("");
+  // Seed from the event's stored source photo (poster_image_url) so a deal opens
+  // with its own artwork already in the frame, ready to regenerate.
+  const [picUrl, setPicUrl] = useState(defaultImageUrl || "");
+  const [picName, setPicName] = useState(
+    defaultImageUrl ? defaultImageUrl.split("/").pop() || "" : "",
+  );
+  // The PERSISTED public URL of the source photo (an upload's object URL can't be
+  // saved, so we track the storage URL separately). Written as poster_image_url.
+  const [sourceImageUrl, setSourceImageUrl] = useState(defaultImageUrl || "");
   const [showLibrary, setShowLibrary] = useState(false);
   const imgRef = useRef<HTMLImageElement | null>(null);
   const fileRef = useRef<HTMLInputElement | null>(null);
@@ -140,16 +179,32 @@ export default function EventPosterStudio({
   // Both lines are SUGGESTED from the event above and keep following it as the
   // founder types — until he edits the line himself, after which his wording
   // wins and nothing overwrites it.
-  const [detail, setDetail] = useState(() => suggestDetail(description));
+  // Sub-copy (detail): a deal seeds from its stored poster_subcopy, otherwise
+  // from the description's first line. Follows the source until the founder edits.
+  const [detail, setDetail] = useState(
+    () => defaultSubcopy ?? suggestDetail(description),
+  );
   const [detailTouched, setDetailTouched] = useState(false);
   const [price, setPrice] = useState(defaultPrice || "");
   const [priceTouched, setPriceTouched] = useState(false);
   useEffect(() => {
-    if (!detailTouched) setDetail(suggestDetail(description));
-  }, [description, detailTouched]);
+    if (!detailTouched) setDetail(defaultSubcopy ?? suggestDetail(description));
+  }, [description, defaultSubcopy, detailTouched]);
   useEffect(() => {
     if (!priceTouched) setPrice(defaultPrice || "");
   }, [defaultPrice, priceTouched]);
+
+  // ---- Deal-only fields: the free-text bottom line and the QR target ----
+  const [footer, setFooter] = useState(defaultFooter || "");
+  const [footerTouched, setFooterTouched] = useState(false);
+  useEffect(() => {
+    if (!footerTouched) setFooter(defaultFooter || "");
+  }, [defaultFooter, footerTouched]);
+  const [qr, setQr] = useState(defaultQrUrl || "");
+  const [qrTouched, setQrTouched] = useState(false);
+  useEffect(() => {
+    if (!qrTouched) setQr(defaultQrUrl || "");
+  }, [defaultQrUrl, qrTouched]);
 
   // ---- Chrome ----
   // Deals open on the page shape (what the zine cover uses); others on the post.
@@ -221,6 +276,10 @@ export default function EventPosterStudio({
         end,
         detail,
         price,
+        // Deals can replace the bottom line and point the QR somewhere bespoke;
+        // for other events these are blank, so the engine keeps its defaults.
+        footer: isDeal ? footer : undefined,
+        qrUrl: isDeal && qr.trim() ? qr.trim() : undefined,
         colour,
         size,
         mode,
@@ -244,6 +303,9 @@ export default function EventPosterStudio({
       end,
       detail,
       price,
+      isDeal,
+      footer,
+      qr,
       colour,
       treatment,
       exposure,
@@ -332,7 +394,10 @@ export default function EventPosterStudio({
     setPicUrl(URL.createObjectURL(file));
     setBusy("upload");
     try {
-      await uploadImage(file, "event-posters");
+      // Keep the storage URL so the deal can persist its source photo
+      // (poster_image_url) and be regenerated later.
+      const { public_url } = await uploadImage(file, "event-posters");
+      setSourceImageUrl(public_url);
     } catch (e) {
       // Non-fatal: the poster still works off the local copy.
       setErr(
@@ -385,14 +450,43 @@ export default function EventPosterStudio({
     setErr("");
     setDone("");
     try {
+      // 1) The colour poster — online artwork + the zine cover (inverted by CSS).
       const cv = await render(saveSize, "colour");
       const blob = await canvasToBlob(cv);
       const file = new File([blob], posterName(name, date, "poster"), {
         type: "image/png",
       });
       const { public_url } = await uploadImage(file, "event-posters");
-      await onSave(public_url);
-      setDone("Saved — this poster is now the event's artwork on nodice.bar/events.");
+
+      const result: PosterSaveResult = { poster_url: public_url };
+
+      // 2) When this surface stores them, also render the print-ready flyer
+      //    version (black on transparent, same A-page shape) and return the
+      //    structured fields, so the team-hub Events flyer can drop in
+      //    flyer_poster_url and the deal can be regenerated later.
+      if (exportFlyer) {
+        const negCv = await render(saveSize, "negative");
+        const negBlob = await canvasToBlob(negCv);
+        const negFile = new File([negBlob], posterName(name, date, "flyer"), {
+          type: "image/png",
+        });
+        const { public_url: flyerUrl } = await uploadImage(
+          negFile,
+          "event-posters",
+        );
+        result.flyer_poster_url = flyerUrl;
+        result.poster_subcopy = detail.trim() || null;
+        result.poster_footer = footer.trim() || null;
+        result.poster_qr_url = qr.trim() || null;
+        result.poster_image_url = sourceImageUrl || null;
+      }
+
+      await onSave(result);
+      setDone(
+        exportFlyer
+          ? "Saved — the deal's poster is live on nodice.bar/events, the zine cover and the printed flyer."
+          : "Saved — this poster is now the event's artwork on nodice.bar/events.",
+      );
     } catch (e) {
       setErr(
         `${describe(e, "Couldn't save the poster.")} The event's existing artwork hasn't been changed.`,
@@ -791,6 +885,49 @@ export default function EventPosterStudio({
                 />
               </label>
             </div>
+            {isDeal && (
+              <div className="mt-2 grid gap-2 sm:grid-cols-2">
+                <label className="block">
+                  <span className="mb-1 block text-[10px] text-cream/45">
+                    Bottom line (optional)
+                  </span>
+                  <input
+                    value={footer}
+                    onChange={(e) => {
+                      setFooterTouched(true);
+                      setFooter(e.target.value);
+                    }}
+                    maxLength={40}
+                    placeholder="e.g. £10 / FREE ENTRY / DEAL OF THE DAY"
+                    className="w-full rounded-md border border-cream/20 bg-ink px-2.5 py-1.5 text-xs text-cream placeholder:text-cream/35"
+                  />
+                  <span className="mt-1 block text-[9px] leading-relaxed text-cream/35">
+                    Replaces the “NO DICE · date” line at the foot — on the
+                    poster, the zine cover and the printed flyer. Leave blank to
+                    keep the usual line.
+                  </span>
+                </label>
+                <label className="block">
+                  <span className="mb-1 block text-[10px] text-cream/45">
+                    QR link (optional)
+                  </span>
+                  <input
+                    value={qr}
+                    onChange={(e) => {
+                      setQrTouched(true);
+                      setQr(e.target.value);
+                    }}
+                    maxLength={300}
+                    placeholder="Blank = this deal’s page on /events"
+                    className="w-full rounded-md border border-cream/20 bg-ink px-2.5 py-1.5 text-xs text-cream placeholder:text-cream/35"
+                  />
+                  <span className="mt-1 block text-[9px] leading-relaxed text-cream/35">
+                    Where the QR code points. Blank points at this deal on the
+                    events calendar.
+                  </span>
+                </label>
+              </div>
+            )}
           </div>
 
           {/* Export + save */}
@@ -889,6 +1026,9 @@ export default function EventPosterStudio({
             const url = typeof value === "string" ? value : value.src;
             setPicUrl(url);
             setPicName(url.split("/").pop() || "");
+            // A library image already has a storage URL — persist it as the
+            // deal's source photo.
+            setSourceImageUrl(url);
             setShowLibrary(false);
             setDone("");
           }}

@@ -205,7 +205,8 @@ export default function CalendarEventsAdminClient() {
   //
   // The URL handed in is already uploaded and known-good; the studio only calls
   // this after a successful render and upload, so this can never blank a poster.
-  async function savePosterToDraft(url: string) {
+  async function savePosterToDraft(result: { poster_url: string }) {
+    const url = result.poster_url;
     setDraft((d) => ({ ...d, image_url: url }));
     if (!draft.id) return;
     setErr("");

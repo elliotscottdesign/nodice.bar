@@ -632,6 +632,13 @@ export type EventPosterInput = {
   detail?: string | null;
   /** Price wording, e.g. "£5 on the door" / "Free entry". Optional. */
   price?: string | null;
+  /**
+   * Overrides the bottom line. Left out, the bottom reads
+   * "NO DICE - <date/day> / <time>". Pass a footer (e.g. "FREE ENTRY", "£10",
+   * "DEAL OF THE DAY") and the bottom shows that instead — used by deals /
+   * specials and by the team-hub flyer, so every page's footer is consistent.
+   */
+  footer?: string | null;
   colour: string;
   size?: PosterSize;
   mode?: PosterMode;
@@ -659,6 +666,7 @@ export async function renderEventPoster({
   end,
   detail,
   price,
+  footer,
   colour,
   size = "ig",
   mode = "colour",
@@ -773,7 +781,11 @@ export async function renderEventPoster({
   const timeStr = fmtTime(start, end);
   // A recurring deal shows its day ("TUESDAYS"); everything else shows the date.
   const when = (dayLabel || "").trim() || fmtDate(date);
-  const bottom = `NO DICE - ${when}${timeStr ? ` / ${timeStr}` : ""}`;
+  // A deal/special can override the whole bottom line with a footer (price /
+  // entry / "DEAL OF THE DAY"); otherwise it's the usual NO DICE line.
+  const bottom = (footer || "").trim()
+    ? (footer as string).trim().toUpperCase()
+    : `NO DICE - ${when}${timeStr ? ` / ${timeStr}` : ""}`;
   fitFont(ctx, bottom, x1 - x0, Math.round(SB * 0.09));
   const bm = ctx.measureText(bottom);
   const basc = bm.actualBoundingBoxAscent,

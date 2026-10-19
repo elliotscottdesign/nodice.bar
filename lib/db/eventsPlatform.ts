@@ -72,6 +72,22 @@ export type DbEvent = {
    *  event_date. The booking calendar greys out the day and surfaces
    *  a message linking to the right booking flow. */
   blocks_table_bookings: boolean;
+  // ── Deal / special poster data (added 2026-10-19) ──────────────────────────
+  // The structured fields behind a deal/special poster, so it can be
+  // cross-generated for the website, the drinks-zine cover and the team-hub
+  // Events flyer. Optional: older rows and non-deal events leave them null.
+  /** Real ticket/entry value in £ (requires_ticket is only a yes/no). */
+  ticket_price?: number | null;
+  /** Free-text bottom line: "FREE ENTRY" / "£10" / "DEAL OF THE DAY". */
+  poster_footer?: string | null;
+  /** Sub-copy under the title, e.g. "1 round of golf / 3 tokens / 1 drink". */
+  poster_subcopy?: string | null;
+  /** Source artwork/photo (not the flattened poster_url) — so it's regenerable. */
+  poster_image_url?: string | null;
+  /** Editable QR target; blank → the event's calendar listing. */
+  poster_qr_url?: string | null;
+  /** Print-ready black-on-transparent A-page render for the team-hub flyer. */
+  flyer_poster_url?: string | null;
   created_at: string;
   updated_at: string;
 };

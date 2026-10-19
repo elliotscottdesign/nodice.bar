@@ -58,6 +58,7 @@ import {
   nthWeekdayForDate,
   CATEGORY_LABEL,
   type DbEvent,
+  type NewEvent,
   type DbTicketType,
   type EventCategory,
   type RecurrenceType,
@@ -206,6 +207,13 @@ export default function EventsAdminClient() {
   const [description, setDescription] = useState("");
   const [externalLink, setExternalLink] = useState("");
   const [posterUrl, setPosterUrl] = useState<string>("");
+  // Deal/special poster data (written by the poster maker's "Save" for a deal,
+  // sent on createEvent). Empty on a plain event.
+  const [flyerPosterUrl, setFlyerPosterUrl] = useState<string>("");
+  const [posterSubcopy, setPosterSubcopy] = useState<string>("");
+  const [posterFooter, setPosterFooter] = useState<string>("");
+  const [posterImageUrl, setPosterImageUrl] = useState<string>("");
+  const [posterQrUrl, setPosterQrUrl] = useState<string>("");
   const [showPicker, setShowPicker] = useState(false);
   const [category, setCategory] = useState<EventCategory>("dj_night");
   // Subcategory drives the FILTER CHIPS on the public /events calendar
@@ -274,6 +282,11 @@ export default function EventsAdminClient() {
     setDescription("");
     setExternalLink("");
     setPosterUrl("");
+    setFlyerPosterUrl("");
+    setPosterSubcopy("");
+    setPosterFooter("");
+    setPosterImageUrl("");
+    setPosterQrUrl("");
     setCategory("dj_night");
     setSubcategory("");
     setEventDate(todayIso());
@@ -439,6 +452,11 @@ export default function EventsAdminClient() {
           description: description.trim() || null,
           external_link: externalLink.trim() || null,
           poster_url: posterUrl || null,
+          flyer_poster_url: flyerPosterUrl || null,
+          poster_subcopy: posterSubcopy || null,
+          poster_footer: posterFooter || null,
+          poster_image_url: posterImageUrl || null,
+          poster_qr_url: posterQrUrl || null,
           category,
           subcategory: subcategory || null,
           event_date: d,
@@ -621,9 +639,26 @@ export default function EventsAdminClient() {
               defaultPrice={posterPriceHint}
               currentPosterUrl={posterUrl || null}
               isDeal={isDealEvent(category, subcategory)}
+              exportFlyer={isDealEvent(category, subcategory)}
+              defaultFooter={posterFooter || undefined}
+              defaultSubcopy={posterSubcopy || undefined}
+              defaultQrUrl={posterQrUrl || undefined}
+              defaultImageUrl={posterImageUrl || undefined}
               saveLabel="Use as this event's artwork"
               saveHint="Sets the artwork above. It goes live when you create the event."
-              onSave={(url) => setPosterUrl(url)}
+              onSave={(r) => {
+                setPosterUrl(r.poster_url);
+                if (r.flyer_poster_url !== undefined)
+                  setFlyerPosterUrl(r.flyer_poster_url ?? "");
+                if (r.poster_subcopy !== undefined)
+                  setPosterSubcopy(r.poster_subcopy ?? "");
+                if (r.poster_footer !== undefined)
+                  setPosterFooter(r.poster_footer ?? "");
+                if (r.poster_image_url !== undefined)
+                  setPosterImageUrl(r.poster_image_url ?? "");
+                if (r.poster_qr_url !== undefined)
+                  setPosterQrUrl(r.poster_qr_url ?? "");
+              }}
             />
           </Section>
 
@@ -1163,6 +1198,22 @@ function EditEventModal({
   // existing event previously had no way to attach or change the
   // poster; founder rule 2026-07-02 requires it.
   const [posterUrl, setPosterUrl] = useState<string>(event.poster_url ?? "");
+  // Deal/special poster data, seeded from the event so the maker opens prefilled.
+  const [flyerPosterUrl, setFlyerPosterUrl] = useState<string>(
+    event.flyer_poster_url ?? "",
+  );
+  const [posterSubcopy, setPosterSubcopy] = useState<string>(
+    event.poster_subcopy ?? "",
+  );
+  const [posterFooter, setPosterFooter] = useState<string>(
+    event.poster_footer ?? "",
+  );
+  const [posterImageUrl, setPosterImageUrl] = useState<string>(
+    event.poster_image_url ?? "",
+  );
+  const [posterQrUrl, setPosterQrUrl] = useState<string>(
+    event.poster_qr_url ?? "",
+  );
   const [showEditPicker, setShowEditPicker] = useState(false);
   // Recurrence editing — three modes based on this event's DB shape:
   //   • child of a series (recurrence_parent_id set) → read-only note
@@ -1302,6 +1353,12 @@ function EditEventModal({
             description: description.trim() || null,
             external_link: event.external_link ?? null,
             poster_url: posterUrl || null,
+            // Each instance of a recurring deal carries the same poster data.
+            flyer_poster_url: flyerPosterUrl || null,
+            poster_subcopy: posterSubcopy || null,
+            poster_footer: posterFooter || null,
+            poster_image_url: posterImageUrl || null,
+            poster_qr_url: posterQrUrl || null,
             category: event.category,
             subcategory: subcategory || null,
             event_date: dates[i],
@@ -1523,12 +1580,39 @@ function EditEventModal({
             defaultPrice={posterPriceHint}
             currentPosterUrl={posterUrl || null}
             isDeal={isDealEvent(event.category, subcategory)}
+            exportFlyer={isDealEvent(event.category, subcategory)}
+            defaultFooter={posterFooter || undefined}
+            defaultSubcopy={posterSubcopy || undefined}
+            defaultQrUrl={posterQrUrl || undefined}
+            defaultImageUrl={posterImageUrl || undefined}
             saveHint="Saves straight onto this event — it shows on nodice.bar/events right away."
-            onSave={async (url) => {
+            onSave={async (r) => {
               // Write first, then mirror into local state, so a failed write
-              // surfaces in the studio and leaves the live poster alone.
-              await updateEvent(event.id, { poster_url: url });
-              setPosterUrl(url);
+              // surfaces in the studio and leaves the live poster alone. For a
+              // deal this also carries the flyer render + structured fields.
+              const patch: Partial<NewEvent> = { poster_url: r.poster_url };
+              if (r.flyer_poster_url !== undefined)
+                patch.flyer_poster_url = r.flyer_poster_url;
+              if (r.poster_subcopy !== undefined)
+                patch.poster_subcopy = r.poster_subcopy;
+              if (r.poster_footer !== undefined)
+                patch.poster_footer = r.poster_footer;
+              if (r.poster_image_url !== undefined)
+                patch.poster_image_url = r.poster_image_url;
+              if (r.poster_qr_url !== undefined)
+                patch.poster_qr_url = r.poster_qr_url;
+              await updateEvent(event.id, patch);
+              setPosterUrl(r.poster_url);
+              if (r.flyer_poster_url !== undefined)
+                setFlyerPosterUrl(r.flyer_poster_url ?? "");
+              if (r.poster_subcopy !== undefined)
+                setPosterSubcopy(r.poster_subcopy ?? "");
+              if (r.poster_footer !== undefined)
+                setPosterFooter(r.poster_footer ?? "");
+              if (r.poster_image_url !== undefined)
+                setPosterImageUrl(r.poster_image_url ?? "");
+              if (r.poster_qr_url !== undefined)
+                setPosterQrUrl(r.poster_qr_url ?? "");
               await onRefresh?.();
             }}
           />
