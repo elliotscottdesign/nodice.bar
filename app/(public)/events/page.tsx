@@ -175,6 +175,12 @@ function leadRank(e: DbCalendarEvent): number {
   const cat = e.category ?? "";
   const recurring = !!e.recurrence_type && e.recurrence_type !== "none";
 
+  // 9 — Happy Hour is the everyday wallpaper deal (it runs Mon–Fri), so it must
+  // NEVER headline a day — it sorts dead last, below every other event AND every
+  // other deal (founder 20 Oct 2026). Matched by name since it's category
+  // drink_special like the rest of the deals.
+  if (/happy\s*hour/i.test(e.title || "")) return 9;
+
   // 0 — one-off / limited-edition SPECIAL headlines above everything (founder:
   // a special outranks even a DJ night): a special event, a special pool comp,
   // a food party, a world-cup fixture.
