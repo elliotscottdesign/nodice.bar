@@ -322,6 +322,74 @@ async function handlePoolReservationPaymentIntent(
   return new Response("ok", { status: 200 });
 }
 
+// =============================================================
+// Pool ADD-ON Payment Element handler
+// =============================================================
+// Office-added pool time on an existing TABLE booking (pool-addon
+// function). The row lives in bar_reservations (kind='pool',
+// parent_reservation_id set) and the customer pays via a Stripe
+// Payment Link. On success we flip it 'pending' → 'paid' so the
+// office sees it as paid on the parent table booking.
+//
+// Crucially we DON'T fire a confirmation email here — the founder's
+// rule is one reservation, no second email. The pay link already rode
+// in on the table booking's own confirmation.
+async function handlePoolAddonPaymentIntent(
+  pi: Stripe.PaymentIntent,
+  eventType: string,
+): Promise<Response> {
+  const reservationId = pi.metadata?.reservation_id;
+  if (!reservationId) {
+    return new Response("pool_addon metadata missing reservation_id", {
+      status: 200,
+    });
+  }
+  if (eventType !== "payment_intent.succeeded") {
+    console.log(
+      `pool_addon webhook ${eventType}: reservation ${reservationId} — non-success terminal state, leaving as pending`,
+    );
+    return new Response("ok (non-success)", { status: 200 });
+  }
+
+  let r: { id: string; status: string } | null = null;
+  {
+    const { data, error } = await db
+      .from("bar_reservations")
+      .select("id, status")
+      .eq("id", reservationId)
+      .maybeSingle();
+    if (error) {
+      return new Response(`DB lookup error: ${error.message}`, { status: 500 });
+    }
+    r = data;
+  }
+  if (!r) {
+    return new Response("pool add-on not found (will retry)", { status: 200 });
+  }
+  if (r.status === "paid" || r.status === "refunded") {
+    return new Response("already settled", { status: 200 });
+  }
+
+  const { error: updateErr } = await db
+    .from("bar_reservations")
+    .update({
+      status: "paid",
+      paid_at: new Date().toISOString(),
+      stripe_payment_intent_id: pi.id,
+    })
+    .eq("id", r.id);
+  if (updateErr) {
+    return new Response(`DB update error: ${updateErr.message}`, {
+      status: 500,
+    });
+  }
+
+  console.log(
+    `pool_addon webhook payment_intent.succeeded: reservation ${r.id} → paid (pi=${pi.id})`,
+  );
+  return new Response("ok", { status: 200 });
+}
+
 async function fireBigBookingAlert(reservationId: string): Promise<void> {
   const res = await fetch(
     `${SUPABASE_URL}/functions/v1/notify-big-booking`,
@@ -621,6 +689,12 @@ Deno.serve(async (req) => {
   // tournaments, but the row lives in bar_reservations.
   if (pi.metadata?.kind === "pool_reservation") {
     return await handlePoolReservationPaymentIntent(pi, event.type);
+  }
+
+  // Office-added pool time on a table booking (pool-addon) — paid via a
+  // Stripe Payment Link. Flips the linked pool row to paid; no email.
+  if (pi.metadata?.kind === "pool_addon") {
+    return await handlePoolAddonPaymentIntent(pi, event.type);
   }
 
   // Ticketed events (World Cup matches + any future cover-charge

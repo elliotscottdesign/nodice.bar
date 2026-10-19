@@ -30,6 +30,11 @@ export type DbBarReservation = {
   stripe_payment_intent_id: string | null;
   paid_at: string | null;
   status: "pending" | "paid" | "confirmed" | "cancelled" | "refunded";
+  /** Office pool add-on: the parent TABLE reservation this pool row hangs
+   *  off (null for a standalone booking). See the pool-addon Edge Fn. */
+  parent_reservation_id: string | null;
+  /** Office pool add-on: the Stripe Payment Link the customer pays later. */
+  pool_pay_url: string | null;
   created_at: string;
   updated_at: string;
 };
@@ -102,6 +107,10 @@ export type UnifiedReservation = DbBarReservation & {
   match_name?: string;
   /** Source: 'bar' = bar_reservations row, 'event' = event_entries row. */
   source: "bar" | "event";
+  /** Office pool add-on hung off this TABLE row (most recent non-cancelled),
+   *  attached for display so the pool time + pay link shows inside the one
+   *  table booking instead of as a separate card. */
+  pool_addon?: DbBarReservation | null;
 };
 
 const TODAY_MINUS_30 = () => {
@@ -160,6 +169,8 @@ function eventEntryToUnified(row: {
     stripe_payment_intent_id: row.stripe_payment_intent_id,
     paid_at: row.paid_at,
     status: statusMap[row.status] ?? "pending",
+    parent_reservation_id: null,
+    pool_pay_url: null,
     created_at: row.created_at,
     updated_at: row.updated_at,
     match_name: row.event.name,
@@ -194,9 +205,26 @@ export async function loadAllTableSurfaceReservations(): Promise<
   ]);
   if (barRes.error) throw barRes.error;
   if (eventRes.error) throw eventRes.error;
-  const bar: UnifiedReservation[] = (barRes.data ?? []).map((r) => ({
-    ...(r as DbBarReservation),
+  const barRows = (barRes.data ?? []) as DbBarReservation[];
+  // Pool add-ons (office-added pool time) are kind='pool' rows that point
+  // at a parent TABLE row. Attach the most recent non-cancelled add-on to
+  // its parent so the table card can show it as a pool line + pay link.
+  // The add-on rows still appear on the Pool page as genuine holds (the
+  // slot IS blocked); they just don't show as a second card on the Table
+  // page because that page only lists kind='table' / event rows.
+  const addonByParent = new Map<string, DbBarReservation>();
+  for (const row of barRows) {
+    if (row.kind === "pool" && row.parent_reservation_id && row.status !== "cancelled") {
+      const existing = addonByParent.get(row.parent_reservation_id);
+      if (!existing || row.created_at > existing.created_at) {
+        addonByParent.set(row.parent_reservation_id, row);
+      }
+    }
+  }
+  const bar: UnifiedReservation[] = barRows.map((r) => ({
+    ...r,
     source: "bar",
+    pool_addon: addonByParent.get(r.id) ?? null,
   }));
   const events: UnifiedReservation[] = (eventRes.data ?? []).map((r) =>
     eventEntryToUnified(
