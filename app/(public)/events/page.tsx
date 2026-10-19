@@ -640,17 +640,19 @@ export default function EventsPage() {
                       : "border-cream/10"
                   } ${isPastDay ? "opacity-30" : ""} ${editing && !isToday ? "ring-1 ring-cream/10" : ""}`}
                 >
-                  {/* Day-number badge — DESKTOP only. On mobile the
-                      dedicated header strip below carries the date;
-                      keeping this absolute badge visible there caused
-                      the day number to sit on top of the weekday label
-                      (founder bug 2026-07-02). */}
-                  <div
-                    className={`absolute left-2 top-2 z-10 hidden rounded-full px-1.5 py-0.5 text-xs font-bold sm:block ${
-                      isToday ? "bg-cream text-ink" : "bg-ink/80 text-cream/85"
-                    }`}
-                  >
-                    {day}
+                  {/* Day-number header — DESKTOP only. Sits ABOVE the poster
+                      in normal flow so the date never covers the artwork
+                      (founder 19 Oct 2026 — the old absolute badge sat on top
+                      of the poster). On mobile the dedicated header strip below
+                      carries the date instead. */}
+                  <div className="hidden items-center px-2 pt-2 pb-1 sm:flex">
+                    <span
+                      className={`rounded-full px-1.5 py-0.5 text-xs font-bold ${
+                        isToday ? "bg-cream text-ink" : "bg-ink/80 text-cream/85"
+                      }`}
+                    >
+                      {day}
+                    </span>
                   </div>
 
                   {/* Mobile date header — dedicated strip so the day
@@ -940,17 +942,10 @@ function DayEventCard({
             no artwork
           </div>
         )}
-        {/* Category badge — top-RIGHT so it never overlaps the day-number badge
-            (which sits top-left of the cell). Shows the event's type; DJ-fed
-            nights keep the pink accent, a re-categorised DJ night shows its new
-            category here so admin changes are visible publicly. */}
-        {primary && (
-          <span
-            className={`absolute right-1 top-1 z-10 rounded-full px-1.5 py-0.5 text-[9px] font-bold uppercase tracking-wider ${cc.pill}`}
-          >
-            {primary}
-          </span>
-        )}
+        {/* The category label used to sit here, ON the poster. Founder
+            19 Oct 2026: nothing covers the artwork — it's moved into the
+            caption below (the left-edge colour stripe still flags the
+            category for poster-only cards that have no caption). */}
         {editing && !dj && (
           <span className="absolute bottom-1 right-1 z-10 rounded-full bg-cream/90 px-1.5 py-0.5 text-[9px] font-bold uppercase tracking-wider text-ink">
             Edit
@@ -961,6 +956,15 @@ function DayEventCard({
           poster stands alone and the whole card is still the link. */}
       {showDesc && (
         <div className="px-1.5 py-1.5 sm:px-2 sm:py-2">
+          {/* Category chip — moved OFF the poster (founder 19 Oct 2026) so the
+              artwork is never covered. Sits above the title in the caption. */}
+          {primary && (
+            <span
+              className={`mb-1 inline-block rounded-full px-1.5 py-0.5 text-[9px] font-bold uppercase tracking-wider ${cc.pill}`}
+            >
+              {primary}
+            </span>
+          )}
           {/* Title line doubles as the link affordance: the ↗ is pinned to its
               right edge (off the poster, see the note above the component) and
               the title underlines + lightens on hover like any other link. */}
@@ -1135,14 +1139,11 @@ function MultiEventStack({
             +{mobileOverflow}
           </div>
         )}
-        <span className="absolute right-1 top-1 rounded-full bg-plonkPink px-2 py-0.5 text-[9px] font-bold uppercase tracking-wider text-white shadow-md">
-          {events.length} events
-        </span>
       </div>
 
-      {/* DESKTOP — original single headline poster + count pill. The
-          founder specifically said desktop is fine as-is. Kept
-          hidden on mobile via `hidden sm:block`. */}
+      {/* DESKTOP — single headline poster, uncovered (the count moved to the
+          caption below, founder 19 Oct 2026). Hidden on mobile via
+          `hidden sm:block`. */}
       <div className="relative hidden aspect-square w-full overflow-hidden bg-ink sm:block">
         {headlineSrc ? (
           // eslint-disable-next-line @next/next/no-img-element
@@ -1157,10 +1158,6 @@ function MultiEventStack({
             multi-event
           </div>
         )}
-        <span className="absolute right-1 top-1 rounded-full bg-plonkPink px-2 py-0.5 text-[9px] font-bold uppercase tracking-wider text-white shadow-md">
-          {events.length} events
-        </span>
-        <div className="pointer-events-none absolute inset-x-0 bottom-0 h-6 bg-gradient-to-b from-transparent to-ink/80" />
       </div>
 
       {/* Chip stack — one chip per event. Limited to the first 4 so
@@ -1168,6 +1165,11 @@ function MultiEventStack({
           A small subcategory-coloured dot leads each row so the
           founder / customer can eyeball the day's mix at a glance. */}
       <div className="flex flex-col gap-0.5 px-1.5 py-1.5 sm:px-2 sm:py-2">
+        {/* Event count — moved OFF the poster into the caption (founder 19 Oct
+            2026) so the artwork is never covered. */}
+        <span className="mb-0.5 text-[9px] font-bold uppercase tracking-widest text-plonkPink">
+          {events.length} events
+        </span>
         {events.slice(0, 4).map((ev) => {
           const c = categoryColours(primarySub(ev.subcategory));
           return (
@@ -1272,9 +1274,14 @@ function DayEventsPopup({
           {heading}
         </h2>
 
-        {/* Grid of full-size event cards. 1 column on mobile, 2 on
-            tablet+ so the popup stays compact even with 4+ events. */}
-        <div className="mt-6 grid grid-cols-1 gap-4 sm:grid-cols-2">
+        {/* Grid of full-size event cards. A single event gets the full modal
+            width so its poster opens BIG (founder 19 Oct 2026); 2+ events go
+            1 column on mobile, 2 on tablet+ so the popup stays compact. */}
+        <div
+          className={`mt-6 grid gap-4 ${
+            events.length === 1 ? "grid-cols-1" : "grid-cols-1 sm:grid-cols-2"
+          }`}
+        >
           {events.map((ev) => (
             <div
               key={ev.id}
