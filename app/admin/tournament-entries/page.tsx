@@ -1,14 +1,14 @@
 import AdminPageHeader from "@/components/admin/AdminPageHeader";
 import TournamentEntriesClient from "./TournamentEntriesClient";
 
-export const metadata = { title: "Tournament entries — No Dice Admin" };
+export const metadata = { title: "Special events & tournaments — No Dice Admin" };
 
 export default function TournamentEntriesPage() {
   return (
     <>
       <AdminPageHeader
-        title="Tournament entries"
-        description="Paid team sign-ups from /book/tournament. Use 'Copy team names' to paste into the tournament app when the event starts."
+        title="Special events & tournaments"
+        description="Every tournament, special event, food night and match day in one place. Browse as cards or a calendar, then see and manage the sign-ups. Use 'Copy team names' to paste into the tournament app when an event starts."
         action={
           <a
             href={`${process.env.NEXT_PUBLIC_BASE_PATH || ""}/book/tournament`}

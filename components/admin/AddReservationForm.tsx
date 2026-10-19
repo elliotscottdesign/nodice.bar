@@ -2,6 +2,8 @@
 
 import { useEffect, useState } from "react";
 import { AdminCard } from "@/components/admin/AdminCard";
+import TimeField from "@/components/admin/TimeField";
+import DatePickerInput from "@/components/admin/DatePickerInput";
 import { supabase } from "@/lib/supabase";
 
 const SUPABASE_URL =
@@ -411,11 +413,9 @@ export default function AddReservationForm({
             <label className="text-[10px] font-bold uppercase tracking-widest text-cream/55">
               Date
             </label>
-            <input
-              type="date"
-              required
+            <DatePickerInput
               value={date}
-              onChange={(e) => setDate(e.target.value)}
+              onChange={setDate}
               className={inputCls + " mt-1"}
             />
           </div>
@@ -423,11 +423,9 @@ export default function AddReservationForm({
             <label className="text-[10px] font-bold uppercase tracking-widest text-cream/55">
               Start time
             </label>
-            <input
-              type="time"
-              required
+            <TimeField
               value={time}
-              onChange={(e) => setTime(e.target.value)}
+              onChange={setTime}
               className={inputCls + " mt-1"}
             />
           </div>
@@ -561,10 +559,9 @@ export default function AddReservationForm({
                   <label className="text-[10px] font-bold uppercase tracking-widest text-cream/55">
                     Pool start
                   </label>
-                  <input
-                    type="time"
+                  <TimeField
                     value={poolTime}
-                    onChange={(e) => setPoolTime(e.target.value)}
+                    onChange={setPoolTime}
                     className={inputCls + " mt-1"}
                   />
                 </div>

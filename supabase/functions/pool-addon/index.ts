@@ -258,7 +258,11 @@ Deno.serve(async (req) => {
       heard_from: "Office pool add-on",
       marketing_opt_in: false,
       amount_pence: amount,
-      status: "pending",
+      // Office-added, so it's a confirmed hold straight away — no Confirm/
+      // Cancel step needed (founder 19 Oct 2026). Payment is separate: the
+      // stripe-webhook flips 'confirmed' → 'paid' when the customer pays the
+      // link; 'confirmed' still blocks the slot like any active pool row.
+      status: "confirmed",
     })
     .select("id")
     .single();

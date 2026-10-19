@@ -4,6 +4,7 @@ import { useEffect, useState } from "react";
 import AdminPageHeader from "@/components/admin/AdminPageHeader";
 import Notice from "@/components/Notice";
 import { AdminCard } from "@/components/admin/AdminCard";
+import DatePickerInput from "@/components/admin/DatePickerInput";
 import { loadVenues, type DbVenue } from "@/lib/db/tickets";
 import {
   loadSlotOverrides,
@@ -254,10 +255,9 @@ function AddOverrideModal({
           </label>
           <label className="block">
             <span className="text-xs font-bold uppercase tracking-widest text-cream/55">Date</span>
-            <input
-              type="date"
+            <DatePickerInput
               value={date}
-              onChange={(e) => setDate(e.target.value)}
+              onChange={setDate}
               className="mt-1.5 w-full rounded-lg border border-cream/15 bg-ink/40 px-3 py-2 text-sm text-cream focus:border-plonkPink focus:outline-none"
             />
           </label>

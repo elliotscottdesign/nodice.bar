@@ -3,6 +3,8 @@
 import { useEffect, useState } from "react";
 import { AdminCard } from "@/components/admin/AdminCard";
 import AddReservationForm from "@/components/admin/AddReservationForm";
+import TimeField from "@/components/admin/TimeField";
+import DatePickerInput from "@/components/admin/DatePickerInput";
 import BookingLockedTag from "@/components/admin/BookingLockedTag";
 import {
   loadAllTableSurfaceReservations,
@@ -81,7 +83,7 @@ const editInputCls =
 // or cancels here. Stripe / email confirmation are stubs for now;
 // confirming today just updates the status.
 
-type Filter = "pending" | "confirmed" | "cancelled" | "all";
+type Filter = "pending" | "confirmed" | "cancelled" | "refunded" | "all";
 
 function describe(err: unknown, fallback: string) {
   if (err instanceof Error) return err.message;
@@ -179,7 +181,10 @@ export default function BarReservationsClient({
   const [filter, setFilter] = useState<Filter>(() => {
     if (typeof window === "undefined") return "all";
     const q = new URLSearchParams(window.location.search).get("filter");
-    if (q === "all" || q === "pending" || q === "confirmed" || q === "cancelled")
+    if (
+      q === "all" || q === "pending" || q === "confirmed" ||
+      q === "cancelled" || q === "refunded"
+    )
       return q;
     return "all";
   });
@@ -604,10 +609,11 @@ export default function BarReservationsClient({
       <div className="flex flex-wrap gap-2">
         {(
           [
-            { id: "pending" as const, label: `Pending${pendingCount ? ` (${pendingCount})` : ""}` },
-            { id: "confirmed" as const, label: "Confirmed" },
-            { id: "cancelled" as const, label: "Cancelled" },
             { id: "all" as const, label: "All" },
+            { id: "confirmed" as const, label: "Confirmed" },
+            { id: "pending" as const, label: `Pending${pendingCount ? ` (${pendingCount})` : ""}` },
+            { id: "cancelled" as const, label: "Cancelled" },
+            { id: "refunded" as const, label: "Refunded" },
           ]
         ).map((t) => (
           <button
@@ -652,10 +658,10 @@ export default function BarReservationsClient({
         ))}
         <label className="flex items-center gap-2 text-[10px] font-bold uppercase tracking-widest text-cream/45">
           Jump to
-          <input
-            type="date"
+          <DatePickerInput
             value={jumpDate}
-            onChange={(e) => setJumpDate(e.target.value)}
+            onChange={setJumpDate}
+            placeholder="Jump to date"
             className={`rounded-full border px-3 py-1 text-xs font-semibold tracking-normal focus:outline-none ${
               jumpDate
                 ? "border-plonkYellow bg-plonkYellow/10 text-plonkYellow"
@@ -953,19 +959,17 @@ export default function BarReservationsClient({
                   <div className="grid gap-3 sm:grid-cols-4">
                     <div>
                       <label className="text-[10px] font-bold uppercase tracking-widest text-cream/55">Date</label>
-                      <input
-                        type="date"
+                      <DatePickerInput
                         value={poolForm.date}
-                        onChange={(e) => updatePoolField({ date: e.target.value })}
+                        onChange={(v) => updatePoolField({ date: v })}
                         className={editInputCls + " mt-1"}
                       />
                     </div>
                     <div>
                       <label className="text-[10px] font-bold uppercase tracking-widest text-cream/55">Start time</label>
-                      <input
-                        type="time"
+                      <TimeField
                         value={poolForm.time}
-                        onChange={(e) => updatePoolField({ time: e.target.value })}
+                        onChange={(v) => updatePoolField({ time: v })}
                         className={editInputCls + " mt-1"}
                       />
                     </div>
@@ -1049,11 +1053,11 @@ export default function BarReservationsClient({
                     <div className="mb-3 grid gap-3 sm:grid-cols-2">
                       <div>
                         <label className="text-[10px] font-bold uppercase tracking-widest text-cream/55">Date</label>
-                        <input type="date" value={editForm.reservation_date} onChange={(e) => setEditForm({ ...editForm, reservation_date: e.target.value })} className={editInputCls + " mt-1"} />
+                        <DatePickerInput value={editForm.reservation_date} onChange={(v) => setEditForm({ ...editForm, reservation_date: v })} className={editInputCls + " mt-1"} />
                       </div>
                       <div>
                         <label className="text-[10px] font-bold uppercase tracking-widest text-cream/55">Start time</label>
-                        <input type="time" value={editForm.start_time} onChange={(e) => setEditForm({ ...editForm, start_time: e.target.value })} className={editInputCls + " mt-1"} />
+                        <TimeField value={editForm.start_time} onChange={(v) => setEditForm({ ...editForm, start_time: v })} className={editInputCls + " mt-1"} />
                       </div>
                       <div>
                         <label className="text-[10px] font-bold uppercase tracking-widest text-cream/55">Duration (min)</label>
