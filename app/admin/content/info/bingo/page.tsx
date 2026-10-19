@@ -86,6 +86,21 @@ export default function BingoContentPage() {
             </div>
           </div>
         </AdminCard>
+
+        <AdminCard>
+          <div className="px-5 py-5">
+            <p className="font-display text-lg">Bingo cards for the night</p>
+            <p className="mt-2 text-sm text-cream/70">
+              Print a batch of random, unique No Dice bingo cards — pick how many
+              and hit print (or Save as PDF).
+            </p>
+            <div className="mt-4">
+              <Link href="/admin/bingo-cards" className={btn}>
+                Print bingo cards ↗
+              </Link>
+            </div>
+          </div>
+        </AdminCard>
       </div>
     </>
   );
