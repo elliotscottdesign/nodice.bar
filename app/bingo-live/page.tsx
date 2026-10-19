@@ -11,7 +11,7 @@ import { COLUMNS, ballLabel } from "@/lib/bingo/live";
 // board with called numbers lit. Reads the single shared `bingo_live` row and
 // polls every 2s (same slow-poll idea as the tournament live board — a bingo
 // call is seconds apart, no realtime subscription needed). The caller drives it
-// from /admin/bingo-caller.
+// from the team hub (team.nodice.bar → Ops → Events → Bingo → Live caller).
 // =============================================================
 
 const PINK = "#e878f0";

@@ -29,3 +29,10 @@ create policy "bingo_live anon read" on public.bingo_live
 drop policy if exists "bingo_live auth write" on public.bingo_live;
 create policy "bingo_live auth write" on public.bingo_live
   for all to authenticated using (true) with check (true);
+
+-- 20 Oct: the caller moved to the team hub (team.nodice.bar /ops), which talks
+-- to Supabase over anon PostgREST (the arena pattern) — so allow anon to UPDATE
+-- the single shared row. Low-stakes ephemeral game state; matches arena_matches.
+drop policy if exists "bingo_live anon write" on public.bingo_live;
+create policy "bingo_live anon write" on public.bingo_live
+  for update to anon using (true) with check (true);
