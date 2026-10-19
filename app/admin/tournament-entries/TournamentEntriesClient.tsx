@@ -69,7 +69,7 @@ export default function TournamentEntriesClient() {
   // visit. Use the dropdown to narrow to "Paid only" when copying
   // team names into the tournament app.
   const [filterStatus, setFilterStatus] = useState<
-    "all" | "paid" | "pending_payment" | "cancelled"
+    "all" | "paid" | "pending_payment" | "cancelled" | "refunded"
   >("all");
   // "Entries" (per-sign-up list) vs "Entrants" (one row per person, a
   // marketing mailing list across every tournament — founder 7 Oct 2026).
@@ -414,8 +414,9 @@ export default function TournamentEntriesClient() {
                 ["paid", "Confirmed"],
                 ["pending_payment", "Pending"],
                 ["cancelled", "Cancelled"],
+                ["refunded", "Refunded"],
               ] as [
-                "all" | "paid" | "pending_payment" | "cancelled",
+                "all" | "paid" | "pending_payment" | "cancelled" | "refunded",
                 string,
               ][]
             ).map(([v, label]) => (
