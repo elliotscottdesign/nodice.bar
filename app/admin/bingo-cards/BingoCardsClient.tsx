@@ -220,6 +220,7 @@ export default function BingoCardsClient() {
               Print {Math.max(1, Math.round(qty) || 1)} cards ↗
             </button>
             <p className="text-xs text-cream/50">
+              Every card is random and <strong className="text-cream/70">unique — no two the same</strong> in a run.
               Black ink, A6 each, 4 to an A4 sheet with cut guides — print on
               coloured paper and guillotine, or send the PDF to a print shop.
             </p>
