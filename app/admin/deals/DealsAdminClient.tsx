@@ -17,7 +17,6 @@ import {
   createEvent,
   updateEvent,
   deleteEvent,
-  generateRecurrenceDates,
   type DbEvent,
   type NewEvent,
 } from "@/lib/db/eventsPlatform";
@@ -37,6 +36,119 @@ function todayIso(): string {
 }
 function rootIdOf(d: DbEvent): string {
   return d.recurrence_parent_id ?? d.id;
+}
+
+// ── Recurrence: none / every day / certain weekdays ──────────────────────────
+type Repeat = {
+  mode: "none" | "daily" | "days";
+  days: number[]; // JS weekday numbers 0=Sun..6=Sat (for "days" mode)
+  weeks: string; // how many weeks forward to materialise
+};
+// Mon-first for the picker; value is the JS getDay() number.
+const WEEKDAYS: { n: number; label: string }[] = [
+  { n: 1, label: "Mon" },
+  { n: 2, label: "Tue" },
+  { n: 3, label: "Wed" },
+  { n: 4, label: "Thu" },
+  { n: 5, label: "Fri" },
+  { n: 6, label: "Sat" },
+  { n: 0, label: "Sun" },
+];
+function isoOf(d: Date): string {
+  return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(
+    d.getDate(),
+  ).padStart(2, "0")}`;
+}
+// All the dates a repeat produces, from `fromIso` forward over `weeks` weeks.
+function datesFor(fromIso: string, r: Repeat): string[] {
+  if (r.mode === "none") return [fromIso];
+  const weeks = Math.max(1, Math.min(52, parseInt(r.weeks, 10) || 12));
+  const start = new Date(`${fromIso}T00:00:00`);
+  const out: string[] = [];
+  for (let i = 0; i < weeks * 7; i++) {
+    const d = new Date(start);
+    d.setDate(start.getDate() + i);
+    if (r.mode === "daily" || r.days.includes(d.getDay())) out.push(isoOf(d));
+  }
+  return out;
+}
+
+function RepeatPicker({
+  value,
+  onChange,
+  allowNone = true,
+}: {
+  value: Repeat;
+  onChange: (r: Repeat) => void;
+  allowNone?: boolean;
+}) {
+  const modes: [Repeat["mode"], string][] = [
+    ...(allowNone ? ([["none", "Doesn't repeat"]] as [Repeat["mode"], string][]) : []),
+    ["daily", "Every day"],
+    ["days", "Certain days"],
+  ];
+  return (
+    <div className="space-y-2">
+      <div className="inline-flex flex-wrap gap-1 rounded-full border border-cream/15 p-0.5">
+        {modes.map(([m, label]) => (
+          <button
+            key={m}
+            type="button"
+            onClick={() => onChange({ ...value, mode: m })}
+            className={`rounded-full px-3 py-1 text-[10px] font-bold uppercase tracking-wider transition ${
+              value.mode === m
+                ? "bg-plonkPink text-white"
+                : "text-cream/60 hover:text-cream"
+            }`}
+          >
+            {label}
+          </button>
+        ))}
+      </div>
+      {value.mode === "days" && (
+        <div className="flex flex-wrap gap-1">
+          {WEEKDAYS.map((d) => {
+            const on = value.days.includes(d.n);
+            return (
+              <button
+                key={d.n}
+                type="button"
+                onClick={() =>
+                  onChange({
+                    ...value,
+                    days: on
+                      ? value.days.filter((x) => x !== d.n)
+                      : [...value.days, d.n],
+                  })
+                }
+                className={`rounded-md px-2.5 py-1 text-[11px] font-bold uppercase tracking-wider transition ${
+                  on
+                    ? "bg-plonkTeal text-ink"
+                    : "border border-cream/20 text-cream/70 hover:bg-cream/5"
+                }`}
+              >
+                {d.label}
+              </button>
+            );
+          })}
+        </div>
+      )}
+      {value.mode !== "none" && (
+        <label className="flex items-center gap-2 text-xs text-cream/55">
+          for
+          <input
+            value={value.weeks}
+            onChange={(e) =>
+              onChange({ ...value, weeks: e.target.value.replace(/[^0-9]/g, "") })
+            }
+            inputMode="numeric"
+            className="w-16 rounded-md border border-cream/20 bg-ink px-2 py-1 text-sm text-cream"
+          />
+          weeks
+        </label>
+      )}
+    </div>
+  );
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
@@ -223,15 +335,24 @@ function DealForm({
     deal?.poster_image_url ?? "",
   );
 
-  // New-deal scheduling.
+  // New-deal scheduling. "days" seeds with the first date's own weekday.
   const [eventDate, setEventDate] = useState(deal?.event_date ?? todayIso());
-  const [repeatWeekly, setRepeatWeekly] = useState(false);
-  const [occurrences, setOccurrences] = useState("12");
+  const [repeat, setRepeat] = useState<Repeat>({
+    mode: "none",
+    days: [new Date(`${deal?.event_date ?? todayIso()}T00:00:00`).getDay()],
+    weeks: "12",
+  });
 
   // Edit: top up a standing deal's dates so it never silently runs out.
   const [extendOn, setExtendOn] = useState(false);
   const [extendFrom, setExtendFrom] = useState(todayIso());
-  const [extendWeeks, setExtendWeeks] = useState("12");
+  const [extendRepeat, setExtendRepeat] = useState<Repeat>({
+    mode: "days",
+    days: deal
+      ? [new Date(`${deal.event_date}T00:00:00`).getDay()]
+      : [new Date(`${todayIso()}T00:00:00`).getDay()],
+    weeks: "12",
+  });
 
   const [busy, setBusy] = useState(false);
   const [err, setErr] = useState("");
@@ -298,9 +419,7 @@ function DealForm({
               .filter((e) => rootIdOf(e) === rootId)
               .map((e) => e.event_date),
           );
-          const weeks = Math.max(1, Math.min(52, parseInt(extendWeeks, 10) || 12));
-          const dates = generateRecurrenceDates(extendFrom, "weekly", weeks);
-          for (const dt of dates) {
+          for (const dt of datesFor(extendFrom, extendRepeat)) {
             if (existing.has(dt)) continue;
             await createEvent({
               ...base,
@@ -313,27 +432,24 @@ function DealForm({
           }
         }
       } else {
+        const dates = datesFor(eventDate, repeat);
         const parent = await createEvent({
           ...base,
-          event_date: eventDate,
-          recurrence_type: repeatWeekly ? "weekly" : "none",
+          event_date: dates[0],
+          recurrence_type: repeat.mode === "none" ? "none" : "weekly",
           recurrence_parent_id: null,
           recurrence_nth: null,
           recurrence_weekday: null,
         });
-        if (repeatWeekly) {
-          const count = Math.max(2, Math.min(52, parseInt(occurrences, 10) || 12));
-          const dates = generateRecurrenceDates(eventDate, "weekly", count);
-          for (let i = 1; i < dates.length; i++) {
-            await createEvent({
-              ...base,
-              event_date: dates[i],
-              recurrence_type: "none",
-              recurrence_parent_id: parent.id,
-              recurrence_nth: null,
-              recurrence_weekday: null,
-            });
-          }
+        for (let i = 1; i < dates.length; i++) {
+          await createEvent({
+            ...base,
+            event_date: dates[i],
+            recurrence_type: "none",
+            recurrence_parent_id: parent.id,
+            recurrence_nth: null,
+            recurrence_weekday: null,
+          });
         }
       }
       onDone();
@@ -463,31 +579,12 @@ function DealForm({
                 className={inputCls}
               />
             </Field>
-            <div className="flex flex-col justify-end gap-2">
-              <label className="flex items-center gap-2 text-sm text-cream/80">
-                <input
-                  type="checkbox"
-                  checked={repeatWeekly}
-                  onChange={(e) => setRepeatWeekly(e.target.checked)}
-                  className="accent-plonkPink"
-                />
-                Repeats weekly
-              </label>
-              {repeatWeekly && (
-                <label className="flex items-center gap-2 text-xs text-cream/55">
-                  for
-                  <input
-                    value={occurrences}
-                    onChange={(e) =>
-                      setOccurrences(e.target.value.replace(/[^0-9]/g, ""))
-                    }
-                    inputMode="numeric"
-                    className="w-16 rounded-md border border-cream/20 bg-ink px-2 py-1 text-sm text-cream"
-                  />
-                  weeks
-                </label>
-              )}
-            </div>
+            <Field
+              label="Repeats"
+              hint="Every day, or pick the weekdays it runs (e.g. Mon–Fri for a weekday happy hour)."
+            >
+              <RepeatPicker value={repeat} onChange={setRepeat} />
+            </Field>
           </>
         )}
 
@@ -500,10 +597,10 @@ function DealForm({
                 onChange={(e) => setExtendOn(e.target.checked)}
                 className="accent-plonkPink"
               />
-              Keep this deal running — add upcoming weekly dates
+              Keep this deal running — add upcoming dates
             </label>
             {extendOn && (
-              <div className="mt-3 grid gap-3 sm:grid-cols-2">
+              <div className="mt-3 space-y-3">
                 <Field label="From">
                   <DatePickerInput
                     value={extendFrom}
@@ -511,18 +608,13 @@ function DealForm({
                     className={inputCls}
                   />
                 </Field>
-                <Field label="For (weeks)">
-                  <input
-                    value={extendWeeks}
-                    onChange={(e) =>
-                      setExtendWeeks(e.target.value.replace(/[^0-9]/g, ""))
-                    }
-                    inputMode="numeric"
-                    className={inputCls}
-                  />
-                </Field>
-                <p className="sm:col-span-2 text-[11px] text-cream/45">
-                  Adds a date each week from then (skipping any that already
+                <RepeatPicker
+                  value={extendRepeat}
+                  onChange={setExtendRepeat}
+                  allowNone={false}
+                />
+                <p className="text-[11px] text-cream/45">
+                  Adds the matching dates from then (skipping any that already
                   exist), so it shows on the calendar going forward.
                 </p>
               </div>
