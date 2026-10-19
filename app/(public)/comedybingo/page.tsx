@@ -39,6 +39,12 @@ import type { DbTournament } from "@/lib/db/tournaments";
 // (founder, 18 Oct 2026 — "didn't want the old one coming up as it loads").
 const HERO_FALLBACK = "";
 
+// Hidden pre-launch (founder, 19 Oct 2026 — "hide bingo page again for now").
+// While true, the page bounces to home so it isn't publicly viewable; the
+// event is also hidden from /events and the nav link is pulled. Flip to false
+// (and re-show the event + nav) to launch.
+const BINGO_HIDDEN = true;
+
 // Bar-sponsored prizes (founder, 11 Oct 2026) — free to play, bar puts up
 // the pot so it isn't gambling.
 const PRIZES: Array<{ label: string; amount: string }> = [
@@ -167,6 +173,13 @@ export default function BingoPage() {
     return () => obs.disconnect();
   }, []);
 
+  // Hidden pre-launch: bounce to home so the page isn't publicly viewable.
+  useEffect(() => {
+    if (BINGO_HIDDEN && typeof window !== "undefined") {
+      window.location.replace((process.env.NEXT_PUBLIC_BASE_PATH || "") + "/");
+    }
+  }, []);
+
   const openBooking = () => {
     const next = upcoming[0];
     if (next) setExpandedId(next.id);
@@ -198,6 +211,12 @@ export default function BingoPage() {
   }, [nights]);
 
   const selected = upcoming.find((t) => t.id === expandedId) ?? null;
+
+  // Hidden pre-launch — render a blank placeholder while the redirect above
+  // takes effect (keeps the full page below intact for an easy re-launch).
+  if (BINGO_HIDDEN) {
+    return <main style={{ minHeight: "60vh" }} />;
+  }
 
   return (
     <main className="bingo-page">
