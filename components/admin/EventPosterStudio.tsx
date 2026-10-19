@@ -1031,8 +1031,8 @@ export default function EventPosterStudio({
                     setPriceTouched(true);
                     setPrice(e.target.value);
                   }}
-                  maxLength={40}
-                  placeholder="e.g. £5 on the door / Free entry"
+                  maxLength={60}
+                  placeholder="e.g. £6 per team · £5 on the door · Free entry"
                   className="w-full rounded-md border border-cream/20 bg-ink px-2.5 py-1.5 text-xs text-cream placeholder:text-cream/35"
                 />
               </label>

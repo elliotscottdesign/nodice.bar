@@ -823,13 +823,22 @@ export async function renderEventPoster({
   const qrGap = Math.round(W * 0.02);
 
   // ── Price circle, top right (instead of the QR) ───────────────────────────
-  // The price sits big in an open circle (no fill) in the top-right corner —
-  // the deals look, now used on EVERY export that has that corner free (founder
-  // 19 Oct 2026). The A3 keeps the QR in that corner (it's the scannable print),
-  // so there the price stays a text line under the headline instead.
+  // Founder 19 Oct 2026: the price is a CIRCLE only on the Instagram post and
+  // story — there the extra detail lives in the caption/feed, so the poster just
+  // needs the compact price, and it fills the now-empty QR corner. Every other
+  // export (A3 print, zine) shows the price as a LINE under the headline instead
+  // (room for the £ sign + extra info like "per team"). Deals keep their circle
+  // on their own page, whatever the size.
+  // poundPrice prepends a "£" when the founder typed a bare amount ("6" → "£6")
+  // but leaves wording like "Free entry" or an already-£'d value alone.
+  const poundPrice = (s: string) => {
+    const t = (s || "").trim();
+    return /^\d/.test(t) ? `£${t}` : t;
+  };
+  const priceOnBubble = dealLayout || size === "ig" || size === "story";
   const priceBadge =
-    (dealLayout || size !== "a3") && (price || "").trim()
-      ? (price as string).trim().toUpperCase()
+    priceOnBubble && (price || "").trim()
+      ? poundPrice(price as string).toUpperCase()
       : "";
   // The circle grows with its content — a short "£11" stays compact, but extra
   // info widens the ring (up to a cap) so it's readable instead of shrinking the
@@ -917,7 +926,7 @@ export async function renderEventPoster({
   // repeated here — only the A3 (which has the QR in that corner, so no circle)
   // falls back to the price as a line.
   const p = (price || "").trim();
-  if (p && !priceBadge) line(p.toUpperCase(), 0.058, 0.02);
+  if (p && !priceBadge) line(poundPrice(p).toUpperCase(), 0.058, 0.02);
   // With no line above the photo (no detail, and the price is a circle not a
   // line), keep the DJ poster's exact gap (0.018+0.02).
   if (!d && (!p || priceBadge)) y += Math.round(SB * 0.02);
