@@ -214,6 +214,9 @@ export default function EventsAdminClient() {
   const [posterFooter, setPosterFooter] = useState<string>("");
   const [posterImageUrl, setPosterImageUrl] = useState<string>("");
   const [posterQrUrl, setPosterQrUrl] = useState<string>("");
+  // The deal's price as its own cell (numeric £). Kept as a string for the
+  // input; parsed on save. Empty = no price.
+  const [ticketPrice, setTicketPrice] = useState<string>("");
   const [showPicker, setShowPicker] = useState(false);
   const [category, setCategory] = useState<EventCategory>("dj_night");
   // Subcategory drives the FILTER CHIPS on the public /events calendar
@@ -287,6 +290,7 @@ export default function EventsAdminClient() {
     setPosterFooter("");
     setPosterImageUrl("");
     setPosterQrUrl("");
+    setTicketPrice("");
     setCategory("dj_night");
     setSubcategory("");
     setEventDate(todayIso());
@@ -457,6 +461,7 @@ export default function EventsAdminClient() {
           poster_footer: posterFooter || null,
           poster_image_url: posterImageUrl || null,
           poster_qr_url: posterQrUrl || null,
+          ticket_price: ticketPrice ? Number(ticketPrice) : null,
           category,
           subcategory: subcategory || null,
           event_date: d,
@@ -636,7 +641,11 @@ export default function EventsAdminClient() {
               start={startTime}
               end={endTime}
               description={description}
-              defaultPrice={posterPriceHint}
+              defaultPrice={
+                isDealEvent(category, subcategory) && ticketPrice
+                  ? `£${ticketPrice}`
+                  : posterPriceHint
+              }
               currentPosterUrl={posterUrl || null}
               isDeal={isDealEvent(category, subcategory)}
               exportFlyer={isDealEvent(category, subcategory)}
@@ -658,6 +667,8 @@ export default function EventsAdminClient() {
                   setPosterImageUrl(r.poster_image_url ?? "");
                 if (r.poster_qr_url !== undefined)
                   setPosterQrUrl(r.poster_qr_url ?? "");
+                if (r.ticket_price !== undefined)
+                  setTicketPrice(r.ticket_price != null ? String(r.ticket_price) : "");
               }}
             />
           </Section>
@@ -1214,6 +1225,9 @@ function EditEventModal({
   const [posterQrUrl, setPosterQrUrl] = useState<string>(
     event.poster_qr_url ?? "",
   );
+  const [ticketPrice, setTicketPrice] = useState<string>(
+    event.ticket_price != null ? String(event.ticket_price) : "",
+  );
   const [showEditPicker, setShowEditPicker] = useState(false);
   // Recurrence editing — three modes based on this event's DB shape:
   //   • child of a series (recurrence_parent_id set) → read-only note
@@ -1359,6 +1373,7 @@ function EditEventModal({
             poster_footer: posterFooter || null,
             poster_image_url: posterImageUrl || null,
             poster_qr_url: posterQrUrl || null,
+            ticket_price: ticketPrice ? Number(ticketPrice) : null,
             category: event.category,
             subcategory: subcategory || null,
             event_date: dates[i],
@@ -1577,7 +1592,11 @@ function EditEventModal({
             start={startTime}
             end={endTime}
             description={description}
-            defaultPrice={posterPriceHint}
+            defaultPrice={
+              isDealEvent(event.category, subcategory) && ticketPrice
+                ? `£${ticketPrice}`
+                : posterPriceHint
+            }
             currentPosterUrl={posterUrl || null}
             isDeal={isDealEvent(event.category, subcategory)}
             exportFlyer={isDealEvent(event.category, subcategory)}
@@ -1601,6 +1620,8 @@ function EditEventModal({
                 patch.poster_image_url = r.poster_image_url;
               if (r.poster_qr_url !== undefined)
                 patch.poster_qr_url = r.poster_qr_url;
+              if (r.ticket_price !== undefined)
+                patch.ticket_price = r.ticket_price;
               await updateEvent(event.id, patch);
               setPosterUrl(r.poster_url);
               if (r.flyer_poster_url !== undefined)
@@ -1613,6 +1634,8 @@ function EditEventModal({
                 setPosterImageUrl(r.poster_image_url ?? "");
               if (r.poster_qr_url !== undefined)
                 setPosterQrUrl(r.poster_qr_url ?? "");
+              if (r.ticket_price !== undefined)
+                setTicketPrice(r.ticket_price != null ? String(r.ticket_price) : "");
               await onRefresh?.();
             }}
           />

@@ -43,6 +43,14 @@ function describe(err: unknown, fallback: string): string {
   return err instanceof Error ? err.message : fallback;
 }
 
+// Pull a number out of a price field ("£10" → 10, "£10.50" → 10.5, "Free" →
+// null) so a deal's price is stored in its own numeric cell (ticket_price),
+// not baked into a text line.
+function parsePrice(s: string | null | undefined): number | null {
+  const m = String(s ?? "").match(/\d+(\.\d+)?/);
+  return m ? Number(m[0]) : null;
+}
+
 // First sentence of the description, if it's short enough to earn a line on a
 // poster. Anything longer is left blank — a poster with a paragraph on it is a
 // flyer nobody reads, and he can always type his own line.
@@ -82,6 +90,8 @@ export type PosterSaveResult = {
   poster_footer?: string | null;
   poster_image_url?: string | null;
   poster_qr_url?: string | null;
+  /** The price as a number, parsed from the price field — the deal's own cell. */
+  ticket_price?: number | null;
 };
 
 export default function EventPosterStudio({
@@ -494,6 +504,8 @@ export default function EventPosterStudio({
         result.poster_footer = footer.trim() || null;
         result.poster_qr_url = qr.trim() || null;
         result.poster_image_url = sourceImageUrl || null;
+        // The price lives in its own numeric cell, not in the sub-copy line.
+        result.ticket_price = parsePrice(price);
       }
 
       await onSave(result);
