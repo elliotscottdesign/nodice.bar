@@ -4,7 +4,7 @@ import { useEffect, useMemo, useRef, useState } from "react";
 import PageHero from "@/components/PageHero";
 import RollerDeck from "@/components/RollerDeck";
 import MediaStrip from "@/components/MediaStrip";
-import InlineTournamentBooking from "@/components/InlineTournamentBooking";
+import BingoBooking from "@/components/BingoBooking";
 import { useContent } from "@/lib/content";
 import { Editable } from "@/components/Editable";
 import { loadBingoNights } from "@/lib/db/bingo";
@@ -292,40 +292,14 @@ export default function BingoPage() {
         </div>
       </section>
 
-      {/* Booking — opens inline from the header CTA above. The separate
-          "pick your night" section was removed (founder, 11 Oct 2026): one
-          book link, at the top. The booking form is the SHARED
-          InlineTournamentBooking (pool + ping pong use it too, in brand red);
-          we re-skin just this instance red → bingo pink via scoped overrides
-          on its exact utility classes (the Stripe card iframe's own accent,
-          set inside the shared component, stays red — page CSS can't reach it). */}
+      {/* Booking — opens inline from the header CTA above (one book link, at
+          the top). Bingo has its OWN pink BingoBooking component + bingo-checkout
+          Edge Function now — no longer the shared pool InlineTournamentBooking,
+          so no red→pink re-skin hack is needed. */}
       {selected && (
         <section className="px-6 pb-8">
-          <div
-            ref={bookingRef}
-            className="bingo-pay mx-auto max-w-2xl scroll-mt-24"
-          >
-            <style
-              dangerouslySetInnerHTML={{
-                __html: `
-                  .bingo-pay [class~="text-plonkPink"]{color:#e878f0 !important}
-                  .bingo-pay [class~="bg-plonkPink"]{background-color:#e878f0 !important}
-                  .bingo-pay [class~="bg-plonkPink"][class~="text-white"]{color:#000 !important}
-                  .bingo-pay [class~="bg-plonkPink/5"]{background-color:rgb(232 120 240 / .05) !important}
-                  .bingo-pay [class~="bg-plonkPink/10"]{background-color:rgb(232 120 240 / .10) !important}
-                  .bingo-pay [class~="border-plonkPink/30"]{border-color:rgb(232 120 240 / .30) !important}
-                  .bingo-pay [class~="border-plonkPink/40"]{border-color:rgb(232 120 240 / .40) !important}
-                  .bingo-pay [class~="border-plonkPink/45"]{border-color:rgb(232 120 240 / .45) !important}
-                  .bingo-pay [class~="accent-plonkPink"]{accent-color:#e878f0 !important}
-                  .bingo-pay [class~="shadow-plonkPink/20"]{--tw-shadow-color:rgb(232 120 240 / .20) !important}
-                  .bingo-pay .focus\\:border-plonkPink:focus{border-color:#e878f0 !important}
-                `,
-              }}
-            />
-            <InlineTournamentBooking
-              tournament={selected}
-              onClose={() => setExpandedId(null)}
-            />
+          <div ref={bookingRef} className="mx-auto max-w-2xl scroll-mt-24">
+            <BingoBooking night={selected} onClose={() => setExpandedId(null)} />
           </div>
         </section>
       )}

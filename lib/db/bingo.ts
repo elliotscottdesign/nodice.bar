@@ -14,28 +14,20 @@ import type { DbTournament } from "@/lib/db/tournaments";
 //
 // WHERE A BINGO EVENT LIVES
 // -------------------------
-// A bingo night is an `events`-platform row with:
-//   • category               = 'pool_tournament_singles'
-//       — the only existing category that makes tournament-checkout work
-//         UNCHANGED *and* makes InlineTournamentBooking render the right
-//         form (singles shape = one person: name + email + phone +
-//         marketing opt-in, no "team name"). Bingo is one ticket per
-//         person, so that's exactly right.
-//   • show_on_pool_schedule  = FALSE
-//       — keeps it OFF the /pool tournament schedule (loadOpenTournaments
-//         only reads rows where this is TRUE). This FALSE flag is also
-//         how we tell a bingo night apart from a real pool-singles night.
+// A bingo night is an `events`-platform row with its OWN category **'bingo'**
+// (19 Oct 2026 — decoupled from the pool-tournament hack). Booking goes through
+// the dedicated `bingo-checkout` Edge Function + <BingoBooking> component (NOT
+// the shared pool/tournament checkout). It also carries:
 //   • show_on_events_calendar = TRUE, subcategory = 'Special Event'
-//       — so it ALSO appears under Special Events on the /events calendar.
+//       — so it appears under Special Events on the /events calendar.
 //   • one active ticket_type at £10 (price_pence 1000).
-//
-// (A dedicated 'bingo' category would be tidier, but it would force a
-// change to the shared tournament-checkout Edge Function — deliberately
-// avoided here while the paid pool/ping-pong flow is live. See the hand-
-// off note for the post-launch tidy-up.)
+//   • a mirror public.tournaments row (same id) satisfying the
+//     tournament_entries.tournament_id FK (bingo-checkout writes entries there
+//     so they show in the admin tracker + the existing stripe-webhook flips
+//     them to paid). See supabase/sql/bingo_event_insert.sql.
 // =============================================================
 
-const BINGO_CATEGORY = "pool_tournament_singles";
+const BINGO_CATEGORY = "bingo";
 
 export async function loadBingoNights(): Promise<DbTournament[]> {
   const sb = supabase();
@@ -48,9 +40,6 @@ export async function loadBingoNights(): Promise<DbTournament[]> {
           "id, name, description, event_date, start_time, category, max_attendees, bookable, registration_open, paid_entries_count, show_on_pool_schedule, created_at, updated_at",
         )
         .eq("category", BINGO_CATEGORY)
-        // Bingo nights are hidden from the pool schedule — that FALSE flag
-        // is what separates them from genuine pool-singles tournaments.
-        .eq("show_on_pool_schedule", false)
         .eq("registration_open", true)
         .gte("event_date", today)
         .order("event_date", { ascending: true }),
