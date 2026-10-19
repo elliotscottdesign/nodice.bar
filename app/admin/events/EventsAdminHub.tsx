@@ -3,6 +3,7 @@
 import { useState } from "react";
 import EventsAdminClient from "./EventsAdminClient";
 import CalendarEventsAdminClient from "@/app/admin/calendar-events/CalendarEventsAdminClient";
+import DealsAdminClient from "@/app/admin/deals/DealsAdminClient";
 
 // EventsAdminHub — merged admin surface for the two event tables.
 // Founder rule (2026-07-02): one sidebar entry, one starting point.
@@ -13,15 +14,15 @@ import CalendarEventsAdminClient from "@/app/admin/calendar-events/CalendarEvent
 // paid bookings. The two tabs below preserve the boundary without
 // forcing the founder to remember where each thing lives.
 
-type Tab = "ticketed" | "posters";
+type Tab = "ticketed" | "posters" | "deals";
 
 export default function EventsAdminHub() {
-  // Read ?tab=posters from the URL client-side. Server-side reads
-  // bail Next.js out of the static export.
+  // Read ?tab=… from the URL client-side. Server-side reads bail Next.js out of
+  // the static export.
   const [tab, setTab] = useState<Tab>(() => {
     if (typeof window === "undefined") return "ticketed";
     const q = new URLSearchParams(window.location.search).get("tab");
-    return q === "posters" ? "posters" : "ticketed";
+    return q === "posters" ? "posters" : q === "deals" ? "deals" : "ticketed";
   });
 
   return (
@@ -32,6 +33,7 @@ export default function EventsAdminHub() {
           [
             { id: "ticketed" as const, label: "Ticketed events" },
             { id: "posters" as const, label: "Calendar posters" },
+            { id: "deals" as const, label: "Deals" },
           ]
         ).map((t) => {
           const isActive = tab === t.id;
@@ -55,13 +57,17 @@ export default function EventsAdminHub() {
       <p className="text-xs text-cream/55">
         {tab === "ticketed"
           ? "Anything customers pay for or reserve a spot at — World Cup match tables, pool tournaments, DJ nights with tickets. Category, capacity, ticket types."
-          : "Poster artwork on the public /events calendar — DJ nights, food specials, one-off promos. No bookings, no tickets. DJ nights from the DJ booking system auto-feed here."}
+          : tab === "posters"
+            ? "Poster artwork on the public /events calendar — DJ nights, food specials, one-off promos. No bookings, no tickets. DJ nights from the DJ booking system auto-feed here."
+            : "Drinks deals — a focused builder for each deal. Fill the parameters, make the poster, and it drives the website, the drinks-zine cover and the printed flyer."}
       </p>
 
       {tab === "ticketed" ? (
         <EventsAdminClient />
-      ) : (
+      ) : tab === "posters" ? (
         <CalendarEventsAdminClient />
+      ) : (
+        <DealsAdminClient />
       )}
     </div>
   );

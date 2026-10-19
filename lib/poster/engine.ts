@@ -787,7 +787,17 @@ export async function renderEventPoster({
     dealLayout && (price || "").trim()
       ? (price as string).trim().toUpperCase()
       : "";
-  const badgeD = priceBadge ? Math.round(W * 0.2) : 0;
+  // The circle grows with its content — a short "£11" stays compact, but extra
+  // info widens the ring (up to a cap) so it's readable instead of shrinking the
+  // text to nothing.
+  const badgeD = priceBadge
+    ? Math.round(
+        Math.min(
+          W * 0.33,
+          W * 0.17 + Math.max(0, priceBadge.length - 3) * W * 0.019,
+        ),
+      )
+    : 0;
   const badgeX = x1 - badgeD;
   const badgeY = y;
   const badgeGap = Math.round(W * 0.022);
@@ -832,18 +842,23 @@ export async function renderEventPoster({
   const d = (detail || "").trim();
   if (d && dealLayout) {
     const px = Math.round(SB * 0.05);
-    const dlines = wrapVarying(
-      ctx,
-      d.toUpperCase().split(/\s+/),
-      px,
-      () => x1 - x0,
-    );
     ctx.font = `${px}px "${FONT_FAMILY}"`;
-    for (const l of dlines) {
-      const mm = ctx.measureText(l);
-      ctx.fillText(l, x0, y + mm.actualBoundingBoxAscent);
+    // Honour explicit line breaks (the Return key) AND wrap each line that's
+    // still too wide — so founders can lay the info out by hand or let it flow.
+    const dlines = d
+      .toUpperCase()
+      .split(/\r?\n/)
+      .flatMap((para) =>
+        para.trim()
+          ? wrapVarying(ctx, para.trim().split(/\s+/), px, () => x1 - x0)
+          : [""],
+      );
+    for (let i = 0; i < dlines.length; i++) {
+      const l = dlines[i];
+      const mm = ctx.measureText(l || "M");
+      if (l) ctx.fillText(l, x0, y + mm.actualBoundingBoxAscent);
       y += mm.actualBoundingBoxAscent + mm.actualBoundingBoxDescent;
-      if (l !== dlines[dlines.length - 1]) y += Math.round(px * 0.14);
+      if (i < dlines.length - 1) y += Math.round(px * 0.14);
     }
     y += Math.round(SB * 0.02);
   } else if (d) {
@@ -864,16 +879,28 @@ export async function renderEventPoster({
   const when = ((dayLabel || "").trim() || fmtDate(date)).toUpperCase();
   // A deal/special can override the whole bottom line with a footer (price /
   // entry / "DEAL OF THE DAY"); otherwise it's the usual NO DICE line.
-  const bottom = (footer || "").trim()
-    ? (footer as string).trim().toUpperCase()
-    : `NO DICE - ${when}${timeStr ? ` / ${timeStr}` : ""}`;
-  fitFont(ctx, bottom, x1 - x0, Math.round(SB * 0.09));
-  const bm = ctx.measureText(bottom);
-  const basc = bm.actualBoundingBoxAscent,
-    bdesc = bm.actualBoundingBoxDescent;
+  // The footer can override the bottom line, and (deal) can drop onto several
+  // lines with the Return key; otherwise it's the usual single NO DICE line.
+  const bottomLines = (footer || "").trim()
+    ? (footer as string)
+        .toUpperCase()
+        .split(/\r?\n/)
+        .map((s) => s.trim())
+        .filter(Boolean)
+    : [`NO DICE - ${when}${timeStr ? ` / ${timeStr}` : ""}`];
+  // Fit each line + measure the whole stacked block, so the photo clears it.
+  const bottomMetrics = bottomLines.map((l) => {
+    const px = fitFont(ctx, l, x1 - x0, Math.round(SB * 0.09));
+    const mm = ctx.measureText(l);
+    return { l, px, asc: mm.actualBoundingBoxAscent, desc: mm.actualBoundingBoxDescent };
+  });
+  const bottomGap = Math.round(SB * 0.012);
+  const bottomBlockH =
+    bottomMetrics.reduce((s, x) => s + x.asc + x.desc, 0) +
+    bottomGap * (bottomMetrics.length - 1);
   // Ported, plus the story's bottom safe band (0 for the post and the A3).
   const imgBottom =
-    H - S.safeBottom - m - (basc + bdesc) - Math.round(SB * 0.01);
+    H - S.safeBottom - m - bottomBlockH - Math.round(SB * 0.01);
 
   // One framed image (border + photo) within a given x-column. The image always
   // fills the frame; ox/oy (0–1) set where it's cropped.
@@ -944,8 +971,12 @@ export async function renderEventPoster({
   }
 
   ctx.fillStyle = inkCss;
-  ctx.font = `${fitFont(ctx, bottom, x1 - x0, Math.round(SB * 0.09))}px "${FONT_FAMILY}"`;
-  ctx.fillText(bottom, x0, imgBottom + basc);
+  let by = imgBottom;
+  for (const bmx of bottomMetrics) {
+    ctx.font = `${bmx.px}px "${FONT_FAMILY}"`;
+    ctx.fillText(bmx.l, x0, by + bmx.asc);
+    by += bmx.asc + bmx.desc + bottomGap;
+  }
 
   // Draw the QR last so nothing can land on top of it.
   //   screen  — the poster colour behind it, black modules on top. The poster's

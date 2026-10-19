@@ -111,6 +111,7 @@ export default function EventPosterStudio({
   defaultQrUrl,
   defaultImageUrl,
   defaultDayLabel,
+  hideCopyInputs,
   onSave,
   saveLabel = "Save onto this event",
   saveHint,
@@ -147,6 +148,12 @@ export default function EventPosterStudio({
   defaultQrUrl?: string | null;
   defaultImageUrl?: string | null;
   defaultDayLabel?: string | null;
+  /**
+   * Hide the "Words on the poster" inputs (line / price / bottom line / day).
+   * Used when a parent form owns those fields and feeds them via the default*
+   * props — the maker is then just photo + colour + generate.
+   */
+  hideCopyInputs?: boolean;
   /**
    * Called once the poster(s) are safely in storage. Ordinary events get just
    * `poster_url`; a deal also gets the flyer render + the structured fields.
@@ -910,7 +917,7 @@ export default function EventPosterStudio({
           </div>
 
           {/* Words on the poster */}
-          <div>
+          <div className={hideCopyInputs ? "hidden" : ""}>
             <p className="mb-2 text-[10px] font-bold uppercase tracking-widest text-cream/55">
               Words on the poster
             </p>

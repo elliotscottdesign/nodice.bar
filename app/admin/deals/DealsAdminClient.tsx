@@ -1,0 +1,536 @@
+"use client";
+
+// Dedicated DEALS admin — "its own page of parameters" for a drinks deal, kept
+// separate from the busy event form. Deals are still stored on the shared
+// `events` table (category drink_special / subcategory "Deals") so they keep
+// flowing to /events, the drinks-zine cover and the 8-page flyer. This is a
+// focused FORM over that shared row — the structural fields live here, and the
+// embedded poster maker handles the photo, colour and the generated artwork.
+//
+// Longer-term: a deal is becoming a first-class entity (it will feed the till),
+// so this page is where its parameters grow — inclusions, active windows, till
+// mapping — without bloating the generic event form.
+
+import { useCallback, useEffect, useState } from "react";
+import {
+  loadAllEvents,
+  createEvent,
+  updateEvent,
+  deleteEvent,
+  generateRecurrenceDates,
+  type DbEvent,
+  type NewEvent,
+} from "@/lib/db/eventsPlatform";
+import EventPosterStudio from "@/components/admin/EventPosterStudio";
+import Notice from "@/components/Notice";
+
+const inputCls =
+  "w-full rounded-md border border-cream/20 bg-ink px-3 py-2 text-sm text-cream placeholder:text-cream/35";
+
+function isDealRow(ev: DbEvent): boolean {
+  const subs = (ev.subcategory ?? "").split(",").map((s) => s.trim());
+  return ev.category === "drink_special" || subs.includes("Deals");
+}
+function todayIso(): string {
+  return new Date().toISOString().slice(0, 10);
+}
+function rootIdOf(d: DbEvent): string {
+  return d.recurrence_parent_id ?? d.id;
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+
+export default function DealsAdminClient() {
+  const [all, setAll] = useState<DbEvent[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [err, setErr] = useState("");
+  // null = list; "new" = add; a DbEvent = edit that deal.
+  const [editing, setEditing] = useState<DbEvent | "new" | null>(null);
+
+  const reload = useCallback(async () => {
+    setLoading(true);
+    setErr("");
+    try {
+      setAll(await loadAllEvents());
+    } catch (e) {
+      setErr(e instanceof Error ? e.message : "Couldn't load deals.");
+    } finally {
+      setLoading(false);
+    }
+  }, []);
+  useEffect(() => {
+    reload();
+  }, [reload]);
+
+  const deals = all.filter(isDealRow);
+  // Show each deal once — the series parent / standalone, not every dated child.
+  const listed = deals
+    .filter((d) => !d.recurrence_parent_id)
+    .sort((a, b) => a.name.localeCompare(b.name));
+
+  if (editing) {
+    return (
+      <DealForm
+        deal={editing === "new" ? undefined : editing}
+        allDeals={deals}
+        onDone={() => {
+          setEditing(null);
+          reload();
+        }}
+        onCancel={() => setEditing(null)}
+      />
+    );
+  }
+
+  return (
+    <div className="space-y-4">
+      <div className="flex items-center justify-between gap-3">
+        <p className="text-sm text-cream/60">
+          Drinks deals — each one makes its poster for the website, the zine cover
+          and the printed flyer, all from the fields you fill in here.
+        </p>
+        <button
+          type="button"
+          onClick={() => setEditing("new")}
+          className="shrink-0 rounded-full bg-plonkPink px-5 py-2 text-xs font-bold uppercase tracking-wider text-white transition hover:brightness-110"
+        >
+          + Add deal
+        </button>
+      </div>
+
+      {err && <Notice variant="error">{err}</Notice>}
+      {loading ? (
+        <p className="text-sm text-cream/50">Loading…</p>
+      ) : listed.length === 0 ? (
+        <p className="rounded-xl border border-dashed border-cream/20 p-6 text-center text-sm text-cream/50">
+          No deals yet. Press <span className="text-plonkPink">+ Add deal</span>.
+        </p>
+      ) : (
+        <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
+          {listed.map((d) => {
+            const instances = deals.filter(
+              (e) => rootIdOf(e) === rootIdOf(d),
+            ).length;
+            return (
+              <button
+                key={d.id}
+                type="button"
+                onClick={() => setEditing(d)}
+                className="flex gap-3 rounded-xl border border-cream/12 bg-ink/40 p-3 text-left transition hover:border-plonkPink/40"
+              >
+                <div className="h-20 w-16 shrink-0 overflow-hidden rounded border border-cream/15 bg-ink">
+                  {d.poster_url ? (
+                    // eslint-disable-next-line @next/next/no-img-element
+                    <img
+                      src={d.poster_url}
+                      alt=""
+                      className="h-full w-full object-contain"
+                    />
+                  ) : null}
+                </div>
+                <div className="min-w-0">
+                  <p className="truncate font-display text-base">{d.name}</p>
+                  <p className="text-[11px] uppercase tracking-wider text-cream/45">
+                    {d.poster_day_label || "—"}
+                    {d.ticket_price != null ? ` · £${d.ticket_price}` : ""}
+                  </p>
+                  {instances > 1 && (
+                    <p className="mt-0.5 text-[10px] text-cream/40">
+                      {instances} dates
+                    </p>
+                  )}
+                  {d.poster_subcopy && (
+                    <p className="mt-1 line-clamp-2 text-[11px] leading-snug text-cream/55">
+                      {d.poster_subcopy}
+                    </p>
+                  )}
+                </div>
+              </button>
+            );
+          })}
+        </div>
+      )}
+    </div>
+  );
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+
+function Field({
+  label,
+  hint,
+  children,
+}: {
+  label: string;
+  hint?: string;
+  children: React.ReactNode;
+}) {
+  return (
+    <label className="block">
+      <span className="mb-1 block text-[11px] font-bold uppercase tracking-wider text-cream/55">
+        {label}
+      </span>
+      {children}
+      {hint && (
+        <span className="mt-1 block text-[10px] leading-relaxed text-cream/40">
+          {hint}
+        </span>
+      )}
+    </label>
+  );
+}
+
+function DealForm({
+  deal,
+  allDeals,
+  onDone,
+  onCancel,
+}: {
+  deal?: DbEvent;
+  allDeals: DbEvent[];
+  onDone: () => void;
+  onCancel: () => void;
+}) {
+  const editing = !!deal;
+  const [name, setName] = useState(deal?.name ?? "");
+  const [subcopy, setSubcopy] = useState(deal?.poster_subcopy ?? "");
+  const [price, setPrice] = useState(
+    deal?.ticket_price != null ? String(deal.ticket_price) : "",
+  );
+  const [dayLabel, setDayLabel] = useState(deal?.poster_day_label ?? "");
+  const [startTime, setStartTime] = useState(
+    deal?.start_time ? deal.start_time.slice(0, 5) : "",
+  );
+  const [endTime, setEndTime] = useState(
+    deal?.end_time ? deal.end_time.slice(0, 5) : "",
+  );
+  const [footer, setFooter] = useState(deal?.poster_footer ?? "");
+  const [showOnCalendar, setShowOnCalendar] = useState(
+    deal?.show_on_events_calendar ?? true,
+  );
+
+  // Artwork (filled by the poster maker's "Use this artwork").
+  const [posterUrl, setPosterUrl] = useState(deal?.poster_url ?? "");
+  const [flyerPosterUrl, setFlyerPosterUrl] = useState(
+    deal?.flyer_poster_url ?? "",
+  );
+  const [posterImageUrl, setPosterImageUrl] = useState(
+    deal?.poster_image_url ?? "",
+  );
+
+  // New-deal scheduling.
+  const [eventDate, setEventDate] = useState(deal?.event_date ?? todayIso());
+  const [repeatWeekly, setRepeatWeekly] = useState(false);
+  const [occurrences, setOccurrences] = useState("12");
+
+  const [busy, setBusy] = useState(false);
+  const [err, setErr] = useState("");
+
+  // The dated rows this deal spans (so an edit updates every instance).
+  const seriesIds = deal
+    ? allDeals.filter((e) => rootIdOf(e) === rootIdOf(deal)).map((e) => e.id)
+    : [];
+
+  function baseFields(): Omit<
+    NewEvent,
+    | "event_date"
+    | "recurrence_type"
+    | "recurrence_parent_id"
+    | "recurrence_nth"
+    | "recurrence_weekday"
+  > {
+    return {
+      name: name.trim(),
+      description: subcopy.trim() || null,
+      external_link: null,
+      poster_url: posterUrl || null,
+      flyer_poster_url: flyerPosterUrl || null,
+      poster_subcopy: subcopy.trim() || null,
+      poster_footer: footer.trim() || null,
+      poster_day_label: dayLabel.trim() || null,
+      poster_image_url: posterImageUrl || null,
+      poster_qr_url: null,
+      ticket_price: price ? Number(price) : null,
+      category: "drink_special",
+      subcategory: "Deals",
+      start_time: startTime || null,
+      end_time: endTime || null,
+      show_on_pool_schedule: false,
+      show_on_events_calendar: showOnCalendar,
+      show_on_bar_page: false,
+      requires_ticket: false,
+      bookable: false,
+      max_attendees: null,
+      registration_open: true,
+      blocks_table_bookings: false,
+    };
+  }
+
+  async function save() {
+    if (!name.trim()) {
+      setErr("Give the deal a name.");
+      return;
+    }
+    setBusy(true);
+    setErr("");
+    try {
+      const base = baseFields();
+      if (editing) {
+        // Update every dated instance so the whole run shows the new deal.
+        for (const id of seriesIds) await updateEvent(id, base);
+      } else {
+        const parent = await createEvent({
+          ...base,
+          event_date: eventDate,
+          recurrence_type: repeatWeekly ? "weekly" : "none",
+          recurrence_parent_id: null,
+          recurrence_nth: null,
+          recurrence_weekday: null,
+        });
+        if (repeatWeekly) {
+          const count = Math.max(2, Math.min(52, parseInt(occurrences, 10) || 12));
+          const dates = generateRecurrenceDates(eventDate, "weekly", count);
+          for (let i = 1; i < dates.length; i++) {
+            await createEvent({
+              ...base,
+              event_date: dates[i],
+              recurrence_type: "none",
+              recurrence_parent_id: parent.id,
+              recurrence_nth: null,
+              recurrence_weekday: null,
+            });
+          }
+        }
+      }
+      onDone();
+    } catch (e) {
+      setErr(e instanceof Error ? e.message : "Couldn't save the deal.");
+      setBusy(false);
+    }
+  }
+
+  async function remove() {
+    if (!deal) return;
+    if (
+      !window.confirm(
+        `Delete “${deal.name}”${
+          seriesIds.length > 1 ? ` and all ${seriesIds.length} dates` : ""
+        }? This can't be undone.`,
+      )
+    )
+      return;
+    setBusy(true);
+    setErr("");
+    try {
+      for (const id of seriesIds) await deleteEvent(id);
+      onDone();
+    } catch (e) {
+      setErr(e instanceof Error ? e.message : "Couldn't delete the deal.");
+      setBusy(false);
+    }
+  }
+
+  return (
+    <div className="space-y-5">
+      <div className="flex items-center justify-between gap-3">
+        <h3 className="font-display text-xl">
+          {editing ? `Edit deal — ${deal!.name}` : "Add deal"}
+        </h3>
+        <button
+          type="button"
+          onClick={onCancel}
+          className="text-xs font-bold uppercase tracking-wider text-cream/55 hover:text-cream"
+        >
+          ← Back to deals
+        </button>
+      </div>
+
+      {err && <Notice variant="error">{err}</Notice>}
+
+      <div className="grid gap-4 rounded-xl border border-cream/12 bg-ink/30 p-4 sm:grid-cols-2">
+        <div className="sm:col-span-2">
+          <Field label="Deal name">
+            <input
+              value={name}
+              onChange={(e) => setName(e.target.value)}
+              placeholder="e.g. Fun of the Fare"
+              className={inputCls}
+            />
+          </Field>
+        </div>
+        <div className="sm:col-span-2">
+          <Field
+            label="What's included / info"
+            hint="Runs full width on the poster and wraps over as many lines as it needs."
+          >
+            <textarea
+              value={subcopy}
+              onChange={(e) => setSubcopy(e.target.value)}
+              rows={2}
+              placeholder="e.g. 1 round of golf / 3 arcade tokens / 1 house drink"
+              className={inputCls}
+            />
+          </Field>
+        </div>
+        <Field label="Price (£)" hint="Sits in the circle on the poster. Leave blank for a free deal.">
+          <input
+            value={price}
+            onChange={(e) => setPrice(e.target.value.replace(/[^0-9.]/g, ""))}
+            inputMode="decimal"
+            placeholder="e.g. 11"
+            className={inputCls}
+          />
+        </Field>
+        <Field label="Day shown" hint="The bottom line, e.g. TUESDAYS or MON-THURS.">
+          <input
+            value={dayLabel}
+            onChange={(e) => setDayLabel(e.target.value)}
+            placeholder="e.g. Tuesdays"
+            className={inputCls}
+          />
+        </Field>
+        <Field label="Start time (optional)">
+          <input
+            type="time"
+            value={startTime}
+            onChange={(e) => setStartTime(e.target.value)}
+            className={inputCls}
+          />
+        </Field>
+        <Field label="End time (optional)">
+          <input
+            type="time"
+            value={endTime}
+            onChange={(e) => setEndTime(e.target.value)}
+            className={inputCls}
+          />
+        </Field>
+        <div className="sm:col-span-2">
+          <Field
+            label="Bottom line override"
+            hint="Replaces the whole NO DICE · day line, e.g. DEAL OF THE DAY. Press Return for a second line. Leave blank to keep the day line."
+          >
+            <textarea
+              value={footer}
+              onChange={(e) => setFooter(e.target.value)}
+              rows={2}
+              placeholder="Usually blank"
+              className={inputCls}
+            />
+          </Field>
+        </div>
+
+        {!editing && (
+          <>
+            <Field label="First date">
+              <input
+                type="date"
+                value={eventDate}
+                onChange={(e) => setEventDate(e.target.value)}
+                className={inputCls}
+              />
+            </Field>
+            <div className="flex flex-col justify-end gap-2">
+              <label className="flex items-center gap-2 text-sm text-cream/80">
+                <input
+                  type="checkbox"
+                  checked={repeatWeekly}
+                  onChange={(e) => setRepeatWeekly(e.target.checked)}
+                  className="accent-plonkPink"
+                />
+                Repeats weekly
+              </label>
+              {repeatWeekly && (
+                <label className="flex items-center gap-2 text-xs text-cream/55">
+                  for
+                  <input
+                    value={occurrences}
+                    onChange={(e) =>
+                      setOccurrences(e.target.value.replace(/[^0-9]/g, ""))
+                    }
+                    inputMode="numeric"
+                    className="w-16 rounded-md border border-cream/20 bg-ink px-2 py-1 text-sm text-cream"
+                  />
+                  weeks
+                </label>
+              )}
+            </div>
+          </>
+        )}
+
+        <div className="sm:col-span-2">
+          <label className="flex items-center gap-2 text-sm text-cream/80">
+            <input
+              type="checkbox"
+              checked={showOnCalendar}
+              onChange={(e) => setShowOnCalendar(e.target.checked)}
+              className="accent-plonkPink"
+            />
+            Show on the public /events calendar
+          </label>
+        </div>
+      </div>
+
+      {/* Artwork — photo + colour + generate. The copy comes from the fields
+          above (hideCopyInputs), so there's nothing to type twice. */}
+      <EventPosterStudio
+        name={name}
+        date={eventDate}
+        start={startTime}
+        end={endTime}
+        isDeal
+        exportFlyer
+        hideCopyInputs
+        defaultSubcopy={subcopy || undefined}
+        defaultPrice={price ? `£${price}` : undefined}
+        defaultFooter={footer || undefined}
+        defaultDayLabel={dayLabel || undefined}
+        defaultImageUrl={posterImageUrl || undefined}
+        currentPosterUrl={posterUrl || null}
+        saveLabel="Use this artwork"
+        saveHint="Builds the poster from the fields above. Then press Save deal."
+        onSave={(r) => {
+          setPosterUrl(r.poster_url);
+          if (r.flyer_poster_url !== undefined)
+            setFlyerPosterUrl(r.flyer_poster_url ?? "");
+          if (r.poster_image_url !== undefined)
+            setPosterImageUrl(r.poster_image_url ?? "");
+        }}
+      />
+
+      <div className="flex flex-wrap items-center gap-3 border-t border-cream/10 pt-4">
+        <button
+          type="button"
+          disabled={busy}
+          onClick={save}
+          className="rounded-full bg-plonkTeal px-6 py-2.5 text-xs font-bold uppercase tracking-wider text-ink transition hover:brightness-110 disabled:opacity-40"
+        >
+          {busy ? "Saving…" : editing ? "Save deal" : "Create deal"}
+        </button>
+        <button
+          type="button"
+          disabled={busy}
+          onClick={onCancel}
+          className="rounded-full border border-cream/25 px-5 py-2.5 text-xs font-bold uppercase tracking-wider text-cream/85 transition hover:bg-cream/5 disabled:opacity-40"
+        >
+          Cancel
+        </button>
+        {editing && (
+          <button
+            type="button"
+            disabled={busy}
+            onClick={remove}
+            className="ml-auto rounded-full border border-red-500/40 px-4 py-2.5 text-xs font-bold uppercase tracking-wider text-red-300 transition hover:bg-red-500/10 disabled:opacity-40"
+          >
+            Delete deal
+          </button>
+        )}
+      </div>
+      {editing && seriesIds.length > 1 && (
+        <p className="text-[11px] text-cream/45">
+          Saving updates all {seriesIds.length} dates of this deal.
+        </p>
+      )}
+    </div>
+  );
+}
