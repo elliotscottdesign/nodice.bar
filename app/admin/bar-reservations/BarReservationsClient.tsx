@@ -173,14 +173,15 @@ export default function BarReservationsClient({
   } | null>(null);
   // Initial filter respects ?filter=all|pending|confirmed|cancelled in
   // the URL so the founder can bookmark "all bookings" or land staff
-  // directly on the right tab via a shared link. Default stays
-  // "pending" so the page opens on what needs action.
+  // directly on the right tab via a shared link. Default is "all"
+  // (founder 19 Oct 2026) — "pending" is usually empty, which left the
+  // page looking blank; matches the golf + tournament lists.
   const [filter, setFilter] = useState<Filter>(() => {
-    if (typeof window === "undefined") return "pending";
+    if (typeof window === "undefined") return "all";
     const q = new URLSearchParams(window.location.search).get("filter");
     if (q === "all" || q === "pending" || q === "confirmed" || q === "cancelled")
       return q;
-    return "pending";
+    return "all";
   });
 
   async function reload() {
@@ -562,7 +563,16 @@ export default function BarReservationsClient({
       )}
 
       {manualKind && (
-        <AddReservationForm kind={manualKind} onCreated={() => reload()} />
+        <AddReservationForm
+          kind={manualKind}
+          onCreated={() => {
+            // Show the booking that was just added — the page defaults to the
+            // "Pending" tab (usually empty), so after a confirmed manual add
+            // jump to "All" so it's visible rather than landing on a blank list.
+            setFilter("all");
+            reload();
+          }}
+        />
       )}
 
       <div className="flex flex-wrap gap-3">
