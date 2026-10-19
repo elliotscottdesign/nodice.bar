@@ -184,7 +184,11 @@ export async function createCalendarEvent(
     ...fromCalendar(row),
     // Sensible defaults for fields the inline calendar modal doesn't
     // currently expose. The founder can refine via /admin/events.
-    category: "dj_night",
+    // Category defaults to the neutral "other" — it used to default to
+    // "dj_night", which silently mis-tagged every hand-added event (pool
+    // comps, food takeovers, chess…) as a DJ night and polluted the admin
+    // category filter (founder 19 Oct 2026, taxonomy unification).
+    category: "other",
     recurrence_type: "none",
     show_on_pool_schedule: false,
     show_on_events_calendar: true,
