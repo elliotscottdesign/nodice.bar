@@ -3,6 +3,7 @@
 import { useEffect, useState } from "react";
 import { AdminCard } from "@/components/admin/AdminCard";
 import AddReservationForm from "@/components/admin/AddReservationForm";
+import TimeField from "@/components/admin/TimeField";
 import BookingLockedTag from "@/components/admin/BookingLockedTag";
 import {
   loadAllTableSurfaceReservations,
@@ -604,10 +605,10 @@ export default function BarReservationsClient({
       <div className="flex flex-wrap gap-2">
         {(
           [
-            { id: "pending" as const, label: `Pending${pendingCount ? ` (${pendingCount})` : ""}` },
-            { id: "confirmed" as const, label: "Confirmed" },
-            { id: "cancelled" as const, label: "Cancelled" },
             { id: "all" as const, label: "All" },
+            { id: "confirmed" as const, label: "Confirmed" },
+            { id: "pending" as const, label: `Pending${pendingCount ? ` (${pendingCount})` : ""}` },
+            { id: "cancelled" as const, label: "Cancelled" },
           ]
         ).map((t) => (
           <button
@@ -962,10 +963,9 @@ export default function BarReservationsClient({
                     </div>
                     <div>
                       <label className="text-[10px] font-bold uppercase tracking-widest text-cream/55">Start time</label>
-                      <input
-                        type="time"
+                      <TimeField
                         value={poolForm.time}
-                        onChange={(e) => updatePoolField({ time: e.target.value })}
+                        onChange={(v) => updatePoolField({ time: v })}
                         className={editInputCls + " mt-1"}
                       />
                     </div>
@@ -1053,7 +1053,7 @@ export default function BarReservationsClient({
                       </div>
                       <div>
                         <label className="text-[10px] font-bold uppercase tracking-widest text-cream/55">Start time</label>
-                        <input type="time" value={editForm.start_time} onChange={(e) => setEditForm({ ...editForm, start_time: e.target.value })} className={editInputCls + " mt-1"} />
+                        <TimeField value={editForm.start_time} onChange={(v) => setEditForm({ ...editForm, start_time: v })} className={editInputCls + " mt-1"} />
                       </div>
                       <div>
                         <label className="text-[10px] font-bold uppercase tracking-widest text-cream/55">Duration (min)</label>
