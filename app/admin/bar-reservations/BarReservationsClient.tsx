@@ -82,7 +82,7 @@ const editInputCls =
 // or cancels here. Stripe / email confirmation are stubs for now;
 // confirming today just updates the status.
 
-type Filter = "pending" | "confirmed" | "cancelled" | "all";
+type Filter = "pending" | "confirmed" | "cancelled" | "refunded" | "all";
 
 function describe(err: unknown, fallback: string) {
   if (err instanceof Error) return err.message;
@@ -180,7 +180,10 @@ export default function BarReservationsClient({
   const [filter, setFilter] = useState<Filter>(() => {
     if (typeof window === "undefined") return "all";
     const q = new URLSearchParams(window.location.search).get("filter");
-    if (q === "all" || q === "pending" || q === "confirmed" || q === "cancelled")
+    if (
+      q === "all" || q === "pending" || q === "confirmed" ||
+      q === "cancelled" || q === "refunded"
+    )
       return q;
     return "all";
   });
@@ -609,6 +612,7 @@ export default function BarReservationsClient({
             { id: "confirmed" as const, label: "Confirmed" },
             { id: "pending" as const, label: `Pending${pendingCount ? ` (${pendingCount})` : ""}` },
             { id: "cancelled" as const, label: "Cancelled" },
+            { id: "refunded" as const, label: "Refunded" },
           ]
         ).map((t) => (
           <button
