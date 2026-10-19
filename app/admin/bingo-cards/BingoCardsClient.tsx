@@ -2,118 +2,160 @@
 
 import { useMemo, useState } from "react";
 import { AdminCard } from "@/components/admin/AdminCard";
-import { generateBatch, type BingoCard } from "@/lib/bingo/cards";
+import { generateBatch, FREE, type BingoCard } from "@/lib/bingo/cards";
 
-const PINK = "#e878f0";
+// Cards print BLACK INK on COLOURED PAPER (founder, 19 Oct) — so the artwork is
+// pure black, no fills; the paper supplies the colour. Brand look mirrors the
+// posters (bold condensed uppercase). A6 per card, 4-up on A4 with cut guides
+// for staff to guillotine (or hand the same PDF to a print shop). Layout:
+// 15% top band (brand / date / card no.), ~70% number grid, 15% bottom band
+// (prizes).
 
-// Build one card's print HTML (3×9 grid, blanks empty, big bold numbers).
-function cardHtml(card: BingoCard, serial: string): string {
-  const rows = card
+function esc(s: string): string {
+  return s.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;");
+}
+
+function gridHtml(card: BingoCard): string {
+  const head = `<tr class="bingo-head">${["B", "I", "N", "G", "O"]
+    .map((l) => `<th>${l}</th>`)
+    .join("")}</tr>`;
+  const body = card
     .map(
       (row) =>
         `<tr>${row
-          .map((n) =>
-            n == null
-              ? `<td class="blank"></td>`
-              : `<td>${n}</td>`,
+          .map((cell) =>
+            cell === FREE
+              ? `<td class="free">★</td>`
+              : `<td>${cell}</td>`,
           )
           .join("")}</tr>`,
     )
     .join("");
+  return `<table class="grid">${head}${body}</table>`;
+}
+
+function cardHtml(card: BingoCard, serial: string, dateLabel: string, prizes: string): string {
   return `
   <div class="card">
-    <div class="chead">
-      <span class="brand">NO DICE</span>
-      <span class="sub">COMEDY &amp; BINGO</span>
-      <span class="serial">${serial}</span>
+    <div class="band top">
+      <div class="brandblock">
+        <div class="brand">NO DICE</div>
+        <div class="sub">COMEDY &amp; BINGO</div>
+      </div>
+      <div class="meta">
+        <div class="date">${esc(dateLabel)}</div>
+        <div class="serial">CARD ${serial}</div>
+      </div>
     </div>
-    <table class="grid">${rows}</table>
+    <div class="gridwrap">${gridHtml(card)}</div>
+    <div class="band bottom">${esc(prizes)}</div>
   </div>`;
 }
 
-// A whole self-contained printable document (no site CSS/fonts in the new
-// window, so everything is inlined + web-safe fonts).
-function buildPrintDoc(cards: BingoCard[], perPage: number): string {
+function buildPrintDoc(cards: BingoCard[], dateLabel: string, prizes: string): string {
+  // 4 A6 cards per A4 (2×2), edge to edge with dashed cut guides.
   const pages: string[] = [];
-  for (let i = 0; i < cards.length; i += perPage) {
-    const chunk = cards.slice(i, i + perPage);
-    const cardsHtml = chunk
-      .map((c, j) => cardHtml(c, `#${String(i + j + 1).padStart(3, "0")}`))
+  for (let i = 0; i < cards.length; i += 4) {
+    const chunk = cards.slice(i, i + 4);
+    const cells = chunk
+      .map((c, j) => cardHtml(c, String(i + j + 1).padStart(3, "0"), dateLabel, prizes))
       .join("");
-    pages.push(`<div class="page cols-${perPage}">${cardsHtml}</div>`);
+    pages.push(`<div class="page">${cells}</div>`);
   }
   return `<!doctype html><html><head><meta charset="utf-8"><title>No Dice bingo cards</title>
   <style>
     * { box-sizing: border-box; }
-    html,body { margin:0; padding:0; background:#fff; color:#111;
-      font-family: Arial, Helvetica, sans-serif; -webkit-print-color-adjust:exact; print-color-adjust:exact; }
-    @page { size: A4 portrait; margin: 10mm; }
-    .page { display:grid; gap:8mm; }
-    .page.cols-2 { grid-template-columns:1fr; }
-    .page.cols-4 { grid-template-columns:1fr 1fr; }
-    .page.cols-6 { grid-template-columns:1fr 1fr; }
+    html,body { margin:0; padding:0; background:#fff; color:#000;
+      font-family: "Arial Narrow", Arial, Helvetica, sans-serif;
+      -webkit-print-color-adjust:exact; print-color-adjust:exact; }
+    @page { size: A4 portrait; margin: 0; }
+    .page { display:grid; grid-template-columns:105mm 105mm; grid-template-rows:148.5mm 148.5mm;
+      width:210mm; height:297mm; }
     .page:not(:last-child) { break-after: page; page-break-after: always; }
-    .card { break-inside: avoid; border:3px solid ${PINK}; border-radius:10px; padding:6px; }
-    .chead { display:flex; align-items:baseline; gap:10px; padding:4px 6px 8px; }
-    .chead .brand { font-weight:900; font-size:20px; letter-spacing:1px; color:${PINK}; }
-    .chead .sub { font-weight:800; font-size:11px; letter-spacing:3px; color:#333; }
-    .chead .serial { margin-left:auto; font-weight:700; font-size:11px; color:#999; }
-    table.grid { width:100%; border-collapse:collapse; table-layout:fixed; }
-    table.grid td { border:1.5px solid #222; height:46px; text-align:center; vertical-align:middle;
-      font-weight:800; font-size:24px; }
-    table.grid td.blank { background:${PINK}22; border-color:#bbb; }
-    .cols-6 .card table.grid td { height:34px; font-size:18px; }
-  </style></head><body onload="window.print()">
+    /* A6 card — dashed cut guide, pure black ink on (coloured) paper */
+    .card { width:105mm; height:148.5mm; padding:6mm; border:0.3mm dashed #000;
+      display:flex; flex-direction:column; color:#000; }
+    .band.top { flex:0 0 15%; display:flex; justify-content:space-between; align-items:flex-start;
+      border-bottom:0.6mm solid #000; padding-bottom:2mm; }
+    .brandblock .brand { font-weight:900; font-size:26px; letter-spacing:1px; line-height:1; text-transform:uppercase; }
+    .brandblock .sub { font-weight:800; font-size:11px; letter-spacing:3px; margin-top:1mm; text-transform:uppercase; }
+    .meta { text-align:right; }
+    .meta .date { font-weight:800; font-size:12px; text-transform:uppercase; }
+    .meta .serial { font-weight:700; font-size:10px; letter-spacing:1px; margin-top:1mm; }
+    .gridwrap { flex:1 1 auto; display:flex; align-items:center; justify-content:center; padding:3mm 0; }
+    table.grid { width:100%; height:100%; border-collapse:collapse; table-layout:fixed; }
+    table.grid th { font-weight:900; font-size:22px; text-align:center; padding-bottom:1.5mm; text-transform:uppercase; }
+    table.grid td { border:0.5mm solid #000; text-align:center; vertical-align:middle;
+      font-weight:800; font-size:26px; }
+    table.grid td.free { font-size:20px; }
+    .band.bottom { flex:0 0 15%; display:flex; align-items:center; justify-content:center;
+      border-top:0.6mm solid #000; padding-top:2mm; text-align:center;
+      font-weight:800; font-size:12px; letter-spacing:0.5px; text-transform:uppercase; }
+  </style></head><body onload="setTimeout(function(){window.print();},120)">
   ${pages.join("")}
   </body></html>`;
 }
 
-function SampleCard({ card }: { card: BingoCard }) {
+// On-screen preview: black ink shown on a coloured-paper swatch so staff see
+// the "black on coloured paper" concept.
+function SamplePreview({ card, dateLabel, prizes }: { card: BingoCard; dateLabel: string; prizes: string }) {
   return (
     <div
-      className="rounded-xl border-2 p-2"
-      style={{ borderColor: PINK, background: "#0c0c0c" }}
+      className="mx-auto flex flex-col rounded-sm p-3 text-black"
+      style={{ background: "#f3d7f7", aspectRatio: "105 / 148.5", maxWidth: 280, border: "1px dashed #000" }}
     >
-      <div className="flex items-baseline gap-2 px-1 pb-2">
-        <span className="font-display text-base" style={{ color: PINK }}>
-          NO DICE
-        </span>
-        <span className="text-[9px] font-bold uppercase tracking-[0.3em] text-cream/60">
-          Comedy &amp; Bingo
-        </span>
+      <div className="flex items-start justify-between border-b-2 border-black pb-1" style={{ flex: "0 0 15%" }}>
+        <div>
+          <div className="text-lg font-black uppercase leading-none">NO DICE</div>
+          <div className="text-[7px] font-bold uppercase tracking-[0.3em]">Comedy &amp; Bingo</div>
+        </div>
+        <div className="text-right">
+          <div className="text-[9px] font-extrabold uppercase">{dateLabel}</div>
+          <div className="text-[7px] font-bold tracking-wider">CARD 001</div>
+        </div>
       </div>
-      <table className="w-full table-fixed border-collapse">
-        <tbody>
-          {card.map((row, r) => (
-            <tr key={r}>
-              {row.map((n, c) => (
-                <td
-                  key={c}
-                  className="h-9 border text-center align-middle text-sm font-extrabold"
-                  style={{
-                    borderColor: n == null ? "rgba(245,239,227,0.15)" : "rgba(245,239,227,0.35)",
-                    background: n == null ? `${PINK}14` : "transparent",
-                    color: "#F2EBD9",
-                  }}
-                >
-                  {n ?? ""}
-                </td>
+      <div className="flex flex-1 items-center py-1">
+        <table className="h-full w-full table-fixed border-collapse">
+          <tbody>
+            <tr>
+              {["B", "I", "N", "G", "O"].map((l) => (
+                <th key={l} className="pb-0.5 text-center text-sm font-black uppercase">
+                  {l}
+                </th>
               ))}
             </tr>
-          ))}
-        </tbody>
-      </table>
+            {card.map((row, r) => (
+              <tr key={r}>
+                {row.map((cell, c) => (
+                  <td
+                    key={c}
+                    className="border border-black text-center align-middle text-[11px] font-extrabold"
+                  >
+                    {cell === FREE ? "★" : cell}
+                  </td>
+                ))}
+              </tr>
+            ))}
+          </tbody>
+        </table>
+      </div>
+      <div
+        className="flex items-center justify-center border-t-2 border-black pt-1 text-center text-[8px] font-bold uppercase"
+        style={{ flex: "0 0 15%" }}
+      >
+        {prizes}
+      </div>
     </div>
   );
 }
 
 export default function BingoCardsClient() {
   const [qty, setQty] = useState(60);
-  const [perPage, setPerPage] = useState(4);
+  const [dateLabel, setDateLabel] = useState("Wed 25 Nov 2026");
+  const [prizes, setPrizes] = useState("1 Line £15 · 2 Lines £25 · Full House £50");
   const [sampleSeed, setSampleSeed] = useState(0);
 
-  // Two sample cards for the on-screen preview (regenerate on demand).
-  const samples = useMemo(() => generateBatch(2), [sampleSeed]);
+  const sample = useMemo(() => generateBatch(1)[0], [sampleSeed]);
 
   const print = () => {
     const n = Math.max(1, Math.min(600, Math.round(qty) || 1));
@@ -124,15 +166,15 @@ export default function BingoCardsClient() {
       return;
     }
     w.document.open();
-    w.document.write(buildPrintDoc(cards, perPage));
+    w.document.write(buildPrintDoc(cards, dateLabel, prizes));
     w.document.close();
   };
 
   return (
     <div className="space-y-6">
       <AdminCard>
-        <div className="flex flex-col gap-5 px-5 py-5 sm:flex-row sm:items-end sm:justify-between">
-          <div className="flex flex-wrap gap-5">
+        <div className="space-y-5 px-5 py-5">
+          <div className="flex flex-wrap items-end gap-5">
             <label className="block">
               <span className="mb-1.5 block text-[10px] font-bold uppercase tracking-[0.28em] text-cream/55">
                 How many cards
@@ -148,37 +190,47 @@ export default function BingoCardsClient() {
             </label>
             <label className="block">
               <span className="mb-1.5 block text-[10px] font-bold uppercase tracking-[0.28em] text-cream/55">
-                Cards per A4 page
+                Date (printed top-right)
               </span>
-              <select
-                value={perPage}
-                onChange={(e) => setPerPage(Number(e.target.value))}
-                className="rounded-lg border border-cream/15 bg-ink/40 px-3 py-2 text-base text-cream focus:border-[#e878f0] focus:outline-none"
-              >
-                <option value={2}>2 — large</option>
-                <option value={4}>4 — standard</option>
-                <option value={6}>6 — small</option>
-              </select>
+              <input
+                type="text"
+                value={dateLabel}
+                onChange={(e) => setDateLabel(e.target.value)}
+                className="w-48 rounded-lg border border-cream/15 bg-ink/40 px-3 py-2 text-base text-cream focus:border-[#e878f0] focus:outline-none"
+              />
             </label>
           </div>
-          <button
-            type="button"
-            onClick={print}
-            className="rounded-full bg-[#e878f0] px-7 py-3 text-sm font-bold uppercase tracking-widest text-ink shadow-lg shadow-[#e878f0]/30 transition hover:bg-[#e878f0]/90"
-          >
-            Print {Math.max(1, Math.round(qty) || 1)} cards ↗
-          </button>
+          <label className="block">
+            <span className="mb-1.5 block text-[10px] font-bold uppercase tracking-[0.28em] text-cream/55">
+              Prizes (printed along the bottom)
+            </span>
+            <input
+              type="text"
+              value={prizes}
+              onChange={(e) => setPrizes(e.target.value)}
+              className="w-full max-w-xl rounded-lg border border-cream/15 bg-ink/40 px-3 py-2 text-base text-cream focus:border-[#e878f0] focus:outline-none"
+            />
+          </label>
+          <div className="flex items-center gap-4">
+            <button
+              type="button"
+              onClick={print}
+              className="rounded-full bg-[#e878f0] px-7 py-3 text-sm font-bold uppercase tracking-widest text-ink shadow-lg shadow-[#e878f0]/30 transition hover:bg-[#e878f0]/90"
+            >
+              Print {Math.max(1, Math.round(qty) || 1)} cards ↗
+            </button>
+            <p className="text-xs text-cream/50">
+              Black ink, A6 each, 4 to an A4 sheet with cut guides — print on
+              coloured paper and guillotine, or send the PDF to a print shop.
+            </p>
+          </div>
         </div>
-        <p className="border-t border-cream/10 px-5 py-3 text-xs text-cream/50">
-          Opens a printable sheet in a new tab — print it, or choose “Save as PDF”.
-          Every card is random and unique. UK 90-ball: 15 numbers, 5 per row.
-        </p>
       </AdminCard>
 
       <div>
         <div className="mb-3 flex items-center justify-between">
           <h2 className="text-xs font-bold uppercase tracking-[0.2em] text-plonkYellow">
-            Preview
+            Preview (black ink on coloured paper)
           </h2>
           <button
             type="button"
@@ -188,11 +240,7 @@ export default function BingoCardsClient() {
             Shuffle preview
           </button>
         </div>
-        <div className="grid gap-4 sm:grid-cols-2">
-          {samples.map((c, i) => (
-            <SampleCard key={i} card={c} />
-          ))}
-        </div>
+        <SamplePreview card={sample} dateLabel={dateLabel} prizes={prizes} />
       </div>
     </div>
   );

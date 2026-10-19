@@ -1,18 +1,30 @@
 // =============================================================
-// UK 90-ball bingo card generator
+// 75-ball bingo card generator (B-I-N-G-O, 5×5, free centre)
 // =============================================================
-// A standard UK bingo ticket: 3 rows × 9 columns, 15 numbers (5 per row),
-// the rest blank. Column ranges: col0 = 1–9, col1 = 10–19 … col7 = 70–79,
-// col8 = 80–90. Each column holds 1–3 numbers, sorted top→bottom; every
-// column has at least one number; every row has exactly five.
+// US-style 75-ball card (founder, 19 Oct): 5 columns B I N G O, 5 rows,
+// the centre square (N, row 3) is a FREE / joker space.
+//   B = 1–15, I = 16–30, N = 31–45, G = 46–60, O = 61–75
+// Each column holds 5 distinct numbers from its range (N holds 4 + the free
+// centre), sorted top→bottom. 24 numbers + 1 free per card.
 //
-// Pure, deterministic-given-a-seed-free client util — no DB, no network.
-// Each generated card is effectively unique (15 of 90 in a constrained
-// layout → astronomically low collision); generateBatch() also de-dupes by
-// signature to be certain within a print run.
+// Pure client util — no DB, no network. generateBatch() de-dupes by signature
+// within a print run (cards are effectively unique anyway).
 // =============================================================
 
-export type BingoCard = (number | null)[][]; // [3 rows][9 cols]
+export const COLS = ["B", "I", "N", "G", "O"] as const;
+export const FREE = "FREE" as const;
+
+// grid[row][col], col 0..4 = B,I,N,G,O. Centre grid[2][2] = FREE.
+export type BingoCell = number | typeof FREE;
+export type BingoCard = BingoCell[][]; // 5×5
+
+const RANGES: [number, number][] = [
+  [1, 15],
+  [16, 30],
+  [31, 45],
+  [46, 60],
+  [61, 75],
+];
 
 function randInt(n: number): number {
   return Math.floor(Math.random() * n);
@@ -25,62 +37,6 @@ function shuffle<T>(arr: T[]): T[] {
   }
   return a;
 }
-function colRange(c: number): [number, number] {
-  if (c === 0) return [1, 9];
-  if (c === 8) return [80, 90];
-  return [c * 10, c * 10 + 9];
-}
-
-// Column number-counts: 9 values each 1–3 summing to 15 (start at 1 each = 9,
-// then sprinkle 6 more, max 3 per column).
-function columnCounts(): number[] {
-  const counts = Array(9).fill(1);
-  let extra = 6;
-  while (extra > 0) {
-    const c = randInt(9);
-    if (counts[c] < 3) {
-      counts[c]++;
-      extra--;
-    }
-  }
-  return counts;
-}
-
-// Assign each column's numbers to rows so every row ends with exactly 5.
-// Randomised greedy with full restart on dead-end; always converges fast.
-function rowAssignment(counts: number[]): number[][] {
-  for (let attempt = 0; attempt < 2000; attempt++) {
-    const rowCount = [0, 0, 0];
-    const chosen: number[][] = [];
-    let ok = true;
-    for (let c = 0; c < 9; c++) {
-      const avail = [0, 1, 2].filter((r) => rowCount[r] < 5);
-      if (avail.length < counts[c]) {
-        ok = false;
-        break;
-      }
-      const pick = shuffle(avail).slice(0, counts[c]);
-      pick.forEach((r) => rowCount[r]++);
-      chosen.push(pick.sort((a, b) => a - b));
-    }
-    if (ok && rowCount[0] === 5 && rowCount[1] === 5 && rowCount[2] === 5) {
-      return chosen;
-    }
-  }
-  // Deterministic fallback (counts all 1 or 2 round-robin) — practically never hit.
-  const chosen: number[][] = [];
-  const rowCount = [0, 0, 0];
-  for (let c = 0; c < 9; c++) {
-    const avail = [0, 1, 2]
-      .filter((r) => rowCount[r] < 5)
-      .sort((a, b) => rowCount[a] - rowCount[b]);
-    const pick = avail.slice(0, counts[c]).sort((a, b) => a - b);
-    pick.forEach((r) => rowCount[r]++);
-    chosen.push(pick);
-  }
-  return chosen;
-}
-
 function sampleSorted(lo: number, hi: number, k: number): number[] {
   const pool: number[] = [];
   for (let n = lo; n <= hi; n++) pool.push(n);
@@ -90,25 +46,30 @@ function sampleSorted(lo: number, hi: number, k: number): number[] {
 }
 
 export function generateCard(): BingoCard {
-  const counts = columnCounts();
-  const rows = rowAssignment(counts);
-  const grid: BingoCard = [
-    Array(9).fill(null),
-    Array(9).fill(null),
-    Array(9).fill(null),
-  ];
-  for (let c = 0; c < 9; c++) {
-    const [lo, hi] = colRange(c);
-    const nums = sampleSorted(lo, hi, counts[c]);
-    rows[c].forEach((r, i) => {
-      grid[r][c] = nums[i];
-    });
+  // Start with a 5×5 grid.
+  const grid: BingoCard = Array.from({ length: 5 }, () =>
+    Array<BingoCell>(5).fill(0),
+  );
+  for (let c = 0; c < 5; c++) {
+    const [lo, hi] = RANGES[c];
+    const isN = c === 2;
+    const nums = sampleSorted(lo, hi, isN ? 4 : 5);
+    if (isN) {
+      // rows 0,1,3,4 get numbers; row 2 is the free centre.
+      const rows = [0, 1, 3, 4];
+      rows.forEach((r, i) => {
+        grid[r][c] = nums[i];
+      });
+      grid[2][c] = FREE;
+    } else {
+      for (let r = 0; r < 5; r++) grid[r][c] = nums[r];
+    }
   }
   return grid;
 }
 
 function signature(card: BingoCard): string {
-  return card.map((row) => row.map((n) => n ?? "_").join(",")).join("|");
+  return card.map((row) => row.join(",")).join("|");
 }
 
 export function generateBatch(n: number): BingoCard[] {
