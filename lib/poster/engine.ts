@@ -98,8 +98,9 @@ export const PALETTE: { name: string; hex: string }[] = [
 export type PosterSize = "ig" | "story" | "zine" | "a3";
 export type PosterMode = "colour" | "negative";
 // 'whites' = greyscale with the whites knocked out so the poster colour shows
-// through them (see drawWhitesToColour). Shown to the founder as "Whites to
-// colour" — never as "knockout" or "alpha".
+// through them (see drawWhitesToColour). Shown to the founder as "Colour
+// through" (matching the DJ poster maker's label) — never as "knockout" or
+// "alpha".
 export type PosterTreatment = "scatter" | "natural" | "whites";
 
 // NOTE (added for events): 'story' is the new size.
@@ -639,6 +640,15 @@ export type EventPosterInput = {
    * specials and by the team-hub flyer, so every page's footer is consistent.
    */
   footer?: string | null;
+  /**
+   * Headline size multiplier (default 1 = the DJ poster's exact 0.135 scale).
+   * EVENTS-ONLY and purely additive — at 1 the output is byte-identical to the
+   * DJ engine, so this does NOT need mirroring in the team-hub poster.js (same
+   * rule as the 'zine' size and the AM/PM change). >1 grows the headline (and
+   * may take a 4th line), shrinking the photo below it; <1 shrinks it, giving
+   * the photo more room. Clamped to a sane range.
+   */
+  titleScale?: number;
   colour: string;
   size?: PosterSize;
   mode?: PosterMode;
@@ -672,6 +682,7 @@ export async function renderEventPoster({
   mode = "colour",
   exposure = 1,
   treatment = "scatter",
+  titleScale = 1,
   img,
   imgs = null,
   qrUrl,
@@ -744,15 +755,19 @@ export async function renderEventPoster({
 
   // Headline. Same 0.135 scale and 0.018 trailing gap as the DJ name, but it may
   // take up to 3 lines (see fitDisplayBlock), and the lines level with the QR
-  // code stop short of it.
+  // code stop short of it. titleScale (default 1) is the founder's size dial: at
+  // 1 this is byte-identical to the DJ poster; >1 grows the headline (and allows
+  // a 4th line + more block height, so it visibly gets bigger and the photo
+  // below it shrinks); <1 shrinks it, giving the photo room.
+  const ts = Math.max(0.6, Math.min(1.6, titleScale || 1));
   const usableH = H - S.safeTop - S.safeBottom - 2 * m;
   const head = fitDisplayBlock(
     ctx,
     (name || "EVENT").toUpperCase(),
     x1 - x0,
-    Math.round(SB * 0.135),
-    3,
-    usableH * 0.45,
+    Math.round(SB * 0.135 * ts),
+    ts > 1 ? 4 : 3,
+    usableH * Math.min(0.72, 0.45 * Math.max(1, ts)),
     qrDrawn ? qrX - qrGap - x0 : 0,
     qrDrawn ? qrDrawn + qrGap : 0,
   );
@@ -898,12 +913,14 @@ export function frameAspect(
   size: PosterSize,
   hasDetail: boolean,
   hasPrice: boolean,
+  titleScale = 1,
 ): number {
   // Rough but stable: the text block eats a fairly predictable share of height.
   const S = SIZES[size] || SIZES.ig;
   const SB = scaleBaseFor(size, S.w, S.h);
   const m = Math.round(S.w * 0.037);
-  const head = SB * 0.135 * 1.05 + SB * 0.018;
+  const ts = Math.max(0.6, Math.min(1.6, titleScale || 1));
+  const head = SB * 0.135 * ts * 1.05 + SB * 0.018;
   const extra =
     (hasDetail ? SB * 0.044 + SB * 0.02 : 0) +
     (hasPrice ? SB * 0.058 + SB * 0.02 : 0) ||

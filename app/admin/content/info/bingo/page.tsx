@@ -4,12 +4,13 @@ import Link from "next/link";
 
 export const metadata = { title: "Bingo page content — No Dice Admin" };
 
-// The /bingo (Comedy & Bingo) page is edited IN PLACE on the live page rather
-// than through the generic <ContentEditor>: its copy is stored in page_content
-// under per-key rows (page == the key, e.g. "bingo.event_date"), not a shared
-// "bingo" page value, so the standard form would show no fields. In-place
-// editing (click any text on /bingo?edit=1) is the supported path — and the
-// founder already edits it this way.
+// The /comedybingo (Comedy & Bingo) page is edited IN PLACE on the live page
+// rather than through the generic <ContentEditor>: its copy is stored in
+// page_content under per-key rows (page == the key, e.g. "bingo.event_date"),
+// not a shared "bingo" page value, so the standard form would show no fields.
+// In-place editing (click any text on /comedybingo?edit=1) is the supported
+// path — and the founder already edits it this way. (The content keys stay
+// "bingo.*"; only the public URL moved from /bingo to /comedybingo.)
 export default function BingoContentPage() {
   const btn =
     "rounded-full border border-cream/15 px-4 py-1.5 text-xs font-bold uppercase tracking-wider text-cream/85 hover:bg-cream/5";
@@ -17,11 +18,11 @@ export default function BingoContentPage() {
     <>
       <AdminPageHeader
         title="Bingo page"
-        description="Edit the Comedy & Bingo night page (/bingo). Copy is edited in place — open the page in edit mode and click any text to change it. Images are managed under Galleries."
+        description="Edit the Comedy & Bingo night page (/comedybingo). Copy is edited in place — open the page in edit mode and click any text to change it. Images are managed under Galleries."
         action={
           <>
             <a
-              href={`${process.env.NEXT_PUBLIC_BASE_PATH || ""}/bingo?edit=1`}
+              href={`${process.env.NEXT_PUBLIC_BASE_PATH || ""}/comedybingo?edit=1`}
               target="_blank"
               rel="noopener noreferrer"
               className="rounded-full bg-plonkPink px-4 py-1.5 text-xs font-bold uppercase tracking-wider text-white hover:bg-plonkPink/90"
@@ -29,7 +30,7 @@ export default function BingoContentPage() {
               Edit copy in place ↗
             </a>
             <a
-              href={`${process.env.NEXT_PUBLIC_BASE_PATH || ""}/bingo`}
+              href={`${process.env.NEXT_PUBLIC_BASE_PATH || ""}/comedybingo`}
               target="_blank"
               rel="noopener noreferrer"
               className={btn}
@@ -47,7 +48,7 @@ export default function BingoContentPage() {
             <ol className="mt-3 list-decimal space-y-1.5 pl-5 text-sm text-cream/75">
               <li>
                 Click <strong>“Edit copy in place ↗”</strong> above — it opens
-                /bingo with editing switched on.
+                /comedybingo with editing switched on.
               </li>
               <li>
                 Click any heading, paragraph, date, prize or running-order line

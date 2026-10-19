@@ -21,9 +21,19 @@
 --                                         → also lists it under Special
 --                                           Events on the /events calendar.
 --   • one active ticket_type at £10 (price_pence=1000).
+--   • a MATCHING public.tournaments row with the SAME id. This is REQUIRED:
+--     tournament_entries.tournament_id has a FOREIGN KEY to tournaments(id),
+--     so without this row every paid booking 500s at the final insert
+--     ("violates foreign key constraint tournament_entries_tournament_id_fkey")
+--     — the Stripe step appears broken. The tournaments row is never read for
+--     display (/pool reads EVENTS where show_on_pool_schedule=true); it exists
+--     purely to satisfy that FK, mirroring how real pool tournaments carry both
+--     an events row and a tournaments row. (Discovered 18 Oct 2026 when the
+--     first bingo night's tickets wouldn't take payment.)
 --
 -- Idempotent: guarded by NOT EXISTS on (name, event_date), so a re-run is a
--- no-op. The ticket row is inserted only when the event was freshly created.
+-- no-op. The ticket + tournaments rows are inserted only when the event was
+-- freshly created (both guarded further by ON CONFLICT (id) DO NOTHING).
 -- =============================================================
 
 with new_event as (
@@ -37,7 +47,7 @@ with new_event as (
   )
   select
     'Bingo Night',
-    'Comedy & Bingo at No Dice, London Fields. A £10 ticket gets you in and gets you a drink; the bingo is free to play with bar-sponsored prizes. Warm-up comedy set, bingo, comedy set, bingo, main comedy set.',
+    'Comedy & Bingo at No Dice, London Fields. A £10 ticket gets you in and gets you a drink; the bingo is free to play with bar-sponsored prizes. Two comics, a round of bingo, a break — twice — then the headline set.',
     'pool_tournament_singles', 'Special Event',
     date '2026-11-25', time '19:00:00', time '22:30:00',
     'none',
@@ -47,6 +57,22 @@ with new_event as (
     select 1 from public.events
     where name = 'Bingo Night' and event_date = date '2026-11-25'
   )
+  returning id
+),
+-- REQUIRED FK mirror — see header. Same id as the event so the booking's
+-- tournament_entries insert (tournament_id = event id) passes the FK.
+new_tournament as (
+  insert into public.tournaments (
+    id, name, description, event_date, start_time,
+    max_teams, entry_fee_pence, registration_open, bookable, tournament_type
+  )
+  select
+    id, 'Bingo Night',
+    'FK mirror for the Bingo Night events row — exists only so ticket bookings (tournament_entries.tournament_id FK) can save. Not shown on /pool.',
+    date '2026-11-25', time '19:00:00',
+    60, 1000, true, true, 'singles'
+  from new_event
+  on conflict (id) do nothing
   returning id
 )
 insert into public.ticket_types (

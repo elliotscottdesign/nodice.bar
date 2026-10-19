@@ -229,6 +229,7 @@ function isoFor(year: number, month: number, day: number): string {
 function buildMonthGrid(
   year: number,
   month: number,
+  skipBeforeDay?: number,
 ): (number | null)[] {
   const firstDow = (new Date(year, month, 1).getDay() + 6) % 7; // 0 = Mon
   const daysInMonth = new Date(year, month + 1, 0).getDate();
@@ -236,6 +237,23 @@ function buildMonthGrid(
   for (let i = 0; i < firstDow; i++) cells.push(null);
   for (let d = 1; d <= daysInMonth; d++) cells.push(d);
   while (cells.length % 7 !== 0) cells.push(null);
+  // Collapse fully-past weeks (founder, Oct 2026): for the CURRENT month,
+  // drop any leading Mon-Sun week whose days are all before today, so the
+  // calendar opens on the current week instead of making you scroll down
+  // past the empty past weeks. The week containing today stays.
+  if (skipBeforeDay != null) {
+    let start = 0;
+    while (start + 7 <= cells.length) {
+      const week = cells.slice(start, start + 7);
+      const lastDay = week.reduce<number>(
+        (m, c) => (c != null && c > m ? c : m),
+        0,
+      );
+      if (lastDay > 0 && lastDay < skipBeforeDay) start += 7;
+      else break;
+    }
+    return cells.slice(start);
+  }
   return cells;
 }
 
@@ -359,8 +377,15 @@ export default function EventsPage() {
   }, [active.year, active.month]);
 
   const grid = useMemo(
-    () => buildMonthGrid(active.year, active.month),
-    [active.year, active.month],
+    () =>
+      buildMonthGrid(
+        active.year,
+        active.month,
+        active.year === today.year && active.month === today.month
+          ? today.day
+          : undefined,
+      ),
+    [active.year, active.month, today.year, today.month, today.day],
   );
 
   // Index events by day-of-month for fast cell lookup. Multiple
@@ -703,6 +728,7 @@ export default function EventsPage() {
                         ev={dayEvents[0]}
                         editing={editing}
                         onEdit={() => openEdit(dayEvents[0])}
+                        onOpen={() => setOpenDayIso(dayIso)}
                       />
                     ) : (
                       <MultiEventStack
@@ -744,20 +770,11 @@ export default function EventsPage() {
           came for the calendar. */}
       <RecordStores />
 
-      {/* Live @nodice.bar feed under the calendar. Same Behold widget
-          as the homepage; copy is independently editable via its own
-          CMS keys so the wording can vary between pages. */}
-      <InstagramFeed
-        eyebrowKey="events.instagram.eyebrow"
-        eyebrowFallback="@nodice.bar"
-        headingKey="events.instagram.heading"
-        headingFallback="What's been going on."
-      />
-
-      {/* Open call — end-of-page CTA so any DJ can put themselves forward to play.
-          The DJ portal lives on the team hub, so this links out to
-          team.nodice.bar/dj/join (a code-gated profile form, not a booking). */}
-      <section className="px-6 pb-20 pt-4">
+      {/* Open call — put yourself forward to play. Moved to sit directly below
+          Record Stores (founder, 18 Oct 2026). The DJ portal lives on the team
+          hub, so this links out to team.nodice.bar/dj/join (a code-gated
+          profile form, not a booking). */}
+      <section className="px-6 pb-8 pt-4">
         <div className="mx-auto flex max-w-6xl flex-wrap items-center gap-4 rounded-2xl border border-plonkPink/30 bg-plonkPink/10 px-5 py-4 sm:px-6 sm:py-5">
           <div className="min-w-[200px] flex-1">
             <p className="font-display text-lg uppercase tracking-wide text-cream sm:text-xl">
@@ -776,6 +793,16 @@ export default function EventsPage() {
           </a>
         </div>
       </section>
+
+      {/* Live @nodice.bar feed under the calendar. Same Behold widget
+          as the homepage; copy is independently editable via its own
+          CMS keys so the wording can vary between pages. */}
+      <InstagramFeed
+        eyebrowKey="events.instagram.eyebrow"
+        eyebrowFallback="@nodice.bar"
+        headingKey="events.instagram.heading"
+        headingFallback="What's been going on."
+      />
 
       {/* Inline create/edit modal — only mounted when something is
           open. Save / delete refresh the month's events. */}
@@ -838,10 +865,17 @@ function DayEventCard({
   ev,
   editing,
   onEdit,
+  onOpen,
 }: {
   ev: DbCalendarEvent;
   editing: boolean;
   onEdit: () => void;
+  /** When set (and not editing), a public click opens the big day popup instead
+   *  of navigating to the event's own link — so EVERY event opens large first,
+   *  the way a multi-event day already does (founder, 18 Oct 2026). The event's
+   *  own link is still reachable from the copy of this card rendered INSIDE the
+   *  popup, which is given no onOpen and so keeps its normal link behaviour. */
+  onOpen?: () => void;
 }) {
   const base = process.env.NEXT_PUBLIC_BASE_PATH || "";
   // No artwork of its own → fall back to the category default so a customer
@@ -860,7 +894,12 @@ function DayEventCard({
   // Edit mode wins over the public link (see the return below), so a card is
   // only "clickable" in the public sense when we're NOT editing it.
   const editable = editing && !dj;
-  const href = editable ? null : eventDestination(ev);
+  // When onOpen is provided (the grid's single-event card), a public click opens
+  // the big day popup rather than following the event's own link. In that case
+  // the ↗ new-tab affordance is suppressed and the whole card is that button —
+  // the link itself lives on the card INSIDE the popup.
+  const opensPopup = !editable && !!onOpen;
+  const href = editable || opensPopup ? null : eventDestination(ev);
   // A link typed as root-relative ("/bingo") gets the same basePath prefix the
   // artwork above does, so it survives a future move onto a subpath. Absolute
   // links (the usual case) pass through untouched.
@@ -963,6 +1002,21 @@ function DayEventCard({
         type="button"
         onClick={onEdit}
         className="flex-1 cursor-pointer overflow-hidden text-left transition hover:opacity-90"
+      >
+        {inner}
+      </button>
+    );
+  }
+
+  // Public single-event card asked to open the day popup — the whole card is a
+  // button that opens it large (same destination as a multi-event day). group/card
+  // keeps the hover lift so it still reads as clickable.
+  if (opensPopup) {
+    return (
+      <button
+        type="button"
+        onClick={onOpen}
+        className="group/card block flex-1 cursor-pointer overflow-hidden text-left transition hover:opacity-90"
       >
         {inner}
       </button>
@@ -1213,7 +1267,7 @@ function DayEventsPopup({
         </button>
 
         <div className="mb-1 text-[11px] font-bold uppercase tracking-[0.28em] text-plonkPink">
-          {events.length} events
+          {events.length} event{events.length === 1 ? "" : "s"}
         </div>
         <h2 className="font-display text-2xl uppercase tracking-wider sm:text-3xl">
           {heading}

@@ -96,8 +96,8 @@ const KNOWN_GALLERIES: {
     key: "hero.bingo",
     label: "HERO slider — Bingo",
     description:
-      "Top-of-page banner on /bingo (Comedy & Bingo night). Upload 1 to set the header image, 2+ to make it a slider.",
-    previewPath: "/bingo",
+      "Top-of-page banner on /comedybingo (Comedy & Bingo night). Upload 1 to set the header image, 2+ to make it a slider.",
+    previewPath: "/comedybingo",
   },
   {
     key: "hero.vouchers",
@@ -160,8 +160,8 @@ const KNOWN_GALLERIES: {
     key: "bingo.gallery",
     label: "Bingo — hosts & machine slider",
     description:
-      "Photo slider on /bingo: comedian / host headshots and shots of the bingo machine. Portrait (4:5) shots work best.",
-    previewPath: "/bingo",
+      "Photo slider on /comedybingo: comedian / host headshots and shots of the bingo machine. Portrait (4:5) shots work best.",
+    previewPath: "/comedybingo",
   },
   {
     key: "about.gallery",

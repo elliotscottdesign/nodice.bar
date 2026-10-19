@@ -74,7 +74,7 @@ const PAGES: { label: string; href: string; description: string; group: string }
     label: "Bingo",
     href: "/admin/content/info/bingo",
     description:
-      "Comedy & Bingo night on /bingo — edit the copy in place on the live page. Header + photo-slider images live under Galleries ('hero.bingo' / 'bingo.gallery').",
+      "Comedy & Bingo night on /comedybingo — edit the copy in place on the live page. Header + photo-slider images live under Galleries ('hero.bingo' / 'bingo.gallery').",
   },
   {
     group: "Nav pages",

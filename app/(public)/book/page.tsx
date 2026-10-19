@@ -42,6 +42,18 @@ const FALLBACK_CARDS = [
     href: "/pool#tournaments",
   },
   {
+    id: "comedybingo",
+    name: "Comedy Bingo",
+    tagline: "£10 ticket · Comedy + bingo",
+    blurb:
+      "Two comics, rounds of bingo and a headline set. £10 gets you in with a drink — free to play, with bar-sponsored prizes.",
+    // The founder's pink bingo header (admin Galleries → hero.bingo).
+    // Override per-card any time via the CMS key "book.comedybingo.image".
+    image:
+      "https://rntcujcpsozvuxvmlejv.supabase.co/storage/v1/object/public/media/page/1791755393791-t31oz9-bingo-header.png",
+    href: "/comedybingo",
+  },
+  {
     id: "parties",
     name: "Party Inquiries",
     tagline: "Private hire · Groups of 10+",
