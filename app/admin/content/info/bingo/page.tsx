@@ -89,15 +89,26 @@ export default function BingoContentPage() {
 
         <AdminCard>
           <div className="px-5 py-5">
-            <p className="font-display text-lg">Bingo cards for the night</p>
+            <p className="font-display text-lg">On the night</p>
             <p className="mt-2 text-sm text-cream/70">
-              Print a batch of random, unique No Dice bingo cards — pick how many
-              and hit print (or Save as PDF).
+              Print a batch of random, unique 75-ball cards, and run the live
+              caller board on the room&apos;s big screen.
             </p>
-            <div className="mt-4">
+            <div className="mt-4 flex flex-wrap gap-2">
               <Link href="/admin/bingo-cards" className={btn}>
                 Print bingo cards ↗
               </Link>
+              <Link href="/admin/bingo-caller" className={btn}>
+                Live caller board ↗
+              </Link>
+              <a
+                href="/bingo-live"
+                target="_blank"
+                rel="noopener noreferrer"
+                className={btn}
+              >
+                Big screen (/bingo-live) ↗
+              </a>
             </div>
           </div>
         </AdminCard>
