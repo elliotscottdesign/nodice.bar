@@ -190,6 +190,9 @@ export default function EventsAdminClient() {
   // been edited on their own (recurrence_overridden). Marked with a ⭐ in
   // the list/calendar so staff can find them for corrections.
   const [editedOnly, setEditedOnly] = useState(false);
+  // "Series masters only" filter — the ROOT of each repeating series
+  // (recurrence set + not itself an instance). Marked with a 🔁.
+  const [rootsOnly, setRootsOnly] = useState(false);
   // List ↔ calendar toggle. Calendar shows a month grid with event
   // chips on each date; click a chip to open the same edit modal.
   const [view, setView] = useState<"list" | "calendar">("list");
@@ -363,9 +366,15 @@ export default function EventsAdminClient() {
         })
       : byCategory;
     // 3) Edited-instances-only filter.
-    const filtered = editedOnly
+    const edited = editedOnly
       ? searched.filter((e) => e.recurrence_overridden)
       : searched;
+    // 4) Series-masters-only filter.
+    const filtered = rootsOnly
+      ? edited.filter(
+          (e) => e.recurrence_type !== "none" && !e.recurrence_parent_id,
+        )
+      : edited;
 
     function revenueOf(ev: DbEvent): number {
       const tts = ticketsByEvent.get(ev.id) ?? [];
@@ -413,11 +422,19 @@ export default function EventsAdminClient() {
         break;
     }
     return sorted;
-  }, [events, ticketsByEvent, search, sortBy, categoryFilter, editedOnly]);
+  }, [events, ticketsByEvent, search, sortBy, categoryFilter, editedOnly, rootsOnly]);
 
   // Count of edited (overridden) instances — drives the filter pill label.
   const editedCount = useMemo(
     () => events.filter((e) => e.recurrence_overridden).length,
+    [events],
+  );
+  // Count of series masters (roots) — drives the roots filter pill label.
+  const rootCount = useMemo(
+    () =>
+      events.filter(
+        (e) => e.recurrence_type !== "none" && !e.recurrence_parent_id,
+      ).length,
     [events],
   );
 
@@ -1056,10 +1073,24 @@ export default function EventsAdminClient() {
                     ⭐ Edited only ({editedCount})
                   </button>
                 )}
+                {rootCount > 0 && (
+                  <button
+                    type="button"
+                    onClick={() => setRootsOnly((v) => !v)}
+                    title="Show only the master event of each repeating series (🔁)"
+                    className={`rounded-full border px-3 py-1.5 text-xs font-bold uppercase tracking-wider transition ${
+                      rootsOnly
+                        ? "border-plonkTeal bg-plonkTeal/15 text-plonkTeal"
+                        : "border-cream/15 bg-ink/40 text-cream/60 hover:border-cream/40"
+                    }`}
+                  >
+                    🔁 Series masters ({rootCount})
+                  </button>
+                )}
               </div>
 
               {/* List counter — useful when filtered. */}
-              {(search || sortBy !== "date-asc" || categoryFilter.size > 0 || editedOnly) && (
+              {(search || sortBy !== "date-asc" || categoryFilter.size > 0 || editedOnly || rootsOnly) && (
                 <p className="mb-3 text-[11px] uppercase tracking-widest text-cream/45">
                   Showing {visibleEvents.length} of {events.length} events
                 </p>
@@ -1074,7 +1105,9 @@ export default function EventsAdminClient() {
                 />
               ) : visibleEvents.length === 0 ? (
                 <p className="rounded-xl border border-cream/10 bg-ink/40 px-6 py-10 text-center text-sm text-cream/55">
-                  {editedOnly
+                  {rootsOnly
+                    ? "No series masters match the current filters."
+                    : editedOnly
                     ? "No edited instances match the current filters."
                     : `No events match "${search}". Try a different search.`}
                 </p>
@@ -1098,6 +1131,15 @@ export default function EventsAdminClient() {
                     />
                     <div className="min-w-0 flex-1">
                       <div className="text-sm font-bold text-cream">
+                        {e.recurrence_type !== "none" &&
+                          !e.recurrence_parent_id && (
+                            <span
+                              title="Series master — editing this updates the whole repeating series"
+                              className="mr-1 text-plonkTeal"
+                            >
+                              🔁
+                            </span>
+                          )}
                         {e.recurrence_overridden && (
                           <span
                             title="Edited on its own — no longer follows the series master"
@@ -2635,11 +2677,12 @@ function CalendarView({
                     key={ev.id}
                     type="button"
                     onClick={() => onEventClick(ev.id)}
-                    title={`${ev.recurrence_overridden ? "⭐ edited · " : ""}${ev.name}${ev.start_time ? ` · ${ev.start_time.slice(0, 5)}` : ""}`}
+                    title={`${ev.recurrence_type !== "none" && !ev.recurrence_parent_id ? "🔁 master · " : ""}${ev.recurrence_overridden ? "⭐ edited · " : ""}${ev.name}${ev.start_time ? ` · ${ev.start_time.slice(0, 5)}` : ""}`}
                     className={`block w-full truncate rounded border px-1.5 py-0.5 text-left text-[10px] font-bold uppercase tracking-wide ${chipClass(
                       ev,
                     )}`}
                   >
+                    {ev.recurrence_type !== "none" && !ev.recurrence_parent_id ? "🔁" : ""}
                     {ev.recurrence_overridden ? "⭐" : ""}
                     {ev.start_time ? `${ev.start_time.slice(0, 5)} ` : ""}
                     {ev.name}
