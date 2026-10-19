@@ -95,6 +95,20 @@ export const PALETTE: { name: string; hex: string }[] = [
   { name: "Green", hex: "#3FA535" }, // R63 G165 B53
 ];
 
+// The DEAL colourway — dusky plums, mauves and slate blues from the founder's
+// RAL range. Deliberately quieter than the bright DJ PALETTE so deals read as a
+// different family and stand out on the calendar. These are the online colours;
+// the flyer render is always black, and the zine cover inverts whichever is set.
+export const DEAL_PALETTE: { name: string; hex: string }[] = [
+  { name: "Aubergine", hex: "#3D2535" },
+  { name: "Plum", hex: "#8C5178" },
+  { name: "Mauve", hex: "#A28B94" },
+  { name: "Magenta", hex: "#C43E73" },
+  { name: "Lavender", hex: "#7A6E97" },
+  { name: "Slate", hex: "#5C6274" },
+  { name: "Navy", hex: "#3A4A66" },
+];
+
 export type PosterSize = "ig" | "story" | "zine" | "a3";
 export type PosterMode = "colour" | "negative";
 // 'whites' = greyscale with the whites knocked out so the poster colour shows
@@ -641,6 +655,13 @@ export type EventPosterInput = {
    */
   footer?: string | null;
   /**
+   * Deal layout. On a deal poster: NO QR code; the price sits top-right in an
+   * open circle (bigger, no background) where the QR would be; the info line
+   * runs the FULL width and wraps over as many lines as it needs; everything is
+   * capitalised. Off (every other poster) the layout is unchanged.
+   */
+  dealLayout?: boolean;
+  /**
    * Headline size multiplier (default 1 = the DJ poster's exact 0.135 scale).
    * EVENTS-ONLY and purely additive — at 1 the output is byte-identical to the
    * DJ engine, so this does NOT need mirroring in the team-hub poster.js (same
@@ -677,6 +698,7 @@ export async function renderEventPoster({
   detail,
   price,
   footer,
+  dealLayout,
   colour,
   size = "ig",
   mode = "colour",
@@ -729,8 +751,13 @@ export async function renderEventPoster({
 
   // ── QR code, top right ────────────────────────────────────────────────────
   // Scans through to the event on the calendar. Measured out BEFORE the
-  // headline so the headline knows to stop short of it.
-  const link = qrUrl === undefined ? eventQrUrl(date) : qrUrl;
+  // headline so the headline knows to stop short of it. A deal has no QR — the
+  // price circle takes that corner instead.
+  const link = dealLayout
+    ? ""
+    : qrUrl === undefined
+      ? eventQrUrl(date)
+      : qrUrl;
   let qrDrawn = 0;
   let qrModules: boolean[][] | null = null;
   let qrModulePx = 0;
@@ -753,6 +780,23 @@ export async function renderEventPoster({
   const qrY = y;
   const qrGap = Math.round(W * 0.02);
 
+  // ── Deal price circle, top right (instead of the QR) ──────────────────────
+  // A deal shows its price big, in an open circle (no fill), where the QR sits
+  // on other posters. Sized + measured here so the headline clears it.
+  const priceBadge =
+    dealLayout && (price || "").trim()
+      ? (price as string).trim().toUpperCase()
+      : "";
+  const badgeD = priceBadge ? Math.round(W * 0.2) : 0;
+  const badgeX = x1 - badgeD;
+  const badgeY = y;
+  const badgeGap = Math.round(W * 0.022);
+  // Whichever element holds the top-right corner (QR or price badge) is what the
+  // headline wraps around.
+  const trW = priceBadge ? badgeD : qrDrawn;
+  const trX = priceBadge ? badgeX : qrX;
+  const trGap = priceBadge ? badgeGap : qrGap;
+
   // Headline. Same 0.135 scale and 0.018 trailing gap as the DJ name, but it may
   // take up to 3 lines (see fitDisplayBlock), and the lines level with the QR
   // code stop short of it. titleScale (default 1) is the founder's size dial: at
@@ -768,8 +812,8 @@ export async function renderEventPoster({
     Math.round(SB * 0.135 * ts),
     ts > 1 ? 4 : 3,
     usableH * Math.min(0.72, 0.45 * Math.max(1, ts)),
-    qrDrawn ? qrX - qrGap - x0 : 0,
-    qrDrawn ? qrDrawn + qrGap : 0,
+    trW ? trX - trGap - x0 : 0,
+    trW ? trW + trGap : 0,
   );
   ctx.font = `${head.px}px "${FONT_FAMILY}"`;
   for (const l of head.lines) {
@@ -782,20 +826,42 @@ export async function renderEventPoster({
   }
   y += Math.round(SB * 0.018);
 
-  // Optional detail line, at the DJ genres scale (0.044).
+  // Optional detail / info line. On a deal it runs the FULL width and wraps over
+  // as many lines as it needs (e.g. Rolling Bones' rules); elsewhere it's the DJ
+  // engine's single genres line at 0.044.
   const d = (detail || "").trim();
-  if (d) line(d.toUpperCase(), 0.044, 0.02);
+  if (d && dealLayout) {
+    const px = Math.round(SB * 0.05);
+    const dlines = wrapVarying(
+      ctx,
+      d.toUpperCase().split(/\s+/),
+      px,
+      () => x1 - x0,
+    );
+    ctx.font = `${px}px "${FONT_FAMILY}"`;
+    for (const l of dlines) {
+      const mm = ctx.measureText(l);
+      ctx.fillText(l, x0, y + mm.actualBoundingBoxAscent);
+      y += mm.actualBoundingBoxAscent + mm.actualBoundingBoxDescent;
+      if (l !== dlines[dlines.length - 1]) y += Math.round(px * 0.14);
+    }
+    y += Math.round(SB * 0.02);
+  } else if (d) {
+    line(d.toUpperCase(), 0.044, 0.02);
+  }
   // Optional price line, a touch bigger — it's a selling point, not a footnote.
+  // On a deal the price lives in the top-right circle, not here.
   const p = (price || "").trim();
-  if (p) line(p.toUpperCase(), 0.058, 0.02);
-  // With neither, keep the DJ poster's exact gap before the photo (0.018+0.02).
-  if (!d && !p) y += Math.round(SB * 0.02);
+  if (p && !dealLayout) line(p.toUpperCase(), 0.058, 0.02);
+  // With nothing above the photo, keep the DJ poster's exact gap (0.018+0.02).
+  if (!d && (!p || dealLayout)) y += Math.round(SB * 0.02);
 
   const imgTop = y;
 
   const timeStr = fmtTime(start, end);
   // A recurring deal shows its day ("TUESDAYS"); everything else shows the date.
-  const when = (dayLabel || "").trim() || fmtDate(date);
+  // Always capitalised, like the rest of the type.
+  const when = ((dayLabel || "").trim() || fmtDate(date)).toUpperCase();
   // A deal/special can override the whole bottom line with a footer (price /
   // entry / "DEAL OF THE DAY"); otherwise it's the usual NO DICE line.
   const bottom = (footer || "").trim()
@@ -903,6 +969,37 @@ export async function renderEventPoster({
             qrModulePx,
             qrModulePx,
           );
+  }
+
+  // Deal price circle — drawn last, top-right, so nothing lands on it. An open
+  // ring (no fill) with the price big inside, in the poster ink (black in the
+  // negative/flyer render, so it prints as a black ring on the paper).
+  if (priceBadge) {
+    const cx = badgeX + badgeD / 2;
+    const cyc = badgeY + badgeD / 2;
+    const ring = Math.max(2, Math.round(BORDER * 1.15));
+    const r = badgeD / 2 - ring;
+    ctx.save();
+    ctx.strokeStyle = inkCss;
+    ctx.lineWidth = ring;
+    ctx.beginPath();
+    ctx.arc(cx, cyc, r, 0, Math.PI * 2);
+    ctx.stroke();
+    ctx.fillStyle = inkCss;
+    ctx.textAlign = "center";
+    let fpx = Math.round(badgeD * 0.44);
+    ctx.font = `${fpx}px "${FONT_FAMILY}"`;
+    while (fpx > 8 && ctx.measureText(priceBadge).width > badgeD * 0.72) {
+      fpx -= 2;
+      ctx.font = `${fpx}px "${FONT_FAMILY}"`;
+    }
+    const tm = ctx.measureText(priceBadge);
+    ctx.fillText(
+      priceBadge,
+      cx,
+      cyc + (tm.actualBoundingBoxAscent - tm.actualBoundingBoxDescent) / 2,
+    );
+    ctx.restore();
   }
   return cv;
 }

@@ -26,6 +26,7 @@ import { RAL, ralLabel, ralSearch } from "@/lib/poster/ralColours";
 import { eventQrUrl } from "@/lib/poster/qr";
 import {
   PALETTE,
+  DEAL_PALETTE,
   canvasToBlob,
   coverRect,
   downloadCanvas,
@@ -90,6 +91,7 @@ export type PosterSaveResult = {
   poster_footer?: string | null;
   poster_image_url?: string | null;
   poster_qr_url?: string | null;
+  poster_day_label?: string | null;
   /** The price as a number, parsed from the price field — the deal's own cell. */
   ticket_price?: number | null;
 };
@@ -108,6 +110,7 @@ export default function EventPosterStudio({
   defaultSubcopy,
   defaultQrUrl,
   defaultImageUrl,
+  defaultDayLabel,
   onSave,
   saveLabel = "Save onto this event",
   saveHint,
@@ -143,6 +146,7 @@ export default function EventPosterStudio({
   defaultSubcopy?: string | null;
   defaultQrUrl?: string | null;
   defaultImageUrl?: string | null;
+  defaultDayLabel?: string | null;
   /**
    * Called once the poster(s) are safely in storage. Ordinary events get just
    * `poster_url`; a deal also gets the flyer render + the structured fields.
@@ -170,13 +174,13 @@ export default function EventPosterStudio({
   const fileRef = useRef<HTMLInputElement | null>(null);
 
   // ---- Look ----
-  // Deals default to Cream — the lightest ink — because the drinks zine inverts
-  // the saved poster to print it, and light ink on the black ground inverts to
-  // near-black on the coloured stock. Everything else keeps the house Pink.
+  // Deals pick their ink from the dusky DEAL_PALETTE (online brand colours that
+  // stand apart from the DJ brights); everything else keeps the house Pink.
+  const dealSwatches = isDeal ? DEAL_PALETTE : PALETTE;
   const [colour, setColour] = useState(
-    (
-      PALETTE.find((p) => p.name === (isDeal ? "Cream" : "Pink")) || PALETTE[0]
-    ).hex,
+    isDeal
+      ? (DEAL_PALETTE.find((p) => p.name === "Magenta") || DEAL_PALETTE[0]).hex
+      : (PALETTE.find((p) => p.name === "Pink") || PALETTE[0]).hex,
   );
   const [showRal, setShowRal] = useState(false);
   const [ralQ, setRalQ] = useState("");
@@ -217,11 +221,17 @@ export default function EventPosterStudio({
   useEffect(() => {
     if (!footerTouched) setFooter(defaultFooter || "");
   }, [defaultFooter, footerTouched]);
+  // QR is kept for non-deal use + round-tripping the stored value; deals no
+  // longer show a QR, so there's no input for it.
   const [qr, setQr] = useState(defaultQrUrl || "");
-  const [qrTouched, setQrTouched] = useState(false);
   useEffect(() => {
-    if (!qrTouched) setQr(defaultQrUrl || "");
-  }, [defaultQrUrl, qrTouched]);
+    setQr(defaultQrUrl || "");
+  }, [defaultQrUrl]);
+  const [dayLabel, setDayLabel] = useState(defaultDayLabel || "");
+  const [dayTouched, setDayTouched] = useState(false);
+  useEffect(() => {
+    if (!dayTouched) setDayLabel(defaultDayLabel || "");
+  }, [defaultDayLabel, dayTouched]);
 
   // ---- Chrome ----
   // Deals open on the page shape (what the zine cover uses); others on the post.
@@ -293,8 +303,10 @@ export default function EventPosterStudio({
         end,
         detail: showDetail ? detail : "",
         price,
-        // Deals can replace the bottom line and point the QR somewhere bespoke;
-        // for other events these are blank, so the engine keeps its defaults.
+        // Deals use the deal layout (price in a circle, no QR, full-width info)
+        // and can replace the bottom line; other events keep the defaults.
+        dealLayout: isDeal,
+        dayLabel: isDeal && dayLabel.trim() ? dayLabel.trim() : undefined,
         footer: isDeal ? footer : undefined,
         qrUrl: isDeal && qr.trim() ? qr.trim() : undefined,
         colour,
@@ -325,6 +337,7 @@ export default function EventPosterStudio({
       isDeal,
       footer,
       qr,
+      dayLabel,
       colour,
       treatment,
       titleScale,
@@ -504,6 +517,7 @@ export default function EventPosterStudio({
         result.poster_footer = footer.trim() || null;
         result.poster_qr_url = qr.trim() || null;
         result.poster_image_url = sourceImageUrl || null;
+        result.poster_day_label = dayLabel.trim() || null;
         // The price lives in its own numeric cell, not in the sub-copy line.
         result.ticket_price = parsePrice(price);
       }
@@ -528,7 +542,7 @@ export default function EventPosterStudio({
   // True when the active colour is one of the quick-pick swatches. When it isn't,
   // it came from the RAL chart (or the custom picker), so the RAL pill shows that
   // colour and reads as "active" — the quick-pick row has nothing to highlight.
-  const colourIsPalette = PALETTE.some(
+  const colourIsPalette = dealSwatches.some(
     (p) => p.hex.toLowerCase() === colour.toLowerCase(),
   );
 
@@ -780,7 +794,7 @@ export default function EventPosterStudio({
               </span>
             </p>
             <div className="flex flex-wrap items-center gap-1.5">
-              {PALETTE.map((p) => (
+              {dealSwatches.map((p) => (
                 <button
                   key={p.hex}
                   type="button"
@@ -976,21 +990,21 @@ export default function EventPosterStudio({
                 </label>
                 <label className="block">
                   <span className="mb-1 block text-[10px] text-cream/45">
-                    QR link (optional)
+                    Day shown (optional)
                   </span>
                   <input
-                    value={qr}
+                    value={dayLabel}
                     onChange={(e) => {
-                      setQrTouched(true);
-                      setQr(e.target.value);
+                      setDayTouched(true);
+                      setDayLabel(e.target.value);
                     }}
-                    maxLength={300}
-                    placeholder="Blank = this deal’s page on /events"
+                    maxLength={40}
+                    placeholder="e.g. TUESDAYS / MON-THURS"
                     className="w-full rounded-md border border-cream/20 bg-ink px-2.5 py-1.5 text-xs text-cream placeholder:text-cream/35"
                   />
                   <span className="mt-1 block text-[9px] leading-relaxed text-cream/35">
-                    Where the QR code points. Blank points at this deal on the
-                    events calendar.
+                    The day on the bottom line (a deal repeats, so a single date
+                    would be wrong). Blank shows the event date.
                   </span>
                 </label>
               </div>

@@ -214,6 +214,7 @@ export default function EventsAdminClient() {
   const [posterFooter, setPosterFooter] = useState<string>("");
   const [posterImageUrl, setPosterImageUrl] = useState<string>("");
   const [posterQrUrl, setPosterQrUrl] = useState<string>("");
+  const [posterDayLabel, setPosterDayLabel] = useState<string>("");
   // The deal's price as its own cell (numeric £). Kept as a string for the
   // input; parsed on save. Empty = no price.
   const [ticketPrice, setTicketPrice] = useState<string>("");
@@ -290,6 +291,7 @@ export default function EventsAdminClient() {
     setPosterFooter("");
     setPosterImageUrl("");
     setPosterQrUrl("");
+    setPosterDayLabel("");
     setTicketPrice("");
     setCategory("dj_night");
     setSubcategory("");
@@ -461,6 +463,7 @@ export default function EventsAdminClient() {
           poster_footer: posterFooter || null,
           poster_image_url: posterImageUrl || null,
           poster_qr_url: posterQrUrl || null,
+          poster_day_label: posterDayLabel || null,
           ticket_price: ticketPrice ? Number(ticketPrice) : null,
           category,
           subcategory: subcategory || null,
@@ -653,6 +656,7 @@ export default function EventsAdminClient() {
               defaultSubcopy={posterSubcopy || undefined}
               defaultQrUrl={posterQrUrl || undefined}
               defaultImageUrl={posterImageUrl || undefined}
+              defaultDayLabel={posterDayLabel || undefined}
               saveLabel="Use as this event's artwork"
               saveHint="Sets the artwork above. It goes live when you create the event."
               onSave={(r) => {
@@ -667,6 +671,8 @@ export default function EventsAdminClient() {
                   setPosterImageUrl(r.poster_image_url ?? "");
                 if (r.poster_qr_url !== undefined)
                   setPosterQrUrl(r.poster_qr_url ?? "");
+                if (r.poster_day_label !== undefined)
+                  setPosterDayLabel(r.poster_day_label ?? "");
                 if (r.ticket_price !== undefined)
                   setTicketPrice(r.ticket_price != null ? String(r.ticket_price) : "");
               }}
@@ -1225,6 +1231,9 @@ function EditEventModal({
   const [posterQrUrl, setPosterQrUrl] = useState<string>(
     event.poster_qr_url ?? "",
   );
+  const [posterDayLabel, setPosterDayLabel] = useState<string>(
+    event.poster_day_label ?? "",
+  );
   const [ticketPrice, setTicketPrice] = useState<string>(
     event.ticket_price != null ? String(event.ticket_price) : "",
   );
@@ -1373,6 +1382,7 @@ function EditEventModal({
             poster_footer: posterFooter || null,
             poster_image_url: posterImageUrl || null,
             poster_qr_url: posterQrUrl || null,
+            poster_day_label: posterDayLabel || null,
             ticket_price: ticketPrice ? Number(ticketPrice) : null,
             category: event.category,
             subcategory: subcategory || null,
@@ -1604,6 +1614,7 @@ function EditEventModal({
             defaultSubcopy={posterSubcopy || undefined}
             defaultQrUrl={posterQrUrl || undefined}
             defaultImageUrl={posterImageUrl || undefined}
+            defaultDayLabel={posterDayLabel || undefined}
             saveHint="Saves straight onto this event — it shows on nodice.bar/events right away."
             onSave={async (r) => {
               // Write first, then mirror into local state, so a failed write
@@ -1620,6 +1631,8 @@ function EditEventModal({
                 patch.poster_image_url = r.poster_image_url;
               if (r.poster_qr_url !== undefined)
                 patch.poster_qr_url = r.poster_qr_url;
+              if (r.poster_day_label !== undefined)
+                patch.poster_day_label = r.poster_day_label;
               if (r.ticket_price !== undefined)
                 patch.ticket_price = r.ticket_price;
               await updateEvent(event.id, patch);
@@ -1634,6 +1647,8 @@ function EditEventModal({
                 setPosterImageUrl(r.poster_image_url ?? "");
               if (r.poster_qr_url !== undefined)
                 setPosterQrUrl(r.poster_qr_url ?? "");
+              if (r.poster_day_label !== undefined)
+                setPosterDayLabel(r.poster_day_label ?? "");
               if (r.ticket_price !== undefined)
                 setTicketPrice(r.ticket_price != null ? String(r.ticket_price) : "");
               await onRefresh?.();

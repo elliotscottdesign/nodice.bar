@@ -86,6 +86,8 @@ export type DbEvent = {
   poster_image_url?: string | null;
   /** Editable QR target; blank → the event's calendar listing. */
   poster_qr_url?: string | null;
+  /** Day shown on the poster's bottom line ("TUESDAYS" / "MON-THURS"). */
+  poster_day_label?: string | null;
   /** Print-ready black-on-transparent A-page render for the team-hub flyer. */
   flyer_poster_url?: string | null;
   created_at: string;
