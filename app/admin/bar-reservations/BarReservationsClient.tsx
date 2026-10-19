@@ -4,6 +4,7 @@ import { useEffect, useState } from "react";
 import { AdminCard } from "@/components/admin/AdminCard";
 import AddReservationForm from "@/components/admin/AddReservationForm";
 import TimeField from "@/components/admin/TimeField";
+import DatePickerInput from "@/components/admin/DatePickerInput";
 import BookingLockedTag from "@/components/admin/BookingLockedTag";
 import {
   loadAllTableSurfaceReservations,
@@ -657,10 +658,10 @@ export default function BarReservationsClient({
         ))}
         <label className="flex items-center gap-2 text-[10px] font-bold uppercase tracking-widest text-cream/45">
           Jump to
-          <input
-            type="date"
+          <DatePickerInput
             value={jumpDate}
-            onChange={(e) => setJumpDate(e.target.value)}
+            onChange={setJumpDate}
+            placeholder="Jump to date"
             className={`rounded-full border px-3 py-1 text-xs font-semibold tracking-normal focus:outline-none ${
               jumpDate
                 ? "border-plonkYellow bg-plonkYellow/10 text-plonkYellow"
@@ -958,10 +959,9 @@ export default function BarReservationsClient({
                   <div className="grid gap-3 sm:grid-cols-4">
                     <div>
                       <label className="text-[10px] font-bold uppercase tracking-widest text-cream/55">Date</label>
-                      <input
-                        type="date"
+                      <DatePickerInput
                         value={poolForm.date}
-                        onChange={(e) => updatePoolField({ date: e.target.value })}
+                        onChange={(v) => updatePoolField({ date: v })}
                         className={editInputCls + " mt-1"}
                       />
                     </div>
@@ -1053,7 +1053,7 @@ export default function BarReservationsClient({
                     <div className="mb-3 grid gap-3 sm:grid-cols-2">
                       <div>
                         <label className="text-[10px] font-bold uppercase tracking-widest text-cream/55">Date</label>
-                        <input type="date" value={editForm.reservation_date} onChange={(e) => setEditForm({ ...editForm, reservation_date: e.target.value })} className={editInputCls + " mt-1"} />
+                        <DatePickerInput value={editForm.reservation_date} onChange={(v) => setEditForm({ ...editForm, reservation_date: v })} className={editInputCls + " mt-1"} />
                       </div>
                       <div>
                         <label className="text-[10px] font-bold uppercase tracking-widest text-cream/55">Start time</label>

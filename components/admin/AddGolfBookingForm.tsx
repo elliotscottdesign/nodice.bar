@@ -3,6 +3,7 @@
 import { useState } from "react";
 import { AdminCard } from "@/components/admin/AdminCard";
 import TimeField from "@/components/admin/TimeField";
+import DatePickerInput from "@/components/admin/DatePickerInput";
 import { createManualGolfBooking } from "@/lib/db/bookings";
 
 // =============================================================
@@ -139,11 +140,9 @@ export default function AddGolfBookingForm({
             <label className="text-[10px] font-bold uppercase tracking-widest text-cream/55">
               Date
             </label>
-            <input
-              type="date"
-              required
+            <DatePickerInput
               value={date}
-              onChange={(e) => setDate(e.target.value)}
+              onChange={setDate}
               className={inputCls + " mt-1"}
             />
           </div>
