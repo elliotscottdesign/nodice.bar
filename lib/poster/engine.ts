@@ -822,11 +822,13 @@ export async function renderEventPoster({
   const qrY = y;
   const qrGap = Math.round(W * 0.02);
 
-  // ── Deal price circle, top right (instead of the QR) ──────────────────────
-  // A deal shows its price big, in an open circle (no fill), where the QR sits
-  // on other posters. Sized + measured here so the headline clears it.
+  // ── Price circle, top right (instead of the QR) ───────────────────────────
+  // The price sits big in an open circle (no fill) in the top-right corner —
+  // the deals look, now used on EVERY export that has that corner free (founder
+  // 19 Oct 2026). The A3 keeps the QR in that corner (it's the scannable print),
+  // so there the price stays a text line under the headline instead.
   const priceBadge =
-    dealLayout && (price || "").trim()
+    (dealLayout || size !== "a3") && (price || "").trim()
       ? (price as string).trim().toUpperCase()
       : "";
   // The circle grows with its content — a short "£11" stays compact, but extra
@@ -911,11 +913,14 @@ export async function renderEventPoster({
     line(d.toUpperCase(), 0.044, 0.02);
   }
   // Optional price line, a touch bigger — it's a selling point, not a footnote.
-  // On a deal the price lives in the top-right circle, not here.
+  // When the price is shown as the top-right circle (priceBadge) it is NOT
+  // repeated here — only the A3 (which has the QR in that corner, so no circle)
+  // falls back to the price as a line.
   const p = (price || "").trim();
-  if (p && !dealLayout) line(p.toUpperCase(), 0.058, 0.02);
-  // With nothing above the photo, keep the DJ poster's exact gap (0.018+0.02).
-  if (!d && (!p || dealLayout)) y += Math.round(SB * 0.02);
+  if (p && !priceBadge) line(p.toUpperCase(), 0.058, 0.02);
+  // With no line above the photo (no detail, and the price is a circle not a
+  // line), keep the DJ poster's exact gap (0.018+0.02).
+  if (!d && (!p || priceBadge)) y += Math.round(SB * 0.02);
 
   const imgTop = y;
 

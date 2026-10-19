@@ -649,14 +649,15 @@ export default function EventPosterStudio({
               Pick a picture below and the poster appears here.
             </div>
           )}
-          {/* Every poster carries a QR code in its top right corner — including
-              the A3 print, where it comes out in the same black ink. */}
+          {/* The QR now lives ONLY on the A3 print (founder 19 Oct 2026) — the
+              thing that gets put on a wall and scanned. The Instagram post and
+              story don't carry it. */}
           <p className="mt-2 max-w-[236px] text-[10px] leading-relaxed text-cream/40">
-            The QR code top right opens{" "}
+            The A3 print has a QR code (top right) that opens{" "}
             <span className="break-all text-cream/60">
               {eventQrUrl(date).replace(/^https:\/\//, "")}
             </span>{" "}
-            when it&apos;s scanned.
+            when scanned. The post and story don&apos;t carry it.
           </p>
         </div>
 
