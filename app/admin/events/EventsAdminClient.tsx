@@ -6,7 +6,7 @@ import MediaPicker from "@/components/admin/MediaPicker";
 import EventPosterStudio from "@/components/admin/EventPosterStudio";
 import DatePickerInput from "@/components/admin/DatePickerInput";
 import Notice from "@/components/Notice";
-import { EVENT_TYPES, isDealEvent } from "@/lib/db/calendarEvents";
+import { isDealEvent } from "@/lib/db/calendarEvents";
 
 // Category colour swatches — used by the dropdown and list-row
 // left-stripe so the palette in the calendar view is discoverable
@@ -27,24 +27,14 @@ function adminCategoryDot(cat: string): string {
   if (cat === "food_event")              return "bg-orange-400";
   if (cat === "drink_special")           return "bg-plonkYellow";
   if (cat === "special_event")           return "bg-sky-500";
+  if (cat === "bingo")                    return "bg-fuchsia-400";
   if (cat === "arcade")                  return "bg-cyan-400";
   if (cat === "golf")                    return "bg-emerald-500";
   return "bg-cream/40"; // "other" / unknown
 }
-function adminEventLeftStripe(ev: {
-  category: string;
-  subcategory: string | null;
-}): string {
-  const sub = primarySub(ev.subcategory);
-  // Subcategory (calendar_events) wins because it's the artwork-level
-  // tag; category is the fallback for events-platform rows. A multi-tagged
-  // event uses its highest-priority tag for the single stripe colour.
-  if (sub === "DJ Night")        return "bg-plonkPink";
-  if (sub === "Match Day")       return "bg-plonkTeal";
-  if (sub === "Pool Night")      return "bg-purple-400";
-  if (sub === "Food Night")      return "bg-orange-400";
-  if (sub === "Deals")           return "bg-plonkYellow";
-  if (sub === "Special Event")   return "bg-sky-400";
+function adminEventLeftStripe(ev: { category: string }): string {
+  // Coloured by CATEGORY — the one tag (founder 19 Oct 2026). The old
+  // subcategory "chips" are retired.
   return adminCategoryDot(ev.category);
 }
 import {
@@ -115,6 +105,7 @@ const CATEGORY_OPTIONS: EventCategory[] = [
   "food_event",
   "drink_special",
   "special_event",
+  "bingo",
   "arcade",
   "golf",
   "world_cup",
@@ -718,12 +709,6 @@ export default function EventsAdminClient() {
                 ))}
               </select>
             </Field>
-            {/* Subcategory drives the /events calendar filter chips. Tick as
-                many as apply (e.g. a DJ Night that's also a Special Event);
-                none ticked = untagged (still appears, matches no chip). */}
-            <Field label="Subcategories (calendar chips)">
-              <SubcategoryPicker value={subcategory} onChange={setSubcategory} />
-            </Field>
             <Field label="Visibility">
               <div className="space-y-2">
                 <Checkbox
@@ -1315,10 +1300,9 @@ function EditEventModal({
   const [recurrenceWeekday, setRecurrenceWeekday] = useState<number>(
     event.recurrence_weekday ?? nthWeekdayForDate(event.event_date).weekday,
   );
-  // Subcategory (calendar chip) — nullable, blank = untagged.
-  const [subcategory, setSubcategory] = useState<string>(
-    event.subcategory ?? "",
-  );
+  // Subcategory is retired as an input (events are tagged by category now); the
+  // existing value is preserved on save, and still feeds isDealEvent.
+  const [subcategory] = useState<string>(event.subcategory ?? "");
 
   // ---- Ticket types ----
   // Mirror state for each existing ticket type, plus a track of which
@@ -1747,13 +1731,6 @@ function EditEventModal({
             }}
           />
 
-          {/* Subcategories — same list as the public /events calendar filter
-              chips. Tick as many as apply; none ticked keeps the event
-              calendar-visible but untagged. */}
-          <ModalField label="Subcategories (calendar chips)">
-            <SubcategoryPicker value={subcategory} onChange={setSubcategory} />
-          </ModalField>
-
           {/* Recurrence — editable on every event, including children
               of an existing series. Founder rule (2026-07-02): the
               Repeats field must always be editable. Saving a change
@@ -2123,68 +2100,9 @@ function Field({
   );
 }
 
-// Subcategories are stored in the single `events.subcategory` text column as a
-// comma-joined list ("DJ Night, Special Event") so an event can carry several
-// calendar chips. Single-value legacy rows parse fine (no comma → one tag).
-function parseSubs(s: string | null | undefined): string[] {
-  return (s ?? "")
-    .split(",")
-    .map((x) => x.trim())
-    .filter(Boolean);
-}
-// isDealEvent moved to lib/db/calendarEvents.ts (imported above) so the
-// Calendar posters tab builds deal posters page-shaped too — it was still
-// making them Instagram-shaped, which doesn't fill the zine cover.
-// Re-join in the canonical EVENT_TYPES order so the stored string is stable
-// regardless of the order the founder ticked the boxes.
-function joinSubs(list: string[]): string {
-  return EVENT_TYPES.filter((t) => list.includes(t)).join(", ");
-}
-// The tag that drives a multi-tagged event's single colour swatch: the
-// highest-priority one present (Special Event first, then DJ Night, …).
-const SUB_PRIORITY = [
-  "Special Event",
-  "DJ Night",
-  "Match Day",
-  "Pool Night",
-  "Food Night",
-  "Deals",
-] as const;
-function primarySub(s: string | null | undefined): string {
-  const subs = parseSubs(s);
-  return SUB_PRIORITY.find((p) => subs.includes(p)) ?? subs[0] ?? "";
-}
-
-// Multi-select for the calendar chip(s). Replaces the old single <select>:
-// an event can now be tagged with several types at once (e.g. a DJ Night that
-// is also a Special Event). No ticks = untagged (null).
-function SubcategoryPicker({
-  value,
-  onChange,
-}: {
-  value: string;
-  onChange: (v: string) => void;
-}) {
-  const selected = parseSubs(value);
-  const toggle = (t: string) => {
-    const next = selected.includes(t)
-      ? selected.filter((x) => x !== t)
-      : [...selected, t];
-    onChange(joinSubs(next));
-  };
-  return (
-    <div className="space-y-2">
-      {EVENT_TYPES.map((t) => (
-        <Checkbox
-          key={t}
-          checked={selected.includes(t)}
-          onChange={() => toggle(t)}
-          label={t}
-        />
-      ))}
-    </div>
-  );
-}
+// The subcategory ("calendar chips") picker was removed 19 Oct 2026 — events
+// are tagged by CATEGORY only now (one list). isDealEvent lives in
+// lib/db/calendarEvents.ts (imported above).
 
 function Checkbox({
   checked,
@@ -2625,22 +2543,11 @@ function CalendarView({
     onMonthChange({ year: d.getFullYear(), month: d.getMonth() });
   }
 
-  // Prefers subcategory (the calendar chip on /events) so admin
-  // colouring matches what customers see; falls back to category
-  // otherwise. Bumped opacity to /35 so the chips stand out cleanly
-  // against the dark cell background — the previous /20 was too
-  // washed out to read at speed.
-  // Calendar chip palette — kept in lock-step with adminCategoryDot()
-  // and adminEventLeftStripe() above so the dropdown, list, and
-  // calendar all agree. Every category has its own hue now.
+  // Calendar chip palette — coloured by CATEGORY (the one tag, founder 19 Oct
+  // 2026), kept in lock-step with adminCategoryDot() / adminEventLeftStripe()
+  // above so the dropdown, list and calendar all agree. /35 opacity reads
+  // cleanly on the dark cell background.
   function chipClass(ev: DbEvent): string {
-    const sub = primarySub(ev.subcategory);
-    if (sub === "DJ Night")                     return "bg-plonkPink/35 text-white border-plonkPink";
-    if (sub === "Match Day")                    return "bg-plonkTeal/35 text-white border-plonkTeal";
-    if (sub === "Pool Night")                   return "bg-purple-500/35 text-white border-purple-400";
-    if (sub === "Food Night")                   return "bg-orange-500/35 text-white border-orange-400";
-    if (sub === "Deals")                        return "bg-plonkYellow/35 text-ink border-plonkYellow";
-    if (sub === "Special Event")                return "bg-sky-500/35 text-white border-sky-400";
     const cat = ev.category;
     if (cat === "world_cup")                    return "bg-plonkTeal/35 text-white border-plonkTeal";
     if (cat === "dj_night")                     return "bg-plonkPink/35 text-white border-plonkPink";
@@ -2651,6 +2558,7 @@ function CalendarView({
     if (cat === "food_event")                   return "bg-orange-500/35 text-white border-orange-400";
     if (cat === "drink_special")                return "bg-plonkYellow/35 text-ink border-plonkYellow";
     if (cat === "special_event")                return "bg-sky-600/35 text-white border-sky-500";
+    if (cat === "bingo")                        return "bg-fuchsia-500/35 text-white border-fuchsia-400";
     if (cat === "arcade")                       return "bg-cyan-500/35 text-white border-cyan-400";
     if (cat === "golf")                         return "bg-emerald-500/35 text-white border-emerald-400";
     return "bg-cream/15 text-cream/90 border-cream/25";

@@ -23,6 +23,7 @@ export type EventCategory =
   | "food_event"
   | "drink_special"
   | "special_event"
+  | "bingo"
   | "arcade"
   | "golf"
   | "world_cup"
@@ -570,6 +571,7 @@ export const CATEGORY_LABEL: Record<EventCategory, string> = {
   food_event: "Food event",
   drink_special: "Deals",
   special_event: "Special event",
+  bingo: "Bingo",
   arcade: "Arcade",
   golf: "Golf",
   world_cup: "World Cup — Match",

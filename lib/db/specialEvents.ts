@@ -79,6 +79,8 @@ export type TrackerEntry = {
 const EVENT_CATEGORY_GROUP: Record<string, TrackerTypeGroup> = {
   food_event: "food",
   pool_special: "special",
+  special_event: "special",
+  bingo: "special",
   world_cup: "matchday",
 };
 

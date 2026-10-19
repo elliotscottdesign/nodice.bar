@@ -124,6 +124,7 @@ const CATEGORY_TO_CHIP: Record<string, string> = {
   food_event: "Food Night",
   drink_special: "Deals",
   special_event: "Special Event",
+  bingo: "Special Event", // founder: bingo shows as a Special Event on the calendar
   world_cup: "Match Day",
   // arcade / golf / other → no chip (neutral fallback, no filter match)
 };
