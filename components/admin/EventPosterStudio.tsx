@@ -193,6 +193,9 @@ export default function EventPosterStudio({
   const [ralQ, setRalQ] = useState("");
   const [treatment, setTreatment] = useState<PosterTreatment>("scatter");
   const [exposure, setExposure] = useState(1);
+  // Deal "text box" mode — swap the photo for a block of info text. Image stays
+  // the default; this is the opt-in alternative.
+  const [textBox, setTextBox] = useState(false);
   const [pos, setPos] = useState({ ox: 0.5, oy: 0.5 });
   const [zoom, setZoom] = useState(1);
   // Headline size dial (1 = the standard DJ-poster size). The founder can make
@@ -300,6 +303,9 @@ export default function EventPosterStudio({
   }, [picUrl]);
 
   const hasPic = !!imgRef.current;
+  // In deal text-box mode there's no photo, so a poster can render/save without
+  // a picture. Otherwise a picture is required, as before.
+  const canRender = hasPic || (isDeal && textBox);
 
   const render = useCallback(
     (size: PosterSize, mode: "colour" | "negative") =>
@@ -313,6 +319,7 @@ export default function EventPosterStudio({
         // Deals use the deal layout (price in a circle, no QR, full-width info)
         // and can replace the bottom line; other events keep the defaults.
         dealLayout: isDeal,
+        textBox: isDeal && textBox,
         dayLabel: isDeal && dayLabel.trim() ? dayLabel.trim() : undefined,
         footer: isDeal ? footer : undefined,
         qrUrl: isDeal && qr.trim() ? qr.trim() : undefined,
@@ -342,6 +349,7 @@ export default function EventPosterStudio({
       showDetail,
       price,
       isDeal,
+      textBox,
       footer,
       qr,
       dayLabel,
@@ -357,7 +365,7 @@ export default function EventPosterStudio({
   // Live preview. Renders at full poster resolution into the canvas and lets CSS
   // scale it down, so the preview stays sharp on a retina phone.
   useEffect(() => {
-    if (!hasPic) return;
+    if (!canRender) return;
     let cancelled = false;
     const my = ++genRef.current;
     (async () => {
@@ -465,7 +473,7 @@ export default function EventPosterStudio({
     mode: "colour" | "negative",
     tag: string,
   ) {
-    if (!hasPic) return;
+    if (!canRender) return;
     setBusy(tag);
     setErr("");
     setDone("");
@@ -483,7 +491,7 @@ export default function EventPosterStudio({
   // only then hand the URL over. If either step fails, nothing is written and
   // whatever artwork the event already had is untouched.
   async function saveToEvent() {
-    if (!hasPic || !onSave) return;
+    if (!canRender || !onSave) return;
     if (
       currentPosterUrl &&
       !window.confirm(
@@ -544,7 +552,7 @@ export default function EventPosterStudio({
     }
   }
 
-  const disabled = !hasPic || !!busy || fontOk === false;
+  const disabled = !canRender || !!busy || fontOk === false;
 
   // True when the active colour is one of the quick-pick swatches. When it isn't,
   // it came from the RAL chart (or the custom picker), so the RAL pill shows that
@@ -601,7 +609,7 @@ export default function EventPosterStudio({
               </button>
             ))}
           </div>
-          {hasPic ? (
+          {canRender ? (
             <div className="relative w-full max-w-[236px]">
               <canvas
                 ref={previewRef}
@@ -701,33 +709,66 @@ export default function EventPosterStudio({
               </div>
 
               <div className="min-w-0 flex-1 space-y-2">
-                <div className="flex flex-wrap gap-2">
-                  <label
-                    className={`${PILL} cursor-pointer border-cream/20 text-cream/85 hover:bg-cream/5 ${
-                      busy === "upload" ? "opacity-60" : ""
-                    }`}
-                  >
-                    {busy === "upload"
-                      ? "Uploading…"
-                      : hasPic
-                        ? "↻ Upload another"
-                        : "⬆ Upload"}
-                    <input
-                      ref={fileRef}
-                      type="file"
-                      accept="image/*"
-                      hidden
-                      onChange={(e) => onUpload(e.target.files?.[0])}
-                    />
-                  </label>
-                  <button
-                    type="button"
-                    onClick={() => setShowLibrary(true)}
-                    className={`${PILL} border-cream/20 text-cream/85 hover:bg-cream/5`}
-                  >
-                    🗂 Library
-                  </button>
-                </div>
+                {isDeal && (
+                  <div className="inline-flex rounded-full border border-cream/15 p-0.5">
+                    {(
+                      [
+                        ["image", "Image"],
+                        ["text", "Text"],
+                      ] as [string, string][]
+                    ).map(([k, label]) => {
+                      const active = (k === "text") === textBox;
+                      return (
+                        <button
+                          key={k}
+                          type="button"
+                          onClick={() => setTextBox(k === "text")}
+                          className={`rounded-full px-3 py-1 text-[10px] font-bold uppercase tracking-wider transition ${
+                            active
+                              ? "bg-plonkPink text-white"
+                              : "text-cream/60 hover:text-cream"
+                          }`}
+                        >
+                          {label}
+                        </button>
+                      );
+                    })}
+                  </div>
+                )}
+                {textBox ? (
+                  <p className="text-[10px] leading-relaxed text-cream/45">
+                    Text poster — the info fills the space, no photo. Edit the
+                    info in the fields above.
+                  </p>
+                ) : (
+                  <div className="flex flex-wrap gap-2">
+                    <label
+                      className={`${PILL} cursor-pointer border-cream/20 text-cream/85 hover:bg-cream/5 ${
+                        busy === "upload" ? "opacity-60" : ""
+                      }`}
+                    >
+                      {busy === "upload"
+                        ? "Uploading…"
+                        : hasPic
+                          ? "↻ Upload another"
+                          : "⬆ Upload"}
+                      <input
+                        ref={fileRef}
+                        type="file"
+                        accept="image/*"
+                        hidden
+                        onChange={(e) => onUpload(e.target.files?.[0])}
+                      />
+                    </label>
+                    <button
+                      type="button"
+                      onClick={() => setShowLibrary(true)}
+                      className={`${PILL} border-cream/20 text-cream/85 hover:bg-cream/5`}
+                    >
+                      🗂 Library
+                    </button>
+                  </div>
+                )}
                 {picName && (
                   <p className="truncate text-[10px] text-cream/45" title={picName}>
                     {picName}

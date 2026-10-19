@@ -100,13 +100,15 @@ export const PALETTE: { name: string; hex: string }[] = [
 // different family and stand out on the calendar. These are the online colours;
 // the flyer render is always black, and the zine cover inverts whichever is set.
 export const DEAL_PALETTE: { name: string; hex: string }[] = [
-  { name: "Aubergine", hex: "#3D2535" },
+  { name: "Pink", hex: "#D25B90" },
+  { name: "Lilac", hex: "#8F4684" },
   { name: "Plum", hex: "#8C5178" },
   { name: "Mauve", hex: "#A28B94" },
   { name: "Magenta", hex: "#C43E73" },
   { name: "Lavender", hex: "#7A6E97" },
   { name: "Slate", hex: "#5C6274" },
   { name: "Navy", hex: "#3A4A66" },
+  { name: "Oyster white", hex: "#E3D9C6" }, // RAL 1013 — light; inverts cleanest
 ];
 
 export type PosterSize = "ig" | "story" | "zine" | "a3";
@@ -662,6 +664,12 @@ export type EventPosterInput = {
    */
   dealLayout?: boolean;
   /**
+   * Text-box mode (deal only): no photo — the info fills the picture area as a
+   * big block of text, no outline. For copy-led posters (happy-hour prices,
+   * statements, carousel content). Off keeps the photo, which is the default.
+   */
+  textBox?: boolean;
+  /**
    * Headline size multiplier (default 1 = the DJ poster's exact 0.135 scale).
    * EVENTS-ONLY and purely additive — at 1 the output is byte-identical to the
    * DJ engine, so this does NOT need mirroring in the team-hub poster.js (same
@@ -699,6 +707,7 @@ export async function renderEventPoster({
   price,
   footer,
   dealLayout,
+  textBox,
   colour,
   size = "ig",
   mode = "colour",
@@ -840,7 +849,11 @@ export async function renderEventPoster({
   // as many lines as it needs (e.g. Rolling Bones' rules); elsewhere it's the DJ
   // engine's single genres line at 0.044.
   const d = (detail || "").trim();
-  if (d && dealLayout) {
+  if (d && dealLayout && textBox) {
+    // Text-box mode: the info doesn't sit as a line here — it fills the picture
+    // area below (drawn later). Keep the normal gap before that block.
+    y += Math.round(SB * 0.02);
+  } else if (d && dealLayout) {
     const px = Math.round(SB * 0.05);
     ctx.font = `${px}px "${FONT_FAMILY}"`;
     // Honour explicit line breaks (the Return key) AND wrap each line that's
@@ -937,7 +950,32 @@ export async function renderEventPoster({
       ? imgs
       : ([{ img: img as HTMLImageElement, exposure }] as PosterImage[])
   ).filter((e) => e && e.img);
-  if (list.length >= 2) {
+  if (dealLayout && textBox) {
+    // No photo — fill the picture area with the info text, no outline, fit to
+    // the box and centred vertically. For copy-led deal / statement posters.
+    const d2 = (detail || "").trim();
+    if (d2) {
+      const regionH = imgBottom - imgTop;
+      const fit = fitDisplayBlock(
+        ctx,
+        d2.toUpperCase().replace(/\s*\n\s*/g, "\n"),
+        x1 - x0,
+        Math.round(SB * 0.12),
+        16,
+        regionH,
+      );
+      const lineH = fit.px * 1.12;
+      const blockH = fit.lines.length * lineH;
+      let ty = imgTop + Math.max(0, (regionH - blockH) / 2);
+      ctx.fillStyle = inkCss;
+      ctx.font = `${fit.px}px "${FONT_FAMILY}"`;
+      for (const l of fit.lines) {
+        const mm = ctx.measureText(l);
+        ctx.fillText(l, x0, ty + mm.actualBoundingBoxAscent);
+        ty += lineH;
+      }
+    }
+  } else if (list.length >= 2) {
     const gap = Math.round(W * 0.022),
       colW = Math.round((x1 - x0 - gap) / 2);
     drawFramed(

@@ -22,6 +22,7 @@ import {
   type NewEvent,
 } from "@/lib/db/eventsPlatform";
 import EventPosterStudio from "@/components/admin/EventPosterStudio";
+import DatePickerInput from "@/components/admin/DatePickerInput";
 import Notice from "@/components/Notice";
 
 const inputCls =
@@ -223,6 +224,11 @@ function DealForm({
   const [repeatWeekly, setRepeatWeekly] = useState(false);
   const [occurrences, setOccurrences] = useState("12");
 
+  // Edit: top up a standing deal's dates so it never silently runs out.
+  const [extendOn, setExtendOn] = useState(false);
+  const [extendFrom, setExtendFrom] = useState(todayIso());
+  const [extendWeeks, setExtendWeeks] = useState("12");
+
   const [busy, setBusy] = useState(false);
   const [err, setErr] = useState("");
 
@@ -278,6 +284,29 @@ function DealForm({
       if (editing) {
         // Update every dated instance so the whole run shows the new deal.
         for (const id of seriesIds) await updateEvent(id, base);
+        // Optionally top up the run with future weekly dates (so a standing
+        // deal doesn't quietly run out), skipping any that already exist.
+        if (extendOn) {
+          const rootId = rootIdOf(deal!);
+          const existing = new Set(
+            allDeals
+              .filter((e) => rootIdOf(e) === rootId)
+              .map((e) => e.event_date),
+          );
+          const weeks = Math.max(1, Math.min(52, parseInt(extendWeeks, 10) || 12));
+          const dates = generateRecurrenceDates(extendFrom, "weekly", weeks);
+          for (const dt of dates) {
+            if (existing.has(dt)) continue;
+            await createEvent({
+              ...base,
+              event_date: dt,
+              recurrence_type: "none",
+              recurrence_parent_id: rootId,
+              recurrence_nth: null,
+              recurrence_weekday: null,
+            });
+          }
+        }
       } else {
         const parent = await createEvent({
           ...base,
@@ -423,10 +452,9 @@ function DealForm({
         {!editing && (
           <>
             <Field label="First date">
-              <input
-                type="date"
+              <DatePickerInput
                 value={eventDate}
-                onChange={(e) => setEventDate(e.target.value)}
+                onChange={setEventDate}
                 className={inputCls}
               />
             </Field>
@@ -456,6 +484,45 @@ function DealForm({
               )}
             </div>
           </>
+        )}
+
+        {editing && (
+          <div className="sm:col-span-2 rounded-lg border border-cream/12 bg-ink/40 p-3">
+            <label className="flex items-center gap-2 text-sm text-cream/80">
+              <input
+                type="checkbox"
+                checked={extendOn}
+                onChange={(e) => setExtendOn(e.target.checked)}
+                className="accent-plonkPink"
+              />
+              Keep this deal running — add upcoming weekly dates
+            </label>
+            {extendOn && (
+              <div className="mt-3 grid gap-3 sm:grid-cols-2">
+                <Field label="From">
+                  <DatePickerInput
+                    value={extendFrom}
+                    onChange={setExtendFrom}
+                    className={inputCls}
+                  />
+                </Field>
+                <Field label="For (weeks)">
+                  <input
+                    value={extendWeeks}
+                    onChange={(e) =>
+                      setExtendWeeks(e.target.value.replace(/[^0-9]/g, ""))
+                    }
+                    inputMode="numeric"
+                    className={inputCls}
+                  />
+                </Field>
+                <p className="sm:col-span-2 text-[11px] text-cream/45">
+                  Adds a date each week from then (skipping any that already
+                  exist), so it shows on the calendar going forward.
+                </p>
+              </div>
+            )}
+          </div>
         )}
 
         <div className="sm:col-span-2">
