@@ -3,42 +3,92 @@
 import { useEffect, useMemo, useState } from "react";
 import {
   loadAllTournaments,
-  loadTournamentEntries,
-  setTournamentEntryStatus,
   type DbTournament,
-  type DbTournamentEntry,
-  type TournamentEntryStatus,
 } from "@/lib/db/tournaments";
+import {
+  loadTrackerEvents,
+  loadAllTrackerEntries,
+  setTrackerEntryStatus,
+  type TrackerEvent,
+  type TrackerTypeGroup,
+  type TrackerEntryStatus,
+  type TrackerEntryRow,
+} from "@/lib/db/specialEvents";
+import { buildMonthGrid, ymd } from "@/lib/calendarGrid";
 import AddTournamentEntryForm from "@/components/admin/AddTournamentEntryForm";
 import Notice from "@/components/Notice";
 import BookingLockedTag from "@/components/admin/BookingLockedTag";
 
-// Admin view of all tournament_entries. Two main jobs:
-//   1. See who's paid — paid teams are the only thing that matters for
-//      the tournament itself.
-//   2. Get the team names into the tournament app fast: a big "Copy
-//      team names" button copies just the paid teams' names (one per
-//      line) to the clipboard so the founder can paste straight in.
-// CSV export is on top for record-keeping.
+// Unified "Special events & tournaments" bookings tracker. Browses
+// every tournament (legacy `tournaments` table) AND the relevant
+// events-platform rows (food nights, pool specials, World Cup match
+// days) in one place — as a card browser or a month calendar — then
+// lists and manages the sign-ups for whichever event is in focus.
+//
+// Preserves the original tournament-entries jobs:
+//   • See who's paid, and copy paid team names into the tournament app.
+//   • CSV export + a deduped "all entrants" marketing list.
 
 function describe(err: unknown, fallback: string) {
   if (err instanceof Error) return err.message;
   return fallback;
 }
 
-const STATUS_LABEL: Record<TournamentEntryStatus, string> = {
+const STATUS_LABEL: Record<TrackerEntryStatus, string> = {
   pending_payment: "Pending",
   paid: "Paid",
   refunded: "Refunded",
   cancelled: "Cancelled",
 };
 
-const STATUS_COLOR: Record<TournamentEntryStatus, string> = {
+const STATUS_COLOR: Record<TrackerEntryStatus, string> = {
   pending_payment: "bg-cream/10 text-cream/70",
   paid: "bg-plonkTeal/15 text-plonkTeal",
   refunded: "bg-plonkYellow/15 text-plonkYellow",
   cancelled: "bg-plonkPink/15 text-plonkPink",
 };
+
+// ── Type-group presentation (pills, card badges, calendar chips) ──────
+type TypeMeta = {
+  label: string;
+  short: string;
+  badge: string; // card badge + calendar chip classes
+};
+const TYPE_META: Record<TrackerTypeGroup, TypeMeta> = {
+  special: {
+    label: "Special events",
+    short: "Special",
+    badge: "bg-plonkPink/20 text-plonkPink border-plonkPink/40",
+  },
+  food: {
+    label: "Food nights",
+    short: "Food",
+    badge: "bg-amber-400/20 text-amber-300 border-amber-400/40",
+  },
+  tournament: {
+    label: "Tournaments",
+    short: "Tournament",
+    badge: "bg-plonkTeal/20 text-plonkTeal border-plonkTeal/40",
+  },
+  matchday: {
+    label: "Match day",
+    short: "Match day",
+    badge: "bg-blue-400/20 text-blue-300 border-blue-400/40",
+  },
+};
+const TYPE_ORDER: TrackerTypeGroup[] = [
+  "special",
+  "food",
+  "tournament",
+  "matchday",
+];
+
+function keyOfEvent(ev: TrackerEvent): string {
+  return `${ev.source}:${ev.id}`;
+}
+function keyOfRow(r: TrackerEntryRow): string {
+  return `${r.eventSource}:${r.eventId}`;
+}
 
 function formatDateTime(iso: string): string {
   const d = new Date(iso);
@@ -51,54 +101,79 @@ function formatDateTime(iso: string): string {
   });
 }
 
-function formatPence(p: number): string {
-  if (p % 100 === 0) return `£${p / 100}`;
-  return `£${(p / 100).toFixed(2)}`;
+// "Sat 24 Oct" from a YYYY-MM-DD.
+function formatEventDate(dateIso: string): string {
+  const d = new Date(`${dateIso}T00:00:00`);
+  return d.toLocaleDateString("en-GB", {
+    weekday: "short",
+    day: "numeric",
+    month: "short",
+  });
 }
 
+function monthLabel(year: number, month: number): string {
+  return new Date(year, month, 1).toLocaleDateString("en-GB", {
+    month: "long",
+    year: "numeric",
+  });
+}
+
+const WEEKDAYS = ["Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun"];
+
 export default function TournamentEntriesClient() {
+  const [events, setEvents] = useState<TrackerEvent[]>([]);
+  const [rows, setRows] = useState<TrackerEntryRow[]>([]);
   const [tournaments, setTournaments] = useState<DbTournament[]>([]);
-  const [entries, setEntries] = useState<DbTournamentEntry[]>([]);
   const [loading, setLoading] = useState(true);
   const [err, setErr] = useState("");
   const [busy, setBusy] = useState(false);
-  const [filterTournamentId, setFilterTournamentId] = useState<string>("all");
-  // Defaults to "all" so the founder sees pending entries (which are
-  // the ones that need action — chasing payment, refunds, mistakes)
-  // as well as paid ones, instead of having to flip a filter on every
-  // visit. Use the dropdown to narrow to "Paid only" when copying
-  // team names into the tournament app.
+
+  // Event browser.
+  const [typeFilter, setTypeFilter] = useState<"all" | TrackerTypeGroup>("all");
+  const [selectedKey, setSelectedKey] = useState<string | null>(null);
+  const [mode, setMode] = useState<"list" | "calendar">("list");
+
+  // Calendar nav.
+  const now = useMemo(() => new Date(), []);
+  const [cal, setCal] = useState<{ year: number; month: number }>({
+    year: now.getFullYear(),
+    month: now.getMonth(),
+  });
+  const [calDay, setCalDay] = useState<string | null>(null);
+
+  // Entries vs the deduped Entrants marketing list.
+  const [view, setView] = useState<"entries" | "entrants">("entries");
   const [filterStatus, setFilterStatus] = useState<
     "all" | "paid" | "pending_payment" | "cancelled" | "refunded"
   >("all");
-  // "Entries" (per-sign-up list) vs "Entrants" (one row per person, a
-  // marketing mailing list across every tournament — founder 7 Oct 2026).
-  const [view, setView] = useState<"entries" | "entrants">("entries");
-  const [copiedEmails, setCopiedEmails] = useState(false);
-  // Search + sortable columns (founder 5 Oct 2026 — parity with the
-  // golf bookings list).
   const [search, setSearch] = useState("");
-  type SortKey = "team" | "captain" | "tournament" | "signed" | "status";
+  type SortKey = "team" | "captain" | "event" | "signed" | "status";
   const [sortKey, setSortKey] = useState<SortKey>("signed");
   const [sortDir, setSortDir] = useState<"asc" | "desc">("desc");
   function toggleSort(key: SortKey) {
     if (sortKey === key) setSortDir((d) => (d === "asc" ? "desc" : "asc"));
-    else { setSortKey(key); setSortDir("asc"); }
+    else {
+      setSortKey(key);
+      setSortDir("asc");
+    }
   }
   const [copied, setCopied] = useState(false);
+  const [copiedEmails, setCopiedEmails] = useState(false);
 
   async function reload() {
     setLoading(true);
     setErr("");
     try {
-      const [t, e] = await Promise.all([
+      const [evs, allRows, tourneys] = await Promise.all([
+        loadTrackerEvents(),
+        loadAllTrackerEntries(),
         loadAllTournaments(),
-        loadTournamentEntries(),
       ]);
-      setTournaments(t);
-      setEntries(e);
+      setEvents(evs);
+      setRows(allRows);
+      setTournaments(tourneys);
     } catch (e) {
-      setErr(describe(e, "Failed to load tournament data"));
+      setErr(describe(e, "Failed to load bookings"));
     } finally {
       setLoading(false);
     }
@@ -107,49 +182,93 @@ export default function TournamentEntriesClient() {
     reload();
   }, []);
 
-  const tournamentById = useMemo(() => {
-    const m = new Map<string, DbTournament>();
-    for (const t of tournaments) m.set(t.id, t);
+  const eventByKey = useMemo(() => {
+    const m = new Map<string, TrackerEvent>();
+    for (const ev of events) m.set(keyOfEvent(ev), ev);
     return m;
-  }, [tournaments]);
+  }, [events]);
 
+  // Events in the active type filter (drives the card grid + calendar
+  // + the combined "all events" entries scope).
+  const visibleEvents = useMemo(
+    () =>
+      typeFilter === "all"
+        ? events
+        : events.filter((e) => e.typeGroup === typeFilter),
+    [events, typeFilter],
+  );
+
+  const typeCounts = useMemo(() => {
+    const c: Record<TrackerTypeGroup, number> = {
+      special: 0,
+      food: 0,
+      tournament: 0,
+      matchday: 0,
+    };
+    for (const e of events) c[e.typeGroup] += 1;
+    return c;
+  }, [events]);
+
+  const selectedEvent = selectedKey
+    ? eventByKey.get(selectedKey) ?? null
+    : null;
+
+  // ── Entries table rows (status/search/sort applied) ────────────────
   const filtered = useMemo(() => {
+    const allowed = new Set(visibleEvents.map(keyOfEvent));
     const q = search.trim().toLowerCase();
-    const rows = entries.filter((e) => {
-      if (filterTournamentId !== "all" && e.tournament_id !== filterTournamentId)
+    const scoped = rows.filter((r) => {
+      const k = keyOfRow(r);
+      if (selectedKey) {
+        if (k !== selectedKey) return false;
+      } else if (!allowed.has(k)) {
         return false;
-      if (filterStatus !== "all" && e.status !== filterStatus) return false;
+      }
+      if (filterStatus !== "all" && r.status !== filterStatus) return false;
       if (q) {
-        const hay = [e.team_name, e.captain_name, e.captain_email]
+        const hay = [r.team_name, r.captain_name, r.captain_email]
           .join(" ")
           .toLowerCase();
         if (!hay.includes(q)) return false;
       }
       return true;
     });
-    const val = (e: DbTournamentEntry): string => {
-      const t = tournamentById.get(e.tournament_id);
+    const val = (r: TrackerEntryRow): string => {
+      const ev = eventByKey.get(keyOfRow(r));
       switch (sortKey) {
-        case "team": return (e.team_name || "").toLowerCase();
-        case "captain": return (e.captain_name || "").toLowerCase();
-        case "tournament": return `${t?.event_date ?? ""} ${t?.name ?? ""}`.toLowerCase();
-        case "signed": return e.created_at;
-        case "status": return e.status;
+        case "team":
+          return (r.team_name || "").toLowerCase();
+        case "captain":
+          return (r.captain_name || "").toLowerCase();
+        case "event":
+          return `${ev?.event_date ?? ""} ${ev?.name ?? ""}`.toLowerCase();
+        case "signed":
+          return r.created_at;
+        case "status":
+          return r.status;
       }
     };
     const dir = sortDir === "asc" ? 1 : -1;
-    return [...rows].sort((a, b) => val(a).localeCompare(val(b)) * dir);
-  }, [entries, filterTournamentId, filterStatus, search, sortKey, sortDir, tournamentById]);
+    return [...scoped].sort((a, b) => val(a).localeCompare(val(b)) * dir);
+  }, [
+    rows,
+    visibleEvents,
+    selectedKey,
+    filterStatus,
+    search,
+    sortKey,
+    sortDir,
+    eventByKey,
+  ]);
 
-  // ── Entrants (marketing list) ──────────────────────────────────────
-  // One row per unique person across EVERY tournament — captains and
-  // their partners, deduped by email. The pool community mailing list.
+  // ── Entrants marketing list — one row per unique paid person across
+  //    every event (captains + partners), deduped by email. ───────────
   type Entrant = {
     name: string;
     email: string;
     phone: string;
-    count: number;       // tournaments entered
-    last: string;        // most recent event date (or signup date)
+    count: number;
+    last: string;
   };
   const entrants = useMemo(() => {
     const byEmail = new Map<string, Entrant>();
@@ -177,22 +296,18 @@ export default function TournamentEntriesClient() {
         });
       }
     };
-    // Only real (paid) entrants matter for marketing — skip abandoned
-    // checkouts. Apply the search box here too so you can narrow before
-    // copying.
     const q = search.trim().toLowerCase();
-    for (const en of entries) {
-      if (en.status !== "paid") continue;
+    for (const r of rows) {
+      if (r.status !== "paid") continue;
       const date =
-        tournamentById.get(en.tournament_id)?.event_date ?? en.created_at.slice(0, 10);
-      add(en.captain_name, en.captain_email, en.captain_phone, date);
-      // Partner columns exist on the row (doubles/teams).
-      const p = en as unknown as {
-        partner_name?: string | null;
-        partner_email?: string | null;
-        partner_phone?: string | null;
-      };
-      add(p.partner_name ?? null, p.partner_email ?? null, p.partner_phone ?? null, date);
+        eventByKey.get(keyOfRow(r))?.event_date ?? r.created_at.slice(0, 10);
+      add(r.captain_name, r.captain_email, r.captain_phone, date);
+      add(
+        r.partner_name ?? null,
+        r.partner_email ?? null,
+        r.partner_phone ?? null,
+        date,
+      );
     }
     let list = [...byEmail.values()];
     if (q) {
@@ -200,14 +315,15 @@ export default function TournamentEntriesClient() {
         `${e.name} ${e.email}`.toLowerCase().includes(q),
       );
     }
-    // Most recently active first.
     list.sort((a, b) => b.last.localeCompare(a.last));
     return list;
-  }, [entries, tournamentById, search]);
+  }, [rows, eventByKey, search]);
 
   async function copyEntrantEmails() {
     try {
-      await navigator.clipboard.writeText(entrants.map((e) => e.email).join(", "));
+      await navigator.clipboard.writeText(
+        entrants.map((e) => e.email).join(", "),
+      );
       setCopiedEmails(true);
       setTimeout(() => setCopiedEmails(false), 1500);
     } catch {
@@ -215,15 +331,25 @@ export default function TournamentEntriesClient() {
     }
   }
   function downloadEntrantsCsv() {
-    const header = ["Name", "Email", "Phone", "Tournaments", "Last played"];
-    const rows = entrants.map((e) => [e.name, e.email, e.phone, String(e.count), e.last]);
-    const csv = [header, ...rows]
-      .map((r) => r.map((s) => (/[",\n]/.test(s) ? `"${s.replace(/"/g, '""')}"` : s)).join(","))
+    const header = ["Name", "Email", "Phone", "Events", "Last played"];
+    const data = entrants.map((e) => [
+      e.name,
+      e.email,
+      e.phone,
+      String(e.count),
+      e.last,
+    ]);
+    const csv = [header, ...data]
+      .map((r) =>
+        r
+          .map((s) => (/[",\n]/.test(s) ? `"${s.replace(/"/g, '""')}"` : s))
+          .join(","),
+      )
       .join("\n");
     const url = URL.createObjectURL(new Blob([csv], { type: "text/csv" }));
     const a = document.createElement("a");
     a.href = url;
-    a.download = `pool-entrants-${new Date().toISOString().slice(0, 10)}.csv`;
+    a.download = `entrants-${new Date().toISOString().slice(0, 10)}.csv`;
     document.body.appendChild(a);
     a.click();
     document.body.removeChild(a);
@@ -231,12 +357,17 @@ export default function TournamentEntriesClient() {
   }
 
   async function handleSetStatus(
-    entry: DbTournamentEntry,
-    status: TournamentEntryStatus,
+    row: TrackerEntryRow,
+    status: TrackerEntryStatus,
   ) {
+    const ev = eventByKey.get(keyOfRow(row));
+    if (!ev) {
+      setErr("Couldn't find the event for this sign-up.");
+      return;
+    }
     setBusy(true);
     try {
-      await setTournamentEntryStatus(entry.id, status);
+      await setTrackerEntryStatus(ev, row.id, status);
       await reload();
     } catch (e) {
       setErr(describe(e, "Status update failed"));
@@ -269,24 +400,26 @@ export default function TournamentEntriesClient() {
       "captain_email",
       "captain_phone",
       "player_count",
-      "tournament_name",
-      "tournament_date",
+      "event_name",
+      "event_date",
+      "event_type",
       "status",
       "paid_at",
       "heard_from",
       "marketing_opt_in",
       "notes",
     ];
-    const rows = filtered.map((e) => {
-      const t = tournamentById.get(e.tournament_id);
+    const data = filtered.map((e) => {
+      const ev = eventByKey.get(keyOfRow(e));
       return [
         e.team_name,
         e.captain_name,
         e.captain_email,
         e.captain_phone,
         e.player_count ?? "",
-        t?.name ?? "",
-        t?.event_date ?? "",
+        ev?.name ?? "",
+        ev?.event_date ?? "",
+        ev?.category ?? "",
         e.status,
         e.paid_at ?? "",
         e.heard_from ?? "",
@@ -294,7 +427,7 @@ export default function TournamentEntriesClient() {
         e.notes ?? "",
       ];
     });
-    const csv = [header, ...rows]
+    const csv = [header, ...data]
       .map((r) =>
         r
           .map((cell) => {
@@ -309,7 +442,7 @@ export default function TournamentEntriesClient() {
     const url = URL.createObjectURL(blob);
     const a = document.createElement("a");
     a.href = url;
-    a.download = `tournament-entries-${new Date()
+    a.download = `special-events-entries-${new Date()
       .toISOString()
       .slice(0, 10)}.csv`;
     document.body.appendChild(a);
@@ -318,19 +451,258 @@ export default function TournamentEntriesClient() {
     URL.revokeObjectURL(url);
   }
 
+  // ── Calendar: events keyed by date, within the active type filter ──
+  const eventsByDate = useMemo(() => {
+    const m = new Map<string, TrackerEvent[]>();
+    for (const ev of visibleEvents) {
+      const arr = m.get(ev.event_date);
+      if (arr) arr.push(ev);
+      else m.set(ev.event_date, [ev]);
+    }
+    return m;
+  }, [visibleEvents]);
+
+  const grid = useMemo(
+    () => buildMonthGrid(cal.year, cal.month),
+    [cal.year, cal.month],
+  );
+  function stepMonth(delta: number) {
+    setCalDay(null);
+    setCal((c) => {
+      const d = new Date(c.year, c.month + delta, 1);
+      return { year: d.getFullYear(), month: d.getMonth() };
+    });
+  }
+
+  // Small presentational card used in the browser grid + the calendar
+  // day panel.
+  function EventCard({ ev }: { ev: TrackerEvent }) {
+    const meta = TYPE_META[ev.typeGroup];
+    const active = keyOfEvent(ev) === selectedKey;
+    return (
+      <button
+        type="button"
+        onClick={() => setSelectedKey(active ? null : keyOfEvent(ev))}
+        className={`flex flex-col gap-2 rounded-2xl border p-4 text-left transition ${
+          active
+            ? "border-plonkPink bg-plonkPink/10"
+            : "border-cream/10 bg-ink/40 hover:border-cream/30"
+        }`}
+      >
+        <div className="flex items-center justify-between gap-2">
+          <span className="text-xs font-bold uppercase tracking-wider text-cream/60">
+            {formatEventDate(ev.event_date)}
+          </span>
+          <span
+            className={`rounded-full border px-2 py-0.5 text-[9px] font-bold uppercase tracking-widest ${meta.badge}`}
+          >
+            {meta.short}
+          </span>
+        </div>
+        <div className="font-display text-base leading-tight text-cream">
+          {ev.name}
+        </div>
+        <div className="text-xs text-cream/60">
+          {ev.count > 0
+            ? `${ev.count} signed up`
+            : "No sign-ups"}
+        </div>
+      </button>
+    );
+  }
+
   return (
     <div className="space-y-6">
-      {err && (
-        <Notice variant="error">{err}</Notice>
-      )}
+      {err && <Notice variant="error">{err}</Notice>}
 
       {/* Manual entry — phone / DM / walk-in sign-ups paying at the
-          venue, or comp teams. Lands as a paid entry like the online
-          ones. Mirrors the pool/table "+ Add booking manually" form. */}
+          venue, or comp teams (tournaments only). */}
       <AddTournamentEntryForm tournaments={tournaments} onCreated={reload} />
 
-      {/* View toggle — the per-sign-up Entries list, or the deduped
-          Entrants marketing list (founder 7 Oct 2026). */}
+      {/* ── Event browser header: type pills + list/calendar toggle ── */}
+      <div className="flex flex-wrap items-center gap-2">
+        <div className="flex flex-wrap gap-2">
+          <button
+            type="button"
+            onClick={() => {
+              setTypeFilter("all");
+              setSelectedKey(null);
+            }}
+            className={`rounded-full border px-4 py-1.5 text-xs font-bold uppercase tracking-wider transition ${
+              typeFilter === "all"
+                ? "border-plonkPink bg-plonkPink text-white"
+                : "border-cream/15 bg-ink/40 text-cream/75 hover:border-cream/40"
+            }`}
+          >
+            All ({events.length})
+          </button>
+          {TYPE_ORDER.map((g) => (
+            <button
+              key={g}
+              type="button"
+              onClick={() => {
+                setTypeFilter(g);
+                setSelectedKey(null);
+              }}
+              className={`rounded-full border px-4 py-1.5 text-xs font-bold uppercase tracking-wider transition ${
+                typeFilter === g
+                  ? "border-plonkPink bg-plonkPink text-white"
+                  : "border-cream/15 bg-ink/40 text-cream/75 hover:border-cream/40"
+              }`}
+            >
+              {TYPE_META[g].label} ({typeCounts[g]})
+            </button>
+          ))}
+        </div>
+        <div className="ml-auto flex gap-2">
+          {(["list", "calendar"] as const).map((m) => (
+            <button
+              key={m}
+              type="button"
+              onClick={() => setMode(m)}
+              className={`rounded-full border px-4 py-1.5 text-xs font-bold uppercase tracking-wider transition ${
+                mode === m
+                  ? "border-plonkTeal bg-plonkTeal/15 text-plonkTeal"
+                  : "border-cream/15 bg-ink/40 text-cream/75 hover:border-cream/40"
+              }`}
+            >
+              {m === "list" ? "▦ List" : "📅 Calendar"}
+            </button>
+          ))}
+        </div>
+      </div>
+
+      {/* Focus / deselect chip. */}
+      <div className="flex flex-wrap items-center gap-2 text-xs">
+        <button
+          type="button"
+          onClick={() => setSelectedKey(null)}
+          className={`rounded-full border px-4 py-1.5 font-bold uppercase tracking-wider transition ${
+            selectedKey === null
+              ? "border-plonkPink bg-plonkPink text-white"
+              : "border-cream/15 bg-ink/40 text-cream/75 hover:border-cream/40"
+          }`}
+        >
+          All events
+        </button>
+        {selectedEvent && (
+          <span className="text-cream/70">
+            Showing sign-ups for{" "}
+            <strong className="text-cream">{selectedEvent.name}</strong> ·{" "}
+            {formatEventDate(selectedEvent.event_date)}
+          </span>
+        )}
+      </div>
+
+      {/* ── LIST (card browser) ── */}
+      {mode === "list" &&
+        (loading ? (
+          <p className="text-sm text-cream/60">Loading…</p>
+        ) : visibleEvents.length === 0 ? (
+          <p className="rounded-xl border border-cream/10 bg-ink/40 px-6 py-10 text-center text-sm text-cream/60">
+            No events in this filter yet.
+          </p>
+        ) : (
+          <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-3">
+            {visibleEvents.map((ev) => (
+              <EventCard key={keyOfEvent(ev)} ev={ev} />
+            ))}
+          </div>
+        ))}
+
+      {/* ── CALENDAR ── */}
+      {mode === "calendar" && (
+        <div className="space-y-4">
+          <div className="flex items-center justify-between">
+            <button
+              type="button"
+              onClick={() => stepMonth(-1)}
+              className="rounded-full border border-cream/15 bg-ink/40 px-3 py-1.5 text-xs font-bold text-cream/80 hover:border-cream/40"
+            >
+              ‹ Prev
+            </button>
+            <div className="font-display text-lg text-cream">
+              {monthLabel(cal.year, cal.month)}
+            </div>
+            <button
+              type="button"
+              onClick={() => stepMonth(1)}
+              className="rounded-full border border-cream/15 bg-ink/40 px-3 py-1.5 text-xs font-bold text-cream/80 hover:border-cream/40"
+            >
+              Next ›
+            </button>
+          </div>
+          <div className="grid grid-cols-7 gap-1 text-center text-[10px] font-bold uppercase tracking-widest text-cream/50">
+            {WEEKDAYS.map((w) => (
+              <div key={w} className="py-1">
+                {w}
+              </div>
+            ))}
+          </div>
+          <div className="grid grid-cols-7 gap-1">
+            {grid.map((day, i) => {
+              if (day === null)
+                return <div key={`x${i}`} className="min-h-[72px]" />;
+              const dateIso = ymd(cal.year, cal.month, day);
+              const dayEvents = eventsByDate.get(dateIso) ?? [];
+              const isSel = calDay === dateIso;
+              return (
+                <button
+                  type="button"
+                  key={dateIso}
+                  onClick={() =>
+                    setCalDay(dayEvents.length ? (isSel ? null : dateIso) : null)
+                  }
+                  className={`min-h-[72px] rounded-lg border p-1 text-left align-top transition ${
+                    isSel
+                      ? "border-plonkPink bg-plonkPink/10"
+                      : dayEvents.length
+                        ? "border-cream/15 bg-ink/40 hover:border-cream/40"
+                        : "border-cream/5 bg-ink/20"
+                  }`}
+                >
+                  <div className="px-1 text-[11px] font-bold text-cream/70">
+                    {day}
+                  </div>
+                  <div className="mt-1 flex flex-col gap-1">
+                    {dayEvents.slice(0, 3).map((ev) => (
+                      <span
+                        key={keyOfEvent(ev)}
+                        className={`truncate rounded border px-1 py-0.5 text-[9px] font-bold uppercase tracking-wide ${TYPE_META[ev.typeGroup].badge}`}
+                        title={`${ev.name} — ${ev.count} signed up`}
+                      >
+                        {ev.count}· {ev.name}
+                      </span>
+                    ))}
+                    {dayEvents.length > 3 && (
+                      <span className="px-1 text-[9px] text-cream/50">
+                        +{dayEvents.length - 3} more
+                      </span>
+                    )}
+                  </div>
+                </button>
+              );
+            })}
+          </div>
+          {calDay && (eventsByDate.get(calDay)?.length ?? 0) > 0 && (
+            <div className="space-y-2">
+              <div className="text-xs font-bold uppercase tracking-widest text-cream/60">
+                {formatEventDate(calDay)}
+              </div>
+              <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-3">
+                {(eventsByDate.get(calDay) ?? []).map((ev) => (
+                  <EventCard key={keyOfEvent(ev)} ev={ev} />
+                ))}
+              </div>
+            </div>
+          )}
+        </div>
+      )}
+
+      {/* ── Entries / Entrants section ── */}
+      <div className="h-px bg-cream/10" />
+
+      {/* View toggle — per-sign-up Entries vs deduped Entrants list. */}
       <div className="flex flex-wrap gap-2">
         {(
           [
@@ -392,7 +764,7 @@ export default function TournamentEntriesClient() {
         )}
       </div>
 
-      {/* Row 1 — search */}
+      {/* Search */}
       <div className="flex flex-wrap gap-3">
         <input
           type="search"
@@ -403,58 +775,35 @@ export default function TournamentEntriesClient() {
         />
       </div>
 
-      {/* Row 2 + 3 — status pills + tournament filter (Entries view only;
-          the Entrants list is always all-paid, all-tournaments). */}
+      {/* Status pills (Entries view only). */}
       {view === "entries" && (
-        <>
-          <div className="flex flex-wrap gap-2">
-            {(
-              [
-                ["all", "All"],
-                ["paid", "Confirmed"],
-                ["pending_payment", "Pending"],
-                ["cancelled", "Cancelled"],
-                ["refunded", "Refunded"],
-              ] as [
-                "all" | "paid" | "pending_payment" | "cancelled" | "refunded",
-                string,
-              ][]
-            ).map(([v, label]) => (
-              <button
-                key={v}
-                type="button"
-                onClick={() => setFilterStatus(v)}
-                className={`rounded-full border px-4 py-1.5 text-xs font-bold uppercase tracking-wider transition ${
-                  filterStatus === v
-                    ? "border-plonkPink bg-plonkPink text-white"
-                    : "border-cream/15 bg-ink/40 text-cream/75 hover:border-cream/40"
-                }`}
-              >
-                {label}
-              </button>
-            ))}
-          </div>
-          <div className="flex flex-wrap items-center gap-2">
-            <select
-              value={filterTournamentId}
-              onChange={(e) => setFilterTournamentId(e.target.value)}
-              className="rounded-full border border-cream/15 bg-ink/40 px-4 py-1.5 text-[11px] font-bold uppercase tracking-wider text-cream/85 focus:border-plonkPink focus:outline-none"
+        <div className="flex flex-wrap gap-2">
+          {(
+            [
+              ["all", "All"],
+              ["paid", "Confirmed"],
+              ["pending_payment", "Pending"],
+              ["cancelled", "Cancelled"],
+              ["refunded", "Refunded"],
+            ] as [
+              "all" | "paid" | "pending_payment" | "cancelled" | "refunded",
+              string,
+            ][]
+          ).map(([v, label]) => (
+            <button
+              key={v}
+              type="button"
+              onClick={() => setFilterStatus(v)}
+              className={`rounded-full border px-4 py-1.5 text-xs font-bold uppercase tracking-wider transition ${
+                filterStatus === v
+                  ? "border-plonkPink bg-plonkPink text-white"
+                  : "border-cream/15 bg-ink/40 text-cream/75 hover:border-cream/40"
+              }`}
             >
-              <option value="all">All tournaments</option>
-              {tournaments.map((t) => (
-                <option key={t.id} value={t.id}>
-                  {t.name} · {t.event_date}
-                </option>
-              ))}
-            </select>
-            <a
-              href="/admin/calendar"
-              className="ml-auto rounded-full border border-plonkTeal/50 bg-plonkTeal/10 px-4 py-1.5 text-[11px] font-bold uppercase tracking-wider text-plonkTeal transition hover:bg-plonkTeal/20"
-            >
-              📅 Calendar view
-            </a>
-          </div>
-        </>
+              {label}
+            </button>
+          ))}
+        </div>
       )}
 
       {/* ENTRANTS marketing list */}
@@ -471,13 +820,16 @@ export default function TournamentEntriesClient() {
                   <th className="px-4 py-3 text-left">Name</th>
                   <th className="px-4 py-3 text-left">Email</th>
                   <th className="px-4 py-3 text-left">Phone</th>
-                  <th className="px-4 py-3 text-left">Tournaments</th>
+                  <th className="px-4 py-3 text-left">Events</th>
                   <th className="px-4 py-3 text-left">Last played</th>
                 </tr>
               </thead>
               <tbody>
                 {entrants.map((e) => (
-                  <tr key={e.email} className="border-t border-cream/5 hover:bg-cream/5">
+                  <tr
+                    key={e.email}
+                    className="border-t border-cream/5 hover:bg-cream/5"
+                  >
                     <td className="px-4 py-3 font-medium">{e.name || "—"}</td>
                     <td className="px-4 py-3 text-cream/85">{e.email}</td>
                     <td className="px-4 py-3 text-cream/70">{e.phone || "—"}</td>
@@ -504,7 +856,7 @@ export default function TournamentEntriesClient() {
                   [
                     ["team", "Team"],
                     ["captain", "Captain"],
-                    ["tournament", "Tournament"],
+                    ["event", "Event"],
                     ["signed", "Signed up"],
                     ["status", "Status"],
                   ] as [SortKey, string][]
@@ -517,7 +869,11 @@ export default function TournamentEntriesClient() {
                     >
                       {label}
                       <span className="text-[10px] text-plonkPink">
-                        {sortKey === key ? (sortDir === "asc" ? "▲" : "▼") : "↕"}
+                        {sortKey === key
+                          ? sortDir === "asc"
+                            ? "▲"
+                            : "▼"
+                          : "↕"}
                       </span>
                     </button>
                   </th>
@@ -527,10 +883,10 @@ export default function TournamentEntriesClient() {
             </thead>
             <tbody>
               {filtered.map((e) => {
-                const t = tournamentById.get(e.tournament_id);
+                const ev = eventByKey.get(keyOfRow(e));
                 return (
                   <tr
-                    key={e.id}
+                    key={`${keyOfRow(e)}:${e.id}`}
                     className="border-t border-cream/5 hover:bg-cream/5"
                   >
                     <td className="px-4 py-3 align-top">
@@ -566,12 +922,16 @@ export default function TournamentEntriesClient() {
                       )}
                     </td>
                     <td className="px-4 py-3 align-top">
-                      <div className="text-cream/90">{t?.name ?? "—"}</div>
-                      <div className="text-xs text-cream/55">
-                        {t?.event_date ?? ""}
-                        {t?.entry_fee_pence
-                          ? ` · ${formatPence(t.entry_fee_pence)}`
-                          : ""}
+                      <div className="text-cream/90">{ev?.name ?? "—"}</div>
+                      <div className="flex items-center gap-1.5 text-xs text-cream/55">
+                        {ev && (
+                          <span
+                            className={`rounded-full border px-1.5 py-0.5 text-[9px] font-bold uppercase tracking-wider ${TYPE_META[ev.typeGroup].badge}`}
+                          >
+                            {TYPE_META[ev.typeGroup].short}
+                          </span>
+                        )}
+                        {ev?.event_date ?? ""}
                       </div>
                     </td>
                     <td className="px-4 py-3 align-top text-xs text-cream/65">
