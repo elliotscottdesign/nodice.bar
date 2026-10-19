@@ -54,7 +54,10 @@ export async function logout() {
 // in Authentication → Users, then add a line here:
 //   "manager": "manager@nodice.bar",
 const USERNAME_TO_EMAIL: Record<string, string> = {
-  admin: "admin@nodice.bar",
+  admin: "elliot@nodice.bar",
+  elliot: "elliot@nodice.bar",
+  leonie: "leoniesands5@gmail.com",
+  rhys: "rhys@nodice.bar",
 };
 
 function resolveEmail(input: string): string {
