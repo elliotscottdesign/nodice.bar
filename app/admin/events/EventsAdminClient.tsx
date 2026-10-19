@@ -23,8 +23,10 @@ function adminCategoryDot(cat: string): string {
   if (cat === "pool_tournament_doubles") return "bg-red-500";
   if (cat === "pool_tournament_singles") return "bg-rose-400";
   if (cat === "pool_special")            return "bg-purple-400";
+  if (cat === "ping_pong")               return "bg-sky-400";
   if (cat === "food_event")              return "bg-orange-400";
   if (cat === "drink_special")           return "bg-plonkYellow";
+  if (cat === "special_event")           return "bg-sky-500";
   if (cat === "arcade")                  return "bg-cyan-400";
   if (cat === "golf")                    return "bg-emerald-500";
   return "bg-cream/40"; // "other" / unknown
@@ -108,9 +110,11 @@ const CATEGORY_OPTIONS: EventCategory[] = [
   "pool_tournament_doubles",
   "pool_tournament_singles",
   "pool_special",
+  "ping_pong",
   "dj_night",
   "food_event",
   "drink_special",
+  "special_event",
   "arcade",
   "golf",
   "world_cup",
@@ -2643,8 +2647,10 @@ function CalendarView({
     if (cat === "pool_tournament_doubles")      return "bg-red-500/35 text-white border-red-400";
     if (cat === "pool_tournament_singles")      return "bg-rose-400/35 text-white border-rose-300";
     if (cat === "pool_special")                 return "bg-purple-500/35 text-white border-purple-400";
+    if (cat === "ping_pong")                    return "bg-sky-500/35 text-white border-sky-400";
     if (cat === "food_event")                   return "bg-orange-500/35 text-white border-orange-400";
     if (cat === "drink_special")                return "bg-plonkYellow/35 text-ink border-plonkYellow";
+    if (cat === "special_event")                return "bg-sky-600/35 text-white border-sky-500";
     if (cat === "arcade")                       return "bg-cyan-500/35 text-white border-cyan-400";
     if (cat === "golf")                         return "bg-emerald-500/35 text-white border-emerald-400";
     return "bg-cream/15 text-cream/90 border-cream/25";

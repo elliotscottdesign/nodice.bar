@@ -18,9 +18,11 @@ export type EventCategory =
   | "pool_tournament_doubles"
   | "pool_tournament_singles"
   | "pool_special"
+  | "ping_pong"
   | "dj_night"
   | "food_event"
   | "drink_special"
+  | "special_event"
   | "arcade"
   | "golf"
   | "world_cup"
@@ -563,9 +565,11 @@ export const CATEGORY_LABEL: Record<EventCategory, string> = {
   pool_tournament_doubles: "Pool tournament — Doubles",
   pool_tournament_singles: "Pool tournament — Singles",
   pool_special: "Pool — Special event",
+  ping_pong: "Ping pong",
   dj_night: "DJ night",
   food_event: "Food event",
-  drink_special: "Drink special",
+  drink_special: "Deals",
+  special_event: "Special event",
   arcade: "Arcade",
   golf: "Golf",
   world_cup: "World Cup — Match",
