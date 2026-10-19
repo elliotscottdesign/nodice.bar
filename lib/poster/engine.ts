@@ -116,6 +116,7 @@ export const DEAL_PALETTE: { name: string; hex: string }[] = [
 // events poster maker, so an event can lean on the house blues instead of the
 // bright primaries. (Deals keep their own DEAL_PALETTE.)
 export const EVENT_PALETTE: { name: string; hex: string }[] = [
+  // Blues / navies / teals (founder swatch 1)
   { name: "Royal navy", hex: "#224378" },
   { name: "Ink", hex: "#252C3D" },
   { name: "Sky", hex: "#497FB3" },
@@ -124,6 +125,19 @@ export const EVENT_PALETTE: { name: string; hex: string }[] = [
   { name: "Cobalt", hex: "#3E72AD" },
   { name: "Deep blue", hex: "#255089" },
   { name: "Teal blue", hex: "#43868D" },
+  // Purples / mauves / roses + more cools (founder swatch 2)
+  { name: "Mulberry", hex: "#674A5A" },
+  { name: "Orchid", hex: "#9B6A93" },
+  { name: "Dusk rose", hex: "#AF9DA2" },
+  { name: "Rose", hex: "#C3648B" },
+  { name: "Lilac", hex: "#9A8CAA" },
+  { name: "Slate lilac", hex: "#858291" },
+  { name: "Deep teal", hex: "#327179" },
+  { name: "Indigo", hex: "#2E2A57" },
+  { name: "Denim", hex: "#52658B" },
+  { name: "Powder blue", hex: "#7392AD" },
+  { name: "Petrol", hex: "#396376" },
+  { name: "Night navy", hex: "#172B51" },
 ];
 
 export type PosterSize = "ig" | "story" | "zine" | "a3";
