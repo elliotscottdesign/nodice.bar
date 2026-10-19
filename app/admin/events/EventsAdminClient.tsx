@@ -191,6 +191,10 @@ export default function EventsAdminClient() {
   const [categoryFilter, setCategoryFilter] = useState<Set<EventCategory>>(
     () => new Set(),
   );
+  // "Edited instances only" filter — narrows to series instances that have
+  // been edited on their own (recurrence_overridden). Marked with a ⭐ in
+  // the list/calendar so staff can find them for corrections.
+  const [editedOnly, setEditedOnly] = useState(false);
   // List ↔ calendar toggle. Calendar shows a month grid with event
   // chips on each date; click a chip to open the same edit modal.
   const [view, setView] = useState<"list" | "calendar">("list");
@@ -356,13 +360,17 @@ export default function EventsAdminClient() {
         ? events
         : events.filter((e) => categoryFilter.has(e.category));
     // 2) Then the live search.
-    const filtered = q
+    const searched = q
       ? byCategory.filter((e) => {
           const name = e.name.toLowerCase();
           const desc = (e.description ?? "").toLowerCase();
           return name.includes(q) || desc.includes(q);
         })
       : byCategory;
+    // 3) Edited-instances-only filter.
+    const filtered = editedOnly
+      ? searched.filter((e) => e.recurrence_overridden)
+      : searched;
 
     function revenueOf(ev: DbEvent): number {
       const tts = ticketsByEvent.get(ev.id) ?? [];
@@ -410,7 +418,13 @@ export default function EventsAdminClient() {
         break;
     }
     return sorted;
-  }, [events, ticketsByEvent, search, sortBy, categoryFilter]);
+  }, [events, ticketsByEvent, search, sortBy, categoryFilter, editedOnly]);
+
+  // Count of edited (overridden) instances — drives the filter pill label.
+  const editedCount = useMemo(
+    () => events.filter((e) => e.recurrence_overridden).length,
+    [events],
+  );
 
   // Preview the dates that will be created when the form is saved.
   // Updates live as the founder changes the recurrence settings so
@@ -1039,10 +1053,24 @@ export default function EventsAdminClient() {
                 />
                 <SortDropdown value={sortBy} onChange={setSortBy} />
                 <ViewToggle value={view} onChange={setView} />
+                {editedCount > 0 && (
+                  <button
+                    type="button"
+                    onClick={() => setEditedOnly((v) => !v)}
+                    title="Show only series dates you've edited on their own (⭐)"
+                    className={`rounded-full border px-3 py-1.5 text-xs font-bold uppercase tracking-wider transition ${
+                      editedOnly
+                        ? "border-plonkYellow bg-plonkYellow/15 text-plonkYellow"
+                        : "border-cream/15 bg-ink/40 text-cream/60 hover:border-cream/40"
+                    }`}
+                  >
+                    ⭐ Edited only ({editedCount})
+                  </button>
+                )}
               </div>
 
               {/* List counter — useful when filtered. */}
-              {(search || sortBy !== "date-asc" || categoryFilter.size > 0) && (
+              {(search || sortBy !== "date-asc" || categoryFilter.size > 0 || editedOnly) && (
                 <p className="mb-3 text-[11px] uppercase tracking-widest text-cream/45">
                   Showing {visibleEvents.length} of {events.length} events
                 </p>
@@ -1057,7 +1085,9 @@ export default function EventsAdminClient() {
                 />
               ) : visibleEvents.length === 0 ? (
                 <p className="rounded-xl border border-cream/10 bg-ink/40 px-6 py-10 text-center text-sm text-cream/55">
-                  No events match "{search}". Try a different search.
+                  {editedOnly
+                    ? "No edited instances match the current filters."
+                    : `No events match "${search}". Try a different search.`}
                 </p>
               ) : (
                 <ul className="space-y-2">
@@ -1079,6 +1109,14 @@ export default function EventsAdminClient() {
                     />
                     <div className="min-w-0 flex-1">
                       <div className="text-sm font-bold text-cream">
+                        {e.recurrence_overridden && (
+                          <span
+                            title="Edited on its own — no longer follows the series master"
+                            className="mr-1 text-plonkYellow"
+                          >
+                            ⭐
+                          </span>
+                        )}
                         {e.name}
                       </div>
                       <div className="text-xs text-cream/55">
@@ -2683,11 +2721,12 @@ function CalendarView({
                     key={ev.id}
                     type="button"
                     onClick={() => onEventClick(ev.id)}
-                    title={`${ev.name}${ev.start_time ? ` · ${ev.start_time.slice(0, 5)}` : ""}`}
+                    title={`${ev.recurrence_overridden ? "⭐ edited · " : ""}${ev.name}${ev.start_time ? ` · ${ev.start_time.slice(0, 5)}` : ""}`}
                     className={`block w-full truncate rounded border px-1.5 py-0.5 text-left text-[10px] font-bold uppercase tracking-wide ${chipClass(
                       ev,
                     )}`}
                   >
+                    {ev.recurrence_overridden ? "⭐" : ""}
                     {ev.start_time ? `${ev.start_time.slice(0, 5)} ` : ""}
                     {ev.name}
                   </button>
