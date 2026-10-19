@@ -68,7 +68,9 @@ export default function TournamentEntriesClient() {
   // as well as paid ones, instead of having to flip a filter on every
   // visit. Use the dropdown to narrow to "Paid only" when copying
   // team names into the tournament app.
-  const [filterStatus, setFilterStatus] = useState<"paid" | "all">("all");
+  const [filterStatus, setFilterStatus] = useState<
+    "all" | "paid" | "pending_payment" | "cancelled"
+  >("all");
   // "Entries" (per-sign-up list) vs "Entrants" (one row per person, a
   // marketing mailing list across every tournament — founder 7 Oct 2026).
   const [view, setView] = useState<"entries" | "entrants">("entries");
@@ -116,7 +118,7 @@ export default function TournamentEntriesClient() {
     const rows = entries.filter((e) => {
       if (filterTournamentId !== "all" && e.tournament_id !== filterTournamentId)
         return false;
-      if (filterStatus === "paid" && e.status !== "paid") return false;
+      if (filterStatus !== "all" && e.status !== filterStatus) return false;
       if (q) {
         const hay = [e.team_name, e.captain_name, e.captain_email]
           .join(" ")
@@ -409,8 +411,13 @@ export default function TournamentEntriesClient() {
             {(
               [
                 ["all", "All"],
-                ["paid", "Paid"],
-              ] as ["all" | "paid", string][]
+                ["paid", "Confirmed"],
+                ["pending_payment", "Pending"],
+                ["cancelled", "Cancelled"],
+              ] as [
+                "all" | "paid" | "pending_payment" | "cancelled",
+                string,
+              ][]
             ).map(([v, label]) => (
               <button
                 key={v}
