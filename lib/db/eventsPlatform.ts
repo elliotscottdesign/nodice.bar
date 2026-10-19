@@ -60,6 +60,9 @@ export type DbEvent = {
    *  and which weekday (0=Sunday .. 6=Saturday). Null for other types. */
   recurrence_nth: number | null;
   recurrence_weekday: number | null;
+  /** True once this child instance has been edited on its own — future
+   *  edits to the series ROOT then skip it. Never cascaded. */
+  recurrence_overridden: boolean;
   show_on_pool_schedule: boolean;
   show_on_events_calendar: boolean;
   show_on_bar_page: boolean;
@@ -135,8 +138,14 @@ export type DbEventEntry = {
 
 export type NewEvent = Omit<
   DbEvent,
-  "id" | "paid_entries_count" | "created_at" | "updated_at"
->;
+  | "id"
+  | "paid_entries_count"
+  | "created_at"
+  | "updated_at"
+  // Defaulted by the DB to false — optional on create/update so callers
+  // that don't touch the override flag stay valid.
+  | "recurrence_overridden"
+> & { recurrence_overridden?: boolean };
 
 export type NewTicketType = Omit<
   DbTicketType,
@@ -288,6 +297,112 @@ export async function updateEvent(
 
 export async function deleteEvent(id: string): Promise<void> {
   const { error } = await supabase().from("events").delete().eq("id", id);
+  if (error) throw error;
+}
+
+// =============================================================
+// Recurring series — master (ROOT) + per-instance override
+// =============================================================
+// A series is a ROOT/parent event with child instances linked via
+// child.recurrence_parent_id = root.id. Editing the ROOT cascades its
+// SHARED CONTENT to every child, EXCEPT any child flagged
+// recurrence_overridden (edited on its own). Editing a child sets that
+// flag so later root edits skip it.
+//
+// CASCADE_FIELDS is the ONLY set that copies root → children. Everything
+// else (the per-date identity: event_date, the recurrence shape,
+// recurrence_overridden, id, paid_entries_count) stays per-row.
+export const CASCADE_FIELDS = [
+  "name",
+  "description",
+  "external_link",
+  "poster_url",
+  "category",
+  "subcategory",
+  "start_time",
+  "end_time",
+  "show_on_pool_schedule",
+  "show_on_events_calendar",
+  "show_on_bar_page",
+  "requires_ticket",
+  "bookable",
+  "max_attendees",
+  "registration_open",
+  "blocks_table_bookings",
+  "ticket_price",
+  "poster_footer",
+  "poster_subcopy",
+  "poster_image_url",
+  "poster_qr_url",
+  "poster_day_label",
+  "flyer_poster_url",
+] as const satisfies readonly (keyof DbEvent)[];
+
+export type CascadeField = (typeof CASCADE_FIELDS)[number];
+
+// Pull only the cascade fields that are actually present in a patch.
+function pickCascade(patch: Partial<DbEvent>): Partial<DbEvent> {
+  const out: Partial<DbEvent> = {};
+  for (const f of CASCADE_FIELDS) {
+    if (f in patch) {
+      (out as Record<string, unknown>)[f] = (patch as Record<string, unknown>)[f];
+    }
+  }
+  return out;
+}
+
+// Edit a series ROOT. The parent row gets the FULL patch; when cascade is
+// true, the SHARED CONTENT fields present in the patch are also written to
+// every child where recurrence_parent_id = parentId AND
+// recurrence_overridden = false. Dates and recurrence shape never cascade.
+export async function updateEventSeries(
+  parentId: string,
+  patch: Partial<DbEvent>,
+  cascade: boolean,
+): Promise<void> {
+  // 1) Parent row — full patch.
+  const { error: parentErr } = await supabase()
+    .from("events")
+    .update(patch)
+    .eq("id", parentId);
+  if (parentErr) throw parentErr;
+
+  if (!cascade) return;
+
+  // 2) Children — only the shared content fields present in the patch, and
+  //    only rows that haven't been individually overridden.
+  const childPatch = pickCascade(patch);
+  if (Object.keys(childPatch).length === 0) return;
+
+  const { error: childErr } = await supabase()
+    .from("events")
+    .update(childPatch)
+    .eq("recurrence_parent_id", parentId)
+    .eq("recurrence_overridden", false);
+  if (childErr) throw childErr;
+}
+
+// "Reset to follow the series": copy the parent's CURRENT cascade fields
+// back onto one child and clear its override flag, so it re-joins the
+// series master.
+export async function resetChildToSeries(
+  childId: string,
+  parentId: string,
+): Promise<void> {
+  const { data: parent, error: loadErr } = await supabase()
+    .from("events")
+    .select("*")
+    .eq("id", parentId)
+    .single();
+  if (loadErr) throw loadErr;
+
+  const patch = pickCascade(parent as DbEvent);
+  patch.recurrence_overridden = false;
+
+  const { error } = await supabase()
+    .from("events")
+    .update(patch)
+    .eq("id", childId);
   if (error) throw error;
 }
 

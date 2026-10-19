@@ -51,6 +51,8 @@ import {
   createEvent,
   createTicketType,
   updateEvent,
+  updateEventSeries,
+  resetChildToSeries,
   updateTicketType,
   deleteTicketType,
   deleteEvent,
@@ -1256,7 +1258,9 @@ function EditEventModal({
   //     the pattern; regenerating future dates is a separate action
   //   • standalone (both null/none) → offer conversion to a series
   const isChildInstance = !!event.recurrence_parent_id;
-  const isSeriesParent = event.recurrence_type !== "none";
+  // A ROOT/master of a series: recurring AND not itself a child of another.
+  const isSeriesParent =
+    event.recurrence_type !== "none" && !event.recurrence_parent_id;
   const [recurrenceType, setRecurrenceType] = useState<RecurrenceType>(
     event.recurrence_type,
   );
@@ -1338,7 +1342,7 @@ function EditEventModal({
     setBusy(true);
     try {
       // 1) Update the event row itself.
-      await updateEvent(event.id, {
+      const patch: Partial<NewEvent> = {
         name: name.trim(),
         description: description.trim() || null,
         event_date: eventDate,
@@ -1365,7 +1369,20 @@ function EditEventModal({
           event.recurrence_type !== recurrenceType)
           ? { recurrence_parent_id: null }
           : {}),
-      });
+        // Editing a child instance locks it: future ROOT edits now skip
+        // it. (Harmless when the edit also detaches it above.)
+        ...(isChildInstance ? { recurrence_overridden: true } : {}),
+      };
+
+      if (isSeriesParent) {
+        // Editing the series ROOT: write the full patch to this row and
+        // cascade the shared content fields to every non-overridden
+        // child. Dates and recurrence shape never cascade (excluded by
+        // the CASCADE_FIELDS list in updateEventSeries).
+        await updateEventSeries(event.id, patch, true);
+      } else {
+        await updateEvent(event.id, patch);
+      }
 
       // 1a) Series creation: if this event wasn't yet a parent (or
       //     was a child that just detached) and the founder picked a
@@ -1486,6 +1503,26 @@ function EditEventModal({
         e instanceof Error
           ? e.message
           : "Save failed — check the fields and try again.",
+      );
+    } finally {
+      setBusy(false);
+    }
+  }
+
+  // Re-join the series master: copy the parent's current shared content
+  // back onto this child and clear its override flag.
+  async function resetToSeries() {
+    if (!event.recurrence_parent_id) return;
+    setErr("");
+    setBusy(true);
+    try {
+      await resetChildToSeries(event.id, event.recurrence_parent_id);
+      await onSaved();
+    } catch (e) {
+      setErr(
+        e instanceof Error
+          ? e.message
+          : "Couldn't reset this date to follow the series.",
       );
     } finally {
       setBusy(false);
@@ -1740,21 +1777,48 @@ function EditEventModal({
                 </div>
               )}
             </div>
-            {isChildInstance && (
-              <p className="mt-2 text-[11px] text-cream/60">
-                This instance is currently part of a recurring series.
-                Saving a different pattern here <strong>detaches this
-                date from the series</strong> — the other future dates
-                in the original series are left alone.
-              </p>
-            )}
             {isSeriesParent && (
-              <p className="mt-2 text-[11px] text-cream/60">
-                Existing series parent — changing the frequency here
-                rewrites this row only; future occurrences already in
-                the DB aren't touched. To regenerate them, delete the
-                future dates first, then save with the new pattern.
-              </p>
+              <>
+                <p className="mt-2 text-[11px] text-amber-200/80">
+                  Master of a repeating series — changes here apply to
+                  every date in the series, except any you&rsquo;ve edited
+                  on their own.
+                </p>
+                <p className="mt-2 text-[11px] text-cream/60">
+                  Changing the frequency rewrites this row only; future
+                  occurrences already in the DB aren&rsquo;t touched. To
+                  regenerate them, delete the future dates first, then save
+                  with the new pattern.
+                </p>
+              </>
+            )}
+            {isChildInstance && !event.recurrence_overridden && (
+              <>
+                <p className="mt-2 text-[11px] text-amber-200/80">
+                  Editing this date changes only this one — it&rsquo;ll then
+                  stop following the series master.
+                </p>
+                <p className="mt-2 text-[11px] text-cream/60">
+                  Saving a different pattern here <strong>detaches this
+                  date from the series</strong> — the other future dates
+                  in the original series are left alone.
+                </p>
+              </>
+            )}
+            {isChildInstance && event.recurrence_overridden && (
+              <div className="mt-2 space-y-2">
+                <p className="text-[11px] text-amber-200/80">
+                  Edited separately — no longer follows the series master.
+                </p>
+                <button
+                  type="button"
+                  onClick={resetToSeries}
+                  disabled={busy}
+                  className="rounded-full border border-plonkTeal/40 px-3 py-1 text-[11px] font-bold uppercase tracking-wider text-plonkTeal hover:bg-plonkTeal/10 disabled:opacity-50"
+                >
+                  Reset to follow the series
+                </button>
+              </div>
             )}
           </ModalField>
 
