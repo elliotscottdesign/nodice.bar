@@ -27,6 +27,7 @@ import { eventQrUrl } from "@/lib/poster/qr";
 import {
   PALETTE,
   DEAL_PALETTE,
+  EVENT_PALETTE,
   canvasToBlob,
   coverRect,
   downloadCanvas,
@@ -557,9 +558,10 @@ export default function EventPosterStudio({
   // True when the active colour is one of the quick-pick swatches. When it isn't,
   // it came from the RAL chart (or the custom picker), so the RAL pill shows that
   // colour and reads as "active" — the quick-pick row has nothing to highlight.
-  const colourIsPalette = dealSwatches.some(
-    (p) => p.hex.toLowerCase() === colour.toLowerCase(),
-  );
+  const colourIsPalette = [
+    ...dealSwatches,
+    ...(isDeal ? [] : EVENT_PALETTE),
+  ].some((p) => p.hex.toLowerCase() === colour.toLowerCase());
 
   return (
     <div className="space-y-4 rounded-xl border border-plonkTeal/25 bg-ink/30 p-4">
@@ -870,6 +872,26 @@ export default function EventPosterStudio({
                   className="h-full w-full cursor-pointer opacity-0"
                 />
               </label>
+              {/* Event brand colours — the house blues (founder 19 Oct 2026),
+                  offered alongside the bright picks. Deals keep their own set. */}
+              {!isDeal && (
+                <span className="mx-1 inline-block h-5 w-px shrink-0 bg-cream/15" />
+              )}
+              {!isDeal &&
+                EVENT_PALETTE.map((p) => (
+                  <button
+                    key={p.hex}
+                    type="button"
+                    title={`${p.name} — No Dice event colour`}
+                    onClick={() => setColour(p.hex)}
+                    style={{ background: p.hex }}
+                    className={`h-7 w-7 rounded-full ${
+                      colour.toLowerCase() === p.hex.toLowerCase()
+                        ? "ring-2 ring-cream ring-offset-2 ring-offset-ink"
+                        : "border border-cream/25"
+                    }`}
+                  />
+                ))}
               <button
                 type="button"
                 onClick={() => setShowRal((o) => !o)}

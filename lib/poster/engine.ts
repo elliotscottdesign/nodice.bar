@@ -111,6 +111,21 @@ export const DEAL_PALETTE: { name: string; hex: string }[] = [
   { name: "Oyster white", hex: "#E3D9C6" }, // RAL 1013 — light; inverts cleanest
 ];
 
+// Event BRAND colours — the cool navy / blue / teal / slate set the founder
+// picked for events (19 Oct 2026). Offered ALONGSIDE the bright PALETTE on the
+// events poster maker, so an event can lean on the house blues instead of the
+// bright primaries. (Deals keep their own DEAL_PALETTE.)
+export const EVENT_PALETTE: { name: string; hex: string }[] = [
+  { name: "Royal navy", hex: "#224378" },
+  { name: "Ink", hex: "#252C3D" },
+  { name: "Sky", hex: "#497FB3" },
+  { name: "Midnight", hex: "#252D50" },
+  { name: "Steel", hex: "#6F7B96" },
+  { name: "Cobalt", hex: "#3E72AD" },
+  { name: "Deep blue", hex: "#255089" },
+  { name: "Teal blue", hex: "#43868D" },
+];
+
 export type PosterSize = "ig" | "story" | "zine" | "a3";
 export type PosterMode = "colour" | "negative";
 // 'whites' = greyscale with the whites knocked out so the poster colour shows
@@ -762,11 +777,15 @@ export async function renderEventPoster({
   // Scans through to the event on the calendar. Measured out BEFORE the
   // headline so the headline knows to stop short of it. A deal has no QR — the
   // price circle takes that corner instead.
-  const link = dealLayout
-    ? ""
-    : qrUrl === undefined
-      ? eventQrUrl(date)
-      : qrUrl;
+  // Founder 19 Oct 2026: the QR belongs ONLY on the A3 print-out (the thing
+  // that gets stuck on a wall and scanned) — the Instagram post and story don't
+  // need it, so it's suppressed on every size except 'a3'.
+  const link =
+    dealLayout || size !== "a3"
+      ? ""
+      : qrUrl === undefined
+        ? eventQrUrl(date)
+        : qrUrl;
   let qrDrawn = 0;
   let qrModules: boolean[][] | null = null;
   let qrModulePx = 0;
