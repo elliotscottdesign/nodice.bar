@@ -14,6 +14,8 @@ const NAV: { label: string; href: string; group?: string }[] = [
   { label: "Dashboard", href: "/admin", group: "Today" },
   { label: "Booking Calendar", href: "/admin/calendar", group: "Today" },
 
+  { label: "Enquiries", href: "/admin/enquiries", group: "CRM" },
+
   { label: "Golf Bookings", href: "/admin/bookings", group: "Bookings" },
   { label: "Table reservations", href: "/admin/table-reservations", group: "Bookings" },
   { label: "Pool reservations", href: "/admin/pool-reservations", group: "Bookings" },
@@ -39,7 +41,7 @@ const NAV: { label: string; href: string; group?: string }[] = [
   { label: "Slot Capacity", href: "/admin/slots", group: "Setup" },
 ];
 
-const GROUPS = ["Today", "Bookings", "Events", "Money", "Setup"];
+const GROUPS = ["Today", "CRM", "Bookings", "Events", "Money", "Setup"];
 
 export default function AdminSidebar() {
   const pathname = usePathname() || "";
