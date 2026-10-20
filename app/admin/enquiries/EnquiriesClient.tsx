@@ -68,6 +68,46 @@ function describe(e: unknown, fallback: string): string {
   return e instanceof Error ? e.message : fallback;
 }
 
+// A kitchen + bar pre-event brief, generated from what we know about the
+// enquiry. Pure text so the office can read it, copy it to a staff WhatsApp,
+// or print it. Lines we don't have yet (menu, allergens) are flagged as TO
+// CONFIRM so nobody assumes they're sorted — the hub slice fills them in.
+function buildBrief(e: Enquiry): string {
+  const dateLine = e.requested_date
+    ? new Date(e.requested_date + "T00:00:00").toLocaleDateString("en-GB", {
+        weekday: "long",
+        day: "numeric",
+        month: "long",
+        year: "numeric",
+      })
+    : e.date_flex || "TO CONFIRM";
+  const head = e.party_size ? `${e.party_size} guests` : "TO CONFIRM";
+  const L = (label: string, val: string) => `${label}: ${val || "—"}`;
+  return [
+    `NO DICE — PRE-EVENT BRIEF`,
+    `${(e.event_type || "Private event").toUpperCase()}`,
+    ``,
+    L("Date", dateLine),
+    L("Head count", head),
+    L("Occasion", e.event_type),
+    L("Lead contact", [e.contact_name, e.contact_phone].filter(Boolean).join(" · ")),
+    L("Email", e.contact_email),
+    L("Budget guide", e.budget),
+    ``,
+    `— KITCHEN —`,
+    `Food order: TO CONFIRM (send the food-order form / attach the menu)`,
+    `Allergens / dietary: TO CONFIRM`,
+    `Service time: TO CONFIRM`,
+    ``,
+    `— BAR —`,
+    `Drinks package / tab: TO CONFIRM`,
+    `Arrival / setup: TO CONFIRM`,
+    ``,
+    `— NOTES —`,
+    e.notes?.trim() || "(none)",
+  ].join("\n");
+}
+
 const STATUS_STYLE: Record<EnquiryStatus, string> = {
   new: "border-cream/25 text-cream/80",
   pencilled: "border-plonkYellow/60 text-plonkYellow",
@@ -510,6 +550,8 @@ function EnquiryDrawer({
           </a>
         )}
 
+        <FulfilmentSection enquiry={enquiry} />
+
         <dl className="space-y-1.5 text-sm">
           <Row k="Email" v={enquiry.contact_email} />
           <Row k="Phone" v={enquiry.contact_phone} />
@@ -587,6 +629,112 @@ function EnquiryDrawer({
           Delete enquiry
         </button>
       </div>
+    </div>
+  );
+}
+
+// Fulfilment — the "turn a confirmed enquiry into action" block. Slice 2
+// starts with the kitchen/bar pre-event brief (self-contained, no external
+// service). Payment link + food-order form email land here next.
+function FulfilmentSection({ enquiry }: { enquiry: Enquiry }) {
+  const [open, setOpen] = useState(enquiry.status === "confirmed");
+  const [copied, setCopied] = useState(false);
+  const [linkCopied, setLinkCopied] = useState(false);
+  const brief = useMemo(() => buildBrief(enquiry), [enquiry]);
+
+  // Client-facing summary link — only works once the enquiry is pencilled /
+  // confirmed (the RPC won't return a 'new' or 'lost' one).
+  const shareable =
+    enquiry.status === "pencilled" || enquiry.status === "confirmed";
+  const shareUrl =
+    enquiry.share_token && typeof window !== "undefined"
+      ? `${window.location.origin}/my-event?t=${encodeURIComponent(enquiry.share_token)}`
+      : "";
+
+  async function copy() {
+    try {
+      await navigator.clipboard.writeText(brief);
+      setCopied(true);
+      setTimeout(() => setCopied(false), 1800);
+    } catch {
+      /* clipboard blocked — the textarea below is selectable as a fallback */
+    }
+  }
+
+  async function copyLink() {
+    try {
+      await navigator.clipboard.writeText(shareUrl);
+      setLinkCopied(true);
+      setTimeout(() => setLinkCopied(false), 1800);
+    } catch {
+      /* clipboard blocked */
+    }
+  }
+
+  return (
+    <div className="mb-4 rounded-lg border border-cream/15 bg-ink/40">
+      <button
+        type="button"
+        onClick={() => setOpen((v) => !v)}
+        className="flex w-full items-center justify-between px-3 py-2 text-[11px] font-bold uppercase tracking-widest text-cream/70"
+      >
+        <span>Fulfilment · kitchen + bar brief</span>
+        <span className="text-cream/40">{open ? "–" : "+"}</span>
+      </button>
+      {open && (
+        <div className="space-y-3 px-3 pb-3">
+          {/* Shareable client summary link */}
+          <div>
+            <p className="mb-1 text-[10px] font-bold uppercase tracking-widest text-cream/50">
+              Client link
+            </p>
+            {shareable ? (
+              <div className="flex items-center gap-2">
+                <input
+                  readOnly
+                  value={shareUrl}
+                  onFocus={(e) => e.currentTarget.select()}
+                  className="min-w-0 flex-1 rounded-md border border-cream/15 bg-ink px-2.5 py-1.5 text-[11px] text-cream/75"
+                />
+                <button
+                  type="button"
+                  onClick={copyLink}
+                  className="shrink-0 rounded-full border border-plonkTeal/60 px-3 py-1.5 text-[11px] font-bold uppercase tracking-wider text-plonkTeal transition hover:bg-plonkTeal/15"
+                >
+                  {linkCopied ? "Copied ✓" : "Copy link"}
+                </button>
+              </div>
+            ) : (
+              <p className="text-[10px] text-cream/40">
+                Pencil or confirm the enquiry to share a summary with the client.
+              </p>
+            )}
+          </div>
+
+          <p className="text-[10px] font-bold uppercase tracking-widest text-cream/50">
+            Kitchen + bar brief
+          </p>
+          <textarea
+            readOnly
+            value={brief}
+            rows={14}
+            onFocus={(e) => e.currentTarget.select()}
+            className="w-full resize-y rounded-md border border-cream/15 bg-ink px-2.5 py-2 font-mono text-[11px] leading-relaxed text-cream/85"
+          />
+          <div className="flex items-center gap-2">
+            <button
+              type="button"
+              onClick={copy}
+              className="rounded-full bg-plonkTeal px-4 py-1.5 text-[11px] font-bold uppercase tracking-wider text-ink transition hover:brightness-110"
+            >
+              {copied ? "Copied ✓" : "Copy brief"}
+            </button>
+            <span className="text-[10px] text-cream/40">
+              Paste to the staff chat, or print for the pass.
+            </span>
+          </div>
+        </div>
+      )}
     </div>
   );
 }

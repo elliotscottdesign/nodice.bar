@@ -41,8 +41,20 @@ export type Enquiry = {
   assigned_to: string;
   linked_kind: LinkedKind;
   linked_id: string;
+  share_token: string;
   created_at: string;
   updated_at: string;
+};
+
+// The safe, client-facing projection returned by the share link (no email,
+// phone, budget or internal notes — see the enquiry_client_summary RPC).
+export type EnquiryClientSummary = {
+  contact_name: string;
+  event_type: string;
+  status: EnquiryStatus;
+  requested_date: string | null;
+  date_flex: string;
+  party_size: number | null;
 };
 
 export type NewEnquiry = Partial<
@@ -60,7 +72,7 @@ export type EnquiryMessage = {
 };
 
 const SELECT =
-  "id, source, status, contact_name, contact_email, contact_phone, event_type, party_size, requested_date, date_flex, budget, notes, assigned_to, linked_kind, linked_id, created_at, updated_at";
+  "id, source, status, contact_name, contact_email, contact_phone, event_type, party_size, requested_date, date_flex, budget, notes, assigned_to, linked_kind, linked_id, share_token, created_at, updated_at";
 
 export const SOURCE_LABEL: Record<EnquirySource, string> = {
   party_form: "Party form",
@@ -156,6 +168,20 @@ export async function loadEnquiryMessages(
     .order("created_at", { ascending: true });
   if (error) throw error;
   return (data ?? []) as EnquiryMessage[];
+}
+
+// Public: fetch the client-facing summary for a share token. Uses the
+// SECURITY DEFINER RPC (returns safe fields only, and only while the enquiry
+// is pencilled/confirmed). Returns null if the token is unknown or not shared.
+export async function loadEnquiryClientSummary(
+  token: string,
+): Promise<EnquiryClientSummary | null> {
+  const { data, error } = await supabase().rpc("enquiry_client_summary", {
+    p_token: token,
+  });
+  if (error) throw error;
+  const row = Array.isArray(data) ? data[0] : data;
+  return (row as EnquiryClientSummary) ?? null;
 }
 
 export async function addEnquiryMessage(
