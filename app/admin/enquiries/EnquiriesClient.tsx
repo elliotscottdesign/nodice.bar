@@ -55,6 +55,9 @@ import {
   deleteEnquiry,
   loadEnquiryMessages,
   addEnquiryMessage,
+  createEnquiryPaymentLink,
+  sendEnquiryEmail,
+  markEnquiryPaid,
   SOURCE_LABEL,
   STATUS_LABEL,
   STATUS_ORDER,
@@ -430,6 +433,7 @@ export default function EnquiriesClient() {
           enquiry={open}
           onClose={() => setOpenId(null)}
           onMove={move}
+          onReload={reload}
           onSavedField={async (patch) => {
             try {
               await updateEnquiry(open.id, patch);
@@ -459,12 +463,14 @@ function EnquiryDrawer({
   enquiry,
   onClose,
   onMove,
+  onReload,
   onSavedField,
   onDelete,
 }: {
   enquiry: Enquiry;
   onClose: () => void;
   onMove: (id: string, status: EnquiryStatus) => void;
+  onReload: () => Promise<void>;
   onSavedField: (patch: Record<string, unknown>) => Promise<void>;
   onDelete: () => void;
 }) {
@@ -550,7 +556,7 @@ function EnquiryDrawer({
           </a>
         )}
 
-        <FulfilmentSection enquiry={enquiry} />
+        <FulfilmentSection enquiry={enquiry} onReload={onReload} />
 
         <dl className="space-y-1.5 text-sm">
           <Row k="Email" v={enquiry.contact_email} />
@@ -633,14 +639,79 @@ function EnquiryDrawer({
   );
 }
 
-// Fulfilment — the "turn a confirmed enquiry into action" block. Slice 2
-// starts with the kitchen/bar pre-event brief (self-contained, no external
-// service). Payment link + food-order form email land here next.
-function FulfilmentSection({ enquiry }: { enquiry: Enquiry }) {
+// Fulfilment — the "turn a confirmed enquiry into action" block:
+//  • Payment: office types the full amount → one-click Stripe payment link.
+//  • Email: one-click branded email to the client (summary link + pay link).
+//  • Kitchen/bar pre-event brief (copy/print).
+//  • Shareable client summary link.
+function FulfilmentSection({
+  enquiry,
+  onReload,
+}: {
+  enquiry: Enquiry;
+  onReload: () => Promise<void>;
+}) {
   const [open, setOpen] = useState(enquiry.status === "confirmed");
   const [copied, setCopied] = useState(false);
   const [linkCopied, setLinkCopied] = useState(false);
+  const [payCopied, setPayCopied] = useState(false);
+  const [amountStr, setAmountStr] = useState("");
+  const [payBusy, setPayBusy] = useState(false);
+  const [emailBusy, setEmailBusy] = useState(false);
+  const [fMsg, setFMsg] = useState("");
+  const [fErr, setFErr] = useState("");
   const brief = useMemo(() => buildBrief(enquiry), [enquiry]);
+
+  const hasEmail = /\S+@\S+\.\S+/.test(enquiry.contact_email || "");
+
+  async function createLink() {
+    const pounds = Number(amountStr);
+    if (!Number.isFinite(pounds) || pounds < 1) {
+      setFErr("Enter the full amount in pounds (at least £1).");
+      return;
+    }
+    setPayBusy(true);
+    setFErr("");
+    setFMsg("");
+    try {
+      await createEnquiryPaymentLink(
+        enquiry.id,
+        Math.round(pounds * 100),
+        enquiry.event_type || undefined,
+      );
+      setAmountStr("");
+      await onReload();
+    } catch (e) {
+      setFErr(describe(e, "Couldn't create the payment link."));
+    } finally {
+      setPayBusy(false);
+    }
+  }
+
+  async function emailClient() {
+    setEmailBusy(true);
+    setFErr("");
+    setFMsg("");
+    try {
+      const r = await sendEnquiryEmail(enquiry.id);
+      setFMsg(`Emailed ${r.sent_to}.`);
+      await onReload();
+    } catch (e) {
+      setFErr(describe(e, "Couldn't send the email."));
+    } finally {
+      setEmailBusy(false);
+    }
+  }
+
+  async function togglePaid() {
+    setFErr("");
+    try {
+      await markEnquiryPaid(enquiry.id);
+      await onReload();
+    } catch (e) {
+      setFErr(describe(e, "Couldn't mark paid."));
+    }
+  }
 
   // Client-facing summary link — only works once the enquiry is pencilled /
   // confirmed (the RPC won't return a 'new' or 'lost' one).
@@ -671,6 +742,16 @@ function FulfilmentSection({ enquiry }: { enquiry: Enquiry }) {
     }
   }
 
+  async function copyPay() {
+    try {
+      await navigator.clipboard.writeText(enquiry.payment_url);
+      setPayCopied(true);
+      setTimeout(() => setPayCopied(false), 1800);
+    } catch {
+      /* clipboard blocked */
+    }
+  }
+
   return (
     <div className="mb-4 rounded-lg border border-cream/15 bg-ink/40">
       <button
@@ -683,6 +764,108 @@ function FulfilmentSection({ enquiry }: { enquiry: Enquiry }) {
       </button>
       {open && (
         <div className="space-y-3 px-3 pb-3">
+          {(fMsg || fErr) && (
+            <p
+              className={`text-[11px] ${fErr ? "text-red-400" : "text-plonkTeal"}`}
+            >
+              {fErr || fMsg}
+            </p>
+          )}
+
+          {/* Payment — full amount, office-entered, one-click Stripe link */}
+          <div>
+            <p className="mb-1 text-[10px] font-bold uppercase tracking-widest text-cream/50">
+              Payment
+            </p>
+            {enquiry.payment_url ? (
+              <div className="space-y-2">
+                <div className="flex items-center gap-2">
+                  <input
+                    readOnly
+                    value={enquiry.payment_url}
+                    onFocus={(e) => e.currentTarget.select()}
+                    className="min-w-0 flex-1 rounded-md border border-cream/15 bg-ink px-2.5 py-1.5 text-[11px] text-cream/75"
+                  />
+                  <button
+                    type="button"
+                    onClick={copyPay}
+                    className="shrink-0 rounded-full border border-plonkTeal/60 px-3 py-1.5 text-[11px] font-bold uppercase tracking-wider text-plonkTeal transition hover:bg-plonkTeal/15"
+                  >
+                    {payCopied ? "Copied ✓" : "Copy"}
+                  </button>
+                </div>
+                <div className="flex items-center justify-between text-[11px]">
+                  <span className="text-cream/60">
+                    {enquiry.amount_pence
+                      ? `£${(enquiry.amount_pence / 100).toFixed(2).replace(/\.00$/, "")} full payment`
+                      : "Full payment"}
+                  </span>
+                  {enquiry.paid_at ? (
+                    <span className="font-bold uppercase tracking-wider text-plonkTeal">
+                      Paid ✓
+                    </span>
+                  ) : (
+                    <button
+                      type="button"
+                      onClick={togglePaid}
+                      className="font-bold uppercase tracking-wider text-cream/55 hover:text-cream"
+                    >
+                      Mark paid
+                    </button>
+                  )}
+                </div>
+              </div>
+            ) : (
+              <div className="flex items-center gap-2">
+                <div className="relative flex-1">
+                  <span className="pointer-events-none absolute left-2.5 top-1/2 -translate-y-1/2 text-sm text-cream/50">
+                    £
+                  </span>
+                  <input
+                    value={amountStr}
+                    onChange={(e) => setAmountStr(e.target.value)}
+                    inputMode="decimal"
+                    placeholder="Full amount"
+                    className="w-full rounded-md border border-cream/20 bg-ink py-1.5 pl-6 pr-2.5 text-sm text-cream placeholder:text-cream/35"
+                  />
+                </div>
+                <button
+                  type="button"
+                  onClick={createLink}
+                  disabled={payBusy}
+                  className="shrink-0 rounded-full bg-plonkTeal px-4 py-1.5 text-[11px] font-bold uppercase tracking-wider text-ink transition hover:brightness-110 disabled:opacity-40"
+                >
+                  {payBusy ? "…" : "Create link"}
+                </button>
+              </div>
+            )}
+          </div>
+
+          {/* Email the client — one-click (staff review, then fire) */}
+          <div>
+            <p className="mb-1 text-[10px] font-bold uppercase tracking-widest text-cream/50">
+              Email client
+            </p>
+            <div className="flex items-center gap-2">
+              <button
+                type="button"
+                onClick={emailClient}
+                disabled={emailBusy || !hasEmail}
+                className="rounded-full bg-plonkTeal px-4 py-1.5 text-[11px] font-bold uppercase tracking-wider text-ink transition hover:brightness-110 disabled:opacity-40"
+              >
+                {emailBusy ? "Sending…" : "Send client email"}
+              </button>
+              <span className="text-[10px] text-cream/40">
+                {!hasEmail
+                  ? "No email on this enquiry."
+                  : enquiry.last_emailed_at
+                    ? `Last sent ${new Date(enquiry.last_emailed_at).toLocaleDateString("en-GB")}`
+                    : "Sends their summary" +
+                      (enquiry.payment_url ? " + pay link." : ".")}
+              </span>
+            </div>
+          </div>
+
           {/* Shareable client summary link */}
           <div>
             <p className="mb-1 text-[10px] font-bold uppercase tracking-widest text-cream/50">

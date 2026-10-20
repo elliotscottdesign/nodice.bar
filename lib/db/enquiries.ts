@@ -1,6 +1,7 @@
 "use client";
 
 import { supabase } from "@/lib/supabase";
+import { SUPABASE_URL, SUPABASE_ANON_KEY } from "@/lib/stripe";
 
 // =============================================================
 // enquiries — the CRM pipeline spine
@@ -42,6 +43,10 @@ export type Enquiry = {
   linked_kind: LinkedKind;
   linked_id: string;
   share_token: string;
+  amount_pence: number | null;
+  payment_url: string;
+  paid_at: string | null;
+  last_emailed_at: string | null;
   created_at: string;
   updated_at: string;
 };
@@ -72,7 +77,7 @@ export type EnquiryMessage = {
 };
 
 const SELECT =
-  "id, source, status, contact_name, contact_email, contact_phone, event_type, party_size, requested_date, date_flex, budget, notes, assigned_to, linked_kind, linked_id, share_token, created_at, updated_at";
+  "id, source, status, contact_name, contact_email, contact_phone, event_type, party_size, requested_date, date_flex, budget, notes, assigned_to, linked_kind, linked_id, share_token, amount_pence, payment_url, paid_at, last_emailed_at, created_at, updated_at";
 
 export const SOURCE_LABEL: Record<EnquirySource, string> = {
   party_form: "Party form",
@@ -182,6 +187,53 @@ export async function loadEnquiryClientSummary(
   if (error) throw error;
   const row = Array.isArray(data) ? data[0] : data;
   return (row as EnquiryClientSummary) ?? null;
+}
+
+// ---- Fulfilment (edge-function calls, one-click from the admin) ----
+// Admin edge calls go with the anon key as bearer (a valid anon JWT), same as
+// the other admin calls (pool-addon, send-pool-confirmation).
+
+async function callEdge<T>(fn: string, body: unknown): Promise<T> {
+  const res = await fetch(`${SUPABASE_URL}/functions/v1/${fn}`, {
+    method: "POST",
+    headers: {
+      apikey: SUPABASE_ANON_KEY,
+      Authorization: `Bearer ${SUPABASE_ANON_KEY}`,
+      "Content-Type": "application/json",
+    },
+    body: JSON.stringify(body),
+  });
+  const data = (await res.json().catch(() => ({}))) as Record<string, unknown>;
+  if (!res.ok) {
+    throw new Error((data.error as string) || `Request failed (${res.status})`);
+  }
+  return data as T;
+}
+
+// Create a full-payment Stripe Payment Link for the amount the office types in.
+// Stamps payment_url + amount_pence on the enquiry (done server-side).
+export async function createEnquiryPaymentLink(
+  enquiryId: string,
+  amountPence: number,
+  description?: string,
+): Promise<{ pay_url: string; amount_pence: number }> {
+  return callEdge("enquiry-payment", {
+    enquiry_id: enquiryId,
+    amount_pence: amountPence,
+    description,
+  });
+}
+
+// Email the client their summary (+ pay link if one exists). Office-initiated.
+export async function sendEnquiryEmail(
+  enquiryId: string,
+): Promise<{ ok: boolean; sent_to: string }> {
+  return callEdge("enquiry-email", { enquiry_id: enquiryId });
+}
+
+// Manually mark an enquiry paid (until the webhook auto-flip ships).
+export async function markEnquiryPaid(id: string): Promise<Enquiry> {
+  return updateEnquiry(id, { paid_at: new Date().toISOString() } as Partial<NewEnquiry>);
 }
 
 export async function addEnquiryMessage(
