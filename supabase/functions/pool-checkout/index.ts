@@ -345,6 +345,51 @@ Deno.serve(async (req) => {
   if (cutoffErr) return jsonResponse({ error: cutoffErr }, { status: 423 });
 
   // ────────────────────────────────────────────────────────────
+  // Per-customer daily cap — one email may hold at most 60 minutes of
+  // pool per day (founder 20 Oct 2026, to stop one person block-booking
+  // the whole evening across several checkouts). HARD BLOCK at checkout.
+  //
+  // Only SETTLED time counts (paid + confirmed) — abandoned / unpaid
+  // attempts don't count against the customer (they get swept to
+  // 'cancelled' by the pool-abandoned-hold-sweep cron anyway). Office
+  // 'pending' sales holds are excluded too; this cap is about what a
+  // customer has actually secured, online or at the venue.
+  //
+  // DESIGN NOTE: this is the first instance of a reusable "max minutes
+  // per email per day" limit. The table + golf flows can adopt the same
+  // block by copying this stanza with their own kind + cap.
+  // ────────────────────────────────────────────────────────────
+  const DAILY_POOL_MINUTES_CAP = 60;
+  const { data: settledToday, error: capErr } = await db
+    .from("bar_reservations")
+    .select("email, duration_minutes")
+    .eq("kind", "pool")
+    .eq("reservation_date", input.reservation_date)
+    .in("status", ["paid", "confirmed"]);
+  if (capErr) {
+    return jsonResponse(
+      { error: `Daily-cap lookup failed: ${capErr.message}` },
+      { status: 500 },
+    );
+  }
+  const emailLc = input.email.trim().toLowerCase();
+  const alreadyMinutes = (settledToday ?? [])
+    .filter((r) => (r.email ?? "").trim().toLowerCase() === emailLc)
+    .reduce((s, r) => s + (r.duration_minutes ?? 0), 0);
+  if (alreadyMinutes + input.duration_minutes > DAILY_POOL_MINUTES_CAP) {
+    const remaining = Math.max(0, DAILY_POOL_MINUTES_CAP - alreadyMinutes);
+    return jsonResponse(
+      {
+        error:
+          remaining > 0
+            ? `There's a ${DAILY_POOL_MINUTES_CAP}-minute daily limit on pool per person. You've already got ${alreadyMinutes} min booked for this day, so there's only ${remaining} min left — pick a shorter slot or another day.`
+            : `You've already booked your ${DAILY_POOL_MINUTES_CAP} minutes of pool for this day. Pick another day — or just ask us at the bar on the night.`,
+      },
+      { status: 409 },
+    );
+  }
+
+  // ────────────────────────────────────────────────────────────
   // Capacity check — reject if this booking would push the venue
   // past its physical pool-table count for any overlapping minute.
   // Prevents the "two customers pay for the same table" bug we
