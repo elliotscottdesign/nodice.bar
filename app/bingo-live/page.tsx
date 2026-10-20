@@ -2,7 +2,7 @@
 
 import { useEffect, useRef, useState } from "react";
 import { supabase } from "@/lib/supabase";
-import { COLUMNS, ballLabel } from "@/lib/bingo/live";
+import { COLUMNS } from "@/lib/bingo/live";
 
 // =============================================================
 // /bingo-live — public big-screen caller board
@@ -99,7 +99,7 @@ export default function BingoLivePage() {
               transform: flash ? "scale(1.04)" : "scale(1)",
             }}
           >
-            {last != null ? ballLabel(last) : "–"}
+            {last != null ? last : "–"}
           </div>
           {!connected && (
             <div className="mt-4 text-sm text-cream/40">Waiting for the caller…</div>
