@@ -5,7 +5,6 @@ import RollerDeck from "./RollerDeck";
 import {
   loadOpenTournaments,
   type DbTournament,
-  type TournamentType,
 } from "@/lib/db/tournaments";
 import { useContent } from "@/lib/content";
 import { Editable } from "./Editable";
@@ -95,7 +94,9 @@ export default function TournamentSchedule() {
   const [loading, setLoading] = useState(true);
   const [err, setErr] = useState("");
   const [expandedId, setExpandedId] = useState<string | null>(null);
-  const [rulesOpen, setRulesOpen] = useState(false);
+  // Tab bar: EVENTS (the scroller) ↔ RULES (house-rules panel). LEAGUE and
+  // TEAM PROFILE are link tabs that leave the page, so they don't own a view.
+  const [view, setView] = useState<"events" | "rules">("events");
   // Ref on the inline booking form wrapper. When the customer picks
   // a tournament we smooth-scroll the form into view so they don't
   // have to hunt for it below the rail of cards.
@@ -128,17 +129,6 @@ export default function TournamentSchedule() {
     if (!hit) return;
     setExpandedId(want);
   }, [all]);
-
-  // Jump the single scroller to the first upcoming event of a given
-  // type (DOUBLES / SPECIAL EVENTS pills). Horizontal-only scroll via
-  // scrollIntoView on the card — no vertical page jump.
-  function scrollToType(kind: TournamentType) {
-    if (typeof document === "undefined") return;
-    const hit = events.find((e) => e.tournament_type === kind);
-    if (!hit) return;
-    const el = document.getElementById(`tourn-card-${hit.id}`);
-    el?.scrollIntoView({ behavior: "smooth", inline: "center", block: "nearest" });
-  }
 
   // Scroll-arrow behaviour, snap rail, edge-fades and hidden
   // scrollbar all come from the shared <RollerDeck> wrapper below.
@@ -189,14 +179,6 @@ export default function TournamentSchedule() {
       .sort((a, b) => a.event_date.localeCompare(b.event_date));
   }, [all]);
 
-  // Which types are present — governs whether the DOUBLES / SPECIAL
-  // EVENTS jump-pills are worth showing at all.
-  const hasType = useMemo(() => {
-    const set = new Set<TournamentType>();
-    for (const t of events) set.add(t.tournament_type);
-    return set;
-  }, [events]);
-
   // Placeholder poster — the founder has set a per-event poster on
   // every night in the DB; this is the belt-and-braces fallback (the
   // next/first event's poster) for any future night left without one.
@@ -220,66 +202,60 @@ export default function TournamentSchedule() {
           </Editable>
         </p>
 
-        {/* One nav row for the whole page (founder, 20 Oct 2026):
-            DOUBLES · SPECIAL EVENTS jump the single rail to the first
-            night of that type; TEAM SIGN IN and LIVE LEAGUE TABLE are
-            links; RULES toggles the house-rules panel below. On mobile
-            the pills stack full-width; on sm+ they sit as a row. */}
+        {/* Tab bar (founder, 20 Oct 2026): EVENTS · LEAGUE · RULES · TEAM
+            PROFILE. No more per-type filter pills — every pool night (incl.
+            Ball Breakers and Pocket Society specials) lives on the one EVENTS
+            scroller. EVENTS and RULES switch the panel below; LEAGUE and TEAM
+            PROFILE are links that leave the page. Pills stack full-width on
+            mobile, sit as a row on sm+. */}
         <div className="mt-10 flex flex-col items-stretch gap-2 sm:flex-row sm:flex-wrap sm:items-center sm:justify-center">
-          {hasType.has("doubles") && (
-            <button
-              type="button"
-              onClick={() => scrollToType("doubles")}
-              className="w-full rounded-full border border-violet-300/25 bg-white/5 px-6 py-3 text-sm font-bold uppercase tracking-widest text-violet-100/80 transition hover:border-violet-300/60 hover:bg-white/10 hover:text-white sm:w-auto"
-            >
-              Doubles
-            </button>
-          )}
-          {hasType.has("special") && (
-            <button
-              type="button"
-              onClick={() => scrollToType("special")}
-              className="w-full rounded-full border border-violet-300/25 bg-white/5 px-6 py-3 text-sm font-bold uppercase tracking-widest text-violet-100/80 transition hover:border-violet-300/60 hover:bg-white/10 hover:text-white sm:w-auto"
-            >
-              Special events
-            </button>
-          )}
-          {/* Team sign in sits alongside the format pills (founder, 11 Oct 2026). */}
-          <a
-            href="https://team.nodice.bar/pool"
-            className="inline-flex w-full items-center justify-center gap-2 rounded-full border border-violet-300/35 bg-white/5 px-6 py-3 text-sm font-bold uppercase tracking-widest text-violet-100/85 transition hover:border-violet-300/70 hover:bg-white/10 hover:text-white sm:w-auto"
-          >
-            🎱 Team sign in
-          </a>
-          {/* Live league table moved up into the pill row (founder, 20 Oct 2026). */}
-          <a
-            href="/league"
-            className="inline-flex w-full items-center justify-center gap-2 rounded-full border border-violet-300/30 bg-violet-500/10 px-6 py-3 text-sm font-bold uppercase tracking-widest text-violet-100 transition hover:border-violet-300/70 hover:bg-violet-500/20 hover:text-white sm:w-auto"
-          >
-            🏆 Live league table
-          </a>
-          {/* Rules tab — house rules sourced from the team hub (founder, 20 Oct 2026). */}
           <button
             type="button"
-            onClick={() => setRulesOpen((v) => !v)}
-            aria-expanded={rulesOpen}
+            onClick={() => setView("events")}
+            aria-pressed={view === "events"}
             className={`inline-flex w-full items-center justify-center gap-2 rounded-full border px-6 py-3 text-sm font-bold uppercase tracking-widest transition sm:w-auto ${
-              rulesOpen
+              view === "events"
+                ? "border-violet-400 bg-violet-500 text-white shadow-lg shadow-violet-500/30 ring-1 ring-violet-300/40"
+                : "border-violet-300/25 bg-white/5 text-violet-100/80 hover:border-violet-300/60 hover:bg-white/10 hover:text-white"
+            }`}
+          >
+            🎱 Events
+          </button>
+          <a
+            href="/league"
+            className="inline-flex w-full items-center justify-center gap-2 rounded-full border border-violet-300/25 bg-white/5 px-6 py-3 text-sm font-bold uppercase tracking-widest text-violet-100/80 transition hover:border-violet-300/60 hover:bg-white/10 hover:text-white sm:w-auto"
+          >
+            🏆 League
+          </a>
+          <button
+            type="button"
+            onClick={() => setView("rules")}
+            aria-pressed={view === "rules"}
+            className={`inline-flex w-full items-center justify-center gap-2 rounded-full border px-6 py-3 text-sm font-bold uppercase tracking-widest transition sm:w-auto ${
+              view === "rules"
                 ? "border-violet-400 bg-violet-500 text-white shadow-lg shadow-violet-500/30 ring-1 ring-violet-300/40"
                 : "border-violet-300/25 bg-white/5 text-violet-100/80 hover:border-violet-300/60 hover:bg-white/10 hover:text-white"
             }`}
           >
             📋 Rules
           </button>
+          <a
+            href="https://team.nodice.bar/pool"
+            className="inline-flex w-full items-center justify-center gap-2 rounded-full border border-violet-300/25 bg-white/5 px-6 py-3 text-sm font-bold uppercase tracking-widest text-violet-100/80 transition hover:border-violet-300/60 hover:bg-white/10 hover:text-white sm:w-auto"
+          >
+            👤 Team profile
+          </a>
         </div>
 
-        <p className="mx-auto mt-4 max-w-md text-center text-xs uppercase tracking-widest text-cream/55">
-          <Editable k="pool.tournaments.tagline">{tagline}</Editable>
-        </p>
+        {view === "events" && (
+          <p className="mx-auto mt-4 max-w-md text-center text-xs uppercase tracking-widest text-cream/55">
+            <Editable k="pool.tournaments.tagline">{tagline}</Editable>
+          </p>
+        )}
 
-        {/* House-rules panel. Revealed by the RULES pill, mirrored from
-            the team hub (team.nodice.bar) via lib/poolHouseRules. */}
-        {rulesOpen && (
+        {/* House-rules panel. Shown by the RULES tab, mirrored from the team
+            hub (team.nodice.bar) via lib/poolHouseRules. */}
+        {view === "rules" && (
           <div className="mx-auto mt-6 max-w-2xl rounded-2xl border border-violet-300/20 bg-ink/50 p-5 text-left scroll-mt-24 sm:p-6">
             <div className="mb-1 text-xs font-bold uppercase tracking-[0.3em] text-violet-300">
               House Rules
@@ -306,12 +282,7 @@ export default function TournamentSchedule() {
           </div>
         )}
 
-        {/* Team page (bets, pot, league, rules) lives on the team hub; the
-            sign-in pill moved up next to the format tabs (founder, 11 Oct 2026). */}
-        <p className="mx-auto mt-4 max-w-sm text-center text-[11px] leading-relaxed text-cream/40">
-          Played before? Sign in to bet on the night, track your pot, prizes and league place.
-        </p>
-
+        {view === "events" && (
         <div className="mt-10">
           {loading && (
             <p className="text-center text-sm text-cream/55">Loading…</p>
@@ -572,6 +543,7 @@ export default function TournamentSchedule() {
             </div>
           )}
         </div>
+        )}
       </div>
     </section>
   );
