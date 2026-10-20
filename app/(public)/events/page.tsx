@@ -7,6 +7,12 @@ import {
   type DbCalendarEvent,
 } from "@/lib/db/calendarEvents";
 import { loadDjNightsInRange, isDjEvent } from "@/lib/db/djNights";
+import {
+  loadLeadOrder,
+  leadRankFromOrder,
+  DEFAULT_LEAD_ORDER,
+  type LeadBucket,
+} from "@/lib/db/leadPriority";
 import { useContent, useImage } from "@/lib/content";
 import { Editable } from "@/components/Editable";
 import PageHero from "@/components/PageHero";
@@ -164,46 +170,14 @@ function eventDestination(ev: DbCalendarEvent): string | null {
 // (2026-10-13): the SPECIAL / one-off / limited-edition thing headlines a busy
 // night FIRST, then a DJ night — never a recurring regular (a weekly pool
 // tournament, a monthly Pingers "Sunday Sports", a standing martini+fries
-// deal). Lower rank = shown first. Signals used:
-//   • special/one-off → subcategory "Special Event" or an explicitly special
-//                        category (pool_special / food_event / world_cup)
-//   • DJ night        → isDjEvent() (feed id) or subcategory "DJ Night"
-//   • recurring       → recurrence_type weekly/fortnightly/monthly/…
-// The badge + full list in the cell and the tap/expand view still show
-// EVERY event — only the lead-image choice changes.
-function leadRank(e: DbCalendarEvent): number {
-  const cat = e.category ?? "";
-  const recurring = !!e.recurrence_type && e.recurrence_type !== "none";
-
-  // 9 — Happy Hour is the everyday wallpaper deal (it runs Mon–Fri), so it must
-  // NEVER headline a day — it sorts dead last, below every other event AND every
-  // other deal (founder 20 Oct 2026). Matched by name since it's category
-  // drink_special like the rest of the deals.
-  if (/happy\s*hour/i.test(e.title || "")) return 9;
-
-  // 0 — one-off / limited-edition SPECIAL headlines above everything (founder:
-  // a special outranks even a DJ night): a special event, a special pool comp,
-  // a food party, a world-cup fixture.
-  if (
-    cat === "special_event" ||
-    cat === "pool_special" ||
-    cat === "food_event" ||
-    cat === "world_cup"
-  )
-    return 0;
-
-  // 1 — a DJ night (the cross-origin feed, or a category='dj_night' row).
-  if (isDjEvent(e) || cat === "dj_night") return 1;
-
-  // 5 — deals / standing promos (martini+fries et al) are wallpaper.
-  if (cat === "drink_special") return 5;
-
-  // 4 — anything that explicitly recurs (weekly/monthly regulars) sits low.
-  if (recurring) return 4;
-
-  // 2 — standard one-off night / tournament (pool / ping pong comps, etc.).
-  return 2;
-}
+// deal). Happy Hour always comes dead last.
+//
+// The priority order is now EDITABLE from /admin/event-priority — see
+// lib/db/leadPriority.ts for the buckets, the classification and the saved
+// order. This page loads the saved order (falling back to the old hard-coded
+// default) and sorts each day's list by leadRankFromOrder(). The badge + full
+// list in the cell and the tap/expand view still show EVERY event — only the
+// lead-image choice changes.
 
 // Show only the current month + next 3 — per founder direction,
 // the scroller stays focused on "what's coming up" rather than
@@ -302,6 +276,10 @@ export default function EventsPage() {
   });
   const [events, setEvents] = useState<DbCalendarEvent[]>([]);
   const [loading, setLoading] = useState(false);
+  // The office-set order in which event kinds lead a busy day's poster
+  // (/admin/event-priority). Defaults to the old hard-coded order, so the
+  // calendar is unchanged until it's edited; loaded once on mount.
+  const [leadOrder, setLeadOrder] = useState<LeadBucket[]>(DEFAULT_LEAD_ORDER);
 
   // Inline-edit state — only relevant when the founder has flipped
   // the admin Edit-mode toggle on the floating AdminBar.
@@ -386,6 +364,18 @@ export default function EventsPage() {
     };
   }, [active.year, active.month]);
 
+  // Load the office-set lead-poster order once. Never throws — on any
+  // failure it keeps the default order already in state.
+  useEffect(() => {
+    let cancelled = false;
+    loadLeadOrder().then((order) => {
+      if (!cancelled) setLeadOrder(order);
+    });
+    return () => {
+      cancelled = true;
+    };
+  }, []);
+
   const grid = useMemo(
     () =>
       buildMonthGrid(
@@ -430,10 +420,13 @@ export default function EventsPage() {
     // by leadRank (stable within a tier, so original order holds).
     for (const day of Object.keys(m)) {
       const list = m[Number(day)];
-      list.sort((a, b) => leadRank(a) - leadRank(b));
+      list.sort(
+        (a, b) =>
+          leadRankFromOrder(a, leadOrder) - leadRankFromOrder(b, leadOrder),
+      );
     }
     return m;
-  }, [visibleEvents]);
+  }, [visibleEvents, leadOrder]);
 
   return (
     <main>

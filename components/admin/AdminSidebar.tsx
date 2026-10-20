@@ -22,6 +22,7 @@ const NAV: { label: string; href: string; group?: string }[] = [
   { label: "Special events & tournaments", href: "/admin/tournament-entries", group: "Bookings" },
 
   { label: "Events", href: "/admin/events", group: "Events" },
+  { label: "Event Priority", href: "/admin/event-priority", group: "Events" },
   { label: "Site Content", href: "/admin/content", group: "Events" },
   { label: "Header", href: "/admin/content/global/header", group: "Events" },
   { label: "Footer", href: "/admin/content/global/footer", group: "Events" },
