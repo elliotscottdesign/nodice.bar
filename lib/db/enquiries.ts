@@ -107,6 +107,19 @@ export async function createEnquiry(row: NewEnquiry): Promise<Enquiry> {
   return data as Enquiry;
 }
 
+// Public, anonymous intake (the party-enquiry form). The anon RLS policy is
+// INSERT-only where status='new' — anon has NO SELECT on enquiries (client
+// data, GDPR). So this must NOT request the row back: `.select()` would make
+// PostgREST return the representation, which needs a SELECT policy anon lacks,
+// and the insert 401s. Force status 'new', insert, return nothing.
+// (Same return=minimal gotcha as the newsletter signup.)
+export async function submitPublicEnquiry(row: NewEnquiry): Promise<void> {
+  const { error } = await supabase()
+    .from("enquiries")
+    .insert({ ...row, status: "new" });
+  if (error) throw error;
+}
+
 export async function updateEnquiry(
   id: string,
   patch: Partial<NewEnquiry>,

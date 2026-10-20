@@ -15,6 +15,38 @@
 import { useCallback, useEffect, useMemo, useState } from "react";
 import Notice from "@/components/Notice";
 import DatePickerInput from "@/components/admin/DatePickerInput";
+import { createEvent } from "@/lib/db/eventsPlatform";
+
+// Build a real calendar event from a confirmed enquiry and return its id. The
+// event is created HIDDEN (not on the public calendar / bar page) with no
+// bookings — the founder opens it in the Events admin to add artwork, tickets
+// and flip it live. Category defaults to special_event (a party/one-off).
+async function createEventFromEnquiry(e: Enquiry): Promise<string> {
+  const ev = await createEvent({
+    name: (e.event_type || e.contact_name || "Event").slice(0, 120),
+    description: e.notes || null,
+    external_link: null,
+    poster_url: null,
+    category: "special_event",
+    subcategory: null,
+    event_date: e.requested_date as string,
+    start_time: null,
+    end_time: null,
+    recurrence_type: "none",
+    recurrence_parent_id: null,
+    recurrence_nth: null,
+    recurrence_weekday: null,
+    show_on_pool_schedule: false,
+    show_on_events_calendar: false,
+    show_on_bar_page: false,
+    requires_ticket: false,
+    bookable: false,
+    max_attendees: e.party_size,
+    registration_open: false,
+    blocks_table_bookings: false,
+  });
+  return ev.id;
+}
 import {
   loadEnquiries,
   createEnquiry,
@@ -128,8 +160,31 @@ export default function EnquiriesClient() {
 
   async function move(id: string, status: EnquiryStatus) {
     setBusy(true);
+    setErr("");
     try {
-      await setEnquiryStatus(id, status);
+      const enq = enquiries.find((e) => e.id === id);
+      // Confirming with a date + no event yet → auto-create the linked event
+      // (founder: enquiries should flow into confirmed events automatically).
+      if (
+        status === "confirmed" &&
+        enq &&
+        enq.linked_kind !== "event" &&
+        enq.requested_date
+      ) {
+        const eventId = await createEventFromEnquiry(enq);
+        await updateEnquiry(id, {
+          status,
+          linked_kind: "event",
+          linked_id: eventId,
+        });
+      } else {
+        await setEnquiryStatus(id, status);
+        if (status === "confirmed" && enq && !enq.requested_date) {
+          setErr(
+            "Confirmed — add a date in the enquiry to auto-create its event.",
+          );
+        }
+      }
       await reload();
     } catch (e) {
       setErr(describe(e, "Couldn't update the enquiry."));
@@ -444,6 +499,16 @@ function EnquiryDrawer({
             </button>
           ))}
         </div>
+
+        {enquiry.linked_kind === "event" && enquiry.linked_id && (
+          <a
+            href="/admin/events"
+            className="mb-4 flex items-center justify-between rounded-lg border border-plonkTeal/40 bg-plonkTeal/10 px-3 py-2 text-xs font-bold uppercase tracking-wider text-plonkTeal hover:bg-plonkTeal/20"
+          >
+            <span>✓ Linked event created</span>
+            <span>Open in Events →</span>
+          </a>
+        )}
 
         <dl className="space-y-1.5 text-sm">
           <Row k="Email" v={enquiry.contact_email} />
