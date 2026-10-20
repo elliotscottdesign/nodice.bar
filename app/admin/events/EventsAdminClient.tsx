@@ -57,6 +57,44 @@ import {
   type EventCategory,
   type RecurrenceType,
 } from "@/lib/db/eventsPlatform";
+import { loadDjNightsInRange, isDjEvent } from "@/lib/db/djNights";
+import type { DbCalendarEvent } from "@/lib/db/calendarEvents";
+
+// DJ nights live in the DJ booking system and auto-feed onto the public
+// calendar — they're NOT rows in the events table. For the backend CRM view we
+// pull that feed in READ-ONLY so "All events" really shows everything live
+// (founder 20 Oct 2026). Mapped to DbEvent shape; the "dj-" id (isDjEvent) marks
+// them so they can't be edited/deleted here (the DJ portal owns them).
+function djNightToDbEvent(dj: DbCalendarEvent): DbEvent {
+  return {
+    id: dj.id,
+    name: dj.title,
+    description: dj.body,
+    external_link: dj.link_url,
+    poster_url: dj.image_url || null,
+    category: "dj_night",
+    subcategory: dj.subcategory,
+    event_date: dj.event_date,
+    start_time: dj.start_time,
+    end_time: null,
+    recurrence_type: "none",
+    recurrence_parent_id: null,
+    recurrence_overridden: false,
+    recurrence_nth: null,
+    recurrence_weekday: null,
+    show_on_pool_schedule: false,
+    show_on_events_calendar: true,
+    show_on_bar_page: false,
+    requires_ticket: false,
+    bookable: false,
+    max_attendees: null,
+    registration_open: false,
+    paid_entries_count: 0,
+    blocks_table_bookings: false,
+    created_at: dj.created_at || "",
+    updated_at: dj.updated_at || "",
+  };
+}
 
 // =============================================================
 // EventsAdminClient — the "Create Event" workbench
@@ -320,11 +358,19 @@ export default function EventsAdminClient() {
     setLoading(true);
     setErr("");
     try {
-      const [e, t] = await Promise.all([
+      // DJ feed over a wide window (6 months back → 15 ahead) so the backend
+      // tracks past + upcoming DJ nights alongside the events table. The feed
+      // never throws (returns [] on failure), so it can't break the page.
+      const today = new Date();
+      const from = new Date(today.getFullYear(), today.getMonth() - 6, 1);
+      const to = new Date(today.getFullYear(), today.getMonth() + 15, 1);
+      const iso = (d: Date) => d.toISOString().slice(0, 10);
+      const [e, t, dj] = await Promise.all([
         loadAllEvents(),
         loadAllTicketTypes(),
+        loadDjNightsInRange(iso(from), iso(to)),
       ]);
-      setEvents(e);
+      setEvents([...e, ...dj.map(djNightToDbEvent)]);
       setTicketTypes(t);
     } catch (e) {
       setErr(describe(e, "Failed to load events"));
@@ -1101,7 +1147,10 @@ export default function EventsAdminClient() {
                   events={visibleEvents}
                   month={calMonth}
                   onMonthChange={setCalMonth}
-                  onEventClick={(id) => setEditingEventId(id)}
+                  onEventClick={(id) => {
+                    // DJ nights are read-only (owned by the DJ booking system).
+                    if (!isDjEvent({ id })) setEditingEventId(id);
+                  }}
                 />
               ) : visibleEvents.length === 0 ? (
                 <p className="rounded-xl border border-cream/10 bg-ink/40 px-6 py-10 text-center text-sm text-cream/55">
@@ -1174,22 +1223,34 @@ export default function EventsAdminClient() {
                         <Badge label="Calendar" />
                       )}
                       {e.show_on_bar_page && <Badge label="Bar" />}
-                      <button
-                        type="button"
-                        onClick={() => setEditingEventId(e.id)}
-                        disabled={busy}
-                        className="rounded-full border border-plonkTeal/40 px-3 py-1 text-[11px] font-bold uppercase tracking-wider text-plonkTeal hover:bg-plonkTeal/10"
-                      >
-                        Edit
-                      </button>
-                      <button
-                        type="button"
-                        onClick={() => handleDelete(e)}
-                        disabled={busy}
-                        className="text-[11px] font-bold uppercase tracking-wider text-red-400/80 hover:underline"
-                      >
-                        Delete
-                      </button>
+                      {isDjEvent(e) ? (
+                        // Read-only: DJ nights come from the DJ booking system.
+                        <span
+                          title="Managed in the DJ booking system — not editable here"
+                          className="rounded-full border border-cream/20 px-3 py-1 text-[11px] font-bold uppercase tracking-wider text-cream/50"
+                        >
+                          DJ system
+                        </span>
+                      ) : (
+                        <>
+                          <button
+                            type="button"
+                            onClick={() => setEditingEventId(e.id)}
+                            disabled={busy}
+                            className="rounded-full border border-plonkTeal/40 px-3 py-1 text-[11px] font-bold uppercase tracking-wider text-plonkTeal hover:bg-plonkTeal/10"
+                          >
+                            Edit
+                          </button>
+                          <button
+                            type="button"
+                            onClick={() => handleDelete(e)}
+                            disabled={busy}
+                            className="text-[11px] font-bold uppercase tracking-wider text-red-400/80 hover:underline"
+                          >
+                            Delete
+                          </button>
+                        </>
+                      )}
                     </div>
                   </li>
                 );
@@ -1221,25 +1282,16 @@ export default function EventsAdminClient() {
           onClose={() => setEditingEventId(null)}
           onSaved={async () => {
             setEditingEventId(null);
-            // Re-pull both lists so the row summary reflects the edit.
-            const [evs, tts] = await Promise.all([
-              loadAllEvents(),
-              loadAllTicketTypes(),
-            ]);
-            setEvents(evs);
-            setTicketTypes(tts);
+            // reload() re-pulls the events table + ticket types AND re-merges
+            // the DJ feed, so the read-only DJ rows aren't dropped after a save.
+            await reload();
           }}
           // Re-pull the lists WITHOUT closing the modal — used after the
           // poster maker writes artwork straight onto the event, so the row
           // behind updates while the founder stays put to download the
           // Instagram files.
           onRefresh={async () => {
-            const [evs, tts] = await Promise.all([
-              loadAllEvents(),
-              loadAllTicketTypes(),
-            ]);
-            setEvents(evs);
-            setTicketTypes(tts);
+            await reload();
           }}
         />
       )}
