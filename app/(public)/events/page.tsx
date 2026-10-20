@@ -1129,19 +1129,14 @@ function MultiEventStack({
       <div className="relative flex w-full gap-0.5 overflow-hidden bg-ink sm:hidden">
         {mobileThumbs.map((ev) => {
           const src = thumbSrc(ev);
-          const c = categoryColours(chipForEvent(ev));
           return (
             <div
               key={ev.id}
               className="relative aspect-square flex-1 overflow-hidden bg-ink"
             >
-              {/* Colour stripe across the top of each mini thumbnail
-                  so multi-event days read at a glance which subcategory
-                  is which without having to expand. */}
-              <span
-                aria-hidden="true"
-                className={`absolute inset-x-0 top-0 z-10 h-0.5 ${c.stripe}`}
-              />
+              {/* No colour stripe here — founder 20 Oct 2026: the artwork stands
+                  alone on mobile; the category is shown by the dot in the list
+                  below, not a line over the poster. */}
               {src ? (
                 // eslint-disable-next-line @next/next/no-img-element
                 <img
