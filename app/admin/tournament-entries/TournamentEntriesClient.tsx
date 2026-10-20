@@ -130,6 +130,11 @@ export default function TournamentEntriesClient() {
 
   // Event browser.
   const [typeFilter, setTypeFilter] = useState<"all" | TrackerTypeGroup>("all");
+  // Date filter — the SAME pills as the Bookings view (founder 20 Oct 2026,
+  // prep for merging into one booking system + CRM). Defaults to "upcoming".
+  const [dateFilter, setDateFilter] = useState<
+    "upcoming" | "today" | "week" | "past" | "all"
+  >("upcoming");
   const [selectedKey, setSelectedKey] = useState<string | null>(null);
   const [mode, setMode] = useState<"list" | "calendar">("list");
 
@@ -188,15 +193,24 @@ export default function TournamentEntriesClient() {
     return m;
   }, [events]);
 
-  // Events in the active type filter (drives the card grid + calendar
-  // + the combined "all events" entries scope).
-  const visibleEvents = useMemo(
-    () =>
-      typeFilter === "all"
-        ? events
-        : events.filter((e) => e.typeGroup === typeFilter),
-    [events, typeFilter],
-  );
+  // Events in the active type + date filter (drives the card grid + calendar
+  // + the combined "all events" entries scope). Date logic mirrors the Bookings
+  // view exactly (ISO string compare) so the two read the same.
+  const visibleEvents = useMemo(() => {
+    const iso = (d: Date) =>
+      `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}`;
+    const todayIso = iso(now);
+    const weekIso = iso(new Date(now.getTime() + 7 * 86400_000));
+    return events.filter((e) => {
+      if (typeFilter !== "all" && e.typeGroup !== typeFilter) return false;
+      const sd = e.event_date;
+      if (dateFilter === "today") return sd === todayIso;
+      if (dateFilter === "upcoming") return sd >= todayIso;
+      if (dateFilter === "week") return sd >= todayIso && sd <= weekIso;
+      if (dateFilter === "past") return sd < todayIso;
+      return true; // "all"
+    });
+  }, [events, typeFilter, dateFilter, now]);
 
   const typeCounts = useMemo(() => {
     const c: Record<TrackerTypeGroup, number> = {
@@ -570,6 +584,33 @@ export default function TournamentEntriesClient() {
             </button>
           ))}
         </div>
+      </div>
+
+      {/* Date filter — the SAME pills as the Bookings view (prep for the merged
+          booking system + CRM, founder 20 Oct 2026). */}
+      <div className="flex flex-wrap items-center gap-2">
+        {(
+          [
+            { id: "upcoming" as const, label: "Upcoming" },
+            { id: "today" as const, label: "Today" },
+            { id: "week" as const, label: "Next 7 days" },
+            { id: "past" as const, label: "Past" },
+            { id: "all" as const, label: "All dates" },
+          ]
+        ).map((t) => (
+          <button
+            key={t.id}
+            type="button"
+            onClick={() => setDateFilter(t.id)}
+            className={`rounded-full border px-3 py-1.5 text-[11px] font-bold uppercase tracking-wider transition ${
+              dateFilter === t.id
+                ? "border-plonkYellow bg-plonkYellow/15 text-plonkYellow"
+                : "border-cream/15 bg-ink/40 text-cream/60 hover:border-cream/40"
+            }`}
+          >
+            {t.label}
+          </button>
+        ))}
       </div>
 
       {/* Focus / deselect chip. */}
