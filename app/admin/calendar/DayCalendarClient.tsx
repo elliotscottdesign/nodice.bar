@@ -87,7 +87,7 @@ function sourceLabel(s: Source): string {
 function sourcePill(s: Source): string {
   const base =
     "rounded-full px-2 py-0.5 text-[9px] font-bold uppercase tracking-widest";
-  if (s === "pool") return `${base} bg-plonkPink/15 text-plonkPink`;
+  if (s === "pool") return `${base} bg-purple-500/15 text-purple-300`;
   if (s === "table") return `${base} bg-plonkYellow/15 text-plonkYellow`;
   if (s === "worldcup") return `${base} bg-plonkTeal/15 text-plonkTeal`;
   if (s === "golf") return `${base} bg-orange-500/15 text-orange-300`;

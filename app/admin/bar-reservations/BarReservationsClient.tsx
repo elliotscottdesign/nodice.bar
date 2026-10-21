@@ -715,7 +715,7 @@ export default function BarReservationsClient({
                         r.source === "event"
                           ? "bg-plonkTeal/15 text-plonkTeal"
                           : r.kind === "pool"
-                          ? "bg-plonkPink/15 text-plonkPink"
+                          ? "bg-purple-500/15 text-purple-300"
                           : "bg-plonkYellow/15 text-plonkYellow"
                       }`}
                     >
