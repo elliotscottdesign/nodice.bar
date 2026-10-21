@@ -47,6 +47,18 @@ const FALLBACK_CARDS = [
   // "/comedybingo", pink hero.bingo image) — see git history for the full
   // object. It should sit right after Pool Tournament, before Parties.
   {
+    id: "special",
+    name: "Special Events",
+    tagline: "Fundraisers · Comps · One-offs",
+    blurb:
+      "Charity fundraisers, one-off competitions and limited nights — grab a ticket before they sell out.",
+    image: "",
+    // Leads to the current special-events page (the Macmillan 12-hour pool
+    // marathon). Repoint via /admin/content/info/book → book.special.href when
+    // the next special takes over.
+    href: "/macmillan",
+  },
+  {
     id: "parties",
     name: "Party Inquiries",
     tagline: "Private hire · Groups of 10+",
