@@ -58,6 +58,26 @@ const db = createClient(SUPABASE_URL, SUPABASE_SERVICE_ROLE_KEY, {
 
 const EMAIL_RE = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
 
+// Route B2B course-build leads to the Wacky Works bucket. A lead is Wacky Works
+// when it's about a mini/crazy-golf COURSE being built/installed/supplied for a
+// venue (not a customer wanting to come and PLAY). Requires a golf-course
+// mention PLUS a build/supply/dimensions/"our venue" signal, so a normal
+// "can I book crazy golf" booking stays as a venue enquiry.
+function classifyBucket(text: string): "venue" | "wacky_works" {
+  const t = (text || "").toLowerCase();
+  const golf = /(crazy|mini|adventure)[\s-]?golf|golf course/.test(t);
+  if (!golf) return "venue";
+  const hasCourse = /course/.test(t);
+  const buildVerb = /(instal|\bbuild|suppl|bespoke|fit[\s-]?out|manufactur|design and build)/.test(t);
+  const dims = /(square\s?met|\d{2,}\s?sq\.?\s?m|\d{2,}\s?m2|\d{2,}\s?m²|\d{2,}\s?sqm)/.test(t);
+  const courseToVenue = /course\s+(to|for|in|at|into|within)\s+(our|your|the|my|their)\s+(venue|space|site|premises|bar|pub|location|unit|arcade|building)/.test(t);
+  // Wacky Works = a mini/crazy-golf COURSE to be built/installed/supplied, or
+  // sized in sq-m, or going into a venue/space. Broad "your venue" or bare
+  // "add golf" is NOT enough (that's marketing spam or a party add-on).
+  const isBuild = (hasCourse && buildVerb) || dims || courseToVenue;
+  return isBuild ? "wacky_works" : "venue";
+}
+
 Deno.serve(async (req) => {
   if (req.method === "OPTIONS") {
     return new Response(null, { status: 204, headers: CORS });
@@ -120,6 +140,7 @@ Deno.serve(async (req) => {
       event_type: subject,
       notes,
       email_message_id: messageId,
+      lead_bucket: classifyBucket(subject + " " + body),
     })
     .select("id")
     .single();

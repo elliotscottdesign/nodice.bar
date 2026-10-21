@@ -65,6 +65,7 @@ import {
   type EnquiryStatus,
   type EnquirySource,
   type EnquiryMessage,
+  type LeadBucket,
 } from "@/lib/db/enquiries";
 
 function describe(e: unknown, fallback: string): string {
@@ -149,6 +150,7 @@ export default function EnquiriesClient() {
   const [creating, setCreating] = useState(false);
   const [draft, setDraft] = useState({ ...EMPTY });
   const [openId, setOpenId] = useState<string | null>(null);
+  const [bucket, setBucket] = useState<LeadBucket>("venue");
 
   const reload = useCallback(async () => {
     setLoading(true);
@@ -166,6 +168,16 @@ export default function EnquiriesClient() {
     reload();
   }, [reload]);
 
+  const bucketCounts = useMemo(() => {
+    let venue = 0;
+    let wacky = 0;
+    for (const e of enquiries) {
+      if ((e.lead_bucket || "venue") === "wacky_works") wacky++;
+      else venue++;
+    }
+    return { venue, wacky };
+  }, [enquiries]);
+
   const byStatus = useMemo(() => {
     const m: Record<EnquiryStatus, Enquiry[]> = {
       new: [],
@@ -173,9 +185,12 @@ export default function EnquiriesClient() {
       confirmed: [],
       lost: [],
     };
-    for (const e of enquiries) m[e.status].push(e);
+    for (const e of enquiries) {
+      if ((e.lead_bucket || "venue") !== bucket) continue;
+      m[e.status].push(e);
+    }
     return m;
-  }, [enquiries]);
+  }, [enquiries, bucket]);
 
   async function saveNew() {
     if (!draft.contact_name.trim() && !draft.event_type.trim()) {
@@ -257,6 +272,30 @@ export default function EnquiriesClient() {
         >
           {creating ? "Close" : "+ New enquiry"}
         </button>
+      </div>
+
+      {/* Pipeline switch: normal venue enquiries vs Wacky Works course-builds */}
+      <div className="flex items-center gap-2">
+        {(
+          [
+            ["venue", "Venue enquiries", bucketCounts.venue],
+            ["wacky_works", "Wacky Works (course builds)", bucketCounts.wacky],
+          ] as [LeadBucket, string, number][]
+        ).map(([b, label, count]) => (
+          <button
+            key={b}
+            type="button"
+            onClick={() => setBucket(b)}
+            className={`rounded-full border px-4 py-1.5 text-xs font-bold uppercase tracking-wider transition ${
+              bucket === b
+                ? "border-plonkTeal bg-plonkTeal/15 text-plonkTeal"
+                : "border-cream/15 text-cream/55 hover:border-cream/40"
+            }`}
+          >
+            {label}{" "}
+            <span className="ml-1 opacity-60">{count}</span>
+          </button>
+        ))}
       </div>
 
       {err && <Notice variant="error">{err}</Notice>}
@@ -542,6 +581,36 @@ function EnquiryDrawer({
               }`}
             >
               {STATUS_LABEL[st]}
+            </button>
+          ))}
+        </div>
+
+        {/* Pipeline bucket — venue vs Wacky Works course-build. Lets staff
+            fix a mis-routed lead. */}
+        <div className="mb-4 flex items-center gap-2">
+          <span className="text-[10px] font-bold uppercase tracking-widest text-cream/45">
+            Pipeline
+          </span>
+          {(
+            [
+              ["venue", "Venue"],
+              ["wacky_works", "Wacky Works"],
+            ] as [LeadBucket, string][]
+          ).map(([b, label]) => (
+            <button
+              key={b}
+              type="button"
+              onClick={() => {
+                if ((enquiry.lead_bucket || "venue") !== b)
+                  onSavedField({ lead_bucket: b });
+              }}
+              className={`rounded-full border px-3 py-1 text-[11px] font-bold uppercase tracking-wider transition ${
+                (enquiry.lead_bucket || "venue") === b
+                  ? "border-plonkYellow bg-plonkYellow/15 text-plonkYellow"
+                  : "border-cream/15 text-cream/55 hover:border-cream/40"
+              }`}
+            >
+              {label}
             </button>
           ))}
         </div>

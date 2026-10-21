@@ -25,6 +25,10 @@ export type EnquirySource =
 
 export type EnquiryStatus = "new" | "pencilled" | "confirmed" | "lost";
 export type LinkedKind = "event" | "tournament" | "booking" | "";
+// Which pipeline a lead belongs to. 'venue' = normal party/booking enquiries;
+// 'wacky_works' = B2B mini-golf course-build leads (the founder's separate
+// design/build company) — kept separable so they can be lifted out later.
+export type LeadBucket = "venue" | "wacky_works";
 
 export type Enquiry = {
   id: string;
@@ -47,6 +51,7 @@ export type Enquiry = {
   payment_url: string;
   paid_at: string | null;
   last_emailed_at: string | null;
+  lead_bucket: LeadBucket;
   created_at: string;
   updated_at: string;
 };
@@ -77,7 +82,7 @@ export type EnquiryMessage = {
 };
 
 const SELECT =
-  "id, source, status, contact_name, contact_email, contact_phone, event_type, party_size, requested_date, date_flex, budget, notes, assigned_to, linked_kind, linked_id, share_token, amount_pence, payment_url, paid_at, last_emailed_at, created_at, updated_at";
+  "id, source, status, contact_name, contact_email, contact_phone, event_type, party_size, requested_date, date_flex, budget, notes, assigned_to, linked_kind, linked_id, share_token, amount_pence, payment_url, paid_at, last_emailed_at, lead_bucket, created_at, updated_at";
 
 export const SOURCE_LABEL: Record<EnquirySource, string> = {
   party_form: "Party form",
