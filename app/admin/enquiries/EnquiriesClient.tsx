@@ -57,6 +57,7 @@ import {
   addEnquiryMessage,
   createEnquiryPaymentLink,
   sendEnquiryEmail,
+  sendEnquiryReply,
   markEnquiryPaid,
   SOURCE_LABEL,
   STATUS_LABEL,
@@ -517,6 +518,26 @@ function EnquiryDrawer({
   const [note, setNote] = useState("");
   const [notes, setNotes] = useState(enquiry.notes);
   const [sending, setSending] = useState(false);
+  const [reply, setReply] = useState("");
+  const [replyBusy, setReplyBusy] = useState(false);
+  const [replyMsg, setReplyMsg] = useState("");
+  const canReply = /\S+@\S+\.\S+/.test(enquiry.contact_email || "");
+
+  async function sendReply() {
+    if (!reply.trim()) return;
+    setReplyBusy(true);
+    setReplyMsg("");
+    try {
+      const r = await sendEnquiryReply(enquiry.id, reply.trim());
+      setReply("");
+      setReplyMsg(`Sent to ${r.sent_to}`);
+      setMessages(await loadEnquiryMessages(enquiry.id));
+    } catch (e) {
+      setReplyMsg(describe(e, "Couldn't send the reply."));
+    } finally {
+      setReplyBusy(false);
+    }
+  }
 
   useEffect(() => {
     setNotes(enquiry.notes);
@@ -678,20 +699,56 @@ function EnquiryDrawer({
               <p className="text-[11px] text-cream/30">No notes yet.</p>
             )}
           </div>
+          {/* Reply to the client — emails them + logs on the thread */}
+          <div className="mt-3 rounded-lg border border-plonkTeal/25 bg-plonkTeal/5 p-2.5">
+            <p className="mb-1 text-[10px] font-bold uppercase tracking-widest text-plonkTeal/80">
+              Reply to client
+            </p>
+            {canReply ? (
+              <>
+                <textarea
+                  value={reply}
+                  onChange={(e) => setReply(e.target.value)}
+                  rows={3}
+                  placeholder={`Write to ${(enquiry.contact_name || "the client").split(" ")[0]}… (emails them from info@nodice.bar)`}
+                  className={inputCls}
+                />
+                <div className="mt-2 flex items-center gap-2">
+                  <button
+                    type="button"
+                    onClick={sendReply}
+                    disabled={replyBusy || !reply.trim()}
+                    className="rounded-full bg-plonkTeal px-4 py-1.5 text-[11px] font-bold uppercase tracking-wider text-ink transition hover:brightness-110 disabled:opacity-40"
+                  >
+                    {replyBusy ? "Sending…" : "Send reply"}
+                  </button>
+                  {replyMsg && (
+                    <span className="text-[10px] text-cream/50">{replyMsg}</span>
+                  )}
+                </div>
+              </>
+            ) : (
+              <p className="text-[10px] text-cream/40">
+                No email on this enquiry to reply to.
+              </p>
+            )}
+          </div>
+
+          {/* Internal note — team-only, never emailed */}
           <div className="mt-2 flex gap-2">
             <input
               value={note}
               onChange={(e) => setNote(e.target.value)}
-              placeholder="Add an internal note…"
+              placeholder="Add an internal note (team only)…"
               className={inputCls}
             />
             <button
               type="button"
               onClick={addNote}
               disabled={sending}
-              className="shrink-0 rounded-full bg-plonkTeal px-3 py-1.5 text-xs font-bold uppercase tracking-wider text-ink disabled:opacity-40"
+              className="shrink-0 rounded-full border border-cream/25 px-3 py-1.5 text-xs font-bold uppercase tracking-wider text-cream/70 disabled:opacity-40"
             >
-              Add
+              Note
             </button>
           </div>
         </div>

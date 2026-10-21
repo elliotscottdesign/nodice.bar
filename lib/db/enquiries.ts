@@ -236,6 +236,20 @@ export async function sendEnquiryEmail(
   return callEdge("enquiry-email", { enquiry_id: enquiryId });
 }
 
+// Send a free-text reply to the client from the CRM. Emails them (from
+// info@nodice.bar) and logs it on the thread as an 'out' message.
+export async function sendEnquiryReply(
+  enquiryId: string,
+  body: string,
+  subject?: string,
+): Promise<{ ok: boolean; sent_to: string; subject: string }> {
+  return callEdge("enquiry-reply", {
+    enquiry_id: enquiryId,
+    body,
+    subject,
+  });
+}
+
 // Manually mark an enquiry paid (until the webhook auto-flip ships).
 export async function markEnquiryPaid(id: string): Promise<Enquiry> {
   return updateEnquiry(id, { paid_at: new Date().toISOString() } as Partial<NewEnquiry>);
