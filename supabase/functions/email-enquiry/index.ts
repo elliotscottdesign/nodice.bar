@@ -40,6 +40,13 @@ function json(body: unknown, status = 200) {
   });
 }
 
+// Guard: the scanner always sends a fixed app tag in the body. This replaces
+// the old fillable secret (which was a constant pain to paste correctly) — the
+// tag is baked into the scanner, nothing to fill in. A legacy EMAIL_ENQUIRY_
+// SECRET is still accepted if an older scanner sends it. The endpoint only
+// creates 'new' enquiry rows (internal, triaged on the board), so a fixed tag
+// plus the anon key is an acceptable guard here.
+const APP_TAG = "nodice-crm-scanner";
 const EMAIL_ENQUIRY_SECRET = Deno.env.get("EMAIL_ENQUIRY_SECRET") ?? "";
 const SUPABASE_URL = Deno.env.get("SUPABASE_URL") ?? "";
 const SUPABASE_SERVICE_ROLE_KEY =
@@ -56,9 +63,6 @@ Deno.serve(async (req) => {
     return new Response(null, { status: 204, headers: CORS });
   }
   if (req.method !== "POST") return json({ error: "POST only" }, 405);
-  if (!EMAIL_ENQUIRY_SECRET) {
-    return json({ error: "EMAIL_ENQUIRY_SECRET not configured" }, 500);
-  }
 
   let b: Record<string, string>;
   try {
@@ -67,7 +71,10 @@ Deno.serve(async (req) => {
     return json({ error: "Invalid JSON body" }, 400);
   }
 
-  if ((b.secret ?? "") !== EMAIL_ENQUIRY_SECRET) {
+  const tagOk = (b.app ?? "") === APP_TAG;
+  const legacySecretOk =
+    !!EMAIL_ENQUIRY_SECRET && (b.secret ?? "") === EMAIL_ENQUIRY_SECRET;
+  if (!tagOk && !legacySecretOk) {
     return json({ error: "Unauthorized" }, 401);
   }
 
