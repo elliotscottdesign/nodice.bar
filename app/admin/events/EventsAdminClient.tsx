@@ -1501,6 +1501,17 @@ function EditEventModal({
         registration_open: registrationOpen,
         blocks_table_bookings: blocksTableBookings,
         poster_url: posterUrl || null,
+        // Persist the print-ready flyer render + its structured fields on
+        // EDIT too (the create path already did; this path dropped them, so
+        // re-saving a poster never populated flyer_poster_url — bug found via
+        // the print lane 22 Oct 2026). All six are CASCADE_FIELDS, so saving
+        // a series ROOT flows the flyer to every date.
+        flyer_poster_url: flyerPosterUrl || null,
+        poster_subcopy: posterSubcopy || null,
+        poster_footer: posterFooter || null,
+        poster_image_url: posterImageUrl || null,
+        poster_qr_url: posterQrUrl || null,
+        poster_day_label: posterDayLabel || null,
         subcategory: subcategory || null,
         recurrence_type: recurrenceType,
         recurrence_nth:
