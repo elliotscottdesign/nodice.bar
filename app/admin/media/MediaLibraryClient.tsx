@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useRef, useState } from "react";
+import { confirmDialog } from "@/lib/dialog";
 import { AdminCard } from "@/components/admin/AdminCard";
 import {
   listRecentMedia,
@@ -112,9 +113,9 @@ export default function MediaLibraryClient() {
 
   async function onDelete(row: DbMediaRow) {
     if (
-      !confirm(
+      !(await confirmDialog(
         `Delete “${row.filename}”? This removes the file permanently — anything still using its URL (an event poster, a page image) will break.`,
-      )
+      ))
     )
       return;
     try {

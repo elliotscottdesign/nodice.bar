@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
+import { confirmDialog } from "@/lib/dialog";
 import { AdminCard } from "@/components/admin/AdminCard";
 import MediaPicker from "@/components/admin/MediaPicker";
 import DatePickerInput from "@/components/admin/DatePickerInput";
@@ -235,7 +236,7 @@ export default function CalendarEventsAdminClient() {
   }
 
   async function remove(id: string) {
-    if (!confirm("Delete this event? This can't be undone.")) return;
+    if (!(await confirmDialog("Delete this event? This can't be undone."))) return;
     try {
       await deleteCalendarEvent(id);
       await reload();

@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
+import { confirmDialog } from "@/lib/dialog";
 import AdminPageHeader from "@/components/admin/AdminPageHeader";
 import Notice from "@/components/Notice";
 import { AdminCard } from "@/components/admin/AdminCard";
@@ -74,7 +75,7 @@ export default function AddonsClient() {
     }
   }
   async function handleDelete(a: DbAddon) {
-    if (!confirm(`Delete "${a.name}"?`)) return;
+    if (!(await confirmDialog(`Delete "${a.name}"?`))) return;
     setBusy(true);
     try {
       await deleteAddon(a.id);

@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
+import { confirmDialog } from "@/lib/dialog";
 import AdminPageHeader from "@/components/admin/AdminPageHeader";
 import Notice from "@/components/Notice";
 import { AdminCard } from "@/components/admin/AdminCard";
@@ -65,7 +66,7 @@ export default function DealsAdminClient() {
     }
   }
   async function handleDelete(r: DbSiteDeal) {
-    if (!confirm(`Delete "${r.title}"?`)) return;
+    if (!(await confirmDialog(`Delete "${r.title}"?`))) return;
     setBusy(true);
     try {
       await deleteDeal(r.id);

@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useMemo, useRef, useState } from "react";
+import { confirmDialog } from "@/lib/dialog";
 import { createPortal } from "react-dom";
 import MediaPicker from "@/components/admin/MediaPicker";
 import EventPosterStudio from "@/components/admin/EventPosterStudio";
@@ -625,9 +626,9 @@ export default function EventsAdminClient() {
 
   async function handleDelete(event: DbEvent) {
     if (
-      !confirm(
+      !(await confirmDialog(
         `Delete "${event.name}" on ${formatDate(event.event_date)}? This removes its tickets too and can't be undone.`,
-      )
+      ))
     )
       return;
     setBusy(true);

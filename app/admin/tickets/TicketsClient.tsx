@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
+import { confirmDialog } from "@/lib/dialog";
 import AdminPageHeader from "@/components/admin/AdminPageHeader";
 import Notice from "@/components/Notice";
 import { AdminCard } from "@/components/admin/AdminCard";
@@ -94,7 +95,7 @@ export default function TicketsClient() {
   }
 
   async function removeTicket(t: DbTicket) {
-    if (!confirm(`Delete "${t.name}"? This can't be undone.`)) return;
+    if (!(await confirmDialog(`Delete "${t.name}"? This can't be undone.`))) return;
     setBusy(true);
     setErr("");
     try {

@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
+import { confirmDialog } from "@/lib/dialog";
 import { AdminCard } from "@/components/admin/AdminCard";
 import AddReservationForm from "@/components/admin/AddReservationForm";
 import TimeField from "@/components/admin/TimeField";
@@ -370,9 +371,10 @@ export default function BarReservationsClient({
         row.status === "pending" &&
         row.source === "bar" &&
         looksLikeRealEmail(row.email) &&
-        window.confirm(
+        (await confirmDialog(
           `Send ${row.name} the confirmation email now? (${row.email})`,
-        )
+          { danger: false, confirmLabel: "Send", title: "Send confirmation?" },
+        ))
       ) {
         try {
           const res = await fetch(SEND_CONFIRMATION_URL, {

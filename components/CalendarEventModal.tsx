@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
+import { confirmDialog } from "@/lib/dialog";
 import { createPortal } from "react-dom";
 import MediaPicker from "@/components/admin/MediaPicker";
 import DatePickerInput from "@/components/admin/DatePickerInput";
@@ -146,7 +147,7 @@ export default function CalendarEventModal({
 
   async function remove() {
     if (!event) return;
-    if (!confirm("Delete this event? This can't be undone.")) return;
+    if (!(await confirmDialog("Delete this event? This can't be undone."))) return;
     setDeleting(true);
     setErr("");
     try {

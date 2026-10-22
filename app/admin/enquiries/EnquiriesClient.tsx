@@ -13,6 +13,7 @@
 // =============================================================
 
 import { useCallback, useEffect, useMemo, useState } from "react";
+import { confirmDialog } from "@/lib/dialog";
 import Notice from "@/components/Notice";
 import DatePickerInput from "@/components/admin/DatePickerInput";
 import { createEvent } from "@/lib/db/eventsPlatform";
@@ -538,7 +539,11 @@ export default function EnquiriesClient() {
             }
           }}
           onDelete={async () => {
-            if (!window.confirm("Delete this enquiry? This can't be undone."))
+            if (
+              !(await confirmDialog(
+                "Delete this enquiry? This can't be undone.",
+              ))
+            )
               return;
             try {
               await deleteEnquiry(open.id);

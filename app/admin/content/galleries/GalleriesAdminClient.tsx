@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useRef, useState } from "react";
+import { confirmDialog } from "@/lib/dialog";
 import { useSearchParams } from "next/navigation";
 import AdminPageHeader from "@/components/admin/AdminPageHeader";
 import Notice from "@/components/Notice";
@@ -504,7 +505,7 @@ export default function GalleriesAdminClient() {
   }
 
   async function handleDelete(g: DbGalleryImage) {
-    if (!confirm(`Remove this image from the gallery? (The original file in Storage isn't deleted.)`)) return;
+    if (!(await confirmDialog(`Remove this image from the gallery? (The original file in Storage isn't deleted.)`))) return;
     setBusy(true);
     try {
       await deleteGalleryImage(g.id);
