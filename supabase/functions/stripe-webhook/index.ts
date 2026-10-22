@@ -390,6 +390,50 @@ async function handlePoolAddonPaymentIntent(
   return new Response("ok", { status: 200 });
 }
 
+// CRM: mark an enquiry (and its linked reservation, if any) paid when its
+// Stripe Payment Link is paid. Idempotent.
+async function handleEnquiryPaymentIntent(
+  pi: Stripe.PaymentIntent,
+  eventType: string,
+): Promise<Response> {
+  if (eventType !== "payment_intent.succeeded") {
+    return new Response("ok (non-success)", { status: 200 });
+  }
+  const enquiryId = pi.metadata?.enquiry_id;
+  const reservationId = pi.metadata?.reservation_id;
+
+  if (reservationId) {
+    const { data: r } = await db
+      .from("bar_reservations")
+      .select("id, status")
+      .eq("id", reservationId)
+      .maybeSingle();
+    if (r && r.status !== "paid" && r.status !== "refunded") {
+      await db
+        .from("bar_reservations")
+        .update({
+          status: "paid",
+          paid_at: new Date().toISOString(),
+          stripe_payment_intent_id: pi.id,
+        })
+        .eq("id", r.id);
+    }
+  }
+
+  if (enquiryId) {
+    await db
+      .from("enquiries")
+      .update({ paid_at: new Date().toISOString() })
+      .eq("id", enquiryId)
+      .is("paid_at", null);
+  }
+
+  console.log(
+    `enquiry payment succeeded: enquiry ${enquiryId ?? "?"} reservation ${reservationId ?? "-"} → paid (pi=${pi.id})`,
+  );
+  return new Response("ok", { status: 200 });
+}
+
 async function fireBigBookingAlert(reservationId: string): Promise<void> {
   const res = await fetch(
     `${SUPABASE_URL}/functions/v1/notify-big-booking`,
@@ -597,6 +641,17 @@ Deno.serve(async (req) => {
   // Stripe Payment Link. Flips the linked pool row to paid; no email.
   if (pi.metadata?.kind === "pool_addon") {
     return await handlePoolAddonPaymentIntent(pi, event.type);
+  }
+
+  // CRM enquiry — a full-payment link (enquiry_payment) or an Add-booking pay
+  // link (enquiry_booking). Flips the linked reservation to paid (if any) and
+  // stamps the enquiry paid_at. Additive; touches only enquiries + the one
+  // bar_reservations row named in metadata.
+  if (
+    pi.metadata?.kind === "enquiry_booking" ||
+    pi.metadata?.kind === "enquiry_payment"
+  ) {
+    return await handleEnquiryPaymentIntent(pi, event.type);
   }
 
   // On A Roll food orders — Payment Element, row lives in food_orders

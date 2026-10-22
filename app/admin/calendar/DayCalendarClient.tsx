@@ -17,7 +17,7 @@ const BAR_CAPACITY = 70;
 const GOLF_CAPACITY = 54;
 
 // ─── Types ─────────────────────────────────────────────────────
-type Source = "pool" | "table" | "golf";
+type Source = "pool" | "table" | "golf" | "private_hire";
 
 type CalendarBooking = {
   id: string;
@@ -80,6 +80,7 @@ function heatClass(util: number): string {
 function sourceLabel(s: Source): string {
   if (s === "pool") return "Pool";
   if (s === "table") return "Table";
+  if (s === "private_hire") return "Private";
   return "Golf";
 }
 function sourcePill(s: Source): string {
@@ -87,6 +88,7 @@ function sourcePill(s: Source): string {
     "rounded-full px-2 py-0.5 text-[9px] font-bold uppercase tracking-widest";
   if (s === "pool") return `${base} bg-purple-500/15 text-purple-300`;
   if (s === "table") return `${base} bg-plonkYellow/15 text-plonkYellow`;
+  if (s === "private_hire") return `${base} bg-plonkTeal/15 text-plonkTeal`;
   return `${base} bg-orange-500/15 text-orange-300`;
 }
 
@@ -146,7 +148,7 @@ export default function DayCalendarClient() {
         // Bar reservations
         for (const r of barRes.data as Array<{
           id: string;
-          kind: "pool" | "table";
+          kind: "pool" | "table" | "golf" | "private_hire";
           reservation_date: string;
           start_time: string;
           duration_minutes: number;
