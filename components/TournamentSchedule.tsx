@@ -282,8 +282,14 @@ export default function TournamentSchedule() {
           </div>
         )}
 
+        </div>
+
+        {/* Events scroller breaks out of the max-w-3xl column so it can use
+            the full desktop width (founder, 21 Oct 2026 — the centred row
+            left too much empty space either side). Still capped on mobile/
+            tablet, widening only from lg up, so the phone layout is untouched. */}
         {view === "events" && (
-        <div className="mt-10">
+        <div className="mx-auto mt-10 max-w-3xl lg:max-w-6xl">
           {loading && (
             <p className="text-center text-sm text-cream/55">Loading…</p>
           )}
@@ -321,9 +327,11 @@ export default function TournamentSchedule() {
 
                   // Compact card width — fits ~1.3 cards on mobile so
                   // the next one peeks in (signals scrollability),
-                  // 3-ish on tablet, 4 on desktop.
+                  // 3-ish on tablet. On desktop (lg+) the rail widens to
+                  // max-w-6xl, so the cards grow too for more presence
+                  // (founder, 21 Oct 2026). Mobile/tablet widths untouched.
                   const baseCardCls =
-                    "snap-start shrink-0 w-[240px] sm:w-[220px] rounded-2xl border p-5 text-left transition";
+                    "snap-start shrink-0 w-[240px] sm:w-[220px] lg:w-[250px] xl:w-[270px] rounded-2xl border p-5 text-left transition";
 
                   // ── SPECIAL EVENTS (founder rule, 18 Oct 2026) ──
                   // A special night is presented by its POSTER, and its button
@@ -544,7 +552,6 @@ export default function TournamentSchedule() {
           )}
         </div>
         )}
-      </div>
     </section>
   );
 }
