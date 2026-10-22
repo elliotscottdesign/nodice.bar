@@ -1846,7 +1846,18 @@ function EditEventModal({
                 patch.poster_day_label = r.poster_day_label;
               if (r.ticket_price !== undefined)
                 patch.ticket_price = r.ticket_price;
-              await updateEvent(event.id, patch);
+              // Saving a poster on a series ROOT must cascade the artwork (and
+              // its print flyer) to every date — otherwise only the master gets
+              // the new poster and the future dates keep the old one (founder,
+              // 22 Oct 2026: CUE master re-save didn't reach the other CUE
+              // nights). poster_url + flyer_poster_url + the structured fields
+              // are all CASCADE_FIELDS, so updateEventSeries carries them to
+              // every non-overridden child.
+              if (isSeriesParent) {
+                await updateEventSeries(event.id, patch, true);
+              } else {
+                await updateEvent(event.id, patch);
+              }
               setPosterUrl(r.poster_url);
               if (r.flyer_poster_url !== undefined)
                 setFlyerPosterUrl(r.flyer_poster_url ?? "");
