@@ -31,6 +31,11 @@ function json(body: unknown, status = 200) {
 }
 
 const RESEND_API_KEY = Deno.env.get("RESEND_API_KEY") ?? "";
+// Option B: when set, replies send THROUGH Gmail via an Apps Script web app
+// (so they land in Sent + thread natively). Until it's set, we fall back to
+// Resend so replies keep working. The web app is guarded by the app tag.
+const GMAIL_SEND_URL = Deno.env.get("GMAIL_SEND_URL") ?? "";
+const APP_TAG = "nodice-crm-scanner";
 const SUPABASE_URL = Deno.env.get("SUPABASE_URL") ?? "";
 const SUPABASE_SERVICE_ROLE_KEY =
   Deno.env.get("SUPABASE_SERVICE_ROLE_KEY") ?? "";
@@ -92,7 +97,7 @@ Deno.serve(async (req) => {
 
   const { data: e, error } = await db
     .from("enquiries")
-    .select("contact_name, contact_email, event_type")
+    .select("contact_name, contact_email, event_type, email_message_id")
     .eq("id", enquiryId)
     .maybeSingle();
   if (error) return json({ error: `DB error: ${error.message}` }, 500);
@@ -106,24 +111,47 @@ Deno.serve(async (req) => {
     (b.subject ?? "").trim() ||
     `Re: ${e.event_type || "your No Dice enquiry"}`.slice(0, 180);
 
-  const res = await fetch("https://api.resend.com/emails", {
-    method: "POST",
-    headers: {
-      Authorization: `Bearer ${RESEND_API_KEY}`,
-      "Content-Type": "application/json",
-    },
-    body: JSON.stringify({
-      from: SENDER,
-      to: email,
-      reply_to: REPLY_TO,
-      subject,
-      html: renderHtml(bodyText),
-      text: bodyText,
-    }),
-  });
-  if (!res.ok) {
-    const txt = await res.text().catch(() => "");
-    return json({ error: `Send failed: HTTP ${res.status} ${txt}` }, 502);
+  let via = "resend";
+  if (GMAIL_SEND_URL) {
+    // Send through Gmail — appears in Sent, threads into the conversation.
+    via = "gmail";
+    const r = await fetch(GMAIL_SEND_URL, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        app: APP_TAG,
+        to: email,
+        subject,
+        body: bodyText,
+        html: renderHtml(bodyText),
+        reply_to_message_id: (e as { email_message_id?: string }).email_message_id || "",
+      }),
+    });
+    const j = (await r.json().catch(() => ({}))) as { error?: string };
+    if (!r.ok || j.error) {
+      return json({ error: `Gmail send failed: ${j.error || r.status}` }, 502);
+    }
+  } else {
+    if (!RESEND_API_KEY) return json({ error: "No sender configured" }, 500);
+    const res = await fetch("https://api.resend.com/emails", {
+      method: "POST",
+      headers: {
+        Authorization: `Bearer ${RESEND_API_KEY}`,
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify({
+        from: SENDER,
+        to: email,
+        reply_to: REPLY_TO,
+        subject,
+        html: renderHtml(bodyText),
+        text: bodyText,
+      }),
+    });
+    if (!res.ok) {
+      const txt = await res.text().catch(() => "");
+      return json({ error: `Send failed: HTTP ${res.status} ${txt}` }, 502);
+    }
   }
 
   // Log it on the thread as an outbound message + stamp last_emailed_at.
@@ -137,5 +165,5 @@ Deno.serve(async (req) => {
   await db.from("enquiries").update({ last_emailed_at: new Date().toISOString() })
     .eq("id", enquiryId).then(() => {}, () => {});
 
-  return json({ ok: true, sent_to: email, subject });
+  return json({ ok: true, sent_to: email, subject, via });
 });
