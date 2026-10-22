@@ -148,6 +148,7 @@ const PRINT_FLYER_CATEGORIES: EventCategory[] = [
   "pool_tournament_singles",
   "pool_special",
   "special_event",
+  "food_event",
   "ping_pong",
 ];
 function wantsPrintFlyer(
