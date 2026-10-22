@@ -45,7 +45,7 @@ export const LEAD_BUCKETS: {
     key: "special",
     label: "Special events",
     description:
-      "One-off specials: special events, pool specials, food parties, World Cup match days.",
+      "One-off specials: special events, pool specials, food parties.",
   },
   {
     key: "dj",
@@ -97,8 +97,7 @@ export function classifyLeadBucket(
   if (
     cat === "special_event" ||
     cat === "pool_special" ||
-    cat === "food_event" ||
-    cat === "world_cup"
+    cat === "food_event"
   )
     return "special";
 

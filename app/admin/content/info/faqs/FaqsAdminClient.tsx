@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
+import { confirmDialog } from "@/lib/dialog";
 import AdminPageHeader from "@/components/admin/AdminPageHeader";
 import Notice from "@/components/Notice";
 import { AdminCard } from "@/components/admin/AdminCard";
@@ -64,7 +65,7 @@ export default function FaqsAdminClient() {
     }
   }
   async function handleDelete(r: DbFaq) {
-    if (!confirm(`Delete "${r.question}"?`)) return;
+    if (!(await confirmDialog(`Delete "${r.question}"?`))) return;
     setBusy(true);
     try {
       await deleteFaq(r.id);

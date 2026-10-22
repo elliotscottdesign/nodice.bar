@@ -404,3 +404,9 @@ select:-webkit-autofill:focus {
 .hide-scrollbar::-webkit-scrollbar {
   display: none;            /* Chrome / Safari */
 }
+
+/* Shared dialog (lib/dialog.tsx) animations — kept in global CSS rather than a
+   <style> inside the body portal, which tripped React hydration. */
+@keyframes ndDlgFade { from { opacity: 0 } to { opacity: 1 } }
+@keyframes ndDlgPop { from { opacity: 0; transform: translateY(8px) scale(.98) } to { opacity: 1; transform: none } }
+@keyframes ndDlgSlide { from { opacity: 0; transform: translateX(16px) } to { opacity: 1; transform: none } }

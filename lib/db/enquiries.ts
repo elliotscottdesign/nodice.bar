@@ -340,6 +340,24 @@ export async function sendEnquiryEmail(
   return callEdge("enquiry-email", { enquiry_id: enquiryId });
 }
 
+// Turn the enquiry into a real venue booking (table/pool/golf/private_hire).
+// Creates the reservation (blocks the slot), links + confirms the enquiry, and
+// optionally makes a Stripe pay link stamped on the enquiry.
+export type NewBooking = {
+  kind: "table" | "pool" | "golf" | "private_hire";
+  reservation_date: string;
+  start_time: string;
+  duration_minutes?: number;
+  party_size: number;
+  amount_pence?: number;
+};
+export async function createEnquiryBooking(
+  enquiryId: string,
+  b: NewBooking,
+): Promise<{ reservation_id: string; pay_url: string; amount_pence: number; warning?: string }> {
+  return callEdge("enquiry-booking", { enquiry_id: enquiryId, ...b });
+}
+
 // Send a free-text reply to the client from the CRM. Emails them (from
 // info@nodice.bar) and logs it on the thread as an 'out' message.
 export async function sendEnquiryReply(

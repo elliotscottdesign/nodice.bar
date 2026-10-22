@@ -16,15 +16,15 @@ const LIST_LINKS: { href: string; label: string }[] = [
 ];
 
 // Unified booking calendar — one month grid with a heatmap of busyness
-// across pool, tables, World Cup match holds, and golf. Click a day to
-// see every booking on that date and add new ones inline. Capacities
-// are the founder-set hard limits (bar 70 people, golf 54 people).
+// across pool, tables, and golf. Click a day to see every booking on
+// that date and add new ones inline. Capacities are the founder-set hard
+// limits (bar 70 people, golf 54 people).
 export default function CalendarPage() {
   return (
     <>
       <AdminPageHeader
         title="Booking Calendar"
-        description="Heatmap of how busy each day looks across pool, tables, World Cup, and golf. Click a day to see every booking — and add one."
+        description="Heatmap of how busy each day looks across pool, tables, and golf. Click a day to see every booking — and add one."
         action={
           <div className="flex flex-wrap gap-2">
             {LIST_LINKS.map((l) => (

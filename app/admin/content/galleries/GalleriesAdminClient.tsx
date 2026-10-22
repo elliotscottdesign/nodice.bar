@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useRef, useState } from "react";
+import { confirmDialog } from "@/lib/dialog";
 import { useSearchParams } from "next/navigation";
 import AdminPageHeader from "@/components/admin/AdminPageHeader";
 import Notice from "@/components/Notice";
@@ -84,13 +85,6 @@ const KNOWN_GALLERIES: {
     label: "HERO slider — Pool",
     description: "Top-of-page slider on /pool. Portrait shots of the tables.",
     previewPath: "/pool",
-  },
-  {
-    key: "hero.worldcup",
-    label: "HERO slider — World Cup",
-    description:
-      "Top-of-page slider on /worldcup. Crowd / big-screen shots work best.",
-    previewPath: "/worldcup",
   },
   {
     key: "hero.bingo",
@@ -511,7 +505,7 @@ export default function GalleriesAdminClient() {
   }
 
   async function handleDelete(g: DbGalleryImage) {
-    if (!confirm(`Remove this image from the gallery? (The original file in Storage isn't deleted.)`)) return;
+    if (!(await confirmDialog(`Remove this image from the gallery? (The original file in Storage isn't deleted.)`))) return;
     setBusy(true);
     try {
       await deleteGalleryImage(g.id);

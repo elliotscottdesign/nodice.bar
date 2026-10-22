@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
+import { confirmDialog } from "@/lib/dialog";
 import AdminPageHeader from "@/components/admin/AdminPageHeader";
 import Notice from "@/components/Notice";
 import { AdminCard } from "@/components/admin/AdminCard";
@@ -52,7 +53,7 @@ export default function VouchersClient() {
   }, []);
 
   async function cancelVoucher(v: DbVoucher) {
-    if (!confirm(`Cancel voucher ${v.code}? Customers won't be able to redeem it.`)) return;
+    if (!(await confirmDialog(`Cancel voucher ${v.code}? Customers won't be able to redeem it.`))) return;
     setBusy(true);
     try {
       await updateVoucher(v.id, { status: "cancelled" });

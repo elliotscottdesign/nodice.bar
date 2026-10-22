@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useMemo, useRef, useState } from "react";
+import { confirmDialog } from "@/lib/dialog";
 import { createPortal } from "react-dom";
 import MediaPicker from "@/components/admin/MediaPicker";
 import EventPosterStudio from "@/components/admin/EventPosterStudio";
@@ -18,7 +19,6 @@ import { isDealEvent } from "@/lib/db/calendarEvents";
 // bg-plonkPink and arcade/golf fell through to a grey fallback —
 // visually indistinguishable in the "Filter by category" dropdown.
 function adminCategoryDot(cat: string): string {
-  if (cat === "world_cup")               return "bg-plonkTeal";
   if (cat === "dj_night")                return "bg-plonkPink";
   if (cat === "pool_tournament_doubles") return "bg-red-500";
   if (cat === "pool_tournament_singles") return "bg-rose-400";
@@ -51,6 +51,7 @@ import {
   generateRecurrenceDates,
   nthWeekdayForDate,
   CATEGORY_LABEL,
+  CATEGORY_HELP,
   type DbEvent,
   type NewEvent,
   type DbTicketType,
@@ -173,7 +174,6 @@ const CATEGORY_OPTIONS: EventCategory[] = [
   "bingo",
   "arcade",
   "golf",
-  "world_cup",
   "other",
 ];
 
@@ -298,7 +298,7 @@ export default function EventsAdminClient() {
   // picks a category that almost always needs the dining tables.
   // They can still untick manually for the rare exception.
   useEffect(() => {
-    if (category === "world_cup" || category === "food_event") {
+    if (category === "food_event") {
       setBlocksTableBookings(true);
     }
   }, [category]);
@@ -328,7 +328,7 @@ export default function EventsAdminClient() {
   const [showOnBar, setShowOnBar] = useState(false);
   // "Blocks /book/table" — closes free dining-table reservations
   // for the event's date. Auto-defaults to true when the category
-  // implies it (World Cup match, food residency); admin can toggle.
+  // implies it (a food residency needs the dining tables); admin can toggle.
   const [blocksTableBookings, setBlocksTableBookings] = useState(false);
   const [requiresTicket, setRequiresTicket] = useState(true);
   const [maxAttendees, setMaxAttendees] = useState<string>("");
@@ -626,9 +626,9 @@ export default function EventsAdminClient() {
 
   async function handleDelete(event: DbEvent) {
     if (
-      !confirm(
+      !(await confirmDialog(
         `Delete "${event.name}" on ${formatDate(event.event_date)}? This removes its tickets too and can't be undone.`,
-      )
+      ))
     )
       return;
     setBusy(true);
@@ -798,6 +798,9 @@ export default function EventsAdminClient() {
                   </option>
                 ))}
               </select>
+              <p className="mt-1.5 text-xs leading-snug text-cream/50">
+                {CATEGORY_HELP[category]}
+              </p>
             </Field>
             <Field label="Visibility">
               <div className="space-y-2">
@@ -2404,7 +2407,6 @@ const ALL_CATEGORIES: EventCategory[] = [
   "drink_special",
   "arcade",
   "golf",
-  "world_cup",
   "other",
 ];
 
@@ -2570,7 +2572,12 @@ function CategoryDropdown({
                       cat,
                     )}`}
                   />
-                  <span className="flex-1">{CATEGORY_LABEL[cat]}</span>
+                  <span className="flex-1">
+                    <span className="block">{CATEGORY_LABEL[cat]}</span>
+                    <span className="mt-0.5 block text-[11px] font-normal leading-snug text-cream/45">
+                      {CATEGORY_HELP[cat]}
+                    </span>
+                  </span>
                 </li>
               );
             })}
@@ -2681,7 +2688,6 @@ function CalendarView({
   // cleanly on the dark cell background.
   function chipClass(ev: DbEvent): string {
     const cat = ev.category;
-    if (cat === "world_cup")                    return "bg-plonkTeal/35 text-white border-plonkTeal";
     if (cat === "dj_night")                     return "bg-plonkPink/35 text-white border-plonkPink";
     if (cat === "pool_tournament_doubles")      return "bg-red-500/35 text-white border-red-400";
     if (cat === "pool_tournament_singles")      return "bg-rose-400/35 text-white border-rose-300";

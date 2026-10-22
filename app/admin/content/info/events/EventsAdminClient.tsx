@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
+import { confirmDialog } from "@/lib/dialog";
 import AdminPageHeader from "@/components/admin/AdminPageHeader";
 import Notice from "@/components/Notice";
 import { AdminCard } from "@/components/admin/AdminCard";
@@ -66,7 +67,7 @@ export default function EventsAdminClient() {
     }
   }
   async function handleDelete(r: DbSiteEvent) {
-    if (!confirm(`Delete event "${r.title}"?`)) return;
+    if (!(await confirmDialog(`Delete event "${r.title}"?`))) return;
     setBusy(true);
     try {
       await deleteEvent(r.id);

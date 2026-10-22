@@ -26,7 +26,6 @@ export type EventCategory =
   | "bingo"
   | "arcade"
   | "golf"
-  | "world_cup"
   | "other";
 
 export type RecurrenceType =
@@ -574,6 +573,28 @@ export const CATEGORY_LABEL: Record<EventCategory, string> = {
   bingo: "Bingo",
   arcade: "Arcade",
   golf: "Golf",
-  world_cup: "World Cup — Match",
   other: "Other",
+};
+
+// Plain-English "what goes in this category" help, shown under each option in
+// the /admin/events category picker so the right tag is obvious. Keep in sync
+// with CATEGORY_LABEL above.
+export const CATEGORY_HELP: Record<EventCategory, string> = {
+  pool_tournament_doubles:
+    "Your weekly DOUBLES pool comp. Players book on the Pool page — no ticket is sold here.",
+  pool_tournament_singles:
+    "Your weekly SINGLES pool comp. Players book on the Pool page — no ticket is sold here.",
+  pool_special:
+    "A one-off pool night or fundraiser (e.g. Macmillan) — gets its own ticketed event page.",
+  ping_pong:
+    "A ping pong tournament. Players book on the Ping Pong page — no ticket is sold here.",
+  dj_night: "A DJ set or music night.",
+  food_event: "A food pop-up or kitchen residency (a one-off food night — not the everyday menu).",
+  drink_special: "A recurring deal — happy hour, 2-4-1, etc. Shows under Deals.",
+  special_event:
+    "A one-off happening that isn't pool, food, a DJ or a deal — comedy, quiz, a launch, a party night.",
+  bingo: "A bingo / comedy-bingo night.",
+  arcade: "An arcade or games night.",
+  golf: "A mini-golf event.",
+  other: "Anything that doesn't fit the categories above.",
 };

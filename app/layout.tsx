@@ -1,6 +1,7 @@
 import type { Metadata, Viewport } from "next";
 import "./globals.css";
 import CookieConsent from "@/components/CookieConsent";
+import { DialogHost } from "@/lib/dialog";
 
 // =============================================================
 // Canonical site URL — used by metadataBase + structured data
@@ -201,6 +202,10 @@ export default function RootLayout({
       <body>
         {children}
         <CookieConsent />
+        {/* Styled confirm/alert dialogs — replaces the native grey browser
+            box across every public page and the whole admin (founder, 22 Oct
+            2026). Call confirmDialog()/alertDialog() from @/lib/dialog. */}
+        <DialogHost />
       </body>
     </html>
   );

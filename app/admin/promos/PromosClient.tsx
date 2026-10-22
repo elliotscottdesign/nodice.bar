@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
+import { confirmDialog } from "@/lib/dialog";
 import AdminPageHeader from "@/components/admin/AdminPageHeader";
 import Notice from "@/components/Notice";
 import { AdminCard } from "@/components/admin/AdminCard";
@@ -83,7 +84,7 @@ export default function PromosClient() {
   }
 
   async function handleDelete(p: DbPromoCode) {
-    if (!confirm(`Delete code "${p.code}"? This can't be undone.`)) return;
+    if (!(await confirmDialog(`Delete code "${p.code}"? This can't be undone.`))) return;
     setBusy(true);
     try {
       await deletePromo(p.id);

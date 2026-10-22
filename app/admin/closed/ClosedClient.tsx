@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
+import { confirmDialog } from "@/lib/dialog";
 import AdminPageHeader from "@/components/admin/AdminPageHeader";
 import Notice from "@/components/Notice";
 import { AdminCard } from "@/components/admin/AdminCard";
@@ -48,7 +49,7 @@ export default function ClosedClient() {
   }, []);
 
   async function handleDelete(c: DbClosedDate) {
-    if (!confirm(`Unblock ${c.date}?`)) return;
+    if (!(await confirmDialog(`Unblock ${c.date}?`))) return;
     setBusy(true);
     try {
       await deleteClosedDate(c.id);

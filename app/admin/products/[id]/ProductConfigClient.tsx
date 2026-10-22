@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
+import { confirmDialog } from "@/lib/dialog";
 import Link from "next/link";
 import AdminPageHeader from "@/components/admin/AdminPageHeader";
 import Notice from "@/components/Notice";
@@ -394,7 +395,7 @@ function HoursTab({
   }
 
   async function delHour(h: DbBookableHour) {
-    if (!confirm(`Remove ${DAY_NAMES[h.day_of_week]} ${fmtTime(h.open_time)}–${fmtTime(h.close_time)}?`)) return;
+    if (!(await confirmDialog(`Remove ${DAY_NAMES[h.day_of_week]} ${fmtTime(h.open_time)}–${fmtTime(h.close_time)}?`))) return;
     setBusy(true);
     try {
       await deleteBookableHour(h.id);
@@ -512,7 +513,7 @@ function PricesTab({
     }
   }
   async function del(w: DbBookablePriceWindow) {
-    if (!confirm(`Delete price window '${w.name}'?`)) return;
+    if (!(await confirmDialog(`Delete price window '${w.name}'?`))) return;
     setBusy(true);
     try {
       await deleteBookablePriceWindow(w.id);
@@ -874,7 +875,7 @@ function OverridesTab({
     }
   }
   async function del(o: DbBookableDateOverride) {
-    if (!confirm(`Remove override for ${o.date}?`)) return;
+    if (!(await confirmDialog(`Remove override for ${o.date}?`))) return;
     setBusy(true);
     try {
       await deleteBookableDateOverride(o.id);
@@ -892,7 +893,7 @@ function OverridesTab({
         <p className="text-sm text-cream/65">
           One-off date changes. Use 'Closed' to block a day entirely (e.g.
           private hire, bank holiday). Use 'Special hours' to open at
-          different times than the weekly pattern (e.g. World Cup matinée).
+          different times than the weekly pattern (e.g. a one-off matinée).
         </p>
         <button
           type="button"

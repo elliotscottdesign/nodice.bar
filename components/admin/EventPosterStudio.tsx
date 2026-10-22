@@ -22,6 +22,7 @@ import { useCallback, useEffect, useRef, useState } from "react";
 import MediaPicker from "@/components/admin/MediaPicker";
 import Notice from "@/components/Notice";
 import { uploadImage } from "@/lib/db/media";
+import { confirmDialog } from "@/lib/dialog";
 import { RAL, ralLabel, ralSearch } from "@/lib/poster/ralColours";
 import { eventQrUrl } from "@/lib/poster/qr";
 import {
@@ -495,9 +496,10 @@ export default function EventPosterStudio({
     if (!canRender || !onSave) return;
     if (
       currentPosterUrl &&
-      !window.confirm(
+      !(await confirmDialog(
         `This event already has artwork on it. Saving this poster will replace it — the old picture stays in the media library, but the event will show this poster instead.\n\nGo ahead?`,
-      )
+        { title: "Replace artwork?", confirmLabel: "Replace", danger: false },
+      ))
     )
       return;
     setBusy("save");

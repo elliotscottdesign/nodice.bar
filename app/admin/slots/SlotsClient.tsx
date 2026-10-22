@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
+import { confirmDialog } from "@/lib/dialog";
 import AdminPageHeader from "@/components/admin/AdminPageHeader";
 import Notice from "@/components/Notice";
 import { AdminCard } from "@/components/admin/AdminCard";
@@ -48,7 +49,7 @@ export default function SlotsClient() {
   }, []);
 
   async function handleDelete(s: DbSlotOverride) {
-    if (!confirm(`Remove override on ${s.date}?`)) return;
+    if (!(await confirmDialog(`Remove override on ${s.date}?`))) return;
     setBusy(true);
     try {
       await deleteSlotOverride(s.id);

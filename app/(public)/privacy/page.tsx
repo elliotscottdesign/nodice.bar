@@ -63,7 +63,7 @@ export default function PrivacyPage() {
             <h2>1. What we collect</h2>
             <p>
               <strong>If you make a booking</strong> (pool table, bar table,
-              tournament, World Cup match): name, email, phone, party size,
+              tournament): name, email, phone, party size,
               date / time, any notes you give us, and where you heard about
               us. For paid bookings we also receive a Stripe payment-intent
               ID and confirmation status — the actual card data goes directly
