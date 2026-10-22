@@ -987,13 +987,15 @@ function FulfilmentSection({
     }
   }
 
-  async function togglePaid() {
+  async function markPaid(method: "bar" | "comp") {
     setFErr("");
+    setFMsg("");
     try {
-      await markEnquiryPaid(enquiry.id);
+      await markEnquiryPaid(enquiry, method);
+      setFMsg(method === "comp" ? "Marked comped (free)." : "Marked paid.");
       await onReload();
     } catch (e) {
-      setFErr(describe(e, "Couldn't mark paid."));
+      setFErr(describe(e, "Couldn't update payment status."));
     }
   }
 
@@ -1137,6 +1139,32 @@ function FulfilmentSection({
             <p className="mb-1 text-[10px] font-bold uppercase tracking-widest text-cream/50">
               Payment
             </p>
+            {/* Paid status + manual settle (bar / comp) — always available */}
+            <div className="mb-2 flex flex-wrap items-center gap-2 text-[11px]">
+              {enquiry.paid_at ? (
+                <span className="font-bold uppercase tracking-wider text-plonkTeal">
+                  Paid ✓ {new Date(enquiry.paid_at).toLocaleDateString("en-GB")}
+                </span>
+              ) : (
+                <>
+                  <span className="text-cream/45">Not paid —</span>
+                  <button
+                    type="button"
+                    onClick={() => markPaid("bar")}
+                    className="rounded-full border border-plonkTeal/60 px-3 py-1 font-bold uppercase tracking-wider text-plonkTeal transition hover:bg-plonkTeal/15"
+                  >
+                    Mark paid (at bar)
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => markPaid("comp")}
+                    className="rounded-full border border-cream/20 px-3 py-1 font-bold uppercase tracking-wider text-cream/55 transition hover:text-cream"
+                  >
+                    Comp (free)
+                  </button>
+                </>
+              )}
+            </div>
             {enquiry.payment_url ? (
               <div className="space-y-2">
                 <div className="flex items-center gap-2">
@@ -1154,25 +1182,10 @@ function FulfilmentSection({
                     {payCopied ? "Copied ✓" : "Copy"}
                   </button>
                 </div>
-                <div className="flex items-center justify-between text-[11px]">
-                  <span className="text-cream/60">
-                    {enquiry.amount_pence
-                      ? `£${(enquiry.amount_pence / 100).toFixed(2).replace(/\.00$/, "")} full payment`
-                      : "Full payment"}
-                  </span>
-                  {enquiry.paid_at ? (
-                    <span className="font-bold uppercase tracking-wider text-plonkTeal">
-                      Paid ✓
-                    </span>
-                  ) : (
-                    <button
-                      type="button"
-                      onClick={togglePaid}
-                      className="font-bold uppercase tracking-wider text-cream/55 hover:text-cream"
-                    >
-                      Mark paid
-                    </button>
-                  )}
+                <div className="text-[11px] text-cream/60">
+                  {enquiry.amount_pence
+                    ? `£${(enquiry.amount_pence / 100).toFixed(2).replace(/\.00$/, "")} payment link`
+                    : "Payment link"}
                 </div>
               </div>
             ) : (
