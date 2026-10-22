@@ -147,6 +147,58 @@ export const STATUS_ORDER: EnquiryStatus[] = [
   "lost",
 ];
 
+// ---- Calendar availability check ----
+// What's already on a given date, so the office (and later the AI) can answer
+// "is that date free?" at a glance. Reads table/pool reservations + events.
+export type DayAvailability = {
+  date: string;
+  tableCount: number;
+  tableCovers: number;
+  poolCount: number;
+  events: string[];
+  busy: boolean;
+};
+
+export async function checkDateAvailability(
+  iso: string,
+): Promise<DayAvailability> {
+  const db = supabase();
+  const next = new Date(iso + "T00:00:00");
+  next.setDate(next.getDate() + 1);
+  const nextIso = next.toISOString().slice(0, 10);
+  const [res, ev] = await Promise.all([
+    db
+      .from("bar_reservations")
+      .select("kind,party_size,status")
+      .gte("reservation_date", iso)
+      .lt("reservation_date", nextIso),
+    db
+      .from("events")
+      .select("name")
+      .gte("event_date", iso)
+      .lt("event_date", nextIso),
+  ]);
+  const rows = (res.data ?? []).filter(
+    (r: { status?: string }) => r.status !== "cancelled",
+  );
+  let tableCount = 0,
+    tableCovers = 0,
+    poolCount = 0;
+  for (const r of rows as { kind?: string; party_size?: number }[]) {
+    if (r.kind === "pool") poolCount++;
+    else {
+      tableCount++;
+      tableCovers += r.party_size || 0;
+    }
+  }
+  const events = (ev.data ?? [])
+    .map((e: { name?: string }) => e.name || "")
+    .filter(Boolean);
+  // Rough load flag: a chunky table count/covers or a listed event = getting busy.
+  const busy = tableCovers >= 40 || tableCount >= 6 || events.length > 0;
+  return { date: iso, tableCount, tableCovers, poolCount, events, busy };
+}
+
 export async function loadEnquiries(): Promise<Enquiry[]> {
   const { data, error } = await supabase()
     .from("enquiries")

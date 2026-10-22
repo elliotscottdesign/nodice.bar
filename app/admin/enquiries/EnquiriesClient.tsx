@@ -55,6 +55,8 @@ import {
   deleteEnquiry,
   loadEnquiryMessages,
   addEnquiryMessage,
+  checkDateAvailability,
+  type DayAvailability,
   createEnquiryPaymentLink,
   sendEnquiryEmail,
   sendEnquiryReply,
@@ -574,6 +576,20 @@ function EnquiryDrawer({
   const [reply, setReply] = useState("");
   const [replyBusy, setReplyBusy] = useState(false);
   const [replyMsg, setReplyMsg] = useState("");
+  const [avail, setAvail] = useState<DayAvailability | null>(null);
+
+  useEffect(() => {
+    setAvail(null);
+    const iso = enquiry.requested_date;
+    if (!iso) return;
+    let live = true;
+    checkDateAvailability(iso)
+      .then((a) => live && setAvail(a))
+      .catch(() => {});
+    return () => {
+      live = false;
+    };
+  }, [enquiry.requested_date]);
   const canReply = /\S+@\S+\.\S+/.test(enquiry.contact_email || "");
 
   async function sendReply() {
@@ -734,6 +750,30 @@ function EnquiryDrawer({
           <Row k="Budget" v={enquiry.budget} />
           <Row k="Source" v={SOURCE_LABEL[enquiry.source]} />
         </dl>
+
+        {/* Calendar availability for the requested date */}
+        {enquiry.requested_date && avail && (
+          <div
+            className={`mt-3 rounded-lg border px-3 py-2 text-xs ${
+              avail.busy
+                ? "border-plonkYellow/40 bg-plonkYellow/10"
+                : "border-plonkTeal/40 bg-plonkTeal/10"
+            }`}
+          >
+            <div className="font-bold uppercase tracking-wider">
+              {avail.busy ? "⚠ That date's getting busy" : "✓ That date looks free"}
+            </div>
+            <div className="mt-1 text-cream/70">
+              {avail.tableCount
+                ? `${avail.tableCount} table booking${avail.tableCount > 1 ? "s" : ""} (${avail.tableCovers} covers)`
+                : "No table bookings"}
+              {avail.poolCount ? ` · ${avail.poolCount} pool` : ""}
+              {avail.events.length
+                ? ` · On: ${avail.events.slice(0, 3).join(", ")}`
+                : ""}
+            </div>
+          </div>
+        )}
 
         <div className="mt-4">
           <p className="mb-1 text-[11px] font-bold uppercase tracking-widest text-cream/55">
