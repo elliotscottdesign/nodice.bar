@@ -9,31 +9,27 @@
 --     -H "Authorization: Bearer sbp_…" -H "Content-Type: application/json" \
 --     -d "$(python3 -c "import json;print(json.dumps({'query':open('supabase/sql/remove_world_cup.sql').read()}))")"
 --
--- SAFE: at the time of writing there are 0 events of category 'world_cup' and
--- 0 PAID event_entries. This script is idempotent. The `events`, `ticket_types`
--- and `event_entries` TABLES are kept (event_entries is framed as the generic
--- ticketed-events table) — only World Cup DATA + the category value go.
+-- APPLIED 2026-10-22 against the live project (rntcujcpsozvuxvmlejv). Kept for
+-- the record + re-bootstrap. Idempotent. The `events`, `ticket_types` and
+-- `event_entries` TABLES are kept — only World Cup DATA + the category value go.
+--
+-- NOTE on event_entries: it turned out NOT to be World-Cup-only — it holds 2
+-- ancient UNPAID pool-tournament test rows ("Cutie"/"x", Jun 2026) and 0 World
+-- Cup rows. Those 2 are NOT World Cup, so they were deliberately LEFT in place
+-- (deleting them is out of scope for "remove World Cup"). This script therefore
+-- does NOT touch event_entries.
 -- =============================================================
 
--- 1. Review first (does not change anything) — what match data still exists.
+-- 1. Review first (does not change anything).
 select 'world_cup events' as what, count(*) from public.events where category = 'world_cup'
-union all
-select 'event_entries total', count(*) from public.event_entries
-union all
-select 'event_entries paid', count(*) from public.event_entries where status = 'paid'
 union all
 select 'worldcup.* CMS rows', count(*) from public.page_content where key like 'worldcup.%';
 
--- 2. Delete any World Cup events (cascades to their ticket_types + event_entries
---    via the events FK). 0 today, so usually a no-op.
+-- 2. Delete any World Cup events (cascades to ticket_types + event_entries via
+--    the events FK). 0 today, so a no-op.
 delete from public.events where category = 'world_cup';
 
--- 3. Delete any remaining event_entries (this table only ever held World Cup
---    match tickets — written solely by the now-deleted match-checkout fn — and
---    none are paid). Comment this out if you'd rather keep the stray rows.
-delete from public.event_entries;
-
--- 4. Delete the dormant World Cup CMS copy (hero, eyebrow, title, schedule…).
+-- 3. Delete the dormant World Cup CMS copy (hero, eyebrow, title, schedule…).
 delete from public.page_content where key like 'worldcup.%';
 
 -- 5. Drop 'world_cup' from the events category CHECK constraint so it can't be
