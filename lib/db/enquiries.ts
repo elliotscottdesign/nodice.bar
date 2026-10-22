@@ -30,6 +30,43 @@ export type LinkedKind = "event" | "tournament" | "booking" | "";
 // design/build company) — kept separable so they can be lifted out later.
 export type LeadBucket = "venue" | "wacky_works";
 
+// A single "what is it" tag for filtering the board.
+export type EnquiryType =
+  | "party" | "pool" | "golf" | "ping_pong" | "table" | "private_hire"
+  | "corporate" | "kids" | "dj" | "tournament" | "fundraiser" | "other";
+
+export const ENQUIRY_TYPE_LABEL: Record<EnquiryType, string> = {
+  party: "Party",
+  pool: "Pool",
+  golf: "Golf",
+  ping_pong: "Ping Pong",
+  table: "Table",
+  private_hire: "Private hire",
+  corporate: "Corporate",
+  kids: "Kids",
+  dj: "DJ",
+  tournament: "Tournament",
+  fundraiser: "Fundraiser",
+  other: "Other",
+};
+
+// Activity-first auto-tag. Mirrors classifyType() in the email-enquiry fn.
+export function classifyEnquiryType(text: string): EnquiryType {
+  const t = (text || "").toLowerCase();
+  if (/ping[\s-]?pong|table tennis/.test(t)) return "ping_pong";
+  if (/\bpool\b|pool table|pool comp/.test(t)) return "pool";
+  if (/crazy golf|mini[\s-]?golf|\bgolf\b|golf course/.test(t)) return "golf";
+  if (/tournament|competition|\bcomp\b|\bleague\b/.test(t)) return "tournament";
+  if (/\bdj\b|dj set|decks|djing/.test(t)) return "dj";
+  if (/fundrais|charity|raffle|donation/.test(t)) return "fundraiser";
+  if (/\bkids?\b|children|\bchild\b/.test(t)) return "kids";
+  if (/corporate|work do|work social|team building|team-building|office party|colleagues/.test(t)) return "corporate";
+  if (/private hire|exclusive hire|whole venue|venue hire|private event|exclusive use/.test(t)) return "private_hire";
+  if (/\bparty\b|birthday|celebrat|hen do|stag do|\bhen\b|\bstag\b|anniversary|leaving do/.test(t)) return "party";
+  if (/\btable\b|dinner|drinks|reservation|book a table|group booking/.test(t)) return "table";
+  return "other";
+}
+
 export type Enquiry = {
   id: string;
   source: EnquirySource;
@@ -52,6 +89,7 @@ export type Enquiry = {
   paid_at: string | null;
   last_emailed_at: string | null;
   lead_bucket: LeadBucket;
+  enquiry_type: EnquiryType | null;
   created_at: string;
   updated_at: string;
 };
@@ -82,7 +120,7 @@ export type EnquiryMessage = {
 };
 
 const SELECT =
-  "id, source, status, contact_name, contact_email, contact_phone, event_type, party_size, requested_date, date_flex, budget, notes, assigned_to, linked_kind, linked_id, share_token, amount_pence, payment_url, paid_at, last_emailed_at, lead_bucket, created_at, updated_at";
+  "id, source, status, contact_name, contact_email, contact_phone, event_type, party_size, requested_date, date_flex, budget, notes, assigned_to, linked_kind, linked_id, share_token, amount_pence, payment_url, paid_at, last_emailed_at, lead_bucket, enquiry_type, created_at, updated_at";
 
 export const SOURCE_LABEL: Record<EnquirySource, string> = {
   party_form: "Party form",
@@ -120,9 +158,15 @@ export async function loadEnquiries(): Promise<Enquiry[]> {
 }
 
 export async function createEnquiry(row: NewEnquiry): Promise<Enquiry> {
+  const withType = {
+    ...row,
+    enquiry_type:
+      row.enquiry_type ??
+      classifyEnquiryType([row.event_type, row.notes].filter(Boolean).join(" ")),
+  };
   const { data, error } = await supabase()
     .from("enquiries")
-    .insert(row)
+    .insert(withType)
     .select(SELECT)
     .single();
   if (error) throw error;
@@ -138,7 +182,15 @@ export async function createEnquiry(row: NewEnquiry): Promise<Enquiry> {
 export async function submitPublicEnquiry(row: NewEnquiry): Promise<void> {
   const { error } = await supabase()
     .from("enquiries")
-    .insert({ ...row, status: "new" });
+    .insert({
+      ...row,
+      status: "new",
+      enquiry_type:
+        row.enquiry_type ??
+        classifyEnquiryType(
+          [row.event_type, row.notes].filter(Boolean).join(" "),
+        ),
+    });
   if (error) throw error;
 }
 

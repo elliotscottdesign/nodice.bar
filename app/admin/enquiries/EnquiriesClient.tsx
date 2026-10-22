@@ -67,6 +67,8 @@ import {
   type EnquirySource,
   type EnquiryMessage,
   type LeadBucket,
+  type EnquiryType,
+  ENQUIRY_TYPE_LABEL,
 } from "@/lib/db/enquiries";
 
 function describe(e: unknown, fallback: string): string {
@@ -152,6 +154,7 @@ export default function EnquiriesClient() {
   const [draft, setDraft] = useState({ ...EMPTY });
   const [openId, setOpenId] = useState<string | null>(null);
   const [bucket, setBucket] = useState<LeadBucket>("venue");
+  const [typeFilter, setTypeFilter] = useState<EnquiryType | "all">("all");
 
   const reload = useCallback(async () => {
     setLoading(true);
@@ -188,9 +191,22 @@ export default function EnquiriesClient() {
     };
     for (const e of enquiries) {
       if ((e.lead_bucket || "venue") !== bucket) continue;
+      if (typeFilter !== "all" && (e.enquiry_type || "other") !== typeFilter)
+        continue;
       m[e.status].push(e);
     }
     return m;
+  }, [enquiries, bucket, typeFilter]);
+
+  // Type counts within the current bucket, for the filter chips.
+  const typeCounts = useMemo(() => {
+    const c: Record<string, number> = {};
+    for (const e of enquiries) {
+      if ((e.lead_bucket || "venue") !== bucket) continue;
+      const k = e.enquiry_type || "other";
+      c[k] = (c[k] || 0) + 1;
+    }
+    return c;
   }, [enquiries, bucket]);
 
   async function saveNew() {
@@ -297,6 +313,38 @@ export default function EnquiriesClient() {
             <span className="ml-1 opacity-60">{count}</span>
           </button>
         ))}
+      </div>
+
+      {/* Type filter — only the types present in this bucket */}
+      <div className="flex flex-wrap items-center gap-1.5">
+        <button
+          type="button"
+          onClick={() => setTypeFilter("all")}
+          className={`rounded-full border px-3 py-1 text-[10px] font-bold uppercase tracking-wider transition ${
+            typeFilter === "all"
+              ? "border-cream/60 bg-cream/10 text-cream"
+              : "border-cream/15 text-cream/50 hover:border-cream/40"
+          }`}
+        >
+          All types
+        </button>
+        {(Object.keys(ENQUIRY_TYPE_LABEL) as EnquiryType[])
+          .filter((ty) => (typeCounts[ty] || 0) > 0)
+          .map((ty) => (
+            <button
+              key={ty}
+              type="button"
+              onClick={() => setTypeFilter(ty)}
+              className={`rounded-full border px-3 py-1 text-[10px] font-bold uppercase tracking-wider transition ${
+                typeFilter === ty
+                  ? "border-cream/60 bg-cream/10 text-cream"
+                  : "border-cream/15 text-cream/50 hover:border-cream/40"
+              }`}
+            >
+              {ENQUIRY_TYPE_LABEL[ty]}{" "}
+              <span className="opacity-60">{typeCounts[ty]}</span>
+            </button>
+          ))}
       </div>
 
       {err && <Notice variant="error">{err}</Notice>}
@@ -452,7 +500,12 @@ export default function EnquiriesClient() {
                         {e.event_type}
                       </div>
                     )}
-                    <div className="mt-1 flex flex-wrap gap-x-2 text-[10px] uppercase tracking-wider text-cream/45">
+                    <div className="mt-1 flex flex-wrap items-center gap-x-2 gap-y-1 text-[10px] uppercase tracking-wider text-cream/45">
+                      {e.enquiry_type && e.enquiry_type !== "other" && (
+                        <span className="rounded border border-cream/20 px-1.5 py-0.5 font-bold text-cream/70">
+                          {ENQUIRY_TYPE_LABEL[e.enquiry_type]}
+                        </span>
+                      )}
                       {e.requested_date && <span>{e.requested_date}</span>}
                       {e.party_size ? <span>· {e.party_size}p</span> : null}
                       <span>· {SOURCE_LABEL[e.source]}</span>
@@ -634,6 +687,24 @@ function EnquiryDrawer({
               {label}
             </button>
           ))}
+        </div>
+
+        {/* Type tag — auto-set, overridable */}
+        <div className="mb-4 flex items-center gap-2">
+          <span className="text-[10px] font-bold uppercase tracking-widest text-cream/45">
+            Type
+          </span>
+          <select
+            value={enquiry.enquiry_type || "other"}
+            onChange={(e) => onSavedField({ enquiry_type: e.target.value })}
+            className="rounded-md border border-cream/20 bg-ink px-2 py-1 text-xs text-cream"
+          >
+            {(Object.keys(ENQUIRY_TYPE_LABEL) as EnquiryType[]).map((ty) => (
+              <option key={ty} value={ty}>
+                {ENQUIRY_TYPE_LABEL[ty]}
+              </option>
+            ))}
+          </select>
         </div>
 
         {enquiry.linked_kind === "event" && enquiry.linked_id && (

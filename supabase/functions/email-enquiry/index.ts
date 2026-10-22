@@ -78,6 +78,23 @@ function classifyBucket(text: string): "venue" | "wacky_works" {
   return isBuild ? "wacky_works" : "venue";
 }
 
+// A single "what is it" tag, activity-first. Office can override on the board.
+function classifyType(text: string): string {
+  const t = (text || "").toLowerCase();
+  if (/ping[\s-]?pong|table tennis/.test(t)) return "ping_pong";
+  if (/\bpool\b|pool table|pool comp/.test(t)) return "pool";
+  if (/crazy golf|mini[\s-]?golf|\bgolf\b|golf course/.test(t)) return "golf";
+  if (/tournament|competition|\bcomp\b|\bleague\b/.test(t)) return "tournament";
+  if (/\bdj\b|dj set|decks|djing/.test(t)) return "dj";
+  if (/fundrais|charity|raffle|donation/.test(t)) return "fundraiser";
+  if (/\bkids?\b|children|\bchild\b|kids? party/.test(t)) return "kids";
+  if (/corporate|work do|work social|team building|team-building|office party|colleagues/.test(t)) return "corporate";
+  if (/private hire|exclusive hire|whole venue|venue hire|private event|exclusive use/.test(t)) return "private_hire";
+  if (/\bparty\b|birthday|celebrat|hen do|stag do|\bhen\b|\bstag\b|anniversary|leaving do/.test(t)) return "party";
+  if (/\btable\b|dinner|drinks|reservation|book a table|group booking/.test(t)) return "table";
+  return "other";
+}
+
 Deno.serve(async (req) => {
   if (req.method === "OPTIONS") {
     return new Response(null, { status: 204, headers: CORS });
@@ -141,6 +158,7 @@ Deno.serve(async (req) => {
       notes,
       email_message_id: messageId,
       lead_bucket: classifyBucket(subject + " " + body),
+      enquiry_type: classifyType(subject + " " + body),
     })
     .select("id")
     .single();
