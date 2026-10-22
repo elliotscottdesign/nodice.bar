@@ -49,9 +49,21 @@ function doPost(e) {
   }
 }
 
-// A GET just confirms the endpoint is alive (handy to test in a browser).
+// A GET confirms the endpoint is alive AND which account it sends from.
+// Open the Web app URL in a browser — it should show "info@nodice.bar".
 function doGet() {
-  return sendOut_({ ok: true, service: "nodice-crm-gmail-send" });
+  var who = "";
+  try { who = Session.getEffectiveUser().getEmail(); } catch (e) { who = "unknown"; }
+  return sendOut_({ ok: true, service: "nodice-crm-gmail-send", sends_from: who });
+}
+
+// Run this ONCE in the editor to grant the Gmail *send* permission. It sends a
+// confirmation email to yourself; approve the permission prompt when it appears.
+function grantAccess() {
+  var me = Session.getEffectiveUser().getEmail();
+  GmailApp.sendEmail(me, "No Dice CRM — send access granted",
+    "Gmail send is now authorised. The CRM can reply from this account.");
+  Logger.log("Sent a confirmation to " + me + " — send access granted.");
 }
 
 function sendOut_(o) {
