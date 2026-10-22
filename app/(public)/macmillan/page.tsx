@@ -3,6 +3,7 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 import PageHero from "@/components/PageHero";
 import MacmillanBooking from "@/components/MacmillanBooking";
+import EventsScroller from "@/components/EventsScroller";
 import { Editable } from "@/components/Editable";
 import { useContent } from "@/lib/content";
 import { loadMacmillanEvent, type MacmillanEvent } from "@/lib/db/macmillan";
@@ -193,6 +194,13 @@ export default function MacmillanPage() {
   const scrollToSelector = () =>
     selectorRef.current?.scrollIntoView({ behavior: "smooth", block: "start" });
 
+  // This event and its three session tiers already own the top of the page —
+  // the scroller is for everything ELSE that's on.
+  const excludeFromScroller = useMemo(
+    () => (event ? [event.id, ...tiers.map((t) => t.id)] : []),
+    [event, tiers],
+  );
+
   return (
     <main>
       <PageHero
@@ -276,7 +284,7 @@ export default function MacmillanPage() {
                     onClick={() => !full && setSelectedTierId(isSelected ? null : tier.id)}
                     disabled={full}
                     aria-pressed={isSelected}
-                    className={`rounded-2xl border p-5 text-left transition ${
+                    className={`rounded-2xl border p-5 text-center transition ${
                       full
                         ? "cursor-not-allowed border-cream/10 bg-ink/20 opacity-60"
                         : isSelected
@@ -376,32 +384,24 @@ export default function MacmillanPage() {
         </div>
       </section>
 
-      {/* ── What else is on ── */}
-      <section className="bg-white/[0.02] px-6 py-16">
-        <div className="mx-auto max-w-2xl">
-          <div className="mb-3 text-center text-xs font-bold uppercase tracking-[0.3em] text-plonkPink">
-            <Editable k="macmillan.whatson_eyebrow">{whatsonEyebrow}</Editable>
-          </div>
-          <h2 className="text-center font-display text-4xl uppercase tracking-wider text-cream sm:text-5xl">
-            <Editable k="macmillan.whatson_title">{whatsonTitle}</Editable>
-          </h2>
-          <ul className="mx-auto mt-8 max-w-xl space-y-3">
-            {whatsonItems.map((item) => (
-              <li
-                key={item.key}
-                className="flex items-start gap-3 rounded-2xl border border-cream/10 bg-ink/30 px-5 py-4 text-sm text-cream/85"
-              >
-                <span className="mt-0.5 text-plonkPink">◆</span>
-                <span>
-                  <Editable k={item.key} multiline>
-                    {item.text}
-                  </Editable>
-                </span>
-              </li>
-            ))}
-          </ul>
-        </div>
-      </section>
+      {/* ── Events scroller — the day's own programme, then what's coming up ──
+          Was a static bullet list. Now a side-scroller of pictures and
+          information fed by the events calendar (food nights, DJs, other games
+          nights), so adding an event in /admin/events puts it on this page. */}
+      <EventsScroller
+        className="bg-white/[0.02]"
+        eyebrow={<Editable k="macmillan.whatson_eyebrow">{whatsonEyebrow}</Editable>}
+        heading={<Editable k="macmillan.whatson_title">{whatsonTitle}</Editable>}
+        highlights={whatsonItems.map((item) => ({
+          key: item.key,
+          node: (
+            <Editable k={item.key} multiline>
+              {item.text}
+            </Editable>
+          ),
+        }))}
+        excludeIds={excludeFromScroller}
+      />
 
       {/* ── The cause ── */}
       <section className="px-6 py-16">

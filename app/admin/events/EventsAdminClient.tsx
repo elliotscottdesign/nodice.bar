@@ -134,6 +134,33 @@ function formatPence(p: number): string {
   return `£${(p / 100).toFixed(2)}`;
 }
 
+// Which event posters also render the print-ready black-on-transparent flyer
+// (→ flyer_poster_url) so the zine cover + events flyer print clean black ink
+// on paper with NO CSS inversion (founder print directive, relayed by the
+// print lane 22 Oct 2026). Deals already export it; these "made" tournament /
+// special posters are authored dark (black bg, white art) and otherwise flood
+// ink printed as-is — the engine's "negative" mode re-renders the same artwork
+// as black-on-transparent. flyer_poster_url is a CASCADE field, so saving it on
+// a series ROOT flows to every date. DJ posters already print clean so they're
+// left out; a poster only gains its flyer once re-saved through the maker.
+const PRINT_FLYER_CATEGORIES: EventCategory[] = [
+  "pool_tournament_doubles",
+  "pool_tournament_singles",
+  "pool_special",
+  "special_event",
+  "food_event",
+  "ping_pong",
+];
+function wantsPrintFlyer(
+  category: EventCategory,
+  subcategory: string | null,
+): boolean {
+  return (
+    isDealEvent(category, subcategory) ||
+    PRINT_FLYER_CATEGORIES.includes(category)
+  );
+}
+
 const CATEGORY_OPTIONS: EventCategory[] = [
   "pool_tournament_doubles",
   "pool_tournament_singles",
@@ -728,7 +755,7 @@ export default function EventsAdminClient() {
               }
               currentPosterUrl={posterUrl || null}
               isDeal={isDealEvent(category, subcategory)}
-              exportFlyer={isDealEvent(category, subcategory)}
+              exportFlyer={wantsPrintFlyer(category, subcategory)}
               defaultFooter={posterFooter || undefined}
               defaultSubcopy={posterSubcopy || undefined}
               defaultQrUrl={posterQrUrl || undefined}
@@ -1476,6 +1503,17 @@ function EditEventModal({
         registration_open: registrationOpen,
         blocks_table_bookings: blocksTableBookings,
         poster_url: posterUrl || null,
+        // Persist the print-ready flyer render + its structured fields on
+        // EDIT too (the create path already did; this path dropped them, so
+        // re-saving a poster never populated flyer_poster_url — bug found via
+        // the print lane 22 Oct 2026). All six are CASCADE_FIELDS, so saving
+        // a series ROOT flows the flyer to every date.
+        flyer_poster_url: flyerPosterUrl || null,
+        poster_subcopy: posterSubcopy || null,
+        poster_footer: posterFooter || null,
+        poster_image_url: posterImageUrl || null,
+        poster_qr_url: posterQrUrl || null,
+        poster_day_label: posterDayLabel || null,
         subcategory: subcategory || null,
         recurrence_type: recurrenceType,
         recurrence_nth:
@@ -1781,7 +1819,7 @@ function EditEventModal({
             }
             currentPosterUrl={posterUrl || null}
             isDeal={isDealEvent(event.category, subcategory)}
-            exportFlyer={isDealEvent(event.category, subcategory)}
+            exportFlyer={wantsPrintFlyer(event.category, subcategory)}
             defaultFooter={posterFooter || undefined}
             defaultSubcopy={posterSubcopy || undefined}
             defaultQrUrl={posterQrUrl || undefined}
