@@ -372,6 +372,33 @@ export async function sendEnquiryReply(
   });
 }
 
+// Ask Claude to draft the next reply from the conversation so far + the AI
+// knowledge/FAQ. Returns the draft text — office reviews/edits before sending.
+export async function draftEnquiryReply(
+  enquiryId: string,
+): Promise<{ draft: string }> {
+  return callEdge("enquiry-ai-draft", { enquiry_id: enquiryId });
+}
+
+// The editable AI knowledge/FAQ the draft function reads. Stored in crm_settings
+// (key/value). Office can edit it in the CRM so the AI's answers stay accurate.
+export async function loadAiKnowledge(): Promise<string> {
+  const db = supabase();
+  const { data } = await db
+    .from("crm_settings")
+    .select("value")
+    .eq("key", "ai_faq")
+    .maybeSingle();
+  return (data?.value as string) ?? "";
+}
+export async function saveAiKnowledge(value: string): Promise<void> {
+  const db = supabase();
+  const { error } = await db
+    .from("crm_settings")
+    .upsert({ key: "ai_faq", value, updated_at: new Date().toISOString() }, { onConflict: "key" });
+  if (error) throw new Error(error.message);
+}
+
 // Manually settle an enquiry — "bar" = paid in person, "comp" = free. Stamps
 // paid_at, settles the linked booking (paid for bar, stays confirmed for comp),
 // and logs a note so there's a record of how it was settled.
