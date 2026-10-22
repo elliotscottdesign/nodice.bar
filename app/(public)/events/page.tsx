@@ -433,6 +433,22 @@ export default function EventsPage() {
         sliderKey="hero.events"
       />
 
+      {/* OPEN DECKS sign-up CTA — DJs grab a free 1-hour slot on the quiet nights. */}
+      <section className="px-6 pt-6">
+        <a
+          href="/open-decks/"
+          className="mx-auto flex max-w-6xl flex-col items-start justify-between gap-3 rounded-2xl border border-plonkPink/40 bg-plonkPink/10 px-5 py-4 transition hover:border-plonkPink sm:flex-row sm:items-center"
+        >
+          <div>
+            <p className="font-display text-2xl leading-none text-cream sm:text-3xl">WANNA PLAY OPEN DECKS?</p>
+            <p className="mt-1 text-sm text-creamDim">Free 1-hour slots on our quiet nights — grab a date and come play.</p>
+          </div>
+          <span className="shrink-0 rounded-full bg-plonkPink px-5 py-2.5 text-xs font-bold uppercase tracking-[0.18em] text-white">
+            Sign up here →
+          </span>
+        </a>
+      </section>
+
       {/* MONTH SCROLLER — horizontal scroll strip of month buttons.
           Active month highlighted; tap any other to switch. */}
       <section className="px-6 py-6">
