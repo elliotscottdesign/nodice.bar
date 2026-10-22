@@ -31,7 +31,7 @@ import {
   type DbEventEntry,
 } from "@/lib/db/eventsPlatform";
 
-export type TrackerTypeGroup = "special" | "food" | "tournament" | "matchday";
+export type TrackerTypeGroup = "special" | "food" | "tournament";
 
 export type TrackerEntryStatus =
   | "pending_payment"
@@ -81,7 +81,6 @@ const EVENT_CATEGORY_GROUP: Record<string, TrackerTypeGroup> = {
   pool_special: "special",
   special_event: "special",
   bingo: "special",
-  world_cup: "matchday",
 };
 
 const dedupKey = (name: string, date: string) =>

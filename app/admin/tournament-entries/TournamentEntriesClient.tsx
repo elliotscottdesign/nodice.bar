@@ -70,18 +70,8 @@ const TYPE_META: Record<TrackerTypeGroup, TypeMeta> = {
     short: "Tournament",
     badge: "bg-plonkTeal/20 text-plonkTeal border-plonkTeal/40",
   },
-  matchday: {
-    label: "Match day",
-    short: "Match day",
-    badge: "bg-blue-400/20 text-blue-300 border-blue-400/40",
-  },
 };
-const TYPE_ORDER: TrackerTypeGroup[] = [
-  "special",
-  "food",
-  "tournament",
-  "matchday",
-];
+const TYPE_ORDER: TrackerTypeGroup[] = ["special", "food", "tournament"];
 
 function keyOfEvent(ev: TrackerEvent): string {
   return `${ev.source}:${ev.id}`;
@@ -217,7 +207,6 @@ export default function TournamentEntriesClient() {
       special: 0,
       food: 0,
       tournament: 0,
-      matchday: 0,
     };
     for (const e of events) c[e.typeGroup] += 1;
     return c;

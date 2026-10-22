@@ -138,29 +138,7 @@ export default function TermsPage() {
               Stripe within 7 working days.
             </p>
 
-            <h2>6. World Cup match reservations</h2>
-            <p>
-              Match-night tables are reserved with a{" "}
-              <strong>£15 bar tab minimum spend per table</strong>{" "}
-              (current as of the date above; subject to change for
-              specific high-demand matches, which will be flagged on the
-              booking page). Your £15 is taken at the time of booking and
-              applied as credit against your bar tab on the night.
-            </p>
-            <p>
-              You must arrive by kick-off; tables not occupied by then may
-              be released to walk-ins. We can't refund the deposit if the
-              fixture is moved by FIFA, but we'll move the credit to
-              another match if your team is eliminated and we're notified
-              before the next round starts.
-            </p>
-            <p>
-              House rules apply throughout the tournament — abusive
-              chanting, fighting and similar will result in ejection and
-              forfeiture of the deposit.
-            </p>
-
-            <h2>7. Payments</h2>
+            <h2>6. Payments</h2>
             <p>
               Where payment is required we use{" "}
               <a
@@ -176,7 +154,7 @@ export default function TermsPage() {
               booking confirmation.
             </p>
 
-            <h2>8. Liability</h2>
+            <h2>7. Liability</h2>
             <p>
               Nothing in these terms limits our liability for death or
               personal injury caused by our negligence, fraud, or any
@@ -189,21 +167,21 @@ export default function TermsPage() {
               losses (e.g. travel costs to a cancelled event).
             </p>
 
-            <h2>9. Privacy</h2>
+            <h2>8. Privacy</h2>
             <p>
               We handle personal data in line with our{" "}
               <a href="/privacy">Privacy Policy</a>. By making a booking
               you confirm you've read it.
             </p>
 
-            <h2>10. Governing law</h2>
+            <h2>9. Governing law</h2>
             <p>
               These terms are governed by the law of England and Wales.
               Any dispute will be heard in the courts of England and
               Wales.
             </p>
 
-            <h2>11. Changes to these terms</h2>
+            <h2>10. Changes to these terms</h2>
             <p>
               We may update these terms; the "Last updated" date at the
               top will reflect the change. The terms in force at the time

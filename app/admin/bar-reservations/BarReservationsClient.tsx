@@ -124,14 +124,7 @@ export default function BarReservationsClient({
   const [loading, setLoading] = useState(true);
   const [err, setErr] = useState("");
   const [busyId, setBusyId] = useState<string | null>(null);
-  // Source filter — distinguishes regular bar_reservations rows from
-  // World Cup match-night event_entries shown on the table surface.
-  // Only matters on the table page (and the combined /admin/bar-
-  // reservations view); the pool page never has event-sourced rows.
-  const [sourceFilter, setSourceFilter] = useState<"all" | "bar" | "event">(
-    "all",
-  );
-  // Search box — matches name / email / phone / notes / match name.
+  // Search box — matches name / email / phone / notes.
   const [search, setSearch] = useState("");
   // Date filter (2026-08-26 founder request): bookings stack closest
   // date first. "Upcoming" is the default working view; "Past" flips
@@ -193,9 +186,8 @@ export default function BarReservationsClient({
     setLoading(true);
     setErr("");
     try {
-      // loadAllTableSurfaceReservations returns BOTH bar_reservations
-      // (table + pool rows) AND World Cup event_entries shaped as
-      // table rows. The kindFilter below decides which subset to show.
+      // loadAllTableSurfaceReservations returns the bar_reservations
+      // table + pool rows. The kindFilter below decides which subset to show.
       setRows(await loadAllTableSurfaceReservations());
     } catch (e) {
       setErr(describe(e, "Failed to load reservations"));
@@ -371,9 +363,8 @@ export default function BarReservationsClient({
       await setUnifiedReservationStatus(row, status);
       // Pending → confirmed is the moment a pencilled-in booking becomes
       // real, so offer the standard confirmation email here (manual
-      // pending entries never emailed at creation). Only for regular
-      // bar rows with a real-looking address — never the info@ walk-in
-      // placeholder, and event_entries have their own email flow.
+      // pending entries never emailed at creation). Only for rows with a
+      // real-looking address — never the info@ walk-in placeholder.
       if (
         status === "confirmed" &&
         row.status === "pending" &&
@@ -438,43 +429,28 @@ export default function BarReservationsClient({
     setBusyId(r.id);
     setErr("");
     try {
-      if (r.source === "event") {
-        // event_entries rows are tied to a match — date/time/duration
-        // come from the parent event. Only customer fields editable.
-        const { error } = await supabase()
-          .from("event_entries")
-          .update({
-            attendee_name: editForm.name.trim(),
-            attendee_email: editForm.email.trim(),
-            attendee_phone: editForm.phone.trim(),
-            notes: editForm.notes.trim() || null,
-          })
-          .eq("id", r.id);
-        if (error) throw error;
-      } else {
-        const duration = Math.max(
-          30,
-          Math.min(300, parseInt(editForm.duration_minutes, 10) || 60),
-        );
-        const party = Math.max(
-          1,
-          Math.min(80, parseInt(editForm.party_size, 10) || 2),
-        );
-        const { error } = await supabase()
-          .from("bar_reservations")
-          .update({
-            reservation_date: editForm.reservation_date,
-            start_time: editForm.start_time + ":00",
-            duration_minutes: duration,
-            party_size: party,
-            name: editForm.name.trim(),
-            email: editForm.email.trim(),
-            phone: editForm.phone.trim() || null,
-            notes: editForm.notes.trim() || null,
-          })
-          .eq("id", r.id);
-        if (error) throw error;
-      }
+      const duration = Math.max(
+        30,
+        Math.min(300, parseInt(editForm.duration_minutes, 10) || 60),
+      );
+      const party = Math.max(
+        1,
+        Math.min(80, parseInt(editForm.party_size, 10) || 2),
+      );
+      const { error } = await supabase()
+        .from("bar_reservations")
+        .update({
+          reservation_date: editForm.reservation_date,
+          start_time: editForm.start_time + ":00",
+          duration_minutes: duration,
+          party_size: party,
+          name: editForm.name.trim(),
+          email: editForm.email.trim(),
+          phone: editForm.phone.trim() || null,
+          notes: editForm.notes.trim() || null,
+        })
+        .eq("id", r.id);
+      if (error) throw error;
       cancelEdit();
       await reload();
     } catch (e) {
@@ -484,25 +460,17 @@ export default function BarReservationsClient({
     }
   }
 
-  // World Cup event_entries are always shown on the table surface
-  // (founder rule: staff need to see match-night holds alongside
-  // regular table bookings to spot clashes at a glance). Pool page
-  // never includes event_entries.
   const kindRows =
     kindFilter === "all"
       ? rows
       : kindFilter === "table"
-      ? rows.filter((r) => r.kind === "table" || r.source === "event")
-      : rows.filter((r) => r.kind === "pool" && r.source === "bar");
-  const sourceRows =
-    sourceFilter === "all"
-      ? kindRows
-      : kindRows.filter((r) => r.source === sourceFilter);
+      ? rows.filter((r) => r.kind === "table")
+      : rows.filter((r) => r.kind === "pool");
   const q = search.trim().toLowerCase();
   const searchedRows = !q
-    ? sourceRows
-    : sourceRows.filter((r) =>
-        [r.name, r.email, r.phone ?? "", r.notes ?? "", r.match_name ?? ""]
+    ? kindRows
+    : kindRows.filter((r) =>
+        [r.name, r.email, r.phone ?? "", r.notes ?? ""]
           .some((v) => v.toLowerCase().includes(q)),
       );
 
@@ -546,11 +514,6 @@ export default function BarReservationsClient({
       : dateRows.filter((r) => r.status === filter);
 
   const pendingCount = kindRows.filter((r) => r.status === "pending").length;
-  // The source dropdown is only meaningful when event_entries can be
-  // mixed in — i.e. the table page or the combined view. On the pool
-  // page the dropdown would only ever have one option, so we hide it.
-  const showSourceFilter = kindFilter !== "pool";
-  const worldCupCount = kindRows.filter((r) => r.source === "event").length;
 
   // Manual-entry surface is only meaningful on a kind-specific page.
   // On the combined /admin/bar-reservations view we don't render a
@@ -589,21 +552,6 @@ export default function BarReservationsClient({
           placeholder="Search name, email, phone, notes, match…"
           className="min-w-[220px] flex-1 rounded-full border border-cream/15 bg-ink/40 px-4 py-1.5 text-xs text-cream placeholder:text-cream/40 focus:border-plonkPink focus:outline-none"
         />
-        {showSourceFilter && (
-          <select
-            value={sourceFilter}
-            onChange={(e) =>
-              setSourceFilter(e.target.value as "all" | "bar" | "event")
-            }
-            className="rounded-full border border-cream/15 bg-ink/40 px-4 py-1.5 text-xs font-bold uppercase tracking-wider text-cream/85 focus:border-plonkPink focus:outline-none"
-          >
-            <option value="all">All sources</option>
-            <option value="bar">Regular tables only</option>
-            <option value="event">
-              World Cup only{worldCupCount > 0 ? ` (${worldCupCount})` : ""}
-            </option>
-          </select>
-        )}
       </div>
 
       <div className="flex flex-wrap gap-2">
@@ -712,24 +660,13 @@ export default function BarReservationsClient({
                   <div className="flex items-center gap-3">
                     <span
                       className={`rounded-full px-2 py-0.5 text-[10px] font-bold uppercase tracking-[0.18em] ${
-                        r.source === "event"
-                          ? "bg-plonkTeal/15 text-plonkTeal"
-                          : r.kind === "pool"
+                        r.kind === "pool"
                           ? "bg-purple-500/15 text-purple-300"
                           : "bg-plonkYellow/15 text-plonkYellow"
                       }`}
                     >
-                      {r.source === "event"
-                        ? "World Cup"
-                        : r.kind === "pool"
-                        ? "Pool"
-                        : "Table"}
+                      {r.kind === "pool" ? "Pool" : "Table"}
                     </span>
-                    {r.match_name && (
-                      <span className="text-[11px] font-semibold uppercase tracking-wider text-cream/85">
-                        {r.match_name}
-                      </span>
-                    )}
                     {r.parent_reservation_id && (
                       <span className="rounded-full bg-cream/10 px-2 py-0.5 text-[10px] font-bold uppercase tracking-[0.18em] text-cream/60">
                         ↳ table add-on
@@ -844,8 +781,8 @@ export default function BarReservationsClient({
                   {editingId === r.id ? "Close edit" : "Edit"}
                 </button>
                 {/* Add pool time — office pool add-on, only on real table
-                    bookings (not pool rows or World Cup entries). */}
-                {r.source === "bar" && r.kind === "table" && (
+                    bookings (not pool rows). */}
+                {r.kind === "table" && (
                   <button
                     type="button"
                     onClick={() => openPoolForm(r)}
@@ -1047,7 +984,6 @@ export default function BarReservationsClient({
                 <div className="mt-4 rounded-2xl border border-cream/10 bg-ink/30 p-4">
                   <p className="mb-3 text-[10px] font-bold uppercase tracking-[0.22em] text-cream/55">
                     Edit booking
-                    {r.source === "event" && " (match-tied — only contact details editable)"}
                   </p>
                   {r.source === "bar" && (
                     <div className="mb-3 grid gap-3 sm:grid-cols-2">

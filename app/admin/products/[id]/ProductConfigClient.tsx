@@ -892,7 +892,7 @@ function OverridesTab({
         <p className="text-sm text-cream/65">
           One-off date changes. Use 'Closed' to block a day entirely (e.g.
           private hire, bank holiday). Use 'Special hours' to open at
-          different times than the weekly pattern (e.g. World Cup matinée).
+          different times than the weekly pattern (e.g. a one-off matinée).
         </p>
         <button
           type="button"

@@ -14,9 +14,6 @@ const FALLBACK_NAV = [
   "Bar | /bar",
   "Pool | /pool",
   "Parties | /parties",
-  // World Cup archived 2026-07-23 — page redirects to /book, nav entry
-  // removed. Restore this line to un-archive:
-  //   "World Cup | /worldcup",
   "Deals | /deals",
   "DJs & Events | /events",
   "Ping Pong | /pingpong",

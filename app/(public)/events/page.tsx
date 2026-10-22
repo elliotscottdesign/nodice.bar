@@ -68,12 +68,6 @@ const CATEGORY_COLOURS: Record<
     dot: "bg-plonkPink",
     hoverBorder: "group-hover/card:border-plonkPink",
   },
-  "Match Day": {
-    stripe: "bg-plonkTeal",
-    pill: "bg-plonkTeal/90 text-ink",
-    dot: "bg-plonkTeal",
-    hoverBorder: "group-hover/card:border-plonkTeal",
-  },
   "Pool Night": {
     stripe: "bg-purple-400",
     pill: "bg-purple-500/90 text-white",
@@ -131,13 +125,11 @@ const CATEGORY_TO_CHIP: Record<string, string> = {
   drink_special: "Deals",
   special_event: "Special Event",
   bingo: "Special Event", // founder: bingo shows as a Special Event on the calendar
-  world_cup: "Match Day",
   // arcade / golf / other → no chip (neutral fallback, no filter match)
 };
 // The public filter chips, in display order.
 const FILTER_CHIPS = [
   "DJ Night",
-  "Match Day",
   "Pool Night",
   "Ping Pong",
   "Food Night",
