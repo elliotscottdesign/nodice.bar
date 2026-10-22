@@ -59,6 +59,8 @@ import {
   checkDateAvailability,
   type DayAvailability,
   createEnquiryPaymentLink,
+  createEnquiryBooking,
+  type NewBooking,
   sendEnquiryEmail,
   sendEnquiryReply,
   markEnquiryPaid,
@@ -902,7 +904,47 @@ function FulfilmentSection({
   const [emailBusy, setEmailBusy] = useState(false);
   const [fMsg, setFMsg] = useState("");
   const [fErr, setFErr] = useState("");
+  const [bKind, setBKind] = useState<NewBooking["kind"]>("table");
+  const [bDate, setBDate] = useState(enquiry.requested_date || "");
+  const [bTime, setBTime] = useState("18:00");
+  const [bDuration, setBDuration] = useState("120");
+  const [bParty, setBParty] = useState(
+    enquiry.party_size ? String(enquiry.party_size) : "",
+  );
+  const [bAmount, setBAmount] = useState("");
+  const [bBusy, setBBusy] = useState(false);
   const brief = useMemo(() => buildBrief(enquiry), [enquiry]);
+
+  async function createBooking() {
+    const party = Number(bParty);
+    if (!bDate || !/^\d{2}:\d{2}$/.test(bTime) || !party) {
+      setFErr("Booking needs a date, a time (HH:MM) and party size.");
+      return;
+    }
+    setBBusy(true);
+    setFErr("");
+    setFMsg("");
+    try {
+      const r = await createEnquiryBooking(enquiry.id, {
+        kind: bKind,
+        reservation_date: bDate,
+        start_time: bTime,
+        duration_minutes: Number(bDuration) || 120,
+        party_size: party,
+        amount_pence: bAmount ? Math.round(Number(bAmount) * 100) : undefined,
+      });
+      setFMsg(
+        r.warning
+          ? r.warning
+          : `Booking created${r.pay_url ? " + payment link ready" : ""}. Now send the confirmation email.`,
+      );
+      await onReload();
+    } catch (e) {
+      setFErr(describe(e, "Couldn't create the booking."));
+    } finally {
+      setBBusy(false);
+    }
+  }
 
   const hasEmail = /\S+@\S+\.\S+/.test(enquiry.contact_email || "");
 
@@ -1013,6 +1055,82 @@ function FulfilmentSection({
               {fErr || fMsg}
             </p>
           )}
+
+          {/* Add booking — writes a real reservation + (optional) pay link */}
+          <div>
+            <p className="mb-1 text-[10px] font-bold uppercase tracking-widest text-cream/50">
+              Add booking
+            </p>
+            {enquiry.linked_kind === "booking" && enquiry.linked_id ? (
+              <a
+                href="/admin/table-reservations"
+                className="flex items-center justify-between rounded-lg border border-plonkTeal/40 bg-plonkTeal/10 px-3 py-2 text-xs font-bold uppercase tracking-wider text-plonkTeal hover:bg-plonkTeal/20"
+              >
+                <span>✓ Booking created — slot held</span>
+                <span>Open bookings →</span>
+              </a>
+            ) : (
+              <div className="space-y-2 rounded-lg border border-cream/15 bg-ink/40 p-2.5">
+                <div className="grid grid-cols-2 gap-2">
+                  <select
+                    value={bKind}
+                    onChange={(e) => setBKind(e.target.value as NewBooking["kind"])}
+                    className={inputCls}
+                  >
+                    <option value="table">Table</option>
+                    <option value="pool">Pool</option>
+                    <option value="golf">Golf</option>
+                    <option value="private_hire">Private hire</option>
+                  </select>
+                  <input
+                    value={bParty}
+                    onChange={(e) => setBParty(e.target.value)}
+                    inputMode="numeric"
+                    placeholder="Party size"
+                    className={inputCls}
+                  />
+                  <DatePickerInput value={bDate} onChange={setBDate} />
+                  <input
+                    value={bTime}
+                    onChange={(e) => setBTime(e.target.value)}
+                    placeholder="Time (18:00)"
+                    className={inputCls}
+                  />
+                  <input
+                    value={bDuration}
+                    onChange={(e) => setBDuration(e.target.value)}
+                    inputMode="numeric"
+                    placeholder="Mins (120)"
+                    className={inputCls}
+                  />
+                  <div className="relative">
+                    <span className="pointer-events-none absolute left-2.5 top-1/2 -translate-y-1/2 text-sm text-cream/50">
+                      £
+                    </span>
+                    <input
+                      value={bAmount}
+                      onChange={(e) => setBAmount(e.target.value)}
+                      inputMode="decimal"
+                      placeholder="Amount (opt.)"
+                      className="w-full rounded-md border border-cream/20 bg-ink py-1.5 pl-6 pr-2.5 text-sm text-cream placeholder:text-cream/35"
+                    />
+                  </div>
+                </div>
+                <button
+                  type="button"
+                  onClick={createBooking}
+                  disabled={bBusy}
+                  className="w-full rounded-full bg-plonkTeal px-4 py-1.5 text-[11px] font-bold uppercase tracking-wider text-ink transition hover:brightness-110 disabled:opacity-40"
+                >
+                  {bBusy ? "Creating…" : "Create booking"}
+                </button>
+                <p className="text-[10px] text-cream/40">
+                  Writes a real reservation (holds the slot) + a pay link if you
+                  add an amount. Then send the confirmation email below.
+                </p>
+              </div>
+            )}
+          </div>
 
           {/* Payment — full amount, office-entered, one-click Stripe link */}
           <div>
