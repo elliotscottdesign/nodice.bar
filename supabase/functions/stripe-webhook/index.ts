@@ -514,108 +514,10 @@ async function handleFoodOrderPaymentIntent(
   return new Response("ok", { status: 200 });
 }
 
-// =============================================================
-// Event-entry Payment Element handler
-// =============================================================
-// Powers the World Cup ticketed-match flow (and any future
-// ticketed event). Mirrors the tournament handler exactly — flips
-// event_entries.status to 'paid' on success.
-// =============================================================
-async function handleEventEntryPaymentIntent(
-  pi: Stripe.PaymentIntent,
-  eventType: string,
-): Promise<Response> {
-  const entryId = pi.metadata?.entry_id;
-  if (!entryId) {
-    return new Response("event_entry metadata missing entry_id", {
-      status: 200,
-    });
-  }
-  if (eventType !== "payment_intent.succeeded") {
-    console.log(
-      `event-entry webhook ${eventType}: entry ${entryId} — non-success terminal state, leaving as pending`,
-    );
-    return new Response("ok (non-success)", { status: 200 });
-  }
-
-  // Locate by id (metadata) then fall back to payment intent id.
-  let entry: { id: string; status: string } | null = null;
-  {
-    const { data, error } = await db
-      .from("event_entries")
-      .select("id, status")
-      .eq("id", entryId)
-      .maybeSingle();
-    if (error) {
-      return new Response(`DB lookup error: ${error.message}`, { status: 500 });
-    }
-    entry = data;
-  }
-  if (!entry) {
-    const { data, error } = await db
-      .from("event_entries")
-      .select("id, status")
-      .eq("stripe_payment_intent_id", pi.id)
-      .maybeSingle();
-    if (error) {
-      return new Response(`DB lookup error: ${error.message}`, { status: 500 });
-    }
-    entry = data;
-  }
-  if (!entry) {
-    return new Response("entry not found (will retry)", { status: 200 });
-  }
-  if (entry.status === "paid" || entry.status === "refunded") {
-    return new Response("already settled", { status: 200 });
-  }
-
-  const { error: updateErr } = await db
-    .from("event_entries")
-    .update({
-      status: "paid",
-      paid_at: new Date().toISOString(),
-      stripe_payment_intent_id: pi.id,
-    })
-    .eq("id", entry.id);
-  if (updateErr) {
-    return new Response(`DB update error: ${updateErr.message}`, {
-      status: 500,
-    });
-  }
-
-  console.log(
-    `event-entry webhook payment_intent.succeeded: entry ${entry.id} → paid (pi=${pi.id})`,
-  );
-
-  fireEventEntryConfirmationEmail(entry.id).catch((e) => {
-    console.error(
-      `Event-entry confirmation email failed for entry ${entry!.id}:`,
-      e,
-    );
-  });
-
-  return new Response("ok", { status: 200 });
-}
-
-async function fireEventEntryConfirmationEmail(
-  entryId: string,
-): Promise<void> {
-  const res = await fetch(
-    `${SUPABASE_URL}/functions/v1/send-event-entry-confirmation`,
-    {
-      method: "POST",
-      headers: {
-        "Content-Type": "application/json",
-        Authorization: `Bearer ${SUPABASE_SERVICE_ROLE_KEY}`,
-      },
-      body: JSON.stringify({ entry_id: entryId }),
-    },
-  );
-  if (!res.ok) {
-    const txt = await res.text().catch(() => "");
-    throw new Error(`HTTP ${res.status}: ${txt}`);
-  }
-}
+// (Removed: the World Cup event-entry Payment Element handler +
+// fireEventEntryConfirmationEmail — World Cup was retired Oct 2026 and
+// nothing writes event_entries any more. Tournament/pool/bar/bingo/food
+// handlers below are unaffected.)
 
 async function fireTournamentConfirmationEmail(entryId: string): Promise<void> {
   const res = await fetch(
@@ -695,12 +597,6 @@ Deno.serve(async (req) => {
   // Stripe Payment Link. Flips the linked pool row to paid; no email.
   if (pi.metadata?.kind === "pool_addon") {
     return await handlePoolAddonPaymentIntent(pi, event.type);
-  }
-
-  // Ticketed events (World Cup matches + any future cover-charge
-  // events) — row lives in event_entries.
-  if (pi.metadata?.kind === "event_entry") {
-    return await handleEventEntryPaymentIntent(pi, event.type);
   }
 
   // On A Roll food orders — Payment Element, row lives in food_orders
