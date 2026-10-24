@@ -7,6 +7,7 @@ import {
   type DbCalendarEvent,
 } from "@/lib/db/calendarEvents";
 import { loadDjNightsInRange, isDjEvent } from "@/lib/db/djNights";
+import { loadOpenDecksNightsInRange } from "@/lib/db/openDecksNights";
 import {
   loadLeadOrder,
   leadRankFromOrder,
@@ -325,13 +326,15 @@ export default function EventsPage() {
     // Manually-added events (this site's DB) + confirmed DJ nights (team hub
     // feed). allSettled so one source failing never blanks the other — a DB
     // hiccup still shows DJ nights, and a feed hiccup still shows your events.
-    const [calRes, djRes] = await Promise.allSettled([
+    const [calRes, djRes, odRes] = await Promise.allSettled([
       loadCalendarEventsInRange(from, to),
       loadDjNightsInRange(from, to),
+      loadOpenDecksNightsInRange(from, to),
     ]);
     const cal = calRes.status === "fulfilled" ? calRes.value : [];
     const dj = djRes.status === "fulfilled" ? djRes.value : [];
-    setEvents([...cal, ...dj]);
+    const od = odRes.status === "fulfilled" ? odRes.value : [];
+    setEvents([...cal, ...dj, ...od]);
     setLoading(false);
   }, [active.year, active.month]);
 
@@ -344,11 +347,13 @@ export default function EventsPage() {
     Promise.allSettled([
       loadCalendarEventsInRange(from, to),
       loadDjNightsInRange(from, to),
+      loadOpenDecksNightsInRange(from, to),
     ]).then((res) => {
       if (cancelled) return;
       const cal = res[0].status === "fulfilled" ? res[0].value : [];
       const dj = res[1].status === "fulfilled" ? res[1].value : [];
-      setEvents([...cal, ...dj]);
+      const od = res[2].status === "fulfilled" ? res[2].value : [];
+      setEvents([...cal, ...dj, ...od]);
       setLoading(false);
     });
     return () => {
