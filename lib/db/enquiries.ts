@@ -372,9 +372,68 @@ export async function sendEnquiryReply(
   });
 }
 
-// Manually mark an enquiry paid (until the webhook auto-flip ships).
-export async function markEnquiryPaid(id: string): Promise<Enquiry> {
-  return updateEnquiry(id, { paid_at: new Date().toISOString() } as Partial<NewEnquiry>);
+// Ask Claude to draft the next reply from the conversation so far + the AI
+// knowledge/FAQ. Returns the draft text — office reviews/edits before sending.
+export async function draftEnquiryReply(
+  enquiryId: string,
+): Promise<{ draft: string }> {
+  return callEdge("enquiry-ai-draft", { enquiry_id: enquiryId });
+}
+
+// The editable AI knowledge/FAQ the draft function reads. Stored in crm_settings
+// (key/value). Office can edit it in the CRM so the AI's answers stay accurate.
+export async function loadAiKnowledge(): Promise<string> {
+  const db = supabase();
+  const { data } = await db
+    .from("crm_settings")
+    .select("value")
+    .eq("key", "ai_faq")
+    .maybeSingle();
+  return (data?.value as string) ?? "";
+}
+export async function saveAiKnowledge(value: string): Promise<void> {
+  const db = supabase();
+  const { error } = await db
+    .from("crm_settings")
+    .upsert({ key: "ai_faq", value, updated_at: new Date().toISOString() }, { onConflict: "key" });
+  if (error) throw new Error(error.message);
+}
+
+// Manually settle an enquiry — "bar" = paid in person, "comp" = free. Stamps
+// paid_at, settles the linked booking (paid for bar, stays confirmed for comp),
+// and logs a note so there's a record of how it was settled.
+export async function markEnquiryPaid(
+  enquiry: Enquiry,
+  method: "bar" | "comp" = "bar",
+): Promise<void> {
+  const db = supabase();
+  const now = new Date().toISOString();
+  const { error } = await db
+    .from("enquiries")
+    .update({ paid_at: now })
+    .eq("id", enquiry.id);
+  if (error) throw error;
+  if (enquiry.linked_kind === "booking" && enquiry.linked_id) {
+    await db
+      .from("bar_reservations")
+      .update(
+        method === "comp"
+          ? { notes: "Comped (free) via CRM" }
+          : { status: "paid", paid_at: now },
+      )
+      .eq("id", enquiry.linked_id)
+      .then(() => {}, () => {});
+  }
+  await db
+    .from("enquiry_messages")
+    .insert({
+      enquiry_id: enquiry.id,
+      direction: "note",
+      channel: "note",
+      subject: "",
+      body: method === "comp" ? "Comped — free (no payment)" : "Marked paid — at bar / in person",
+    })
+    .then(() => {}, () => {});
 }
 
 export async function addEnquiryMessage(

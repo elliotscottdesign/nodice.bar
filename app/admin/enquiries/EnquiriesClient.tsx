@@ -63,6 +63,9 @@ import {
   type NewBooking,
   sendEnquiryEmail,
   sendEnquiryReply,
+  draftEnquiryReply,
+  loadAiKnowledge,
+  saveAiKnowledge,
   markEnquiryPaid,
   SOURCE_LABEL,
   STATUS_LABEL,
@@ -160,6 +163,7 @@ export default function EnquiriesClient() {
   const [openId, setOpenId] = useState<string | null>(null);
   const [bucket, setBucket] = useState<LeadBucket>("venue");
   const [typeFilter, setTypeFilter] = useState<EnquiryType | "all">("all");
+  const [aiOpen, setAiOpen] = useState(false);
 
   const reload = useCallback(async () => {
     setLoading(true);
@@ -287,14 +291,25 @@ export default function EnquiriesClient() {
             kitchen/bar brief (coming next).
           </p>
         </div>
-        <button
-          type="button"
-          onClick={() => setCreating((v) => !v)}
-          className="rounded-full bg-plonkTeal px-4 py-2 text-xs font-bold uppercase tracking-wider text-ink transition hover:brightness-110"
-        >
-          {creating ? "Close" : "+ New enquiry"}
-        </button>
+        <div className="flex items-center gap-2">
+          <button
+            type="button"
+            onClick={() => setAiOpen((v) => !v)}
+            className="rounded-full border border-cream/25 px-4 py-2 text-xs font-bold uppercase tracking-wider text-cream/70 transition hover:border-cream/50"
+          >
+            {aiOpen ? "Close" : "✨ AI knowledge"}
+          </button>
+          <button
+            type="button"
+            onClick={() => setCreating((v) => !v)}
+            className="rounded-full bg-plonkTeal px-4 py-2 text-xs font-bold uppercase tracking-wider text-ink transition hover:brightness-110"
+          >
+            {creating ? "Close" : "+ New enquiry"}
+          </button>
+        </div>
       </div>
+
+      {aiOpen && <AiKnowledgeEditor />}
 
       {/* Pipeline switch: normal venue enquiries vs Wacky Works course-builds */}
       <div className="flex items-center gap-2">
@@ -561,6 +576,68 @@ export default function EnquiriesClient() {
   );
 }
 
+// The knowledge the "Draft with AI" button reads — venue facts, prices, golf
+// FAQs, house style. Editable here so the office keeps the AI accurate.
+function AiKnowledgeEditor() {
+  const [text, setText] = useState("");
+  const [loaded, setLoaded] = useState(false);
+  const [busy, setBusy] = useState(false);
+  const [msg, setMsg] = useState("");
+
+  useEffect(() => {
+    loadAiKnowledge()
+      .then((v) => setText(v))
+      .catch(() => setText(""))
+      .finally(() => setLoaded(true));
+  }, []);
+
+  async function save() {
+    setBusy(true);
+    setMsg("");
+    try {
+      await saveAiKnowledge(text);
+      setMsg("Saved — the AI will use this from now on.");
+    } catch (e) {
+      setMsg(describe(e, "Couldn't save."));
+    } finally {
+      setBusy(false);
+    }
+  }
+
+  return (
+    <div className="rounded-xl border border-cream/15 bg-ink/40 p-4">
+      <p className="text-[11px] font-bold uppercase tracking-widest text-cream/70">
+        AI knowledge
+      </p>
+      <p className="mt-1 max-w-2xl text-xs text-cream/55">
+        What the <span className="text-plonkTeal">✨ Draft with AI</span> button
+        knows when it writes a reply — venue facts, prices, golf FAQs, house
+        style. Keep it accurate; the AI never invents prices or dates it isn’t
+        given here (it leaves a [bracket] for you instead).
+      </p>
+      <textarea
+        value={text}
+        onChange={(e) => setText(e.target.value)}
+        rows={14}
+        disabled={!loaded}
+        placeholder={loaded ? "" : "Loading…"}
+        className={`${inputCls} mt-3 font-mono text-xs leading-relaxed`}
+      />
+      <div className="mt-2 flex items-center gap-2">
+        <button
+          type="button"
+          onClick={save}
+          disabled={busy || !loaded}
+          className="rounded-full bg-plonkTeal px-5 py-2 text-xs font-bold uppercase tracking-wider text-ink transition hover:brightness-110 disabled:opacity-40"
+        >
+          {busy ? "Saving…" : "Save knowledge"}
+        </button>
+        {msg && <span className="text-[10px] text-cream/50">{msg}</span>}
+      </div>
+    </div>
+  );
+}
+
 function EnquiryDrawer({
   enquiry,
   onClose,
@@ -583,6 +660,7 @@ function EnquiryDrawer({
   const [reply, setReply] = useState("");
   const [replyBusy, setReplyBusy] = useState(false);
   const [replyMsg, setReplyMsg] = useState("");
+  const [aiBusy, setAiBusy] = useState(false);
   const [avail, setAvail] = useState<DayAvailability | null>(null);
 
   useEffect(() => {
@@ -612,6 +690,20 @@ function EnquiryDrawer({
       setReplyMsg(describe(e, "Couldn't send the reply."));
     } finally {
       setReplyBusy(false);
+    }
+  }
+
+  async function draftWithAi() {
+    setAiBusy(true);
+    setReplyMsg("");
+    try {
+      const r = await draftEnquiryReply(enquiry.id);
+      setReply(r.draft);
+      setReplyMsg("AI draft ready — read it over, edit, then send.");
+    } catch (e) {
+      setReplyMsg(describe(e, "Couldn't draft a reply."));
+    } finally {
+      setAiBusy(false);
     }
   }
 
@@ -831,11 +923,19 @@ function EnquiryDrawer({
                   placeholder={`Write to ${(enquiry.contact_name || "the client").split(" ")[0]}… (emails them from info@nodice.bar)`}
                   className={inputCls}
                 />
-                <div className="mt-2 flex items-center gap-2">
+                <div className="mt-2 flex flex-wrap items-center gap-2">
+                  <button
+                    type="button"
+                    onClick={draftWithAi}
+                    disabled={aiBusy || replyBusy}
+                    className="rounded-full border border-plonkTeal/50 px-3 py-1.5 text-[11px] font-bold uppercase tracking-wider text-plonkTeal transition hover:bg-plonkTeal/10 disabled:opacity-40"
+                  >
+                    {aiBusy ? "Drafting…" : "✨ Draft with AI"}
+                  </button>
                   <button
                     type="button"
                     onClick={sendReply}
-                    disabled={replyBusy || !reply.trim()}
+                    disabled={replyBusy || aiBusy || !reply.trim()}
                     className="rounded-full bg-plonkTeal px-4 py-1.5 text-[11px] font-bold uppercase tracking-wider text-ink transition hover:brightness-110 disabled:opacity-40"
                   >
                     {replyBusy ? "Sending…" : "Send reply"}
@@ -987,13 +1087,15 @@ function FulfilmentSection({
     }
   }
 
-  async function togglePaid() {
+  async function markPaid(method: "bar" | "comp") {
     setFErr("");
+    setFMsg("");
     try {
-      await markEnquiryPaid(enquiry.id);
+      await markEnquiryPaid(enquiry, method);
+      setFMsg(method === "comp" ? "Marked comped (free)." : "Marked paid.");
       await onReload();
     } catch (e) {
-      setFErr(describe(e, "Couldn't mark paid."));
+      setFErr(describe(e, "Couldn't update payment status."));
     }
   }
 
@@ -1137,6 +1239,32 @@ function FulfilmentSection({
             <p className="mb-1 text-[10px] font-bold uppercase tracking-widest text-cream/50">
               Payment
             </p>
+            {/* Paid status + manual settle (bar / comp) — always available */}
+            <div className="mb-2 flex flex-wrap items-center gap-2 text-[11px]">
+              {enquiry.paid_at ? (
+                <span className="font-bold uppercase tracking-wider text-plonkTeal">
+                  Paid ✓ {new Date(enquiry.paid_at).toLocaleDateString("en-GB")}
+                </span>
+              ) : (
+                <>
+                  <span className="text-cream/45">Not paid —</span>
+                  <button
+                    type="button"
+                    onClick={() => markPaid("bar")}
+                    className="rounded-full border border-plonkTeal/60 px-3 py-1 font-bold uppercase tracking-wider text-plonkTeal transition hover:bg-plonkTeal/15"
+                  >
+                    Mark paid (at bar)
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => markPaid("comp")}
+                    className="rounded-full border border-cream/20 px-3 py-1 font-bold uppercase tracking-wider text-cream/55 transition hover:text-cream"
+                  >
+                    Comp (free)
+                  </button>
+                </>
+              )}
+            </div>
             {enquiry.payment_url ? (
               <div className="space-y-2">
                 <div className="flex items-center gap-2">
@@ -1154,25 +1282,10 @@ function FulfilmentSection({
                     {payCopied ? "Copied ✓" : "Copy"}
                   </button>
                 </div>
-                <div className="flex items-center justify-between text-[11px]">
-                  <span className="text-cream/60">
-                    {enquiry.amount_pence
-                      ? `£${(enquiry.amount_pence / 100).toFixed(2).replace(/\.00$/, "")} full payment`
-                      : "Full payment"}
-                  </span>
-                  {enquiry.paid_at ? (
-                    <span className="font-bold uppercase tracking-wider text-plonkTeal">
-                      Paid ✓
-                    </span>
-                  ) : (
-                    <button
-                      type="button"
-                      onClick={togglePaid}
-                      className="font-bold uppercase tracking-wider text-cream/55 hover:text-cream"
-                    >
-                      Mark paid
-                    </button>
-                  )}
+                <div className="text-[11px] text-cream/60">
+                  {enquiry.amount_pence
+                    ? `£${(enquiry.amount_pence / 100).toFixed(2).replace(/\.00$/, "")} payment link`
+                    : "Payment link"}
                 </div>
               </div>
             ) : (
