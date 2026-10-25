@@ -40,7 +40,8 @@ export default function OpenDecksPage() {
   const [monthIdx, setMonthIdx] = useState(0);
   const [date, setDate] = useState("");
   const [slot, setSlot] = useState("");
-  const [f, setF] = useState({ name: "", phone: "", email: "", instagram: "", format: "" as "" | "cdj" | "vinyl" });
+  const [f, setF] = useState({ name: "", phone: "", email: "", instagram: "" });
+  const [formats, setFormats] = useState<string[]>([]);   // "cdj" / "vinyl" — one or both
   const [genres, setGenres] = useState<string[]>([]);
   const [customGenre, setCustomGenre] = useState("");
   const [sending, setSending] = useState(false);
@@ -91,19 +92,19 @@ export default function OpenDecksPage() {
     setGenres((prev) => [...prev, g]); setCustomGenre("");
   }
 
-  const canSubmit = date && slot && f.name.trim() && f.phone.trim() && f.email.trim() && genres.length === 3 && f.format;
+  const canSubmit = date && slot && f.name.trim() && f.phone.trim() && f.email.trim() && genres.length === 3 && formats.length > 0;
 
   async function submit() {
     setErr("");
     if (!canSubmit) {
-      setErr(genres.length !== 3 ? "Please pick exactly 3 genres." : !f.format ? "Please choose CDJ or vinyl." : "Please fill in your name, phone and email.");
+      setErr(genres.length !== 3 ? "Please pick exactly 3 genres." : formats.length === 0 ? "Please choose CDJs/USB, vinyl, or both." : "Please fill in your name, phone and email.");
       return;
     }
     setSending(true);
     try {
       await submitOpenDeckSignup({
         date, slot, name: f.name.trim(), phone: f.phone.trim(), email: f.email.trim(),
-        genres, format: f.format as "cdj" | "vinyl", instagram: f.instagram.trim() || undefined,
+        genres, format: formats, instagram: f.instagram.trim() || undefined,
       });
       setDone(true);
     } catch (e: any) {
@@ -114,7 +115,7 @@ export default function OpenDecksPage() {
 
   function reset() {
     setDone(false); setStep("date"); setDate(""); setSlot(""); setGenres([]); setCustomGenre("");
-    setF({ name: "", phone: "", email: "", instagram: "", format: "" });
+    setF({ name: "", phone: "", email: "", instagram: "" }); setFormats([]);
     loadOpenDecksCalendar().then(setCal).catch(() => {});
   }
 
@@ -261,14 +262,17 @@ export default function OpenDecksPage() {
                   </div>
 
                   <div>
-                    <label className="mb-1.5 block text-xs uppercase tracking-[0.12em] text-creamDim">Playing on</label>
+                    <label className="mb-1.5 block text-xs uppercase tracking-[0.12em] text-creamDim">Playing on <span className="text-cream/40">· pick one or both</span></label>
                     <div className="flex gap-2">
-                      {([["cdj", "CDJs / USB"], ["vinyl", "Vinyl"]] as const).map(([k, lbl]) => (
-                        <button key={k} type="button" onClick={() => setF((p) => ({ ...p, format: k }))}
-                          className={`flex-1 rounded-lg border px-4 py-3 font-display text-2xl transition ${f.format === k ? "border-plonkPink bg-plonkPink/15" : "border-cream/25 hover:border-cream/60"}`}>
-                          {lbl}
-                        </button>
-                      ))}
+                      {([["cdj", "CDJs / USB"], ["vinyl", "Vinyl"]] as const).map(([k, lbl]) => {
+                        const on = formats.includes(k);
+                        return (
+                          <button key={k} type="button" onClick={() => setFormats((p) => p.includes(k) ? p.filter((x) => x !== k) : [...p, k])}
+                            className={`flex-1 rounded-lg border px-4 py-3 font-display text-2xl transition ${on ? "border-plonkPink bg-plonkPink/15" : "border-cream/25 hover:border-cream/60"}`}>
+                            {on ? "✓ " : ""}{lbl}
+                          </button>
+                        );
+                      })}
                     </div>
                   </div>
 
