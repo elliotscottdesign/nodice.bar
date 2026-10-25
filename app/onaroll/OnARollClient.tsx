@@ -336,9 +336,9 @@ export default function OnARollClient() {
           <p style={{ fontSize: 12.5, color: INK, margin: "-2px 2px 12px", lineHeight: 1.5, background: "#fff4d6", border: "1px solid #e6c766", borderRadius: 8, padding: "8px 10px" }}>
             ⚠️ This is how we tell you your food's ready — use a phone you'll have on you and watch for it. <b>Not a UK number?</b> Enter it in full with your country code (start with <b>+</b>). <b>No phone?</b> Leave your <b>email</b> below and we'll email you instead.
           </p>
-          <Label>Email — {phone.trim() ? "for a receipt (optional)" : "we'll email you when it's ready"}</Label>
+          <Label>Email — {phone.trim() ? <>for a receipt <span style={{ color: RED }}>(optional)</span></> : "we'll email you when it's ready"}</Label>
           <input name="email" type="email" autoComplete="email" inputMode="email" value={email} onChange={(e) => setEmail(e.target.value)} placeholder="you@email.com" style={field} />
-          <Label>Anything we should know? (optional)</Label>
+          <Label>Anything we should know? <span style={{ color: RED }}>(optional)</span></Label>
           <textarea value={note} onChange={(e) => setNote(e.target.value.slice(0, 300))} rows={2} placeholder="e.g. no pickles, no onions…" style={{ ...field, resize: "vertical", fontFamily: "inherit" }} />
           <p style={{ fontSize: 12.5, color: MUTED, margin: "6px 2px 16px", lineHeight: 1.5 }}>🔒 Used <b>only for this order</b> — your number to text you when it's ready, your email to send a receipt. Never for marketing, never shared or sold.</p>
 
