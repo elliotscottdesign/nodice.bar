@@ -50,8 +50,6 @@ import {
   deleteEvent,
   generateRecurrenceDates,
   nthWeekdayForDate,
-  CATEGORY_LABEL,
-  CATEGORY_HELP,
   type DbEvent,
   type NewEvent,
   type DbTicketType,
@@ -162,37 +160,51 @@ function wantsPrintFlyer(
   );
 }
 
-// The ONE tag list the founder picks from — categories ARE the tags, and there
-// are exactly five (founder 26 Oct 2026: "i will only accept categories and
-// tags as the same thing… POOL / FOOD / SPECIALS / DJ / DEAL"). The underlying
-// category value still drives behaviour (deal pricing, pool event page…), but
-// the founder only ever sees these five short words. The weekly pool comps are
-// created by the tournament system and never hand-tagged here. Both pickers and
-// the list filter use this one list, so the vocabulary is identical end to end.
-const TAG_OPTIONS: EventCategory[] = [
-  "pool_special", // POOL
-  "food_event", // FOOD
-  "special_event", // SPECIALS
-  "dj_night", // DJ
-  "drink_special", // DEAL
-];
-// The founder's own words for each tag — shown in the picker instead of the
-// long internal labels. Falls back to CATEGORY_LABEL for any legacy value that
-// an older event still carries (e.g. a ping-pong or bingo row).
-const TAG_LABEL: Partial<Record<EventCategory, string>> = {
-  pool_special: "POOL",
-  food_event: "FOOD",
-  special_event: "SPECIALS",
-  dj_night: "DJ",
-  drink_special: "DEAL",
-};
-function tagLabel(cat: EventCategory): string {
-  return TAG_LABEL[cat] ?? CATEGORY_LABEL[cat];
+// There are exactly FIVE tags and nothing else (founder 26 Oct 2026: "i will
+// only accept categories and tags as the same thing… POOL / FOOD / SPECIALS /
+// DJ / DEAL", and "CUE IS POOL"). A tag is a GROUP over the internal
+// categories: a weekly pool comp, a pool special and ping pong are all just
+// POOL. The category still backs behaviour (deal pricing, the pool event page,
+// pool-schedule routing) — the founder only ever sees the five words.
+const TAG_KEYS = ["POOL", "FOOD", "SPECIALS", "DJ", "DEAL"] as const;
+type TagKey = (typeof TAG_KEYS)[number];
+
+// Which tag does a category belong to? Everything pool-shaped is POOL; the
+// odds and ends (bingo, arcade, golf, other) sit under SPECIALS.
+function tagForCategory(cat: EventCategory): TagKey {
+  switch (cat) {
+    case "pool_tournament_doubles":
+    case "pool_tournament_singles":
+    case "pool_special":
+    case "ping_pong":
+      return "POOL";
+    case "food_event":
+      return "FOOD";
+    case "dj_night":
+      return "DJ";
+    case "drink_special":
+      return "DEAL";
+    default:
+      return "SPECIALS"; // special_event, bingo, arcade, golf, other
+  }
 }
-// Keep the picker able to show a legacy value so editing an old event never
-// silently re-tags it; otherwise it's just the five.
-function tagOptionsFor(current: EventCategory): EventCategory[] {
-  return TAG_OPTIONS.includes(current) ? TAG_OPTIONS : [current, ...TAG_OPTIONS];
+
+// When the founder PICKS a tag, which category to store. If the event is
+// already in that tag's group we keep its exact category (so re-saving CUE as
+// POOL leaves it a doubles comp, not a special); only a genuine tag CHANGE
+// swaps in the group's default category.
+const TAG_DEFAULT_CATEGORY: Record<TagKey, EventCategory> = {
+  POOL: "pool_special",
+  FOOD: "food_event",
+  SPECIALS: "special_event",
+  DJ: "dj_night",
+  DEAL: "drink_special",
+};
+function categoryForPickedTag(
+  tag: TagKey,
+  current: EventCategory,
+): EventCategory {
+  return tagForCategory(current) === tag ? current : TAG_DEFAULT_CATEGORY[tag];
 }
 
 const RECURRENCE_OPTIONS: { value: RecurrenceType; label: string }[] = [
@@ -266,7 +278,7 @@ export default function EventsAdminClient() {
   // (default). Tick one or more to narrow both the list and the
   // calendar grid. Combines naturally with related types — e.g.
   // tick Doubles + Singles + Special to see every pool tournament.
-  const [categoryFilter, setCategoryFilter] = useState<Set<EventCategory>>(
+  const [categoryFilter, setCategoryFilter] = useState<Set<TagKey>>(
     () => new Set(),
   );
   // "Edited instances only" filter — narrows to series instances that have
@@ -447,7 +459,7 @@ export default function EventsAdminClient() {
     const byCategory =
       categoryFilter.size === 0
         ? events
-        : events.filter((e) => categoryFilter.has(e.category));
+        : events.filter((e) => categoryFilter.has(tagForCategory(e.category)));
     // 2) Then the live search.
     const searched = q
       ? byCategory.filter((e) => {
@@ -806,19 +818,20 @@ export default function EventsAdminClient() {
           <Section title="Tag + where to show it">
             <Field label="Tag">
               <select
-                value={category}
-                onChange={(e) => setCategory(e.target.value as EventCategory)}
+                value={tagForCategory(category)}
+                onChange={(e) =>
+                  setCategory(
+                    categoryForPickedTag(e.target.value as TagKey, category),
+                  )
+                }
                 className={inputCls}
               >
-                {tagOptionsFor(category).map((c) => (
-                  <option key={c} value={c}>
-                    {tagLabel(c)}
+                {TAG_KEYS.map((t) => (
+                  <option key={t} value={t}>
+                    {t}
                   </option>
                 ))}
               </select>
-              <p className="mt-1.5 text-xs leading-snug text-cream/50">
-                {CATEGORY_HELP[category]}
-              </p>
             </Field>
             <Field label="Visibility">
               <div className="space-y-2">
@@ -1250,7 +1263,7 @@ export default function EventsAdminClient() {
                       <div className="text-xs text-cream/55">
                         {formatDate(e.event_date)}
                         {e.start_time ? ` · ${e.start_time.slice(0, 5)}` : ""} ·{" "}
-                        {tagLabel(e.category)}
+                        {tagForCategory(e.category)}
                         {ticketsForEv.length > 0 && (
                           <>
                             {" · "}
@@ -1444,7 +1457,7 @@ function EditEventModal({
   );
   // The event's TAG — editable now (founder 26 Oct 2026: an event you've put
   // online must be re-taggable, e.g. VAMOS BRAZIL went up as DJ and needed
-  // flipping to a Deal). Categories ARE the tags; see TAG_OPTIONS.
+  // flipping to a Deal). Categories ARE the tags; see TAG_KEYS.
   const [category, setCategory] = useState<EventCategory>(event.category);
   // Subcategory is retired as an input (events are tagged by category now); the
   // existing value is preserved on save, and still feeds isDealEvent.
@@ -1758,19 +1771,20 @@ function EditEventModal({
 
           <ModalField label="Tag">
             <select
-              value={category}
-              onChange={(ev) => setCategory(ev.target.value as EventCategory)}
+              value={tagForCategory(category)}
+              onChange={(ev) =>
+                setCategory(
+                  categoryForPickedTag(ev.target.value as TagKey, category),
+                )
+              }
               className={modalInputCls}
             >
-              {tagOptionsFor(category).map((c) => (
-                <option key={c} value={c}>
-                  {tagLabel(c)}
+              {TAG_KEYS.map((t) => (
+                <option key={t} value={t}>
+                  {t}
                 </option>
               ))}
             </select>
-            <p className="mt-1.5 text-xs leading-snug text-cream/50">
-              {CATEGORY_HELP[category]}
-            </p>
           </ModalField>
 
           <div className="grid gap-4 sm:grid-cols-3">
@@ -2451,14 +2465,14 @@ function SortDropdown({
 // back to default in one tap.
 // The list filter uses the same five tags as the pickers — one vocabulary
 // everywhere (founder 26 Oct 2026).
-const ALL_CATEGORIES: EventCategory[] = TAG_OPTIONS;
+const ALL_CATEGORIES: readonly TagKey[] = TAG_KEYS;
 
 function CategoryDropdown({
   value,
   onChange,
 }: {
-  value: Set<EventCategory>;
-  onChange: (v: Set<EventCategory>) => void;
+  value: Set<TagKey>;
+  onChange: (v: Set<TagKey>) => void;
 }) {
   const [open, setOpen] = useState(false);
   const ref = useRef<HTMLDivElement | null>(null);
@@ -2484,10 +2498,10 @@ function CategoryDropdown({
     value.size === 0
       ? "All categories"
       : value.size === 1
-        ? tagLabel(Array.from(value)[0])
+        ? Array.from(value)[0]
         : `${value.size} selected`;
 
-  function toggle(cat: EventCategory) {
+  function toggle(cat: TagKey) {
     const next = new Set(value);
     if (next.has(cat)) next.delete(cat);
     else next.add(cat);
@@ -2606,20 +2620,17 @@ function CategoryDropdown({
                       </svg>
                     )}
                   </span>
-                  {/* Category colour dot — matches the pill colour used
-                      in the calendar + list views so the founder can
-                      see the palette at a glance. */}
+                  {/* Tag colour dot — matches the pill colour used in the
+                      calendar + list views so the founder can see the
+                      palette at a glance. */}
                   <span
                     aria-hidden
                     className={`h-2 w-2 shrink-0 rounded-full ${adminCategoryDot(
-                      cat,
+                      TAG_DEFAULT_CATEGORY[cat],
                     )}`}
                   />
                   <span className="flex-1">
-                    <span className="block">{tagLabel(cat)}</span>
-                    <span className="mt-0.5 block text-[11px] font-normal leading-snug text-cream/45">
-                      {CATEGORY_HELP[cat]}
-                    </span>
+                    <span className="block">{cat}</span>
                   </span>
                 </li>
               );
