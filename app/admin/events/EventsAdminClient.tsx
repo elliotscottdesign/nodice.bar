@@ -4,9 +4,14 @@ import { useEffect, useMemo, useRef, useState } from "react";
 import { createPortal } from "react-dom";
 import MediaPicker from "@/components/admin/MediaPicker";
 import EventPosterStudio from "@/components/admin/EventPosterStudio";
+import PosterDownloads from "@/components/admin/PosterDownloads";
 import DatePickerInput from "@/components/admin/DatePickerInput";
 import Notice from "@/components/Notice";
-import { EVENT_TYPES, isDealEvent } from "@/lib/db/calendarEvents";
+import {
+  EVENT_TYPES,
+  isDealEvent,
+  needsPrintFlyer,
+} from "@/lib/db/calendarEvents";
 
 // Category colour swatches — used by the dropdown and list-row
 // left-stripe so the palette in the calendar view is discoverable
@@ -27,6 +32,8 @@ function adminCategoryDot(cat: string): string {
   if (cat === "drink_special")           return "bg-plonkYellow";
   if (cat === "arcade")                  return "bg-cyan-400";
   if (cat === "golf")                    return "bg-emerald-500";
+  if (cat === "special_event")           return "bg-sky-400";
+  if (cat === "ping_pong")               return "bg-pongLight";
   return "bg-cream/40"; // "other" / unknown
 }
 function adminEventLeftStripe(ev: {
@@ -112,6 +119,8 @@ const CATEGORY_OPTIONS: EventCategory[] = [
   "arcade",
   "golf",
   "world_cup",
+  "special_event",
+  "ping_pong",
   "other",
 ];
 
@@ -213,6 +222,11 @@ export default function EventsAdminClient() {
   const [posterSubcopy, setPosterSubcopy] = useState<string>("");
   const [posterFooter, setPosterFooter] = useState<string>("");
   const [posterImageUrl, setPosterImageUrl] = useState<string>("");
+  // How the poster was built, so reopening restores it instead of a blank maker.
+  const [posterRecipe, setPosterRecipe] = useState<Record<
+    string,
+    unknown
+  > | null>(null);
   const [posterQrUrl, setPosterQrUrl] = useState<string>("");
   const [posterDayLabel, setPosterDayLabel] = useState<string>("");
   // The deal's price as its own cell (numeric £). Kept as a string for the
@@ -292,6 +306,7 @@ export default function EventsAdminClient() {
     setPosterSubcopy("");
     setPosterFooter("");
     setPosterImageUrl("");
+    setPosterRecipe(null);
     setPosterQrUrl("");
     setPosterDayLabel("");
     setTicketPrice("");
@@ -655,11 +670,18 @@ export default function EventsAdminClient() {
               }
               currentPosterUrl={posterUrl || null}
               isDeal={isDealEvent(category, subcategory)}
-              exportFlyer={isDealEvent(category, subcategory)}
+              // Deals and special events both bake a black-on-transparent
+              // A-page flyer for the printed zine; DJ nights don't (their own
+              // flyer re-renders from the DJ photo).
+              exportFlyer={
+                isDealEvent(category, subcategory) ||
+                needsPrintFlyer(category, subcategory)
+              }
               defaultFooter={posterFooter || undefined}
               defaultSubcopy={posterSubcopy || undefined}
               defaultQrUrl={posterQrUrl || undefined}
               defaultImageUrl={posterImageUrl || undefined}
+              defaultRecipe={posterRecipe}
               defaultDayLabel={posterDayLabel || undefined}
               saveLabel="Use as this event's artwork"
               saveHint="Sets the artwork above. It goes live when you create the event."
@@ -679,8 +701,32 @@ export default function EventsAdminClient() {
                   setPosterDayLabel(r.poster_day_label ?? "");
                 if (r.ticket_price !== undefined)
                   setTicketPrice(r.ticket_price != null ? String(r.ticket_price) : "");
+                if (r.poster_recipe !== undefined)
+                  setPosterRecipe(
+                    (r.poster_recipe as Record<string, unknown> | null) ?? null,
+                  );
               }}
             />
+
+            {/* Downloads live OUTSIDE the poster maker (founder rule, 26 Oct):
+                they work on the poster that's already on the event, so there's
+                nothing to rebuild first. */}
+            <div className="rounded-xl border border-cream/10 bg-ink/30 p-4">
+              <p className="mb-2 text-[10px] font-bold uppercase tracking-widest text-cream/55">
+                Download this poster
+              </p>
+              <PosterDownloads
+                name={name}
+                date={eventDate}
+                start={startTime}
+                end={endTime}
+                posterUrl={posterUrl || null}
+                flyerPosterUrl={flyerPosterUrl || null}
+                sourceImageUrl={posterImageUrl || null}
+                recipe={posterRecipe}
+                isDeal={isDealEvent(category, subcategory)}
+              />
+            </div>
           </Section>
 
           {/* Category + visibility */}
@@ -1240,6 +1286,10 @@ function EditEventModal({
   const [posterImageUrl, setPosterImageUrl] = useState<string>(
     event.poster_image_url ?? "",
   );
+  const [posterRecipe, setPosterRecipe] = useState<Record<
+    string,
+    unknown
+  > | null>((event.poster_recipe as Record<string, unknown> | null) ?? null);
   const [posterQrUrl, setPosterQrUrl] = useState<string>(
     event.poster_qr_url ?? "",
   );
@@ -1622,11 +1672,15 @@ function EditEventModal({
             }
             currentPosterUrl={posterUrl || null}
             isDeal={isDealEvent(event.category, subcategory)}
-            exportFlyer={isDealEvent(event.category, subcategory)}
+            exportFlyer={
+              isDealEvent(event.category, subcategory) ||
+              needsPrintFlyer(event.category, subcategory)
+            }
             defaultFooter={posterFooter || undefined}
             defaultSubcopy={posterSubcopy || undefined}
             defaultQrUrl={posterQrUrl || undefined}
             defaultImageUrl={posterImageUrl || undefined}
+            defaultRecipe={posterRecipe}
             defaultDayLabel={posterDayLabel || undefined}
             saveHint="Saves straight onto this event — it shows on nodice.bar/events right away."
             onSave={async (r) => {
@@ -1648,6 +1702,8 @@ function EditEventModal({
                 patch.poster_day_label = r.poster_day_label;
               if (r.ticket_price !== undefined)
                 patch.ticket_price = r.ticket_price;
+              if (r.poster_recipe !== undefined)
+                patch.poster_recipe = r.poster_recipe;
               await updateEvent(event.id, patch);
               setPosterUrl(r.poster_url);
               if (r.flyer_poster_url !== undefined)
@@ -1664,9 +1720,30 @@ function EditEventModal({
                 setPosterDayLabel(r.poster_day_label ?? "");
               if (r.ticket_price !== undefined)
                 setTicketPrice(r.ticket_price != null ? String(r.ticket_price) : "");
+              if (r.poster_recipe !== undefined)
+                setPosterRecipe(
+                  (r.poster_recipe as Record<string, unknown> | null) ?? null,
+                );
               await onRefresh?.();
             }}
           />
+
+          {/* Downloads live OUTSIDE the poster maker (founder rule, 26 Oct):
+              they work on the poster that's already on the event, so opening an
+              event and grabbing its poster needs no rebuild. */}
+          <ModalField label="Download this poster">
+            <PosterDownloads
+              name={name}
+              date={eventDate}
+              start={startTime}
+              end={endTime}
+              posterUrl={posterUrl || null}
+              flyerPosterUrl={flyerPosterUrl || null}
+              sourceImageUrl={posterImageUrl || null}
+              recipe={posterRecipe}
+              isDeal={isDealEvent(event.category, subcategory)}
+            />
+          </ModalField>
 
           {/* Subcategories — same list as the public /events calendar filter
               chips. Tick as many as apply; none ticked keeps the event
@@ -2249,6 +2326,8 @@ const ALL_CATEGORIES: EventCategory[] = [
   "arcade",
   "golf",
   "world_cup",
+  "special_event",
+  "ping_pong",
   "other",
 ];
 

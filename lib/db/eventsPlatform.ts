@@ -24,6 +24,10 @@ export type EventCategory =
   | "arcade"
   | "golf"
   | "world_cup"
+  // Both of these are already in use on live rows (Queer Ping Pong Hackney,
+  // Pingers) but were missing from this list, so they had no label in the admin.
+  | "special_event"
+  | "ping_pong"
   | "other";
 
 export type RecurrenceType =
@@ -90,6 +94,12 @@ export type DbEvent = {
   poster_day_label?: string | null;
   /** Print-ready black-on-transparent A-page render for the team-hub flyer. */
   flyer_poster_url?: string | null;
+  /**
+   * How the poster maker built this poster — colour, treatment, exposure,
+   * crop, title size and wording. Lets the maker reopen it for editing and
+   * re-render other sizes. See PosterRecipe in components/admin/posterRecipe.
+   */
+  poster_recipe?: Record<string, unknown> | null;
   /** Show the title/time/description under the poster on the /events card. */
   show_description?: boolean | null;
   created_at: string;
@@ -262,10 +272,40 @@ export async function loadAllTicketTypes(): Promise<DbTicketType[]> {
   return (data ?? []) as DbTicketType[];
 }
 
+// The poster maker stores how it built each poster, in a column added by
+//   supabase/migrations/20261026000001_poster-recipe.sql
+// Until that migration is run, writing it would make EVERY poster save fail
+// with "column does not exist" — so check once per session and drop it if it
+// isn't there yet. The poster still saves; it just can't be reopened for
+// editing until the migration lands, and starts working the moment it does.
+let recipeColumnsPresent: boolean | null = null;
+const RECIPE_COLUMNS = ["poster_recipe"] as const;
+
+async function stripUnsupported<T extends Record<string, unknown>>(
+  patch: T,
+): Promise<T> {
+  if (!RECIPE_COLUMNS.some((c) => c in patch)) return patch;
+  if (recipeColumnsPresent === null) {
+    const { error } = await supabase()
+      .from("events")
+      .select(RECIPE_COLUMNS.join(","))
+      .limit(1);
+    recipeColumnsPresent = !error;
+    if (error)
+      console.warn(
+        "events.poster_recipe is missing — run supabase/migrations/20261026000001_poster-recipe.sql so the poster maker can reopen posters for editing.",
+      );
+  }
+  if (recipeColumnsPresent) return patch;
+  const out = { ...patch };
+  for (const c of RECIPE_COLUMNS) delete out[c];
+  return out;
+}
+
 export async function createEvent(input: NewEvent): Promise<DbEvent> {
   const { data, error } = await supabase()
     .from("events")
-    .insert(input)
+    .insert(await stripUnsupported(input as Record<string, unknown>))
     .select()
     .single();
   if (error) throw error;
@@ -278,7 +318,7 @@ export async function updateEvent(
 ): Promise<DbEvent> {
   const { data, error } = await supabase()
     .from("events")
-    .update(patch)
+    .update(await stripUnsupported(patch as Record<string, unknown>))
     .eq("id", id)
     .select()
     .single();
@@ -454,5 +494,7 @@ export const CATEGORY_LABEL: Record<EventCategory, string> = {
   arcade: "Arcade",
   golf: "Golf",
   world_cup: "World Cup — Match",
+  special_event: "Special event",
+  ping_pong: "Ping pong",
   other: "Other",
 };

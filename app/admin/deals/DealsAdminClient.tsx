@@ -21,6 +21,7 @@ import {
   type NewEvent,
 } from "@/lib/db/eventsPlatform";
 import EventPosterStudio from "@/components/admin/EventPosterStudio";
+import PosterDownloads from "@/components/admin/PosterDownloads";
 import DatePickerInput from "@/components/admin/DatePickerInput";
 import Notice from "@/components/Notice";
 
@@ -334,6 +335,12 @@ function DealForm({
   const [posterImageUrl, setPosterImageUrl] = useState(
     deal?.poster_image_url ?? "",
   );
+  // How the poster was built, so reopening the deal restores it rather than
+  // making the founder start again.
+  const [posterRecipe, setPosterRecipe] = useState<Record<
+    string,
+    unknown
+  > | null>((deal?.poster_recipe as Record<string, unknown> | null) ?? null);
 
   // New-deal scheduling. "days" seeds with the first date's own weekday.
   const [eventDate, setEventDate] = useState(deal?.event_date ?? todayIso());
@@ -380,6 +387,7 @@ function DealForm({
       poster_footer: footer.trim() || null,
       poster_day_label: dayLabel.trim() || null,
       poster_image_url: posterImageUrl || null,
+      poster_recipe: posterRecipe,
       poster_qr_url: null,
       ticket_price: price ? Number(price) : null,
       category: "drink_special",
@@ -662,6 +670,7 @@ function DealForm({
         defaultFooter={footer || undefined}
         defaultDayLabel={dayLabel || undefined}
         defaultImageUrl={posterImageUrl || undefined}
+        defaultRecipe={posterRecipe}
         currentPosterUrl={posterUrl || null}
         saveLabel="Use this artwork"
         saveHint="Builds the poster from the fields above. Then press Save deal."
@@ -671,8 +680,32 @@ function DealForm({
             setFlyerPosterUrl(r.flyer_poster_url ?? "");
           if (r.poster_image_url !== undefined)
             setPosterImageUrl(r.poster_image_url ?? "");
+          if (r.poster_recipe !== undefined)
+            setPosterRecipe(
+              (r.poster_recipe as Record<string, unknown> | null) ?? null,
+            );
         }}
       />
+
+      {/* Downloads live OUTSIDE the poster maker (founder rule, 26 Oct): they
+          work on the poster that's already on the deal, so there's nothing to
+          rebuild first. */}
+      <div className="rounded-xl border border-cream/10 bg-ink/30 p-4">
+        <p className="mb-2 text-[10px] font-bold uppercase tracking-widest text-cream/55">
+          Download this poster
+        </p>
+        <PosterDownloads
+          name={name}
+          date={eventDate}
+          start={startTime}
+          end={endTime}
+          posterUrl={posterUrl || null}
+          flyerPosterUrl={flyerPosterUrl || null}
+          sourceImageUrl={posterImageUrl || null}
+          recipe={posterRecipe}
+          isDeal
+        />
+      </div>
 
       <div className="flex flex-wrap items-center gap-3 border-t border-cream/10 pt-4">
         <button

@@ -24,12 +24,12 @@ import Notice from "@/components/Notice";
 import { uploadImage } from "@/lib/db/media";
 import { RAL, ralLabel, ralSearch } from "@/lib/poster/ralColours";
 import { eventQrUrl } from "@/lib/poster/qr";
+import { parseRecipe, type PosterRecipe } from "@/components/admin/posterRecipe";
 import {
   PALETTE,
   DEAL_PALETTE,
   canvasToBlob,
   coverRect,
-  downloadCanvas,
   ensureFont,
   fontReady,
   frameAspect,
@@ -94,6 +94,11 @@ export type PosterSaveResult = {
   poster_day_label?: string | null;
   /** The price as a number, parsed from the price field — the deal's own cell. */
   ticket_price?: number | null;
+  /**
+   * The rest of the recipe, so reopening the event rebuilds the poster the
+   * founder actually made instead of a default pink one.
+   */
+  poster_recipe?: Record<string, unknown> | null;
 };
 
 export default function EventPosterStudio({
@@ -110,6 +115,7 @@ export default function EventPosterStudio({
   defaultSubcopy,
   defaultQrUrl,
   defaultImageUrl,
+  defaultRecipe,
   defaultDayLabel,
   hideCopyInputs,
   onSave,
@@ -147,6 +153,11 @@ export default function EventPosterStudio({
   defaultSubcopy?: string | null;
   defaultQrUrl?: string | null;
   defaultImageUrl?: string | null;
+  /**
+   * How this event's poster was built last time, so reopening it restores the
+   * poster instead of starting from a blank maker.
+   */
+  defaultRecipe?: PosterRecipe | null;
   defaultDayLabel?: string | null;
   /**
    * Hide the "Words on the poster" inputs (line / price / bottom line / day).
@@ -166,6 +177,11 @@ export default function EventPosterStudio({
   // A deal's saved poster is page-shaped ("zine"); everything else saves the
   // 4:5 Instagram post exactly as before.
   const saveSize: PosterSize = isDeal ? "zine" : "ig";
+  // The printed flyer is ALWAYS the A-page shape, whatever shape the online
+  // poster is — it has to fill a page in the zine. For a deal that's the same
+  // render as the colour one; for a special event the online poster stays the
+  // 4:5 Instagram graphic and only the flyer is re-laid out for the page.
+  const flyerSize: PosterSize = "zine";
   // ---- Picture ----
   // Seed from the event's stored source photo (poster_image_url) so a deal opens
   // with its own artwork already in the frame, ready to regenerate.
@@ -176,6 +192,9 @@ export default function EventPosterStudio({
   // The PERSISTED public URL of the source photo (an upload's object URL can't be
   // saved, so we track the storage URL separately). Written as poster_image_url.
   const [sourceImageUrl, setSourceImageUrl] = useState(defaultImageUrl || "");
+  // The picture the event opened with. Used to tell "restored from the saved
+  // poster" apart from "the founder just picked a new one".
+  const restoredPicUrl = useRef(defaultImageUrl || "");
   const [showLibrary, setShowLibrary] = useState(false);
   const imgRef = useRef<HTMLImageElement | null>(null);
   const fileRef = useRef<HTMLInputElement | null>(null);
@@ -184,23 +203,33 @@ export default function EventPosterStudio({
   // Deals pick their ink from the dusky DEAL_PALETTE (online brand colours that
   // stand apart from the DJ brights); everything else keeps the house Pink.
   const dealSwatches = isDeal ? DEAL_PALETTE : PALETTE;
+  // Reopening an event brings back the colour and photo treatment it was made
+  // with. Only fall back to the house default when the event has never had a
+  // poster made for it.
+  const saved = parseRecipe(defaultRecipe as Record<string, unknown> | null);
   const [colour, setColour] = useState(
-    isDeal
-      ? (DEAL_PALETTE.find((p) => p.name === "Magenta") || DEAL_PALETTE[0]).hex
-      : (PALETTE.find((p) => p.name === "Pink") || PALETTE[0]).hex,
+    saved.colour ||
+      (isDeal
+        ? (DEAL_PALETTE.find((p) => p.name === "Magenta") || DEAL_PALETTE[0]).hex
+        : (PALETTE.find((p) => p.name === "Pink") || PALETTE[0]).hex),
   );
   const [showRal, setShowRal] = useState(false);
   const [ralQ, setRalQ] = useState("");
-  const [treatment, setTreatment] = useState<PosterTreatment>("scatter");
-  const [exposure, setExposure] = useState(1);
+  const [treatment, setTreatment] = useState<PosterTreatment>(
+    saved.treatment ?? "scatter",
+  );
+  const [exposure, setExposure] = useState(saved.exposure ?? 1);
   // Deal "text box" mode — swap the photo for a block of info text. Image stays
   // the default; this is the opt-in alternative.
-  const [textBox, setTextBox] = useState(false);
-  const [pos, setPos] = useState({ ox: 0.5, oy: 0.5 });
-  const [zoom, setZoom] = useState(1);
+  const [textBox, setTextBox] = useState(saved.textBox ?? false);
+  const [pos, setPos] = useState({
+    ox: saved.ox ?? 0.5,
+    oy: saved.oy ?? 0.5,
+  });
+  const [zoom, setZoom] = useState(saved.zoom ?? 1);
   // Headline size dial (1 = the standard DJ-poster size). The founder can make
   // the event name bigger (photo shrinks) or smaller (photo grows).
-  const [titleScale, setTitleScale] = useState(1);
+  const [titleScale, setTitleScale] = useState(saved.titleSize ?? 1);
 
   // ---- Copy that goes on the poster ----
   // Both lines are SUGGESTED from the event above and keep following it as the
@@ -287,8 +316,13 @@ export default function EventPosterStudio({
       .then((im) => {
         if (!alive) return;
         imgRef.current = im;
-        setPos({ ox: 0.5, oy: 0.5 });
-        setZoom(1);
+        // Re-centre for a picture the founder has just chosen, but NOT for the
+        // one restored from the saved poster — that would throw away the crop
+        // he set last time, which is half of "remember the poster".
+        if (picUrl !== restoredPicUrl.current) {
+          setPos({ ox: 0.5, oy: 0.5 });
+          setZoom(1);
+        }
         bump();
       })
       .catch((e) => {
@@ -462,31 +496,6 @@ export default function EventPosterStudio({
     }
   }
 
-  // A3 is black-on-paper for the halftone; a real photo can't print as black
-  // ink, so Natural makes the A3 a full-colour poster instead. "Whites to
-  // colour" stays on the negative — knocking the whites out is exactly how the
-  // coloured paper is meant to show through.
-  const a3Mode = treatment === "natural" ? "colour" : "negative";
-
-  async function exportFile(
-    size: PosterSize,
-    mode: "colour" | "negative",
-    tag: string,
-  ) {
-    if (!canRender) return;
-    setBusy(tag);
-    setErr("");
-    setDone("");
-    try {
-      await downloadCanvas(await render(size, mode), posterName(name, date, tag));
-      setDone(`Downloaded — it's in your Downloads folder.`);
-    } catch (e) {
-      setErr(describe(e, "Export failed."));
-    } finally {
-      setBusy("");
-    }
-  }
-
   // Write the poster onto the event. Order matters: render, then upload, and
   // only then hand the URL over. If either step fails, nothing is written and
   // whatever artwork the event already had is untouched.
@@ -511,14 +520,43 @@ export default function EventPosterStudio({
       });
       const { public_url } = await uploadImage(file, "event-posters");
 
-      const result: PosterSaveResult = { poster_url: public_url };
+      // Remember what the poster was MADE from, on every save and for every
+      // kind of event — not just the ones that also export a print flyer.
+      // Without this, reopening the event showed an empty poster maker and the
+      // founder had to start the poster again from scratch. The source photo
+      // and the sub-copy line are poster inputs, so they're always safe to
+      // store; the deal's own cells below are not.
+      const result: PosterSaveResult = {
+        poster_url: public_url,
+        poster_image_url: sourceImageUrl || null,
+        poster_subcopy: detail.trim() || null,
+        poster_recipe: {
+          colour,
+          treatment,
+          exposure,
+          ox: pos.ox,
+          oy: pos.oy,
+          zoom,
+          titleSize: titleScale,
+          detail: detail.trim(),
+          price: price.trim(),
+          ...(isDeal
+            ? {
+                textBox,
+                footer: footer.trim(),
+                dayLabel: dayLabel.trim(),
+                qr: qr.trim(),
+              }
+            : {}),
+        },
+      };
 
       // 2) When this surface stores them, also render the print-ready flyer
       //    version (black on transparent, same A-page shape) and return the
       //    structured fields, so the team-hub Events flyer can drop in
       //    flyer_poster_url and the deal can be regenerated later.
       if (exportFlyer) {
-        const negCv = await render(saveSize, "negative");
+        const negCv = await render(flyerSize, "negative");
         const negBlob = await canvasToBlob(negCv);
         const negFile = new File([negBlob], posterName(name, date, "flyer"), {
           type: "image/png",
@@ -528,20 +566,26 @@ export default function EventPosterStudio({
           "event-posters",
         );
         result.flyer_poster_url = flyerUrl;
-        result.poster_subcopy = detail.trim() || null;
-        result.poster_footer = footer.trim() || null;
-        result.poster_qr_url = qr.trim() || null;
-        result.poster_image_url = sourceImageUrl || null;
-        result.poster_day_label = dayLabel.trim() || null;
-        // The price lives in its own numeric cell, not in the sub-copy line.
-        result.ticket_price = parsePrice(price);
+        // The rest of these are the DEAL's own cells — its footer, day label
+        // and price. A special event has real ticket types, so writing them
+        // from this form would overwrite event data with poster wording.
+        // Only deals fill them in.
+        if (isDeal) {
+          result.poster_footer = footer.trim() || null;
+          result.poster_qr_url = qr.trim() || null;
+          result.poster_day_label = dayLabel.trim() || null;
+          // The price lives in its own numeric cell, not in the sub-copy line.
+          result.ticket_price = parsePrice(price);
+        }
       }
 
       await onSave(result);
       setDone(
-        exportFlyer
-          ? "Saved — the deal's poster is live on nodice.bar/events, the zine cover and the printed flyer."
-          : "Saved — this poster is now the event's artwork on nodice.bar/events.",
+        !exportFlyer
+          ? "Saved — this poster is now the event's artwork on nodice.bar/events."
+          : isDeal
+            ? "Saved — the deal's poster is live on nodice.bar/events, the zine cover and the printed flyer."
+            : "Saved — the poster is live on nodice.bar/events, and a print version was made for the zine (black ink on coloured paper).",
       );
     } catch (e) {
       setErr(
@@ -1101,48 +1145,10 @@ export default function EventPosterStudio({
                 )}
               </>
             )}
-            {isDeal && (
-              <button
-                type="button"
-                disabled={disabled}
-                onClick={() => exportFile("zine", "colour", "Deal-page")}
-                className="w-full rounded-full border border-plonkYellow/40 px-4 py-2.5 text-xs font-bold uppercase tracking-wider text-plonkYellow transition hover:bg-plonkYellow/10 disabled:opacity-40"
-              >
-                {busy === "Deal-page"
-                  ? "Building…"
-                  : "⬇ Deal poster · page shape"}
-              </button>
-            )}
-            <button
-              type="button"
-              disabled={disabled}
-              onClick={() => exportFile("ig", "colour", "IG-post")}
-              className="w-full rounded-full bg-plonkPink px-4 py-2.5 text-xs font-bold uppercase tracking-wider text-white transition hover:brightness-110 disabled:opacity-40"
-            >
-              {busy === "IG-post" ? "Building…" : "⬇ Instagram post · 1080×1350"}
-            </button>
-            <button
-              type="button"
-              disabled={disabled}
-              onClick={() => exportFile("story", "colour", "IG-story")}
-              className="w-full rounded-full border border-cream/25 px-4 py-2.5 text-xs font-bold uppercase tracking-wider text-cream/90 transition hover:bg-cream/5 disabled:opacity-40"
-            >
-              {busy === "IG-story"
-                ? "Building…"
-                : "⬇ Instagram story · 1080×1920"}
-            </button>
-            <button
-              type="button"
-              disabled={disabled}
-              onClick={() => exportFile("a3", a3Mode, "A3-print")}
-              className="w-full rounded-full border border-cream/25 px-4 py-2.5 text-xs font-bold uppercase tracking-wider text-cream/90 transition hover:bg-cream/5 disabled:opacity-40"
-            >
-              {busy === "A3-print"
-                ? "Building…"
-                : treatment === "natural"
-                  ? "⬇ A3 print · full colour"
-                  : "⬇ A3 print · black on coloured paper"}
-            </button>
+            {/* Downloads deliberately do NOT live here. The poster maker's one
+                job is to save the poster onto the event; the download buttons
+                sit in the event form (PosterDownloads) so they work on the
+                poster that's already there, without having to remake it. */}
           </div>
         </div>
       </div>

@@ -70,6 +70,43 @@ export function isDealEvent(
   return category === "drink_special" || subs.includes("Deals");
 }
 
+// Event types whose poster also needs a PRINT-READY flyer baked alongside it.
+//
+// Why: the team hub's monthly Special Events zine prints black ink on coloured
+// paper. A finished white-on-black Instagram graphic can't be used there — it
+// greyscales down to a solid block of ink — and there's no way to strip the
+// baked-in background further downstream. So the black-on-transparent version
+// has to come out of the poster maker at the same time as the colour one, into
+// events.flyer_poster_url, which both the specials flyer and the DJ flyer
+// already prefer over poster_url.
+//
+// Deals are excluded because they have their own flyer path already, and DJ
+// nights because the DJ flyer re-renders those from the DJ's photo.
+const PRINT_FLYER_CATEGORIES = [
+  "pool_special",
+  "pool_tournament_doubles",
+  "pool_tournament_singles",
+  "special_event",
+  "food_event",
+  "ping_pong",
+];
+
+export function needsPrintFlyer(
+  category: string | null | undefined,
+  subcategory: string | null | undefined,
+): boolean {
+  if (isDealEvent(category, subcategory)) return false;
+  if (category === "dj_night") return false;
+  const subs = (subcategory ?? "")
+    .split(",")
+    .map((x) => x.trim())
+    .filter(Boolean);
+  return (
+    PRINT_FLYER_CATEGORIES.includes(category ?? "") ||
+    subs.includes("Special Event")
+  );
+}
+
 // Fallback poster shown on the PUBLIC calendar when an event has no artwork of
 // its own — keyed by category, so a customer never sees a blank tile (e.g. a
 // recurring pool night nobody added art to). The admin still shows the real
