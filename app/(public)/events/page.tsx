@@ -63,37 +63,31 @@ const CATEGORY_COLOURS: Record<
   string,
   { stripe: string; pill: string; dot: string; hoverBorder: string }
 > = {
-  "DJ Night": {
+  DJ: {
     stripe: "bg-plonkPink",
     pill: "bg-plonkPink/90 text-white",
     dot: "bg-plonkPink",
     hoverBorder: "group-hover/card:border-plonkPink",
   },
-  "Pool Night": {
+  POOL: {
     stripe: "bg-purple-400",
     pill: "bg-purple-500/90 text-white",
     dot: "bg-purple-400",
     hoverBorder: "group-hover/card:border-purple-400",
   },
-  "Ping Pong": {
-    stripe: "bg-cyan-400",
-    pill: "bg-cyan-500/90 text-white",
-    dot: "bg-cyan-400",
-    hoverBorder: "group-hover/card:border-cyan-400",
-  },
-  "Food Night": {
+  FOOD: {
     stripe: "bg-orange-400",
     pill: "bg-orange-500/90 text-white",
     dot: "bg-orange-400",
     hoverBorder: "group-hover/card:border-orange-400",
   },
-  Deals: {
+  DEAL: {
     stripe: "bg-plonkYellow",
     pill: "bg-plonkYellow/90 text-ink",
     dot: "bg-plonkYellow",
     hoverBorder: "group-hover/card:border-plonkYellow",
   },
-  "Special Event": {
+  SPECIALS: {
     stripe: "bg-sky-400",
     pill: "bg-sky-500/90 text-white",
     dot: "bg-sky-400",
@@ -111,34 +105,29 @@ function categoryColours(subcategory: string | null | undefined) {
   return CATEGORY_COLOURS[subcategory] ?? CATEGORY_FALLBACK;
 }
 
-// The public calendar colours + labels every event by its CATEGORY — the one
-// unified tag (founder 19 Oct 2026). The old free-text "subcategory chips" are
-// retired. chipForEvent() maps a category to the display chip name, which keys
-// the colour (CATEGORY_COLOURS) and the default poster (defaultPosterFor).
-// DJ-feed events carry no category, so they fall back to "DJ Night".
+// The public calendar colours + labels every event by its CATEGORY, using the
+// SAME five tags as the admin (founder 26 Oct 2026: "make public facing filters
+// the same… POOL / FOOD / SPECIALS / DJ / DEAL", and "CUE IS POOL"). A tag is a
+// group over categories: everything pool-shaped (comps, specials, ping pong) is
+// POOL; bingo sits under SPECIALS. chipForEvent() maps a category to its tag,
+// which keys the colour (CATEGORY_COLOURS) and the default poster
+// (defaultPosterFor). DJ-feed events carry no category, so they fall back to DJ.
 const CATEGORY_TO_CHIP: Record<string, string> = {
-  dj_night: "DJ Night",
-  pool_tournament_doubles: "Pool Night",
-  pool_tournament_singles: "Pool Night",
-  pool_special: "Pool Night",
-  ping_pong: "Ping Pong",
-  food_event: "Food Night",
-  drink_special: "Deals",
-  special_event: "Special Event",
-  bingo: "Special Event", // founder: bingo shows as a Special Event on the calendar
+  dj_night: "DJ",
+  pool_tournament_doubles: "POOL",
+  pool_tournament_singles: "POOL",
+  pool_special: "POOL",
+  ping_pong: "POOL",
+  food_event: "FOOD",
+  drink_special: "DEAL",
+  special_event: "SPECIALS",
+  bingo: "SPECIALS",
   // arcade / golf / other → no chip (neutral fallback, no filter match)
 };
-// The public filter chips, in display order.
-const FILTER_CHIPS = [
-  "DJ Night",
-  "Pool Night",
-  "Ping Pong",
-  "Food Night",
-  "Deals",
-  "Special Event",
-];
+// The public filter chips, in the founder's order.
+const FILTER_CHIPS = ["POOL", "FOOD", "SPECIALS", "DJ", "DEAL"];
 function chipForEvent(ev: DbCalendarEvent): string | null {
-  if (isDjEvent(ev)) return "DJ Night";
+  if (isDjEvent(ev)) return "DJ";
   return CATEGORY_TO_CHIP[ev.category ?? ""] ?? null;
 }
 
