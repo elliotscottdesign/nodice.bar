@@ -347,12 +347,27 @@ export type EventTier = {
 };
 
 export async function loadEventTiers(parentId: string): Promise<EventTier[]> {
+  // `recurrence_parent_id` is ALSO how a weekly series links its occurrences
+  // back to the first one, so a plain children-of-parent query would return
+  // every future CUE / Happy Mondays / Ball Breakers date as a bogus "session"
+  // (15 identical "CUE · 19:00–22:30" tiles was the 28 Oct booking outage).
+  // A genuine skill-tier runs on the SAME DAY as its public card (Macmillan:
+  // Beginner / Intermediate / Advanced on one date); a weekly recurrence never
+  // does. So pin the lookup to the parent's own event_date.
+  const { data: parent } = await supabase()
+    .from("events")
+    .select("event_date")
+    .eq("id", parentId)
+    .maybeSingle();
+  const parentDate = parent?.event_date as string | undefined;
+  if (!parentDate) return [];
   const { data, error } = await supabase()
     .from("events")
     .select(
       "id, name, start_time, end_time, max_attendees, paid_entries_count, registration_open",
     )
     .eq("recurrence_parent_id", parentId)
+    .eq("event_date", parentDate)
     .order("start_time", { ascending: true });
   // A tier lookup must never block a booking — fall back to "no tiers".
   if (error) return [];
