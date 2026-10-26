@@ -90,8 +90,18 @@ export type Enquiry = {
   last_emailed_at: string | null;
   lead_bucket: LeadBucket;
   enquiry_type: EnquiryType | null;
+  archived_at: string | null;
   created_at: string;
   updated_at: string;
+};
+
+// Per-enquiry comms activity (from the enquiry_activity() RPC, aggregated
+// server-side). Used by the board to show replied / overdue / came-in-today
+// without loading every message. Keyed by enquiry id.
+export type EnquiryActivity = {
+  lastIn: string | null;
+  lastOut: string | null;
+  msgCount: number;
 };
 
 // The safe, client-facing projection returned by the share link (no email,
@@ -120,7 +130,7 @@ export type EnquiryMessage = {
 };
 
 const SELECT =
-  "id, source, status, contact_name, contact_email, contact_phone, event_type, party_size, requested_date, date_flex, budget, notes, assigned_to, linked_kind, linked_id, share_token, amount_pence, payment_url, paid_at, last_emailed_at, lead_bucket, enquiry_type, created_at, updated_at";
+  "id, source, status, contact_name, contact_email, contact_phone, event_type, party_size, requested_date, date_flex, budget, notes, assigned_to, linked_kind, linked_id, share_token, amount_pence, payment_url, paid_at, last_emailed_at, lead_bucket, enquiry_type, archived_at, created_at, updated_at";
 
 export const SOURCE_LABEL: Record<EnquirySource, string> = {
   party_form: "Party form",
@@ -199,14 +209,58 @@ export async function checkDateAvailability(
   return { date: iso, tableCount, tableCovers, poolCount, events, busy };
 }
 
-export async function loadEnquiries(): Promise<Enquiry[]> {
-  const { data, error } = await supabase()
-    .from("enquiries")
-    .select(SELECT)
-    .order("requested_date", { ascending: true, nullsFirst: false })
+export async function loadEnquiries(
+  opts: { archived?: boolean } = {},
+): Promise<Enquiry[]> {
+  // Default: live enquiries only (archived ones are hidden). Pass
+  // {archived:true} to load the archived/ignored ones for the Archived view.
+  let q = supabase().from("enquiries").select(SELECT);
+  q = opts.archived ? q.not("archived_at", "is", null) : q.is("archived_at", null);
+  const { data, error } = await q
     .order("created_at", { ascending: false });
   if (error) throw error;
   return (data ?? []) as Enquiry[];
+}
+
+// Archive = "not relevant, get it off the board" (spam, duplicate, wrong
+// place). Reversible — different from "Lost" (a real deal we didn't win).
+export async function archiveEnquiry(id: string): Promise<void> {
+  const { error } = await supabase()
+    .from("enquiries")
+    .update({ archived_at: new Date().toISOString() })
+    .eq("id", id);
+  if (error) throw error;
+}
+export async function unarchiveEnquiry(id: string): Promise<void> {
+  const { error } = await supabase()
+    .from("enquiries")
+    .update({ archived_at: null })
+    .eq("id", id);
+  if (error) throw error;
+}
+
+// Comms activity for every enquiry, in one aggregated call (enquiry_activity
+// RPC). Returns a map id → {lastIn,lastOut,msgCount}; enquiries with no
+// messages simply aren't in the map (treat created_at as their arrival).
+export async function loadEnquiryActivity(): Promise<
+  Record<string, EnquiryActivity>
+> {
+  const { data, error } = await supabase().rpc("enquiry_activity");
+  if (error) throw error;
+  const map: Record<string, EnquiryActivity> = {};
+  for (const r of (data ?? []) as {
+    enquiry_id: string;
+    last_in: string | null;
+    last_out: string | null;
+    msg_count: number;
+  }[]) {
+    map[r.enquiry_id] = {
+      lastIn: r.last_in,
+      lastOut: r.last_out,
+      msgCount: r.msg_count,
+    };
+  }
+  return map;
 }
 
 export async function createEnquiry(row: NewEnquiry): Promise<Enquiry> {
@@ -370,6 +424,33 @@ export async function sendEnquiryReply(
     body,
     subject,
   });
+}
+
+// Ask Claude to draft the next reply from the conversation so far + the AI
+// knowledge/FAQ. Returns the draft text — office reviews/edits before sending.
+export async function draftEnquiryReply(
+  enquiryId: string,
+): Promise<{ draft: string }> {
+  return callEdge("enquiry-ai-draft", { enquiry_id: enquiryId });
+}
+
+// The editable AI knowledge/FAQ the draft function reads. Stored in crm_settings
+// (key/value). Office can edit it in the CRM so the AI's answers stay accurate.
+export async function loadAiKnowledge(): Promise<string> {
+  const db = supabase();
+  const { data } = await db
+    .from("crm_settings")
+    .select("value")
+    .eq("key", "ai_faq")
+    .maybeSingle();
+  return (data?.value as string) ?? "";
+}
+export async function saveAiKnowledge(value: string): Promise<void> {
+  const db = supabase();
+  const { error } = await db
+    .from("crm_settings")
+    .upsert({ key: "ai_faq", value, updated_at: new Date().toISOString() }, { onConflict: "key" });
+  if (error) throw new Error(error.message);
 }
 
 // Manually settle an enquiry — "bar" = paid in person, "comp" = free. Stamps

@@ -50,8 +50,6 @@ import {
   deleteEvent,
   generateRecurrenceDates,
   nthWeekdayForDate,
-  CATEGORY_LABEL,
-  CATEGORY_HELP,
   type DbEvent,
   type NewEvent,
   type DbTicketType,
@@ -162,20 +160,52 @@ function wantsPrintFlyer(
   );
 }
 
-const CATEGORY_OPTIONS: EventCategory[] = [
-  "pool_tournament_doubles",
-  "pool_tournament_singles",
-  "pool_special",
-  "ping_pong",
-  "dj_night",
-  "food_event",
-  "drink_special",
-  "special_event",
-  "bingo",
-  "arcade",
-  "golf",
-  "other",
-];
+// There are exactly FIVE tags and nothing else (founder 26 Oct 2026: "i will
+// only accept categories and tags as the same thing… POOL / FOOD / SPECIALS /
+// DJ / DEAL", and "CUE IS POOL"). A tag is a GROUP over the internal
+// categories: a weekly pool comp, a pool special and ping pong are all just
+// POOL. The category still backs behaviour (deal pricing, the pool event page,
+// pool-schedule routing) — the founder only ever sees the five words.
+const TAG_KEYS = ["POOL", "FOOD", "SPECIALS", "DJ", "DEAL"] as const;
+type TagKey = (typeof TAG_KEYS)[number];
+
+// Which tag does a category belong to? Everything pool-shaped is POOL; the
+// odds and ends (bingo, arcade, golf, other) sit under SPECIALS.
+function tagForCategory(cat: EventCategory): TagKey {
+  switch (cat) {
+    case "pool_tournament_doubles":
+    case "pool_tournament_singles":
+    case "pool_special":
+    case "ping_pong":
+      return "POOL";
+    case "food_event":
+      return "FOOD";
+    case "dj_night":
+      return "DJ";
+    case "drink_special":
+      return "DEAL";
+    default:
+      return "SPECIALS"; // special_event, bingo, arcade, golf, other
+  }
+}
+
+// When the founder PICKS a tag, which category to store. If the event is
+// already in that tag's group we keep its exact category (so re-saving CUE as
+// POOL leaves it a doubles comp, not a special); only a genuine tag CHANGE
+// swaps in the group's default category.
+const TAG_DEFAULT_CATEGORY: Record<TagKey, EventCategory> = {
+  POOL: "pool_special",
+  FOOD: "food_event",
+  SPECIALS: "special_event",
+  DJ: "dj_night",
+  DEAL: "drink_special",
+};
+function categoryForPickedTag(
+  tag: TagKey,
+  current: EventCategory,
+): EventCategory {
+  return tagForCategory(current) === tag ? current : TAG_DEFAULT_CATEGORY[tag];
+}
 
 const RECURRENCE_OPTIONS: { value: RecurrenceType; label: string }[] = [
   { value: "none", label: "One-off (no repeat)" },
@@ -248,7 +278,7 @@ export default function EventsAdminClient() {
   // (default). Tick one or more to narrow both the list and the
   // calendar grid. Combines naturally with related types — e.g.
   // tick Doubles + Singles + Special to see every pool tournament.
-  const [categoryFilter, setCategoryFilter] = useState<Set<EventCategory>>(
+  const [categoryFilter, setCategoryFilter] = useState<Set<TagKey>>(
     () => new Set(),
   );
   // "Edited instances only" filter — narrows to series instances that have
@@ -429,7 +459,7 @@ export default function EventsAdminClient() {
     const byCategory =
       categoryFilter.size === 0
         ? events
-        : events.filter((e) => categoryFilter.has(e.category));
+        : events.filter((e) => categoryFilter.has(tagForCategory(e.category)));
     // 2) Then the live search.
     const searched = q
       ? byCategory.filter((e) => {
@@ -785,22 +815,23 @@ export default function EventsAdminClient() {
           </Section>
 
           {/* Category + visibility */}
-          <Section title="Category + where to show it">
-            <Field label="Category">
+          <Section title="Tag + where to show it">
+            <Field label="Tag">
               <select
-                value={category}
-                onChange={(e) => setCategory(e.target.value as EventCategory)}
+                value={tagForCategory(category)}
+                onChange={(e) =>
+                  setCategory(
+                    categoryForPickedTag(e.target.value as TagKey, category),
+                  )
+                }
                 className={inputCls}
               >
-                {CATEGORY_OPTIONS.map((c) => (
-                  <option key={c} value={c}>
-                    {CATEGORY_LABEL[c]}
+                {TAG_KEYS.map((t) => (
+                  <option key={t} value={t}>
+                    {t}
                   </option>
                 ))}
               </select>
-              <p className="mt-1.5 text-xs leading-snug text-cream/50">
-                {CATEGORY_HELP[category]}
-              </p>
             </Field>
             <Field label="Visibility">
               <div className="space-y-2">
@@ -1232,7 +1263,7 @@ export default function EventsAdminClient() {
                       <div className="text-xs text-cream/55">
                         {formatDate(e.event_date)}
                         {e.start_time ? ` · ${e.start_time.slice(0, 5)}` : ""} ·{" "}
-                        {CATEGORY_LABEL[e.category]}
+                        {tagForCategory(e.category)}
                         {ticketsForEv.length > 0 && (
                           <>
                             {" · "}
@@ -1424,6 +1455,10 @@ function EditEventModal({
   const [recurrenceWeekday, setRecurrenceWeekday] = useState<number>(
     event.recurrence_weekday ?? nthWeekdayForDate(event.event_date).weekday,
   );
+  // The event's TAG — editable now (founder 26 Oct 2026: an event you've put
+  // online must be re-taggable, e.g. VAMOS BRAZIL went up as DJ and needed
+  // flipping to a Deal). Categories ARE the tags; see TAG_KEYS.
+  const [category, setCategory] = useState<EventCategory>(event.category);
   // Subcategory is retired as an input (events are tagged by category now); the
   // existing value is preserved on save, and still feeds isDealEvent.
   const [subcategory] = useState<string>(event.subcategory ?? "");
@@ -1494,6 +1529,7 @@ function EditEventModal({
       // 1) Update the event row itself.
       const patch: Partial<NewEvent> = {
         name: name.trim(),
+        category,
         description: description.trim() || null,
         event_date: eventDate,
         start_time: startTime || null,
@@ -1733,6 +1769,24 @@ function EditEventModal({
             />
           </ModalField>
 
+          <ModalField label="Tag">
+            <select
+              value={tagForCategory(category)}
+              onChange={(ev) =>
+                setCategory(
+                  categoryForPickedTag(ev.target.value as TagKey, category),
+                )
+              }
+              className={modalInputCls}
+            >
+              {TAG_KEYS.map((t) => (
+                <option key={t} value={t}>
+                  {t}
+                </option>
+              ))}
+            </select>
+          </ModalField>
+
           <div className="grid gap-4 sm:grid-cols-3">
             <ModalField label="Date">
               <DatePickerInput value={eventDate} onChange={setEventDate} />
@@ -1814,13 +1868,13 @@ function EditEventModal({
             end={endTime}
             description={description}
             defaultPrice={
-              isDealEvent(event.category, subcategory) && ticketPrice
+              isDealEvent(category, subcategory) && ticketPrice
                 ? `£${ticketPrice}`
                 : posterPriceHint
             }
             currentPosterUrl={posterUrl || null}
-            isDeal={isDealEvent(event.category, subcategory)}
-            exportFlyer={wantsPrintFlyer(event.category, subcategory)}
+            isDeal={isDealEvent(category, subcategory)}
+            exportFlyer={wantsPrintFlyer(category, subcategory)}
             defaultFooter={posterFooter || undefined}
             defaultSubcopy={posterSubcopy || undefined}
             defaultQrUrl={posterQrUrl || undefined}
@@ -2409,24 +2463,16 @@ function SortDropdown({
 // more to narrow both the list and the calendar grid. Closing the
 // menu is via outside-click / Esc; "Clear" wipes the selection
 // back to default in one tap.
-const ALL_CATEGORIES: EventCategory[] = [
-  "pool_tournament_doubles",
-  "pool_tournament_singles",
-  "pool_special",
-  "dj_night",
-  "food_event",
-  "drink_special",
-  "arcade",
-  "golf",
-  "other",
-];
+// The list filter uses the same five tags as the pickers — one vocabulary
+// everywhere (founder 26 Oct 2026).
+const ALL_CATEGORIES: readonly TagKey[] = TAG_KEYS;
 
 function CategoryDropdown({
   value,
   onChange,
 }: {
-  value: Set<EventCategory>;
-  onChange: (v: Set<EventCategory>) => void;
+  value: Set<TagKey>;
+  onChange: (v: Set<TagKey>) => void;
 }) {
   const [open, setOpen] = useState(false);
   const ref = useRef<HTMLDivElement | null>(null);
@@ -2452,10 +2498,10 @@ function CategoryDropdown({
     value.size === 0
       ? "All categories"
       : value.size === 1
-        ? CATEGORY_LABEL[Array.from(value)[0]]
+        ? Array.from(value)[0]
         : `${value.size} selected`;
 
-  function toggle(cat: EventCategory) {
+  function toggle(cat: TagKey) {
     const next = new Set(value);
     if (next.has(cat)) next.delete(cat);
     else next.add(cat);
@@ -2574,20 +2620,17 @@ function CategoryDropdown({
                       </svg>
                     )}
                   </span>
-                  {/* Category colour dot — matches the pill colour used
-                      in the calendar + list views so the founder can
-                      see the palette at a glance. */}
+                  {/* Tag colour dot — matches the pill colour used in the
+                      calendar + list views so the founder can see the
+                      palette at a glance. */}
                   <span
                     aria-hidden
                     className={`h-2 w-2 shrink-0 rounded-full ${adminCategoryDot(
-                      cat,
+                      TAG_DEFAULT_CATEGORY[cat],
                     )}`}
                   />
                   <span className="flex-1">
-                    <span className="block">{CATEGORY_LABEL[cat]}</span>
-                    <span className="mt-0.5 block text-[11px] font-normal leading-snug text-cream/45">
-                      {CATEGORY_HELP[cat]}
-                    </span>
+                    <span className="block">{cat}</span>
                   </span>
                 </li>
               );

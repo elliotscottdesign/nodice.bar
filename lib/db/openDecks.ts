@@ -46,7 +46,7 @@ export type OpenDeckSignup = {
   phone: string;
   email: string;
   genres: string[];
-  format: "cdj" | "vinyl";
+  format: string[];           // one or both of "cdj" / "vinyl" (multi-select)
   instagram?: string;
 };
 

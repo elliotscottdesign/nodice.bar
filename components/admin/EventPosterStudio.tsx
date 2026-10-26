@@ -772,6 +772,23 @@ export default function EventPosterStudio({
                     >
                       🗂 Library
                     </button>
+                    {hasPic && (
+                      <button
+                        type="button"
+                        // Clear the chosen photo. The load effect (keyed on
+                        // picUrl) then drops imgRef, so hasPic → false and the
+                        // well empties. The picture stays in the media library;
+                        // this only takes it off THIS poster.
+                        onClick={() => {
+                          setPicUrl("");
+                          setPicName("");
+                          setSourceImageUrl("");
+                        }}
+                        className={`${PILL} border-red-500/40 text-red-300 hover:bg-red-500/10`}
+                      >
+                        ✕ Remove picture
+                      </button>
+                    )}
                   </div>
                 )}
                 {picName && (
