@@ -780,7 +780,10 @@ export default function EventsPage() {
               className="group flex flex-wrap items-center gap-4 rounded-2xl border border-cream/12 bg-ink/40 px-5 py-5 transition hover:border-plonkPink/60 sm:px-6"
             >
               <div className="min-w-[200px] flex-1">
-                <p className="font-display text-xl uppercase tracking-wide text-cream sm:text-2xl">
+                <p className="text-[11px] font-bold uppercase tracking-[0.2em] text-plonkTeal">
+                  DJs in training
+                </p>
+                <p className="mt-0.5 font-display text-xl uppercase tracking-wide text-cream sm:text-2xl">
                   Wanna play open decks?
                 </p>
                 <p className="mt-1 text-sm leading-snug text-cream/70">
@@ -798,7 +801,10 @@ export default function EventsPage() {
               className="group flex flex-wrap items-center gap-4 rounded-2xl border border-cream/12 bg-ink/40 px-5 py-5 transition hover:border-plonkPink/60 sm:px-6"
             >
               <div className="min-w-[200px] flex-1">
-                <p className="font-display text-xl uppercase tracking-wide text-cream sm:text-2xl">
+                <p className="text-[11px] font-bold uppercase tracking-[0.2em] text-plonkTeal">
+                  Professionals only
+                </p>
+                <p className="mt-0.5 font-display text-xl uppercase tracking-wide text-cream sm:text-2xl">
                   Want to play at No Dice?
                 </p>
                 <p className="mt-1 text-sm leading-snug text-cream/70">
@@ -1425,11 +1431,14 @@ function RecordStores() {
           className="group flex w-full flex-wrap items-center gap-4 rounded-2xl border border-cream/12 bg-ink/40 px-5 py-5 text-left transition hover:border-plonkPink/60 sm:px-6"
         >
           <div className="min-w-[200px] flex-1">
-            <p className="font-display text-xl uppercase tracking-wide text-cream sm:text-2xl">
+            <p className="text-[11px] font-bold uppercase tracking-[0.2em] text-plonkTeal">
+              For the diggers
+            </p>
+            <p className="mt-0.5 font-display text-xl uppercase tracking-wide text-cream sm:text-2xl">
               Record Stores We Love
             </p>
             <p className="mt-1 text-sm leading-snug text-cream/70">
-              For the diggers — {RECORD_STORES.length} local shops we rate.
+              {RECORD_STORES.length} local shops we rate.
             </p>
           </div>
           <span className="flex shrink-0 items-center gap-2 rounded-full bg-plonkPink px-6 py-3 text-xs font-bold uppercase tracking-[0.18em] text-white transition group-hover:opacity-90">
