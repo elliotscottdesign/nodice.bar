@@ -43,7 +43,7 @@ const HERO_FALLBACK = "";
 // While true, the page bounces to home so it isn't publicly viewable; the
 // event is also hidden from /events and the nav link is pulled. Flip to false
 // (and re-show the event + nav) to launch.
-const BINGO_HIDDEN = true;
+const BINGO_HIDDEN = false;
 
 // Bar-sponsored prizes (founder, 11 Oct 2026) — free to play, bar puts up
 // the pot so it isn't gambling.
