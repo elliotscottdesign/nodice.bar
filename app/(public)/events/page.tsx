@@ -438,22 +438,6 @@ export default function EventsPage() {
         sliderKey="hero.events"
       />
 
-      {/* OPEN DECKS sign-up CTA — DJs grab a free 1-hour slot on the quiet nights. */}
-      <section className="px-6 pt-6">
-        <a
-          href="/open-decks/"
-          className="mx-auto flex max-w-6xl flex-col items-start justify-between gap-3 rounded-2xl border border-plonkPink/40 bg-plonkPink/10 px-5 py-4 transition hover:border-plonkPink sm:flex-row sm:items-center"
-        >
-          <div>
-            <p className="font-display text-2xl leading-none text-cream sm:text-3xl">WANNA PLAY OPEN DECKS?</p>
-            <p className="mt-1 text-sm text-creamDim">Free 1-hour slots on our quiet nights — grab a date and come play.</p>
-          </div>
-          <span className="shrink-0 rounded-full bg-plonkPink px-5 py-2.5 text-xs font-bold uppercase tracking-[0.18em] text-white">
-            Sign up here →
-          </span>
-        </a>
-      </section>
-
       {/* MONTH SCROLLER — horizontal scroll strip of month buttons.
           Active month highlighted; tap any other to switch. */}
       <section className="px-6 py-6">
@@ -780,33 +764,55 @@ export default function EventsPage() {
         </div>
       </section>
 
-      {/* Record stores we love — founder-curated list of local digging
-          spots for the DJ-night crowd (6 Aug 2026). Collapsed by default
-          so it doesn't push the Instagram feed down for people who just
-          came for the calendar. */}
-      <RecordStores />
-
-      {/* Open call — put yourself forward to play. Moved to sit directly below
-          Record Stores (founder, 18 Oct 2026). The DJ portal lives on the team
-          hub, so this links out to team.nodice.bar/dj/join (a code-gated
-          profile form, not a booking). */}
+      {/* ─── Join our Community ─── one uniform block under the calendar
+          (founder, 26 Oct 2026): Open Decks sign-up, the pro-DJ open call and
+          the Record Stores list, stacked as consistent cards. Each row keeps its
+          own destination / behaviour — just restyled, reordered and grouped. */}
       <section className="px-6 pb-8 pt-4">
-        <div className="mx-auto flex max-w-6xl flex-wrap items-center gap-4 rounded-2xl border border-plonkPink/30 bg-plonkPink/10 px-5 py-4 sm:px-6 sm:py-5">
-          <div className="min-w-[200px] flex-1">
-            <p className="font-display text-lg uppercase tracking-wide text-cream sm:text-xl">
-              Want to play at No Dice?
-            </p>
-            <p className="mt-1 text-sm leading-snug text-cream/70">
-              Set up a DJ profile and our booking team will be in touch — no need to
-              know anyone.
-            </p>
+        <div className="mx-auto max-w-3xl">
+          <h2 className="font-display text-3xl uppercase tracking-wide text-cream sm:text-4xl">
+            Join our Community
+          </h2>
+          <div className="mt-4 flex flex-col gap-3">
+            {/* 1 · Open Decks sign-up */}
+            <a
+              href="/open-decks/"
+              className="group flex flex-wrap items-center gap-4 rounded-2xl border border-cream/12 bg-ink/40 px-5 py-5 transition hover:border-plonkPink/60 sm:px-6"
+            >
+              <div className="min-w-[200px] flex-1">
+                <p className="font-display text-xl uppercase tracking-wide text-cream sm:text-2xl">
+                  Wanna play open decks?
+                </p>
+                <p className="mt-1 text-sm leading-snug text-cream/70">
+                  Free 1-hour slots on our quiet nights — grab a date and come play.
+                </p>
+              </div>
+              <span className="shrink-0 rounded-full bg-plonkPink px-6 py-3 text-xs font-bold uppercase tracking-[0.18em] text-white transition group-hover:opacity-90">
+                Sign up here
+              </span>
+            </a>
+
+            {/* 2 · Professional DJ access */}
+            <a
+              href="https://team.nodice.bar/dj/join"
+              className="group flex flex-wrap items-center gap-4 rounded-2xl border border-cream/12 bg-ink/40 px-5 py-5 transition hover:border-plonkPink/60 sm:px-6"
+            >
+              <div className="min-w-[200px] flex-1">
+                <p className="font-display text-xl uppercase tracking-wide text-cream sm:text-2xl">
+                  Want to play at No Dice?
+                </p>
+                <p className="mt-1 text-sm leading-snug text-cream/70">
+                  Set up a DJ profile and our booking team will be in touch — no need to know anyone.
+                </p>
+              </div>
+              <span className="shrink-0 rounded-full bg-plonkPink px-6 py-3 text-xs font-bold uppercase tracking-[0.18em] text-white transition group-hover:opacity-90">
+                Become a No Dice DJ
+              </span>
+            </a>
+
+            {/* 3 · Record Stores We Love (keeps its expander behaviour) */}
+            <RecordStores />
           </div>
-          <a
-            href="https://team.nodice.bar/dj/join"
-            className="shrink-0 rounded-full border border-plonkPink bg-plonkPink px-6 py-3 text-xs font-bold uppercase tracking-[0.18em] text-white transition hover:opacity-90"
-          >
-            Become a No Dice DJ
-          </a>
         </div>
       </section>
 
@@ -1411,29 +1417,25 @@ const CRAWL_LEGS: { stop: string; mins?: number }[] = [
 function RecordStores() {
   const [open, setOpen] = useState(false);
   return (
-    <section className="px-6 pb-4">
-      <div className="mx-auto max-w-3xl">
+    <div>
         <button
           type="button"
           onClick={() => setOpen((v) => !v)}
           aria-expanded={open}
-          className="flex w-full items-center gap-3 rounded-2xl border border-cream/10 bg-ink/40 px-5 py-4 text-left transition hover:border-cream/25"
+          className="group flex w-full flex-wrap items-center gap-4 rounded-2xl border border-cream/12 bg-ink/40 px-5 py-5 text-left transition hover:border-plonkPink/60 sm:px-6"
         >
-          <span
-            className={`inline-block text-xs text-plonkPink transition-transform ${open ? "rotate-90" : ""}`}
-            aria-hidden
-          >
-            ▶
-          </span>
-          <span className="flex-1">
-            <span className="block text-[11px] font-bold uppercase tracking-[0.28em] text-plonkPink">
-              For the diggers
-            </span>
-            <span className="mt-1 block font-display text-2xl uppercase tracking-wider text-cream">
+          <div className="min-w-[200px] flex-1">
+            <p className="font-display text-xl uppercase tracking-wide text-cream sm:text-2xl">
               Record Stores We Love
-            </span>
+            </p>
+            <p className="mt-1 text-sm leading-snug text-cream/70">
+              For the diggers — {RECORD_STORES.length} local shops we rate.
+            </p>
+          </div>
+          <span className="flex shrink-0 items-center gap-2 rounded-full bg-plonkPink px-6 py-3 text-xs font-bold uppercase tracking-[0.18em] text-white transition group-hover:opacity-90">
+            {open ? "Hide" : "Browse"}
+            <span className={`inline-block transition-transform ${open ? "rotate-90" : ""}`} aria-hidden>▸</span>
           </span>
-          <span className="text-xs text-cream/40">{RECORD_STORES.length} shops</span>
         </button>
 
         {/* Plan-a-trip cycle crawl — HIDDEN per founder direction 7 Aug 2026.
@@ -1497,7 +1499,6 @@ function RecordStores() {
             ))}
           </div>
         )}
-      </div>
-    </section>
+    </div>
   );
 }
