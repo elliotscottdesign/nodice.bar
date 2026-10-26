@@ -659,6 +659,47 @@ export type PosterImage = {
   z?: number;
 };
 
+// ── Photo grid ───────────────────────────────────────────────────────────────
+// How many photos go in the picture area, and how they lay out. ONE photo fills
+// the frame exactly as the DJ engine always has (byte-identical); TWO or more
+// reflow into a tidy grid of equal cells — the lineup look, e.g. 6 comedians.
+// Capped at MAX_GRID: more photos than that would shrink each headshot to mush,
+// so extras are ignored. 2 is the old side-by-side split (cols 2, 1 row), so
+// that path is unchanged in shape.
+const MAX_GRID = 9;
+
+// columns × rows for a given count. Chosen to keep cells roughly square-to-
+// portrait (headshots): a row of 2/3, a 2×2, a 3×2 for 5–6, up to 3×3.
+const GRID_SHAPE: Record<number, [number, number]> = {
+  1: [1, 1],
+  2: [2, 1],
+  3: [3, 1],
+  4: [2, 2],
+  5: [3, 2],
+  6: [3, 2],
+  7: [4, 2],
+  8: [4, 2],
+  9: [3, 3],
+};
+
+// Grid layout for `count` photos: the column/row count and how many cells sit in
+// each row (rows fill left-to-right, top-to-bottom; a short final row is centred
+// by the renderer). Exported so the studio's crop well can show the real cell
+// shape a photo will land in.
+export function posterGrid(count: number): {
+  cols: number;
+  rows: number;
+  rowCounts: number[];
+} {
+  const n = Math.max(1, Math.min(MAX_GRID, Math.round(count || 1)));
+  const [cols, rows] = GRID_SHAPE[n];
+  const rowCounts: number[] = [];
+  for (let r = 0; r < rows; r++) {
+    rowCounts.push(r < rows - 1 ? cols : n - (rows - 1) * cols);
+  }
+  return { cols, rows, rowCounts };
+}
+
 export type EventPosterInput = {
   /** The event name — the headline. Wraps over up to 3 lines. */
   name: string;
@@ -724,8 +765,12 @@ export type EventPosterInput = {
 // Render to a canvas. Images are pre-loaded HTMLImageElements (see loadImage).
 //   treatment: 'scatter' = Scatter halftone (default) | 'natural' = the real photo
 //              | 'whites' = greyscale with the whites showing the poster colour.
-//   imgs: optional array of { img, exposure } — one entry = single image,
-//         two entries = a split of two portrait columns with a gap.
+//   imgs: optional array of { img, exposure, ox, oy, z } — ONE entry = a single
+//         image filling the frame (unchanged); TWO OR MORE = an auto-reflowing
+//         photo grid (the lineup look) laid out by posterGrid() — 2 is the old
+//         side-by-side split, 4 a 2×2, 6 a 3×2, up to 9. Each entry keeps its own
+//         exposure + reposition. Additive: a single image is byte-identical to
+//         before, so this does NOT need mirroring beyond the grid logic itself.
 export async function renderEventPoster({
   name,
   date,
@@ -962,8 +1007,11 @@ export async function renderEventPoster({
   const imgBottom =
     H - S.safeBottom - m - bottomBlockH - Math.round(SB * 0.01);
 
-  // One framed image (border + photo) within a given x-column. The image always
-  // fills the frame; ox/oy (0–1) set where it's cropped.
+  // One framed image (border + photo) within a given x-column and y-row. The
+  // image always fills the frame; ox/oy (0–1) set where it's cropped. rTop/rH
+  // default to the whole picture region — a single image or a side-by-side split
+  // passes the full height, so its output is unchanged; the grid passes each
+  // cell's own row band.
   const drawFramed = (
     cx0: number,
     cw: number,
@@ -972,16 +1020,18 @@ export async function renderEventPoster({
     ox?: number,
     oy?: number,
     zoom?: number,
+    rTop: number = imgTop,
+    rH: number = imgBottom - imgTop,
   ) => {
     ctx.fillStyle = inkCss;
-    ctx.fillRect(cx0, imgTop, cw, BORDER);
-    ctx.fillRect(cx0, imgBottom - BORDER, cw, BORDER);
-    ctx.fillRect(cx0, imgTop, BORDER, imgBottom - imgTop);
-    ctx.fillRect(cx0 + cw - BORDER, imgTop, BORDER, imgBottom - imgTop);
+    ctx.fillRect(cx0, rTop, cw, BORDER);
+    ctx.fillRect(cx0, rTop + rH - BORDER, cw, BORDER);
+    ctx.fillRect(cx0, rTop, BORDER, rH);
+    ctx.fillRect(cx0 + cw - BORDER, rTop, BORDER, rH);
     const iX = cx0 + BORDER,
-      iY = imgTop + BORDER,
+      iY = rTop + BORDER,
       iW = cw - 2 * BORDER,
-      iH = imgBottom - imgTop - 2 * BORDER;
+      iH = rH - 2 * BORDER;
     const src =
       typeof ox === "number"
         ? coverRect(im.width, im.height, iW, iH, ox, oy, zoom)
@@ -1023,26 +1073,36 @@ export async function renderEventPoster({
       }
     }
   } else if (list.length >= 2) {
-    const gap = Math.round(W * 0.022),
-      colW = Math.round((x1 - x0 - gap) / 2);
-    drawFramed(
-      x0,
-      colW,
-      list[0].img,
-      list[0].exposure ?? 1,
-      list[0].ox,
-      list[0].oy,
-      list[0].z,
-    );
-    drawFramed(
-      x1 - colW,
-      colW,
-      list[1].img,
-      list[1].exposure ?? 1,
-      list[1].ox,
-      list[1].oy,
-      list[1].z,
-    );
+    // Photo grid — equal cells, auto-reflowed by count (see posterGrid). 2 is the
+    // old side-by-side split; 4 a 2×2; 6 a 3×2. A short final row is centred.
+    const grid = list.slice(0, MAX_GRID);
+    const { cols, rows, rowCounts } = posterGrid(grid.length);
+    const gap = Math.round(W * 0.022);
+    const fullW = x1 - x0;
+    const fullH = imgBottom - imgTop;
+    const cellW = Math.round((fullW - (cols - 1) * gap) / cols);
+    const cellH = Math.round((fullH - (rows - 1) * gap) / rows);
+    let idx = 0;
+    for (let r = 0; r < rows; r++) {
+      const rc = rowCounts[r];
+      const rowW = rc * cellW + (rc - 1) * gap;
+      const startX = x0 + Math.round((fullW - rowW) / 2);
+      const rTop = imgTop + r * (cellH + gap);
+      for (let c = 0; c < rc; c++) {
+        const e = grid[idx++];
+        drawFramed(
+          startX + c * (cellW + gap),
+          cellW,
+          e.img,
+          e.exposure ?? 1,
+          e.ox,
+          e.oy,
+          e.z,
+          rTop,
+          cellH,
+        );
+      }
+    }
   } else if (list.length === 1) {
     drawFramed(
       x0,
@@ -1120,14 +1180,14 @@ export async function renderEventPoster({
   return cv;
 }
 
-// The aspect of the photo frame for a given size — what the reposition well
-// should show so the crop preview matches where the picture actually lands.
-export function frameAspect(
+// The picture region (width × height, in poster px) for a given size — the box
+// the photo(s) fill between the text block above and the NO DICE line below.
+function frameRegion(
   size: PosterSize,
   hasDetail: boolean,
   hasPrice: boolean,
   titleScale = 1,
-): number {
+): { w: number; h: number } {
   // Rough but stable: the text block eats a fairly predictable share of height.
   const S = SIZES[size] || SIZES.ig;
   const SB = scaleBaseFor(size, S.w, S.h);
@@ -1141,7 +1201,41 @@ export function frameAspect(
   const bottomLine = SB * 0.09 + SB * 0.01;
   const h =
     S.h - S.safeTop - S.safeBottom - 2 * m - head - extra - bottomLine;
-  return (S.w - 2 * m) / Math.max(1, h);
+  return { w: S.w - 2 * m, h: Math.max(1, h) };
+}
+
+// The aspect of the photo frame for a given size — what the reposition well
+// should show so the crop preview matches where the picture actually lands.
+export function frameAspect(
+  size: PosterSize,
+  hasDetail: boolean,
+  hasPrice: boolean,
+  titleScale = 1,
+): number {
+  const { w, h } = frameRegion(size, hasDetail, hasPrice, titleScale);
+  return w / h;
+}
+
+// The aspect of ONE cell in the photo grid, for `count` photos. The studio shows
+// this in the crop well so a photo's reposition matches the cell it lands in —
+// a 6-up cell is near-square, not the tall single-photo frame. Uses the SAME
+// gap + grid maths as the renderer so the well and the poster agree.
+export function frameCellAspect(
+  size: PosterSize,
+  hasDetail: boolean,
+  hasPrice: boolean,
+  titleScale: number,
+  count: number,
+): number {
+  const { w, h } = frameRegion(size, hasDetail, hasPrice, titleScale);
+  const n = Math.max(1, Math.min(MAX_GRID, Math.round(count || 1)));
+  if (n === 1) return w / h;
+  const { cols, rows } = posterGrid(n);
+  const S = SIZES[size] || SIZES.ig;
+  const gap = Math.round(S.w * 0.022);
+  const cellW = (w - (cols - 1) * gap) / cols;
+  const cellH = (h - (rows - 1) * gap) / rows;
+  return Math.max(0.2, cellW) / Math.max(0.2, cellH);
 }
 
 export const canvasToBlob = (cv: HTMLCanvasElement): Promise<Blob> =>
