@@ -54,11 +54,32 @@ function esc(s: unknown): string {
     .replace(/>/g, "&gt;");
 }
 
-function renderHtml(bodyText: string): string {
-  const paras = bodyText
+// Light sanitiser for office-authored rich text (the compose editor). Strips
+// scripts/styles, inline event handlers and javascript: URLs. The content is
+// staff-written (authenticated admin) and goes out as email, so this is a
+// belt-and-braces pass, not a full XSS gauntlet.
+function sanitizeHtml(h: string): string {
+  return String(h ?? "")
+    .replace(/<\s*script[\s\S]*?<\s*\/\s*script\s*>/gi, "")
+    .replace(/<\s*style[\s\S]*?<\s*\/\s*style\s*>/gi, "")
+    .replace(/\son[a-z]+\s*=\s*"[^"]*"/gi, "")
+    .replace(/\son[a-z]+\s*=\s*'[^']*'/gi, "")
+    .replace(/\son[a-z]+\s*=\s*[^\s>]+/gi, "")
+    .replace(/javascript:/gi, "");
+}
+
+// Turn plain text into simple paragraph HTML (the fallback when the office
+// sent no formatted body).
+function textToHtml(bodyText: string): string {
+  return bodyText
     .split(/\n{2,}/)
     .map((p) => `<p style="margin:0 0 14px;">${esc(p).replace(/\n/g, "<br>")}</p>`)
     .join("");
+}
+
+// Wrap already-safe inner HTML in the branded No Dice email shell.
+function renderHtml(innerHtml: string): string {
+  const paras = innerHtml;
   return `<!DOCTYPE html>
 <html><head><meta charset="utf-8"></head>
 <body style="margin:0;padding:0;background:#000;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Helvetica,Arial,sans-serif;color:#f5efe3;">
@@ -84,7 +105,7 @@ Deno.serve(async (req) => {
   if (req.method !== "POST") return json({ error: "POST only" }, 405);
   if (!RESEND_API_KEY) return json({ error: "RESEND_API_KEY not configured" }, 500);
 
-  let b: { enquiry_id?: string; subject?: string; body?: string };
+  let b: { enquiry_id?: string; subject?: string; body?: string; html_body?: string };
   try {
     b = await req.json();
   } catch {
@@ -94,6 +115,13 @@ Deno.serve(async (req) => {
   const bodyText = (b.body ?? "").trim();
   if (!enquiryId) return json({ error: "enquiry_id is required" }, 400);
   if (!bodyText) return json({ error: "Message body is required" }, 400);
+
+  // The formatted (rich-text) version from the compose editor, if any. Used for
+  // the actual email; bodyText is kept for the thread log + plain-text fallback.
+  const innerHtml = b.html_body && b.html_body.trim()
+    ? sanitizeHtml(b.html_body)
+    : textToHtml(bodyText);
+  const emailHtml = renderHtml(innerHtml);
 
   const { data: e, error } = await db
     .from("enquiries")
@@ -123,7 +151,7 @@ Deno.serve(async (req) => {
         to: email,
         subject,
         body: bodyText,
-        html: renderHtml(bodyText),
+        html: emailHtml,
         reply_to_message_id: (e as { email_message_id?: string }).email_message_id || "",
       }),
     });
@@ -144,7 +172,7 @@ Deno.serve(async (req) => {
         to: email,
         reply_to: REPLY_TO,
         subject,
-        html: renderHtml(bodyText),
+        html: emailHtml,
         text: bodyText,
       }),
     });

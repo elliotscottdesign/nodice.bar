@@ -12,7 +12,8 @@
 // note instead of crashing.
 // =============================================================
 
-import { useCallback, useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import type { ReactNode } from "react";
 import { confirmDialog } from "@/lib/dialog";
 import Notice from "@/components/Notice";
 import DatePickerInput from "@/components/admin/DatePickerInput";
@@ -70,6 +71,8 @@ import {
   draftEnquiryReply,
   loadAiKnowledge,
   saveAiKnowledge,
+  loadEmailSignature,
+  saveEmailSignature,
   markEnquiryPaid,
   SOURCE_LABEL,
   STATUS_LABEL,
@@ -179,6 +182,20 @@ function toBullets(text: string): string[] {
     parts = parts[0].split(/(?<=[.!?])\s+(?=[A-Z0-9])/).map((s) => s.trim()).filter(Boolean);
   }
   return parts.map((p) => p.replace(/^[-•*]\s*/, "")).filter(Boolean);
+}
+
+function escapeText(s: string): string {
+  return (s || "").replace(/[&<>]/g, (c) =>
+    c === "&" ? "&amp;" : c === "<" ? "&lt;" : "&gt;",
+  );
+}
+
+// Plain text → simple paragraph HTML (for seeding the editor from an AI draft).
+function textToParas(t: string): string {
+  return (t || "")
+    .split(/\n{2,}/)
+    .map((p) => `<p>${escapeText(p).replace(/\n/g, "<br>")}</p>`)
+    .join("");
 }
 
 const STAGE_CAPTION: Record<EnquiryStatus, string> = {
@@ -294,6 +311,7 @@ export default function EnquiriesClient() {
   const [bucket, setBucket] = useState<LeadBucket>("venue");
   const [typeFilter, setTypeFilter] = useState<EnquiryType | "all">("all");
   const [aiOpen, setAiOpen] = useState(false);
+  const [sigOpen, setSigOpen] = useState(false);
   const [activity, setActivity] = useState<Record<string, EnquiryActivity>>({});
   const [sortBy, setSortBy] = useState<SortKey>("newest");
   const [onlyOwed, setOnlyOwed] = useState(false);
@@ -483,6 +501,13 @@ export default function EnquiriesClient() {
           </button>
           <button
             type="button"
+            onClick={() => setSigOpen((v) => !v)}
+            className="rounded-full border border-cream/25 px-4 py-2 text-xs font-bold uppercase tracking-wider text-cream/70 transition hover:border-cream/50"
+          >
+            {sigOpen ? "Close" : "✍ Signature"}
+          </button>
+          <button
+            type="button"
             onClick={() => setCreating((v) => !v)}
             className="rounded-full bg-plonkTeal px-4 py-2 text-xs font-bold uppercase tracking-wider text-ink transition hover:brightness-110"
           >
@@ -492,6 +517,7 @@ export default function EnquiriesClient() {
       </div>
 
       {aiOpen && <AiKnowledgeEditor />}
+      {sigOpen && <SignatureEditor />}
 
       {/* Pipeline switch: normal venue enquiries vs Wacky Works course-builds */}
       <div className="flex items-center gap-2">
@@ -966,6 +992,450 @@ function AiKnowledgeEditor() {
   );
 }
 
+// A Gmail-style compose window: a big formatting editor on the left, the
+// conversation on the right for reference. Sends rich HTML via enquiry-reply.
+function ComposeModal({
+  enquiry,
+  messages,
+  onClose,
+  onSent,
+}: {
+  enquiry: Enquiry;
+  messages: EnquiryMessage[];
+  onClose: () => void;
+  onSent: () => void;
+}) {
+  const editorRef = useRef<HTMLDivElement>(null);
+  const savedRange = useRef<Range | null>(null);
+  const [subject, setSubject] = useState(
+    `Re: ${enquiry.event_type || "your No Dice enquiry"}`.slice(0, 180),
+  );
+  const [sig, setSig] = useState("");
+  const [busy, setBusy] = useState(false);
+  const [aiBusy, setAiBusy] = useState(false);
+  const [msg, setMsg] = useState("");
+  const [linkOpen, setLinkOpen] = useState(false);
+  const [linkUrl, setLinkUrl] = useState("");
+  const [imgOpen, setImgOpen] = useState(false);
+  const [imgUrl, setImgUrl] = useState("");
+
+  // Seed the editor: greeting + blank line + signature (like Gmail). Caret
+  // lands on the blank line, ready to type.
+  useEffect(() => {
+    let on = true;
+    loadEmailSignature()
+      .then((s) => {
+        if (!on) return;
+        setSig(s);
+        const first = escapeText((enquiry.contact_name || "there").split(" ")[0]);
+        if (editorRef.current) {
+          editorRef.current.innerHTML =
+            `<p>Hi ${first},</p><p><br></p>` + (s ? `<p><br></p>${s}` : "");
+          placeCaret();
+        }
+      })
+      .catch(() => {
+        if (on && editorRef.current)
+          editorRef.current.innerHTML = `<p>Hi there,</p><p><br></p>`;
+      });
+    return () => {
+      on = false;
+    };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [enquiry.id]);
+
+  function placeCaret() {
+    try {
+      const ed = editorRef.current;
+      if (!ed) return;
+      ed.focus();
+      const ps = ed.querySelectorAll("p");
+      const target = ps[1] || ps[0];
+      if (target) {
+        const r = document.createRange();
+        r.selectNodeContents(target);
+        r.collapse(true);
+        const s = window.getSelection();
+        s?.removeAllRanges();
+        s?.addRange(r);
+      }
+    } catch {
+      /* caret nicety only */
+    }
+  }
+
+  function exec(cmd: string, val?: string) {
+    editorRef.current?.focus();
+    document.execCommand(cmd, false, val);
+  }
+  function saveSel() {
+    const s = window.getSelection();
+    if (s && s.rangeCount) savedRange.current = s.getRangeAt(0).cloneRange();
+  }
+  function restoreSel() {
+    const s = window.getSelection();
+    if (s && savedRange.current) {
+      s.removeAllRanges();
+      s.addRange(savedRange.current);
+    }
+  }
+  function openLink() {
+    saveSel();
+    setImgOpen(false);
+    setLinkUrl("");
+    setLinkOpen(true);
+  }
+  function addLink() {
+    let u = linkUrl.trim();
+    if (!u) {
+      setLinkOpen(false);
+      return;
+    }
+    if (!/^(https?:|mailto:)/i.test(u)) u = "https://" + u;
+    editorRef.current?.focus();
+    restoreSel();
+    const sel = window.getSelection();
+    if (sel && sel.toString())
+      document.execCommand("createLink", false, u);
+    else
+      document.execCommand("insertHTML", false, `<a href="${u}">${escapeText(u)}</a>`);
+    setLinkOpen(false);
+  }
+  function openImg() {
+    saveSel();
+    setLinkOpen(false);
+    setImgUrl("");
+    setImgOpen(true);
+  }
+  function addImg() {
+    const u = imgUrl.trim();
+    if (!u) {
+      setImgOpen(false);
+      return;
+    }
+    editorRef.current?.focus();
+    restoreSel();
+    document.execCommand(
+      "insertHTML",
+      false,
+      `<img src="${u.replace(/"/g, "")}" style="max-width:100%;height:auto;" />`,
+    );
+    setImgOpen(false);
+  }
+  function insertSig() {
+    if (!sig) return;
+    editorRef.current?.focus();
+    document.execCommand("insertHTML", false, `<p><br></p>${sig}`);
+  }
+
+  async function draftAi() {
+    setAiBusy(true);
+    setMsg("");
+    try {
+      const r = await draftEnquiryReply(enquiry.id);
+      if (editorRef.current)
+        editorRef.current.innerHTML =
+          textToParas(r.draft) + (sig ? `<p><br></p>${sig}` : "");
+      setMsg("AI draft ready — edit, then send.");
+    } catch (e) {
+      setMsg(describe(e, "Couldn't draft a reply."));
+    } finally {
+      setAiBusy(false);
+    }
+  }
+
+  async function send() {
+    const ed = editorRef.current;
+    if (!ed) return;
+    const html = ed.innerHTML;
+    const text = (ed.innerText || "").trim();
+    if (!text) {
+      setMsg("Write something first.");
+      return;
+    }
+    setBusy(true);
+    setMsg("");
+    try {
+      const r = await sendEnquiryReply(
+        enquiry.id,
+        text,
+        subject.trim() || undefined,
+        html,
+      );
+      setMsg(`Sent to ${r.sent_to}`);
+      onSent();
+      setTimeout(onClose, 700);
+    } catch (e) {
+      setMsg(describe(e, "Couldn't send the reply."));
+    } finally {
+      setBusy(false);
+    }
+  }
+
+  const TBtn = ({
+    label,
+    title,
+    onClick,
+    active = false,
+  }: {
+    label: ReactNode;
+    title: string;
+    onClick: () => void;
+    active?: boolean;
+  }) => (
+    <button
+      type="button"
+      title={title}
+      onMouseDown={(e) => e.preventDefault()}
+      onClick={onClick}
+      className={`rounded px-2 py-1 text-xs font-bold text-cream/70 transition hover:bg-cream/10 hover:text-cream ${
+        active ? "bg-cream/10" : ""
+      }`}
+    >
+      {label}
+    </button>
+  );
+
+  return (
+    <div
+      className="fixed inset-0 z-[60] flex items-center justify-center bg-black/80 p-2 sm:p-6"
+      onClick={onClose}
+    >
+      <div
+        className="flex h-full max-h-[92vh] w-full max-w-5xl flex-col overflow-hidden rounded-2xl border border-cream/15 bg-ink shadow-2xl"
+        onClick={(e) => e.stopPropagation()}
+      >
+        {/* header */}
+        <div className="flex items-center justify-between border-b border-cream/10 px-4 py-3">
+          <div className="min-w-0">
+            <p className="text-[10px] font-bold uppercase tracking-widest text-cream/45">
+              New message · from info@nodice.bar
+            </p>
+            <p className="truncate text-sm font-bold text-cream">
+              To: {enquiry.contact_name ? `${enquiry.contact_name} · ` : ""}
+              {enquiry.contact_email}
+            </p>
+          </div>
+          <button
+            type="button"
+            onClick={onClose}
+            className="shrink-0 rounded-full border border-cream/20 px-3 py-1 text-xs font-bold uppercase tracking-widest text-cream/70 hover:border-cream/40"
+          >
+            Close
+          </button>
+        </div>
+
+        <div className="flex min-h-0 flex-1">
+          {/* compose column */}
+          <div className="flex min-w-0 flex-1 flex-col">
+            {/* subject */}
+            <div className="border-b border-cream/10 px-4 py-2">
+              <input
+                value={subject}
+                onChange={(e) => setSubject(e.target.value)}
+                placeholder="Subject"
+                className="w-full bg-transparent text-sm font-bold text-cream outline-none placeholder:text-cream/30"
+              />
+            </div>
+            {/* toolbar */}
+            <div className="flex flex-wrap items-center gap-0.5 border-b border-cream/10 px-3 py-1.5">
+              <TBtn label={<b>B</b>} title="Bold (⌘B)" onClick={() => exec("bold")} />
+              <TBtn label={<i>I</i>} title="Italic (⌘I)" onClick={() => exec("italic")} />
+              <TBtn label={<u>U</u>} title="Underline (⌘U)" onClick={() => exec("underline")} />
+              <span className="mx-1 h-4 w-px bg-cream/15" />
+              <TBtn label="• List" title="Bulleted list" onClick={() => exec("insertUnorderedList")} />
+              <TBtn label="1. List" title="Numbered list" onClick={() => exec("insertOrderedList")} />
+              <span className="mx-1 h-4 w-px bg-cream/15" />
+              <TBtn label="🔗 Link" title="Insert link" onClick={openLink} />
+              <TBtn label="🖼 Image" title="Insert image by URL" onClick={openImg} />
+              <TBtn label="✍ Signature" title="Insert signature" onClick={insertSig} />
+              <span className="mx-1 h-4 w-px bg-cream/15" />
+              <TBtn label="Clear" title="Clear formatting" onClick={() => exec("removeFormat")} />
+            </div>
+            {/* link / image inline inputs */}
+            {(linkOpen || imgOpen) && (
+              <div className="flex items-center gap-2 border-b border-cream/10 bg-ink/60 px-3 py-2">
+                <input
+                  autoFocus
+                  value={linkOpen ? linkUrl : imgUrl}
+                  onChange={(e) =>
+                    linkOpen ? setLinkUrl(e.target.value) : setImgUrl(e.target.value)
+                  }
+                  onKeyDown={(e) => {
+                    if (e.key === "Enter") (linkOpen ? addLink : addImg)();
+                    if (e.key === "Escape") {
+                      setLinkOpen(false);
+                      setImgOpen(false);
+                    }
+                  }}
+                  placeholder={linkOpen ? "Paste a link (https://…)" : "Paste an image URL (https://…)"}
+                  className="flex-1 rounded-md border border-cream/20 bg-ink px-2.5 py-1.5 text-xs text-cream outline-none"
+                />
+                <button
+                  type="button"
+                  onClick={linkOpen ? addLink : addImg}
+                  className="rounded-full bg-plonkTeal px-3 py-1.5 text-[11px] font-bold uppercase tracking-wider text-ink"
+                >
+                  Add
+                </button>
+              </div>
+            )}
+            {/* editor */}
+            <div
+              ref={editorRef}
+              contentEditable
+              suppressContentEditableWarning
+              role="textbox"
+              aria-multiline
+              className="compose-editor min-h-[220px] flex-1 overflow-y-auto px-4 py-3 text-sm leading-relaxed text-cream/90 outline-none"
+            />
+            {/* footer */}
+            <div className="flex flex-wrap items-center gap-2 border-t border-cream/10 px-4 py-3">
+              <button
+                type="button"
+                onClick={send}
+                disabled={busy || aiBusy}
+                className="rounded-full bg-plonkTeal px-5 py-2 text-xs font-bold uppercase tracking-wider text-ink transition hover:brightness-110 disabled:opacity-40"
+              >
+                {busy ? "Sending…" : "Send"}
+              </button>
+              <button
+                type="button"
+                onClick={draftAi}
+                disabled={aiBusy || busy}
+                className="rounded-full border border-plonkTeal/50 px-4 py-2 text-xs font-bold uppercase tracking-wider text-plonkTeal transition hover:bg-plonkTeal/10 disabled:opacity-40"
+              >
+                {aiBusy ? "Drafting…" : "✨ Draft with AI"}
+              </button>
+              <button
+                type="button"
+                onClick={onClose}
+                className="rounded-full border border-cream/20 px-4 py-2 text-xs font-bold uppercase tracking-wider text-cream/60 hover:border-cream/40"
+              >
+                Discard
+              </button>
+              {msg && <span className="text-[11px] text-cream/55">{msg}</span>}
+            </div>
+          </div>
+
+          {/* thread column (review) */}
+          <div className="hidden w-72 shrink-0 flex-col border-l border-cream/10 bg-ink/40 md:flex">
+            <p className="border-b border-cream/10 px-3 py-2 text-[10px] font-bold uppercase tracking-widest text-cream/45">
+              Conversation
+            </p>
+            <div className="min-h-0 flex-1 space-y-2 overflow-y-auto p-3">
+              {messages.length === 0 && (
+                <p className="text-[11px] text-cream/30">No messages yet.</p>
+              )}
+              {messages.map((m) => (
+                <div
+                  key={m.id}
+                  className="rounded-lg border border-cream/10 bg-ink/50 p-2 text-[11px]"
+                >
+                  <div className="mb-0.5 text-[9px] uppercase tracking-wider">
+                    <span
+                      className={
+                        m.direction === "out"
+                          ? "text-plonkTeal/80"
+                          : m.direction === "in"
+                            ? "text-plonkYellow"
+                            : "text-cream/50"
+                      }
+                    >
+                      {m.direction === "out" ? "No Dice" : m.direction === "in" ? "Customer" : "Note"}
+                    </span>{" "}
+                    · {new Date(m.created_at).toLocaleDateString("en-GB")}
+                  </div>
+                  <div className="whitespace-pre-wrap text-cream/80">{m.body}</div>
+                </div>
+              ))}
+            </div>
+          </div>
+        </div>
+      </div>
+      <style>{`
+        .compose-editor a { color: #1ec8b8; text-decoration: underline; }
+        .compose-editor ul { list-style: disc; padding-left: 1.3em; margin: 0 0 10px; }
+        .compose-editor ol { list-style: decimal; padding-left: 1.3em; margin: 0 0 10px; }
+        .compose-editor p { margin: 0 0 10px; }
+        .compose-editor img { max-width: 100%; height: auto; border-radius: 6px; }
+      `}</style>
+    </div>
+  );
+}
+
+// Edit the email signature (HTML) used by the compose window.
+function SignatureEditor() {
+  const [text, setText] = useState("");
+  const [loaded, setLoaded] = useState(false);
+  const [busy, setBusy] = useState(false);
+  const [msg, setMsg] = useState("");
+
+  useEffect(() => {
+    loadEmailSignature()
+      .then((v) => setText(v))
+      .catch(() => setText(""))
+      .finally(() => setLoaded(true));
+  }, []);
+
+  async function save() {
+    setBusy(true);
+    setMsg("");
+    try {
+      await saveEmailSignature(text);
+      setMsg("Saved — used on every reply.");
+    } catch (e) {
+      setMsg(describe(e, "Couldn't save."));
+    } finally {
+      setBusy(false);
+    }
+  }
+
+  return (
+    <div className="rounded-xl border border-cream/15 bg-ink/40 p-4">
+      <p className="text-[11px] font-bold uppercase tracking-widest text-cream/70">
+        Email signature
+      </p>
+      <p className="mt-1 max-w-2xl text-xs text-cream/55">
+        Added to the bottom of replies from the compose window (Gmail’s send API
+        doesn’t attach your Gmail signature, so this is the one that goes out).
+        Basic HTML is fine — links like{" "}
+        <code className="text-cream/70">&lt;a href="…"&gt;</code> work.
+      </p>
+      <div className="mt-3 grid gap-3 lg:grid-cols-2">
+        <textarea
+          value={text}
+          onChange={(e) => setText(e.target.value)}
+          rows={8}
+          disabled={!loaded}
+          placeholder={loaded ? "" : "Loading…"}
+          className={`${inputCls} font-mono text-xs leading-relaxed`}
+        />
+        <div className="rounded-lg border border-cream/10 bg-ink/60 p-3">
+          <p className="mb-1 text-[9px] uppercase tracking-widest text-cream/35">
+            Preview
+          </p>
+          <div
+            className="text-sm text-cream/85 [&_a]:text-plonkTeal [&_a]:underline [&_p]:mb-2"
+            dangerouslySetInnerHTML={{ __html: text }}
+          />
+        </div>
+      </div>
+      <div className="mt-2 flex items-center gap-2">
+        <button
+          type="button"
+          onClick={save}
+          disabled={busy || !loaded}
+          className="rounded-full bg-plonkTeal px-5 py-2 text-xs font-bold uppercase tracking-wider text-ink transition hover:brightness-110 disabled:opacity-40"
+        >
+          {busy ? "Saving…" : "Save signature"}
+        </button>
+        {msg && <span className="text-[10px] text-cream/50">{msg}</span>}
+      </div>
+    </div>
+  );
+}
+
 function EnquiryDrawer({
   enquiry,
   onClose,
@@ -986,10 +1456,7 @@ function EnquiryDrawer({
   const [notes, setNotes] = useState(enquiry.notes);
   const [editNotes, setEditNotes] = useState(false);
   const [sending, setSending] = useState(false);
-  const [reply, setReply] = useState("");
-  const [replyBusy, setReplyBusy] = useState(false);
-  const [replyMsg, setReplyMsg] = useState("");
-  const [aiBusy, setAiBusy] = useState(false);
+  const [composeOpen, setComposeOpen] = useState(false);
   const [avail, setAvail] = useState<DayAvailability | null>(null);
 
   useEffect(() => {
@@ -1006,34 +1473,8 @@ function EnquiryDrawer({
   }, [enquiry.requested_date]);
   const canReply = /\S+@\S+\.\S+/.test(enquiry.contact_email || "");
 
-  async function sendReply() {
-    if (!reply.trim()) return;
-    setReplyBusy(true);
-    setReplyMsg("");
-    try {
-      const r = await sendEnquiryReply(enquiry.id, reply.trim());
-      setReply("");
-      setReplyMsg(`Sent to ${r.sent_to}`);
-      setMessages(await loadEnquiryMessages(enquiry.id));
-    } catch (e) {
-      setReplyMsg(describe(e, "Couldn't send the reply."));
-    } finally {
-      setReplyBusy(false);
-    }
-  }
-
-  async function draftWithAi() {
-    setAiBusy(true);
-    setReplyMsg("");
-    try {
-      const r = await draftEnquiryReply(enquiry.id);
-      setReply(r.draft);
-      setReplyMsg("AI draft ready — read it over, edit, then send.");
-    } catch (e) {
-      setReplyMsg(describe(e, "Couldn't draft a reply."));
-    } finally {
-      setAiBusy(false);
-    }
+  async function refreshThread() {
+    setMessages(await loadEnquiryMessages(enquiry.id).catch(() => []));
   }
 
   useEffect(() => {
@@ -1285,42 +1726,16 @@ function EnquiryDrawer({
               <p className="text-[11px] text-cream/30">No notes yet.</p>
             )}
           </div>
-          {/* Reply to the client — emails them + logs on the thread */}
-          <div className="mt-3 rounded-lg border border-plonkTeal/25 bg-plonkTeal/5 p-2.5">
-            <p className="mb-1 text-[10px] font-bold uppercase tracking-widest text-plonkTeal/80">
-              Reply to client
-            </p>
+          {/* Reply to the client — opens the full Gmail-style compose window */}
+          <div className="mt-3">
             {canReply ? (
-              <>
-                <textarea
-                  value={reply}
-                  onChange={(e) => setReply(e.target.value)}
-                  rows={3}
-                  placeholder={`Write to ${(enquiry.contact_name || "the client").split(" ")[0]}… (emails them from info@nodice.bar)`}
-                  className={inputCls}
-                />
-                <div className="mt-2 flex flex-wrap items-center gap-2">
-                  <button
-                    type="button"
-                    onClick={draftWithAi}
-                    disabled={aiBusy || replyBusy}
-                    className="rounded-full border border-plonkTeal/50 px-3 py-1.5 text-[11px] font-bold uppercase tracking-wider text-plonkTeal transition hover:bg-plonkTeal/10 disabled:opacity-40"
-                  >
-                    {aiBusy ? "Drafting…" : "✨ Draft with AI"}
-                  </button>
-                  <button
-                    type="button"
-                    onClick={sendReply}
-                    disabled={replyBusy || aiBusy || !reply.trim()}
-                    className="rounded-full bg-plonkTeal px-4 py-1.5 text-[11px] font-bold uppercase tracking-wider text-ink transition hover:brightness-110 disabled:opacity-40"
-                  >
-                    {replyBusy ? "Sending…" : "Send reply"}
-                  </button>
-                  {replyMsg && (
-                    <span className="text-[10px] text-cream/50">{replyMsg}</span>
-                  )}
-                </div>
-              </>
+              <button
+                type="button"
+                onClick={() => setComposeOpen(true)}
+                className="w-full rounded-lg border border-plonkTeal/40 bg-plonkTeal/5 px-4 py-2.5 text-xs font-bold uppercase tracking-wider text-plonkTeal transition hover:bg-plonkTeal/15"
+              >
+                ✉️ Write a reply…
+              </button>
             ) : (
               <p className="text-[10px] text-cream/40">
                 No email on this enquiry to reply to.
@@ -1355,6 +1770,15 @@ function EnquiryDrawer({
           Delete enquiry
         </button>
       </div>
+
+      {composeOpen && (
+        <ComposeModal
+          enquiry={enquiry}
+          messages={messages}
+          onClose={() => setComposeOpen(false)}
+          onSent={refreshThread}
+        />
+      )}
     </div>
   );
 }

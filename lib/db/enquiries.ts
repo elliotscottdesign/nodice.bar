@@ -418,11 +418,13 @@ export async function sendEnquiryReply(
   enquiryId: string,
   body: string,
   subject?: string,
+  htmlBody?: string,
 ): Promise<{ ok: boolean; sent_to: string; subject: string }> {
   return callEdge("enquiry-reply", {
     enquiry_id: enquiryId,
     body,
     subject,
+    html_body: htmlBody,
   });
 }
 
@@ -450,6 +452,26 @@ export async function saveAiKnowledge(value: string): Promise<void> {
   const { error } = await db
     .from("crm_settings")
     .upsert({ key: "ai_faq", value, updated_at: new Date().toISOString() }, { onConflict: "key" });
+  if (error) throw new Error(error.message);
+}
+
+// The email signature (HTML) appended to replies from the compose window.
+// Gmail's API send does NOT auto-add the account signature, so we supply it.
+// Editable by the office in the CRM (Signature editor).
+export async function loadEmailSignature(): Promise<string> {
+  const db = supabase();
+  const { data } = await db
+    .from("crm_settings")
+    .select("value")
+    .eq("key", "email_signature")
+    .maybeSingle();
+  return (data?.value as string) ?? "";
+}
+export async function saveEmailSignature(value: string): Promise<void> {
+  const db = supabase();
+  const { error } = await db
+    .from("crm_settings")
+    .upsert({ key: "email_signature", value, updated_at: new Date().toISOString() }, { onConflict: "key" });
   if (error) throw new Error(error.message);
 }
 
