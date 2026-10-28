@@ -154,10 +154,10 @@ export default function HomePage() {
             "Kitchen residencies",
             "Big screens for sport",
           ]}
-          bookLabel="Book Hackney"
-          detailLabel="Venue details →"
+          bookLabel="Book"
+          detailLabel="Party bookings →"
           bookHref="/book"
-          detailHref="/venue/hackney"
+          detailHref="/parties"
           image=""
           imageAlt="No Dice Hackney"
           align="left"
