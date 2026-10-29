@@ -302,11 +302,11 @@ export default function KioskClient() {
       {/* ── MENU ── */}
       {phase === "menu" && (
         <Screen>
-          <div style={{ flex: 1, minHeight: 0, overflowY: "auto", WebkitOverflowScrolling: "touch" as any }}>
+          <FitToScreen deps={[groups]}>
             {groups.map((grp) => (
-              <div key={grp.title} style={{ marginBottom: 26 }}>
-                <div style={{ fontFamily: DISPLAY, fontSize: 36, color: grp.accent, letterSpacing: "1.5px", textTransform: "uppercase", borderBottom: `3px solid ${grp.accent}`, paddingBottom: 5, marginBottom: 14 }}>{grp.title}</div>
-                <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(340px, 1fr))", gap: 16 }}>
+              <div key={grp.title} style={{ marginBottom: 18 }}>
+                <div style={{ fontFamily: DISPLAY, fontSize: 34, color: grp.accent, letterSpacing: "1.5px", textTransform: "uppercase", borderBottom: `3px solid ${grp.accent}`, paddingBottom: 4, marginBottom: 12 }}>{grp.title}</div>
+                <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(330px, 1fr))", gap: 14 }}>
                   {grp.tiles.map((t) => {
                     if (t.kind === "deal") {
                       const soldOut = avail(t.burger) <= 0;
@@ -331,7 +331,7 @@ export default function KioskClient() {
                 </div>
               </div>
             ))}
-          </div>
+          </FitToScreen>
           <BottomBar>
             {count > 0 ? (
               <div style={{ display: "flex", gap: 12 }}>
@@ -583,6 +583,38 @@ function AddonSheet({ item, onClose, onAdd }: { item: Item; onClose: () => void;
           <button onClick={() => setQty((q) => q + 1)} style={qtyBtn}>+</button>
         </div>
         <button onClick={() => onAdd(item, chosen, qty)} style={bigBtnStyle(RED, "#fff")}>Add {qty} · {gbp(unit * qty)}</button>
+      </div>
+    </div>
+  );
+}
+
+// Shrinks the whole menu uniformly so EVERY item fits on ONE portrait screen with
+// NO scrolling (founder's hard rule). Measures natural content height vs available
+// height and scales down to fit. transform is visual-only, so scrollHeight (the
+// measurement) is never affected by the scale → no feedback loop. Short menu → scale
+// ≈ 1; a long one shrinks to fit. Re-fits on resize, content change and font load.
+function FitToScreen({ children, deps }: { children: React.ReactNode; deps: any[] }) {
+  const outerRef = useRef<HTMLDivElement>(null);
+  const innerRef = useRef<HTMLDivElement>(null);
+  const [scale, setScale] = useState(1);
+  useEffect(() => {
+    const outer = outerRef.current, inner = innerRef.current;
+    if (!outer || !inner) return;
+    const fit = () => {
+      const availH = outer.clientHeight, naturalH = inner.scrollHeight;
+      if (!availH || !naturalH) return;
+      setScale(naturalH > availH ? Math.max(0.4, (availH - 1) / naturalH) : 1);
+    };
+    fit();
+    const ro = new ResizeObserver(fit);
+    ro.observe(outer); ro.observe(inner);
+    const t = setTimeout(fit, 150);   // re-fit once fonts/images settle
+    return () => { ro.disconnect(); clearTimeout(t); };
+  }, deps);   // eslint-disable-line react-hooks/exhaustive-deps
+  return (
+    <div ref={outerRef} style={{ flex: 1, minHeight: 0, overflow: "hidden", display: "flex", justifyContent: "center", alignItems: "flex-start" }}>
+      <div ref={innerRef} style={{ width: "100%", transformOrigin: "top center", transform: scale < 1 ? `scale(${scale})` : undefined }}>
+        {children}
       </div>
     </div>
   );
