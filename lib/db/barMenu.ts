@@ -19,7 +19,22 @@ export type MenuItem = {
   // A sub-heading row (e.g. "Draught") or a banner note — rendered without a
   // price, slightly set apart from priced items.
   note?: boolean;
+  // A "house drink" — what's included when a deal says "a house drink" (founder
+  // 29 Oct 2026). Marked with a 🏠 so people can see their deal options.
+  house?: boolean;
 };
+
+// Which drinks count as "house" (deal-included). Founder's list: all draught
+// pints, all wine + Prosecco, house single & mixer, draught cider, all softs
+// and hot drinks.
+function isHouseDrink(sectionId: string, mode: string, name: string): boolean {
+  if (sectionId === "alcoholfree" || sectionId === "hotdrinks") return true;
+  if (sectionId === "wine") return true;
+  if (sectionId === "beers" && mode === "halfpint") return true; // draught pints
+  if (sectionId === "cider" && /draught/i.test(name)) return true;
+  if (/single\s*&?\s*(and)?\s*mix/i.test(name)) return true; // "single & mixer"
+  return false;
+}
 export type MenuSection = { id: string; title: string; note: string; items: MenuItem[] };
 
 function poundsFromPence(p: number | null | undefined): string {
@@ -57,7 +72,7 @@ function fmtPair(a: string, aLabel: string, b: string, bLabel: string): string {
 // few shapes: a direct priced item ({name,desc,price}); a "list" block with
 // `rows` priced by its `mode` (single / halfpint / glassbottle), optionally
 // under a `subhead`; or a "banner" note ({text}).
-function flattenBlocks(blocks: any[]): MenuItem[] {
+function flattenBlocks(sectionId: string, blocks: any[]): MenuItem[] {
   const items: MenuItem[] = [];
   for (const b of blocks ?? []) {
     if (!b) continue;
@@ -73,11 +88,23 @@ function flattenBlocks(blocks: any[]): MenuItem[] {
         if (b.mode === "halfpint") price = fmtPair(r.half, "½", r.pint, "pt");
         else if (b.mode === "glassbottle") price = fmtPair(r.glass, "gls", r.bottle, "btl");
         else price = fmtPrice(r.price);
-        items.push({ name: r.name.trim(), desc: r.desc ?? "", price });
+        const name = r.name.trim();
+        items.push({
+          name,
+          desc: r.desc ?? "",
+          price,
+          house: isHouseDrink(sectionId, b.mode, name),
+        });
       }
       continue;
     }
-    if (b.name) items.push({ name: b.name, desc: b.desc ?? "", price: fmtPrice(b.price) });
+    if (b.name)
+      items.push({
+        name: b.name,
+        desc: b.desc ?? "",
+        price: fmtPrice(b.price),
+        house: isHouseDrink(sectionId, "", b.name),
+      });
   }
   return items;
 }
@@ -134,7 +161,7 @@ export async function loadBarMenu(): Promise<BarMenu> {
     for (const id of order) {
       const s = byId.get(id);
       if (!s) continue;
-      const items = flattenBlocks(s.blocks ?? []);
+      const items = flattenBlocks(id, s.blocks ?? []);
       // Drop a section that would render as a bare heading (no items, no note).
       if (items.length === 0 && !s.deal) continue;
       drinks.push({
