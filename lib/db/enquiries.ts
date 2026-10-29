@@ -428,6 +428,15 @@ export async function sendEnquiryReply(
   });
 }
 
+// Clear an enquiry's email out of the Gmail inbox (mark read + archive, never
+// trash). Best-effort: silently does nothing if the enquiry had no Gmail origin
+// or the Gmail web app isn't set up. Call on archive/delete.
+export async function tidyEnquiryGmail(
+  enquiryId: string,
+): Promise<{ ok: boolean; skipped?: string }> {
+  return callEdge("enquiry-gmail-tidy", { enquiry_id: enquiryId });
+}
+
 // Ask Claude to draft the next reply from the conversation so far + the AI
 // knowledge/FAQ. Returns the draft text — office reviews/edits before sending.
 export async function draftEnquiryReply(

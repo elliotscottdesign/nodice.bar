@@ -149,6 +149,10 @@ const PRINT_FLYER_CATEGORIES: EventCategory[] = [
   "special_event",
   "food_event",
   "ping_pong",
+  // Comedy Bingo is tagged SPECIALS and goes in the same printed zine, but its
+  // category was missing here, so saving it never produced a flyer and it came
+  // out as a flood-ink block on the coloured paper.
+  "bingo",
 ];
 function wantsPrintFlyer(
   category: EventCategory,
