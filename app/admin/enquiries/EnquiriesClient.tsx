@@ -54,6 +54,7 @@ import {
   loadEnquiryActivity,
   archiveEnquiry,
   unarchiveEnquiry,
+  tidyEnquiryGmail,
   type EnquiryActivity,
   createEnquiry,
   setEnquiryStatus,
@@ -394,6 +395,8 @@ export default function EnquiriesClient() {
     setUndo({ id: e.id, name: e.contact_name || e.event_type || "enquiry" });
     try {
       await archiveEnquiry(e.id);
+      // Also clear it out of the Gmail inbox (best-effort, never blocks).
+      tidyEnquiryGmail(e.id).catch(() => {});
     } catch (err) {
       setErr(describe(err, "Couldn't archive."));
       await reload();
@@ -924,11 +927,14 @@ export default function EnquiriesClient() {
           onDelete={async () => {
             if (
               !(await confirmDialog(
-                "Delete this enquiry? This can't be undone.",
+                "Delete this enquiry? It's removed from the CRM and its email is archived out of the Gmail inbox (not binned). This can't be undone.",
               ))
             )
               return;
             try {
+              // Clear it out of the Gmail inbox first (while we still have its
+              // id), then remove the enquiry from the CRM.
+              await tidyEnquiryGmail(open.id).catch(() => {});
               await deleteEnquiry(open.id);
               setOpenId(null);
               await reload();
