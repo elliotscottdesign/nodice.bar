@@ -15,14 +15,6 @@ import { loadBarMenu, type BarMenu, type MenuSection } from "@/lib/db/barMenu";
 // The "same yellow as the header" the founder means — the warm No Dice gold.
 const MENU_YELLOW = "#E8C547";
 
-// Split a deal/happy-hour description ("PINT £5 / WINE £5 …") into tidy lines.
-function dealLines(desc: string): string[] {
-  return desc
-    .split(/\n|·|•|\s\/\s/g)
-    .map((s) => s.trim())
-    .filter(Boolean);
-}
-
 export default function BarPage() {
   const eyebrow = useContent("bar.eyebrow", "Drinks · Cocktails · Pints");
   const title = useContent("bar.title", "The Bar");
@@ -76,7 +68,7 @@ export default function BarPage() {
           ) : (
             <>
               {/* Today's deal + Happy Hour — the moving parts, up top */}
-              <DealStrip deal={menu.todayDeal} happyHour={menu.happyHour} />
+              <DealStrip deal={menu.todayDeal} />
 
               {/* DRINKS — flows into columns like the A4 sheet */}
               {menu.drinks.length > 0 && (
@@ -123,58 +115,31 @@ function MenuHeading({ children }: { children: React.ReactNode }) {
 
 function DealStrip({
   deal,
-  happyHour,
 }: {
   deal: { name: string; description: string } | null;
-  happyHour: { name: string; description: string } | null;
 }) {
-  if (!deal && !happyHour) return null;
+  if (!deal) return null;
   return (
-    <div className="mb-10 grid gap-4 sm:grid-cols-2">
-      {deal && (
-        <div
-          className="rounded-2xl border bg-ink/40 p-5"
-          style={{ borderColor: `${MENU_YELLOW}66` }}
+    <div className="mb-10">
+      <div
+        className="rounded-2xl border bg-ink/40 p-5 sm:max-w-md"
+        style={{ borderColor: `${MENU_YELLOW}66` }}
+      >
+        <p
+          className="text-xs font-bold uppercase tracking-[0.3em]"
+          style={{ color: MENU_YELLOW }}
         >
-          <p
-            className="text-xs font-bold uppercase tracking-[0.3em]"
-            style={{ color: MENU_YELLOW }}
-          >
-            Today's deal
+          Today's deal
+        </p>
+        <h3 className="mt-1 font-display text-2xl uppercase tracking-wide text-cream">
+          {deal.name}
+        </h3>
+        {deal.description && (
+          <p className="mt-2 text-sm leading-relaxed text-cream/70">
+            {deal.description}
           </p>
-          <h3 className="mt-1 font-display text-2xl uppercase tracking-wide text-cream">
-            {deal.name}
-          </h3>
-          {deal.description && (
-            <p className="mt-2 text-sm leading-relaxed text-cream/70">
-              {deal.description}
-            </p>
-          )}
-        </div>
-      )}
-      {happyHour && (
-        <div
-          className="rounded-2xl border bg-ink/40 p-5"
-          style={{ borderColor: `${MENU_YELLOW}66` }}
-        >
-          <p
-            className="text-xs font-bold uppercase tracking-[0.3em]"
-            style={{ color: MENU_YELLOW }}
-          >
-            {happyHour.name}
-          </p>
-          <ul className="mt-2 flex flex-wrap gap-2">
-            {dealLines(happyHour.description).map((line) => (
-              <li
-                key={line}
-                className="rounded-full border border-cream/15 bg-ink/50 px-3 py-1 text-xs font-semibold uppercase tracking-wide text-cream"
-              >
-                {line}
-              </li>
-            ))}
-          </ul>
-        </div>
-      )}
+        )}
+      </div>
     </div>
   );
 }
@@ -195,23 +160,32 @@ function SectionBlock({ section }: { section: MenuSection }) {
         </p>
       )}
       <ul className="mt-3 space-y-3">
-        {section.items.map((it, i) => (
-          <li key={`${it.name}-${i}`}>
-            <div className="flex items-baseline justify-between gap-3">
-              <span className="font-semibold text-cream">{it.name}</span>
-              {it.price && (
-                <span className="shrink-0 font-semibold tabular-nums text-cream/85">
-                  {it.price}
-                </span>
+        {section.items.map((it, i) =>
+          it.note ? (
+            <li
+              key={`${it.name}-${i}`}
+              className="pt-1 text-[11px] font-bold uppercase tracking-wider text-cream/50"
+            >
+              {it.name}
+            </li>
+          ) : (
+            <li key={`${it.name}-${i}`}>
+              <div className="flex items-baseline justify-between gap-3">
+                <span className="font-semibold text-cream">{it.name}</span>
+                {it.price && (
+                  <span className="shrink-0 font-semibold tabular-nums text-cream/85">
+                    {it.price}
+                  </span>
+                )}
+              </div>
+              {it.desc && (
+                <p className="mt-0.5 text-xs leading-snug text-cream/55">
+                  {it.desc}
+                </p>
               )}
-            </div>
-            {it.desc && (
-              <p className="mt-0.5 text-xs leading-snug text-cream/55">
-                {it.desc}
-              </p>
-            )}
-          </li>
-        ))}
+            </li>
+          ),
+        )}
       </ul>
     </div>
   );

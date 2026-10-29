@@ -12,7 +12,14 @@ import { loadCalendarDeals, type CalendarDeal } from "@/lib/db/dealsCalendar";
 
 const SUPA = "https://rntcujcpsozvuxvmlejv.supabase.co";
 
-export type MenuItem = { name: string; desc: string; price: string };
+export type MenuItem = {
+  name: string;
+  desc: string;
+  price: string;
+  // A sub-heading row (e.g. "Draught") or a banner note — rendered without a
+  // price, slightly set apart from priced items.
+  note?: boolean;
+};
 export type MenuSection = { id: string; title: string; note: string; items: MenuItem[] };
 
 function poundsFromPence(p: number | null | undefined): string {
@@ -20,10 +27,59 @@ function poundsFromPence(p: number | null | undefined): string {
   const n = p / 100;
   return n % 1 === 0 ? `£${n}` : `£${n.toFixed(2)}`;
 }
-function poundsFromStr(s: string | null | undefined): string {
+// Format a single price value off the menu. It can be a plain number ("7.5"),
+// a word ("Varies"), or already a range ("4 / 7.5", "6/12"). £-prefix the
+// numeric parts, leave words alone.
+function fmtPrice(s: string | null | undefined): string {
   const t = (s ?? "").trim();
   if (!t) return "";
+  if (/[a-z]/i.test(t)) return t; // "Varies", "MKT" etc.
+  if (t.includes("/")) {
+    return t
+      .split("/")
+      .map((p) => {
+        const v = p.trim();
+        return v ? `£${v}` : v;
+      })
+      .join(" / ");
+  }
   return t.startsWith("£") ? t : `£${t}`;
+}
+// A two-price row (half/pint, glass/bottle) → "½ £4 · pt £7.5".
+function fmtPair(a: string, aLabel: string, b: string, bLabel: string): string {
+  const parts: string[] = [];
+  if (a) parts.push(`${aLabel} ${fmtPrice(a)}`);
+  if (b) parts.push(`${bLabel} ${fmtPrice(b)}`);
+  return parts.join(" · ");
+}
+
+// Flatten one drinks section's blocks into a flat item list. Blocks come in a
+// few shapes: a direct priced item ({name,desc,price}); a "list" block with
+// `rows` priced by its `mode` (single / halfpint / glassbottle), optionally
+// under a `subhead`; or a "banner" note ({text}).
+function flattenBlocks(blocks: any[]): MenuItem[] {
+  const items: MenuItem[] = [];
+  for (const b of blocks ?? []) {
+    if (!b) continue;
+    if (b.type === "banner") {
+      if (b.text) items.push({ name: b.text, desc: "", price: "", note: true });
+      continue;
+    }
+    if (Array.isArray(b.rows)) {
+      if (b.subhead) items.push({ name: b.subhead, desc: "", price: "", note: true });
+      for (const r of b.rows) {
+        if (!r || !r.name) continue;
+        let price = "";
+        if (b.mode === "halfpint") price = fmtPair(r.half, "½", r.pint, "pt");
+        else if (b.mode === "glassbottle") price = fmtPair(r.glass, "gls", r.bottle, "btl");
+        else price = fmtPrice(r.price);
+        items.push({ name: r.name.trim(), desc: r.desc ?? "", price });
+      }
+      continue;
+    }
+    if (b.name) items.push({ name: b.name, desc: b.desc ?? "", price: fmtPrice(b.price) });
+  }
+  return items;
 }
 
 async function callFn(fn: string, body: unknown): Promise<any> {
@@ -78,13 +134,7 @@ export async function loadBarMenu(): Promise<BarMenu> {
     for (const id of order) {
       const s = byId.get(id);
       if (!s) continue;
-      const items: MenuItem[] = (s.blocks ?? [])
-        .filter((b: any) => b && b.name)
-        .map((b: any) => ({
-          name: b.name,
-          desc: b.desc ?? "",
-          price: poundsFromStr(b.price),
-        }));
+      const items = flattenBlocks(s.blocks ?? []);
       // Drop a section that would render as a bare heading (no items, no note).
       if (items.length === 0 && !s.deal) continue;
       drinks.push({
