@@ -30,6 +30,7 @@ import MediaStrip from "@/components/MediaStrip";
 import RollerDeck from "@/components/RollerDeck";
 import ManageGalleryLink from "@/components/ManageGalleryLink";
 import XmasMenuTab from "@/components/XmasMenuTab";
+import DrinksMenuPanel from "@/components/DrinksMenuPanel";
 import XmasPackageBuilder from "@/components/XmasPackageBuilder";
 import KidsPartyBuilder from "@/components/KidsPartyBuilder";
 import { useEditMode } from "@/lib/editMode";
@@ -260,6 +261,7 @@ export default function PrivateHirePage() {
   const TABS = [
     { id: "venue" as const, label: "Venue details" },
     { id: "menu" as const, label: "Xmas menu" },
+    { id: "drinks" as const, label: "Drink menu" },
     { id: "builder" as const, label: "Package builder" },
     { id: "kids" as const, label: "Kids parties" },
   ];
@@ -271,7 +273,7 @@ export default function PrivateHirePage() {
   useEffect(() => {
     const fromHash = () => {
       const h = window.location.hash.replace("#", "");
-      if (h === "venue" || h === "menu" || h === "builder" || h === "kids") setActiveTab(h);
+      if (h === "venue" || h === "menu" || h === "drinks" || h === "builder" || h === "kids") setActiveTab(h);
     };
     fromHash();
     window.addEventListener("hashchange", fromHash);
@@ -562,6 +564,15 @@ export default function PrivateHirePage() {
       {/* ═══════════ XMAS MENU ═══════════ */}
       <div hidden={activeTab !== "menu"}>
         <XmasMenuTab />
+      </div>
+
+      {/* ═══════════ DRINK MENU ═══════════ */}
+      <div hidden={activeTab !== "drinks"}>
+        <section className="px-6 py-10">
+          <div className="mx-auto max-w-5xl">
+            <DrinksMenuPanel />
+          </div>
+        </section>
       </div>
 
       {/* ═══════════ PACKAGE BUILDER ═══════════ */}
