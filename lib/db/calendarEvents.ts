@@ -82,6 +82,10 @@ export function isDealEvent(
 //
 // Deals are excluded because they have their own flyer path already, and DJ
 // nights because the DJ flyer re-renders those from the DJ's photo.
+// Listed by CATEGORY as well as by the "Special Event" chip below, because the
+// chip is the easier of the two to change by accident: Comedy Bingo qualified
+// only through its chip, so un-ticking it would have quietly dropped it out of
+// the printed zine with nothing to show why.
 const PRINT_FLYER_CATEGORIES = [
   "pool_special",
   "pool_tournament_doubles",
@@ -89,6 +93,7 @@ const PRINT_FLYER_CATEGORIES = [
   "special_event",
   "food_event",
   "ping_pong",
+  "bingo",
 ];
 
 export function needsPrintFlyer(

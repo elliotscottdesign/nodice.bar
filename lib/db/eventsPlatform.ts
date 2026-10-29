@@ -28,6 +28,7 @@ export type EventCategory =
   // Pingers) but were missing from this list, so they had no label in the admin.
   | "special_event"
   | "ping_pong"
+  | "bingo"
   | "other";
 
 export type RecurrenceType =
@@ -496,5 +497,6 @@ export const CATEGORY_LABEL: Record<EventCategory, string> = {
   world_cup: "World Cup — Match",
   special_event: "Special event",
   ping_pong: "Ping pong",
+  bingo: "Comedy bingo",
   other: "Other",
 };

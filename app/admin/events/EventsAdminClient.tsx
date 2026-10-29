@@ -34,6 +34,7 @@ function adminCategoryDot(cat: string): string {
   if (cat === "golf")                    return "bg-emerald-500";
   if (cat === "special_event")           return "bg-sky-400";
   if (cat === "ping_pong")               return "bg-pongLight";
+  if (cat === "bingo")                   return "bg-amber-400";
   return "bg-cream/40"; // "other" / unknown
 }
 function adminEventLeftStripe(ev: {
@@ -121,6 +122,7 @@ const CATEGORY_OPTIONS: EventCategory[] = [
   "world_cup",
   "special_event",
   "ping_pong",
+  "bingo",
   "other",
 ];
 
@@ -2328,6 +2330,7 @@ const ALL_CATEGORIES: EventCategory[] = [
   "world_cup",
   "special_event",
   "ping_pong",
+  "bingo",
   "other",
 ];
 
