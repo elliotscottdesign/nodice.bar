@@ -1,7 +1,7 @@
 /**
  * No Dice CRM — email enquiry scanner (Google Apps Script)
  * =====================================================================
- * Runs on Google's servers every 15 minutes, with no manual work, and turns
+ * Runs on Google's servers every 5 minutes, with no manual work, and turns
  * genuine new enquiry emails into enquiries on the CRM board
  * (team: No Dice Admin -> Enquiries). This ONE script, installed on the
  * elliot@nodice.bar account, covers BOTH inboxes, because info@nodice.bar
@@ -20,7 +20,7 @@
  *   2. Paste ALL of this. (Nothing to fill in — it's ready as-is.)
  *   3. Save, then Run the function "setup" once. (If it asks to authorise,
  *      allow it — it's your own script reading your own mail.)
- *   That's it. It then runs itself every 15 minutes.
+ *   That's it. It then runs itself every 5 minutes.
  * =====================================================================
  */
 
@@ -72,8 +72,8 @@ function setup() {
       ScriptApp.deleteTrigger(triggers[i]);
     }
   }
-  ScriptApp.newTrigger("scanInbox").timeBased().everyMinutes(15).create();
-  Logger.log("Setup complete for " + whoAmI_() + " — scanning every 15 min.");
+  ScriptApp.newTrigger("scanInbox").timeBased().everyMinutes(5).create();
+  Logger.log("Setup complete for " + whoAmI_() + " — scanning every 5 min.");
   scanInbox();
 }
 
