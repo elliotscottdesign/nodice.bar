@@ -53,32 +53,48 @@ function json(body: unknown, init: ResponseInit = {}) {
 
 const SUPABASE_URL = Deno.env.get("SUPABASE_URL") ?? "";
 const SUPABASE_SERVICE_ROLE_KEY = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY") ?? "";
+// Admin gate for the one-off pairing call (same shared secret the food-order fn uses).
+const SEND_SECRET = Deno.env.get("SEND_SECRET") ?? "";
 
-// ── SumUp Cloud API config (all PENDING — see the go-live checklist in the PR) ──
-// Set SUMUP_LIVE=true only once every one of these is in place AND SumUp has
-// enabled unattended / self-service Cloud API on merchant MY3311CY. Until then the
+// ── SumUp Cloud API config (PENDING the keys below — see the go-live checklist) ──
+// Set SUMUP_LIVE=true only once every one of these is in place. Until then the
 // takePayment action runs the STUB (mark-paid) so the kiosk works end-to-end.
+// Confirmed by SumUp Integration Team (29 Oct 2026).
 const SUMUP_LIVE = (Deno.env.get("SUMUP_LIVE") ?? "") === "true";
-const SUMUP_API_KEY = Deno.env.get("SUMUP_API_KEY") ?? "";          // Bearer token (secret API key / OAuth access token)
-const SUMUP_MERCHANT_CODE = Deno.env.get("SUMUP_MERCHANT_CODE") ?? "MY3311CY";
-const SUMUP_READER_ID = Deno.env.get("SUMUP_READER_ID") ?? "";      // the paired Solo's reader id (from the pairing step — see below)
+// The SECRET API key (Dashboard → Settings → For Developers → API Keys), sent as a
+// Bearer credential. NOT the public key, and no separate OAuth token is needed.
+const SUMUP_API_KEY = Deno.env.get("SUMUP_API_KEY") ?? "";
+// The ACCOUNT merchant code from the SumUp dashboard (short code identifying the
+// merchant account). NOTE: this is NOT "MY3311CY" — that string is the Solo's
+// physical DEVICE identifier, not the merchant code. No default: must be set.
+const SUMUP_MERCHANT_CODE = Deno.env.get("SUMUP_MERCHANT_CODE") ?? "";
+// The paired Solo's reader id — begins with "rdr_" (returned by Create Reader at
+// pairing time). Different from the device id MY3311CY.
+const SUMUP_READER_ID = Deno.env.get("SUMUP_READER_ID") ?? "";
+// Affiliate key + application id identify THIS app; they go in the `affiliate`
+// section of every reader-checkout (separate from the secret API key).
+// Dashboard → For Developers → Affiliate Keys.
+const SUMUP_AFFILIATE_KEY = Deno.env.get("SUMUP_AFFILIATE_KEY") ?? "";
+const SUMUP_APP_ID = Deno.env.get("SUMUP_APP_ID") ?? "nodice-onaroll-kiosk";
 const SUMUP_API_BASE = Deno.env.get("SUMUP_API_BASE") ?? "https://api.sumup.com";
 // Where SumUp POSTs the solo.transaction.updated event. Point this at THIS function:
 //   https://<project>.supabase.co/functions/v1/onaroll-kiosk  (action:"sumupWebhook")
 const SUMUP_WEBHOOK_URL = Deno.env.get("SUMUP_WEBHOOK_URL") ?? "";
 //
-// ── ONE-TIME PAIRING (from SumUp support, 13 Oct 2026) ──────────────────────────
-// The Solo must be paired to the merchant account before it can take Cloud-API
-// charges. Pairing is done ONCE, with the reader LOGGED OUT:
-//   1. On the Solo: top menu → Settings → About → Log out (reader shows login screen).
-//   2. On the Solo: top menu → Connections → Wi-Fi (connect), then select "API" → Connect.
-//      The Solo displays a PAIRING CODE.
-//   3. Our side completes pairing via the Cloud API using that code, which returns a
-//      reader id — store it as SUMUP_READER_ID (a server secret). Reader + our server
-//      both need internet, but NOT the same network.
-//   Ref: https://developer.sumup.com/terminal-payments/cloud-api
-// Build this as a small admin-only `action:"pairReader"` handler when we have the key;
-// it is NOT needed for the kiosk flow once SUMUP_READER_ID is set.
+// ── ONE-TIME PAIRING (per SumUp Integration Team, 29 Oct 2026) ──────────────────
+// Pairs the physical Solo to the merchant account. Done ONCE, reader LOGGED OUT:
+//   1. On the Solo: connect to the internet and log out of the SumUp account.
+//   2. On the Solo: Connections → API → Connect → the Solo shows a PAIRING CODE.
+//   3. Within 5 MINUTES our server POSTs { pairing_code, name } to Create Reader
+//      (POST /v0.1/merchants/{MERCHANT_CODE}/readers) — see the `pairReader` action
+//      below — which returns the reader id "rdr_…". Store it as SUMUP_READER_ID.
+//   Reader + our server both need internet, but NOT the same network.
+//   Refs: https://developer.sumup.com/terminal-payments/cloud-api/
+//         https://developer.sumup.com/api/readers/create-checkout/
+//
+// ⚠️ NOT fully unattended (SumUp, 29 Oct): the customer presses Pay in the kiosk and
+// completes on the reader (incl. PIN if asked), but staff may occasionally need to
+// assist at the device — the kiosk's error/"see staff" path covers that.
 
 const db = createClient(SUPABASE_URL, SUPABASE_SERVICE_ROLE_KEY, { auth: { persistSession: false } });
 
@@ -196,14 +212,17 @@ async function stockOk(lineItems: any[]): Promise<{ ok: true } | { ok: false; bo
 async function tillCharge(opts: { amountPence: number; clientTxId: string; description?: string }): Promise<{ ok: boolean; error?: string }> {
   // TODO(sumup-live): remove this guard when going live.
   if (!SUMUP_LIVE) return { ok: false, error: "SUMUP_LIVE is off — using the stub mark-paid path." };
-  if (!SUMUP_API_KEY || !SUMUP_READER_ID) return { ok: false, error: "SumUp API key / reader id not configured." };
+  if (!SUMUP_API_KEY || !SUMUP_READER_ID || !SUMUP_MERCHANT_CODE) return { ok: false, error: "SumUp API key / merchant code / reader id not configured." };
   const res = await fetch(`${SUMUP_API_BASE}/v0.1/merchants/${SUMUP_MERCHANT_CODE}/readers/${SUMUP_READER_ID}/checkout`, {
     method: "POST",
     headers: { "Authorization": `Bearer ${SUMUP_API_KEY}`, "Content-Type": "application/json" },
     body: JSON.stringify({
       total_amount: { currency: "GBP", minor_unit: 2, value: opts.amountPence },
+      ...(opts.description ? { description: opts.description } : {}),
       ...(SUMUP_WEBHOOK_URL ? { return_url: SUMUP_WEBHOOK_URL } : {}),
       client_transaction_id: opts.clientTxId,
+      // Affiliate section identifies this app (separate from the Bearer API key).
+      ...(SUMUP_AFFILIATE_KEY ? { affiliate: { key: SUMUP_AFFILIATE_KEY, app_id: SUMUP_APP_ID, foreign_transaction_id: opts.clientTxId } } : {}),
       // tip_rates intentionally omitted — tips are taken in the kiosk UI.
     }),
   });
@@ -258,6 +277,27 @@ Deno.serve(async (req) => {
     // failed / cancelled → leave unpaid, stamp the reason for staff/diagnostics.
     await db.from("food_orders").update({ failure_reason: String(b.reason || status || "failed").slice(0, 200) }).eq("id", order.id);
     return json({ ok: true, paid: false });
+  }
+
+  // ── Pair the Solo (one-off, admin) — Create Reader with the pairing code ─────────
+  // Call once with { action:"pairReader", secret:<SEND_SECRET>, pairing_code:"XXXX",
+  // name:"On A Roll van" }. Returns the reader id "rdr_…" → set it as SUMUP_READER_ID.
+  // The pairing code is only valid ~5 minutes after the Solo generates it.
+  if (action === "pairReader") {
+    if (!SEND_SECRET || b.secret !== SEND_SECRET) return json({ error: "not allowed" }, { status: 403 });
+    if (!SUMUP_API_KEY || !SUMUP_MERCHANT_CODE) return json({ error: "SUMUP_API_KEY / SUMUP_MERCHANT_CODE not configured yet." }, { status: 400 });
+    const pairing_code = String(b.pairing_code || "").trim();
+    if (!pairing_code) return json({ error: "Enter the pairing code shown on the Solo." }, { status: 400 });
+    const name = String(b.name || "On A Roll van").trim().slice(0, 60);
+    const res = await fetch(`${SUMUP_API_BASE}/v0.1/merchants/${SUMUP_MERCHANT_CODE}/readers`, {
+      method: "POST",
+      headers: { "Authorization": `Bearer ${SUMUP_API_KEY}`, "Content-Type": "application/json" },
+      body: JSON.stringify({ pairing_code, name }),
+    });
+    const body = await res.json().catch(() => ({}));
+    if (!res.ok) return json({ error: `Pairing failed (${res.status}): ${JSON.stringify(body).slice(0, 300)}` }, { status: 502 });
+    // body.id is the "rdr_…" reader id to store as SUMUP_READER_ID.
+    return json({ ok: true, reader_id: body.id ?? null, reader: body });
   }
 
   // ── Create the (pending) kiosk order ───────────────────────────────────────────
