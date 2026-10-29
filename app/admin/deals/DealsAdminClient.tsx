@@ -702,7 +702,6 @@ function DealForm({
           end={endTime}
           posterUrl={posterUrl || null}
           flyerPosterUrl={flyerPosterUrl || null}
-          sourceImageUrl={posterImageUrl || null}
           recipe={posterRecipe}
           isDeal
         />

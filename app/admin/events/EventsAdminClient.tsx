@@ -5,6 +5,7 @@ import { confirmDialog } from "@/lib/dialog";
 import { createPortal } from "react-dom";
 import MediaPicker from "@/components/admin/MediaPicker";
 import EventPosterStudio from "@/components/admin/EventPosterStudio";
+import PosterDownloads from "@/components/admin/PosterDownloads";
 import DatePickerInput from "@/components/admin/DatePickerInput";
 import Notice from "@/components/Notice";
 import { isDealEvent } from "@/lib/db/calendarEvents";
@@ -316,6 +317,11 @@ export default function EventsAdminClient() {
   const [posterSubcopy, setPosterSubcopy] = useState<string>("");
   const [posterFooter, setPosterFooter] = useState<string>("");
   const [posterImageUrl, setPosterImageUrl] = useState<string>("");
+  // How the poster was built, so reopening restores it instead of a blank maker.
+  const [posterRecipe, setPosterRecipe] = useState<Record<
+    string,
+    unknown
+  > | null>(null);
   const [posterQrUrl, setPosterQrUrl] = useState<string>("");
   const [posterDayLabel, setPosterDayLabel] = useState<string>("");
   // The deal's price as its own cell (numeric £). Kept as a string for the
@@ -395,6 +401,7 @@ export default function EventsAdminClient() {
     setPosterSubcopy("");
     setPosterFooter("");
     setPosterImageUrl("");
+    setPosterRecipe(null);
     setPosterQrUrl("");
     setPosterDayLabel("");
     setTicketPrice("");
@@ -795,6 +802,7 @@ export default function EventsAdminClient() {
               defaultSubcopy={posterSubcopy || undefined}
               defaultQrUrl={posterQrUrl || undefined}
               defaultImageUrl={posterImageUrl || undefined}
+              defaultRecipe={posterRecipe}
               defaultDayLabel={posterDayLabel || undefined}
               saveLabel="Use as this event's artwork"
               saveHint="Sets the artwork above. It goes live when you create the event."
@@ -814,8 +822,31 @@ export default function EventsAdminClient() {
                   setPosterDayLabel(r.poster_day_label ?? "");
                 if (r.ticket_price !== undefined)
                   setTicketPrice(r.ticket_price != null ? String(r.ticket_price) : "");
+                if (r.poster_recipe !== undefined)
+                  setPosterRecipe(
+                    (r.poster_recipe as Record<string, unknown> | null) ?? null,
+                  );
               }}
             />
+
+            {/* Downloads live OUTSIDE the poster maker (founder rule, 26 Oct):
+                they work on the poster that's already on the event, so there's
+                nothing to rebuild first. */}
+            <div className="rounded-xl border border-cream/10 bg-ink/30 p-4">
+              <p className="mb-2 text-[10px] font-bold uppercase tracking-widest text-cream/55">
+                Download this poster
+              </p>
+              <PosterDownloads
+                name={name}
+                date={eventDate}
+                start={startTime}
+                end={endTime}
+                posterUrl={posterUrl || null}
+                flyerPosterUrl={flyerPosterUrl || null}
+                recipe={posterRecipe}
+                isDeal={isDealEvent(category, subcategory)}
+              />
+            </div>
           </Section>
 
           {/* Category + visibility */}
@@ -1428,6 +1459,12 @@ function EditEventModal({
   const [posterImageUrl, setPosterImageUrl] = useState<string>(
     event.poster_image_url ?? "",
   );
+  // How the poster was built, so reopening restores it instead of a blank maker.
+  const [posterRecipe, setPosterRecipe] = useState<Record<
+    string,
+    unknown
+  > | null>((event.poster_recipe as Record<string, unknown> | null) ?? null);
+
   const [posterQrUrl, setPosterQrUrl] = useState<string>(
     event.poster_qr_url ?? "",
   );
@@ -1883,6 +1920,7 @@ function EditEventModal({
             defaultSubcopy={posterSubcopy || undefined}
             defaultQrUrl={posterQrUrl || undefined}
             defaultImageUrl={posterImageUrl || undefined}
+            defaultRecipe={posterRecipe}
             defaultDayLabel={posterDayLabel || undefined}
             saveHint="Saves straight onto this event — it shows on nodice.bar/events right away."
             onSave={async (r) => {
@@ -1904,6 +1942,8 @@ function EditEventModal({
                 patch.poster_day_label = r.poster_day_label;
               if (r.ticket_price !== undefined)
                 patch.ticket_price = r.ticket_price;
+              if (r.poster_recipe !== undefined)
+                patch.poster_recipe = r.poster_recipe;
               // Saving a poster on a series ROOT must cascade the artwork (and
               // its print flyer) to every date — otherwise only the master gets
               // the new poster and the future dates keep the old one (founder,
@@ -1931,9 +1971,29 @@ function EditEventModal({
                 setPosterDayLabel(r.poster_day_label ?? "");
               if (r.ticket_price !== undefined)
                 setTicketPrice(r.ticket_price != null ? String(r.ticket_price) : "");
+              if (r.poster_recipe !== undefined)
+                setPosterRecipe(
+                  (r.poster_recipe as Record<string, unknown> | null) ?? null,
+                );
               await onRefresh?.();
             }}
           />
+
+          {/* Downloads live OUTSIDE the poster maker (founder rule, 26 Oct):
+              they work on the poster that's already on the event, so opening an
+              event and grabbing its poster needs no rebuild. */}
+          <ModalField label="Download this poster">
+            <PosterDownloads
+              name={name}
+              date={eventDate}
+              start={startTime}
+              end={endTime}
+              posterUrl={posterUrl || null}
+              flyerPosterUrl={flyerPosterUrl || null}
+              recipe={posterRecipe}
+              isDeal={isDealEvent(event.category, subcategory)}
+            />
+          </ModalField>
 
           {/* Recurrence — editable on every event, including children
               of an existing series. Founder rule (2026-07-02): the

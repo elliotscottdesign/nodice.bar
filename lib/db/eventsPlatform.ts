@@ -95,6 +95,12 @@ export type DbEvent = {
   poster_day_label?: string | null;
   /** Print-ready black-on-transparent A-page render for the team-hub flyer. */
   flyer_poster_url?: string | null;
+  /**
+   * How the poster maker built this poster — colour, treatment, title size,
+   * wording and every photo with its own crop. Lets the maker reopen it for
+   * editing and re-render other sizes. See components/admin/posterRecipe.
+   */
+  poster_recipe?: Record<string, unknown> | null;
   /** Show the title/time/description under the poster on the /events card. */
   show_description?: boolean | null;
   created_at: string;
@@ -273,10 +279,39 @@ export async function loadAllTicketTypes(): Promise<DbTicketType[]> {
   return (data ?? []) as DbTicketType[];
 }
 
+// The poster maker stores how it built each poster, in a column added by
+//   supabase/migrations/20261026000001_poster-recipe.sql
+// Until that migration is run, writing it would make EVERY poster save fail
+// with "column does not exist" — so check once per session and drop it if it
+// isn't there yet. The poster still saves; it just can't be reopened for
+// editing until the migration lands, and starts working the moment it does.
+let recipeColumnPresent: boolean | null = null;
+
+async function stripUnsupported<T extends Record<string, unknown>>(
+  patch: T,
+): Promise<T> {
+  if (!("poster_recipe" in patch)) return patch;
+  if (recipeColumnPresent === null) {
+    const { error } = await supabase()
+      .from("events")
+      .select("poster_recipe")
+      .limit(1);
+    recipeColumnPresent = !error;
+    if (error)
+      console.warn(
+        "events.poster_recipe is missing — run supabase/migrations/20261026000001_poster-recipe.sql so the poster maker can reopen posters for editing.",
+      );
+  }
+  if (recipeColumnPresent) return patch;
+  const out = { ...patch };
+  delete out.poster_recipe;
+  return out;
+}
+
 export async function createEvent(input: NewEvent): Promise<DbEvent> {
   const { data, error } = await supabase()
     .from("events")
-    .insert(input)
+    .insert(await stripUnsupported(input as Record<string, unknown>))
     .select()
     .single();
   if (error) throw error;
@@ -289,7 +324,7 @@ export async function updateEvent(
 ): Promise<DbEvent> {
   const { data, error } = await supabase()
     .from("events")
-    .update(patch)
+    .update(await stripUnsupported(patch as Record<string, unknown>))
     .eq("id", id)
     .select()
     .single();
@@ -338,6 +373,7 @@ export const CASCADE_FIELDS = [
   "poster_qr_url",
   "poster_day_label",
   "flyer_poster_url",
+  "poster_recipe",
 ] as const satisfies readonly (keyof DbEvent)[];
 
 export type CascadeField = (typeof CASCADE_FIELDS)[number];
@@ -365,7 +401,7 @@ export async function updateEventSeries(
   // 1) Parent row — full patch.
   const { error: parentErr } = await supabase()
     .from("events")
-    .update(patch)
+    .update(await stripUnsupported(patch as Record<string, unknown>))
     .eq("id", parentId);
   if (parentErr) throw parentErr;
 
@@ -378,7 +414,7 @@ export async function updateEventSeries(
 
   const { error: childErr } = await supabase()
     .from("events")
-    .update(childPatch)
+    .update(await stripUnsupported(childPatch as Record<string, unknown>))
     .eq("recurrence_parent_id", parentId)
     .eq("recurrence_overridden", false);
   if (childErr) throw childErr;
@@ -403,7 +439,7 @@ export async function resetChildToSeries(
 
   const { error } = await supabase()
     .from("events")
-    .update(patch)
+    .update(await stripUnsupported(patch as Record<string, unknown>))
     .eq("id", childId);
   if (error) throw error;
 }

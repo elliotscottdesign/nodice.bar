@@ -3,15 +3,17 @@
 // =============================================================
 // PosterDownloads — download an event's poster, outside the maker
 // =============================================================
-// Founder rule (26 Oct): the poster maker's only job is to save the poster onto
-// the event. Downloading belongs to the event, not to an edit in progress — so
-// these buttons live in the event form and work on the poster that's ALREADY
-// there, with nothing to remake first.
+// Founder rule (26 Oct): "all download option must live outside of poster
+// maker - poster maker only has option to save to event". Downloading belongs
+// to the event, not to an edit in progress — so these buttons sit in the event
+// form and work on the poster that's ALREADY there, with nothing to remake
+// first. In the maker they were disabled until a picture was loaded, which is
+// why opening an event and grabbing its poster was impossible.
 //
 // Two routes, and it picks whichever it can:
-//   • the event has a saved recipe + source photo → re-make any size on demand
-//     (Instagram post, story, A3 print) from the same settings, so all three
-//     match each other and match what's live.
+//   • the event has a saved recipe → re-make any size on demand from the same
+//     settings and the same photos, so post, story and A3 all match each other
+//     and match what's live.
 //   • it doesn't (an older event, or artwork uploaded by hand) → offer the
 //     actual files on the event instead, so there's always something to click.
 // =============================================================
@@ -58,7 +60,6 @@ export default function PosterDownloads({
   end,
   posterUrl,
   flyerPosterUrl,
-  sourceImageUrl,
   recipe,
   isDeal,
 }: {
@@ -70,8 +71,7 @@ export default function PosterDownloads({
   posterUrl?: string | null;
   /** The black-on-transparent print version, when the event has one. */
   flyerPosterUrl?: string | null;
-  /** The photo the poster was built from. */
-  sourceImageUrl?: string | null;
+  /** How the poster was built — carries every photo with its own crop. */
   recipe?: PosterRecipe | Record<string, unknown> | null;
   isDeal?: boolean;
 }) {
@@ -79,23 +79,24 @@ export default function PosterDownloads({
   const [err, setErr] = useState("");
   const [done, setDone] = useState("");
   const [ready, setReady] = useState(false);
-  const imgRef = useRef<HTMLImageElement | null>(null);
+  const imgsRef = useRef<HTMLImageElement[]>([]);
 
   const r = parseRecipe(recipe as Record<string, unknown> | null);
-  // Re-making a size needs the photo it was built from. Without it we can only
-  // hand over the files the event already has.
-  const canRemake = !!sourceImageUrl;
+  // Re-making a size needs the photos it was built from.
+  const canRemake = !!r.photos?.length;
+  const photoKey = (r.photos ?? []).map((p) => p.sourceUrl).join("|");
 
   useEffect(() => {
     let alive = true;
     setReady(false);
-    imgRef.current = null;
-    if (!sourceImageUrl) return;
+    imgsRef.current = [];
+    const list = r.photos ?? [];
+    if (!list.length) return;
     ensureFont();
-    loadImage(sourceImageUrl)
-      .then((im) => {
+    Promise.all(list.map((p) => loadImage(p.sourceUrl)))
+      .then((imgs) => {
         if (!alive) return;
-        imgRef.current = im;
+        imgsRef.current = imgs;
         setReady(true);
       })
       .catch(() => {
@@ -105,11 +106,13 @@ export default function PosterDownloads({
     return () => {
       alive = false;
     };
-  }, [sourceImageUrl]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [photoKey]);
 
   async function remake(size: PosterSize, tag: string) {
-    const img = imgRef.current;
-    if (!img) return;
+    const imgs = imgsRef.current;
+    const list = r.photos ?? [];
+    if (!imgs.length) return;
     setBusy(tag);
     setErr("");
     setDone("");
@@ -140,15 +143,14 @@ export default function PosterDownloads({
         footer: isDeal ? r.footer : undefined,
         dayLabel: isDeal ? r.dayLabel : undefined,
         qrUrl: isDeal && r.qr ? r.qr : undefined,
-        imgs: [
-          {
-            img,
-            exposure: r.exposure ?? 1,
-            ox: r.ox ?? 0.5,
-            oy: r.oy ?? 0.5,
-            z: r.zoom ?? 1,
-          },
-        ],
+        imgs: imgs.map((img, i) => ({
+          img,
+          exposure: list[i]?.exposure ?? 1,
+          ox: list[i]?.ox ?? 0.5,
+          oy: list[i]?.oy ?? 0.5,
+          z: list[i]?.zoom ?? 1,
+          caption: list[i]?.caption,
+        })),
       });
       await downloadCanvas(cv, posterName(name, date, tag));
       setDone("Downloaded — it's in your Downloads folder.");
@@ -176,8 +178,8 @@ export default function PosterDownloads({
   if (!posterUrl && !canRemake) {
     return (
       <p className="text-[11px] leading-relaxed text-cream/45">
-        No poster on this event yet — make one in the poster maker above and
-        the downloads appear here.
+        No poster on this event yet — make one in the poster maker above and the
+        downloads appear here.
       </p>
     );
   }
@@ -201,7 +203,7 @@ export default function PosterDownloads({
         <p className="text-[11px] leading-relaxed text-cream/50">
           {canRemake
             ? "These are made from the poster that's on this event — you don't have to build it again."
-            : "This event's artwork was uploaded rather than built here, so only the file itself can be downloaded. Re-make it in the poster maker to get the other sizes."}
+            : "This event's artwork was made before the maker started remembering how, so only the file itself can be downloaded. Save it once in the poster maker to get the other sizes."}
         </p>
       </div>
 
