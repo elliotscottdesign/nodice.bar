@@ -64,12 +64,13 @@ const SUMUP_LIVE = (Deno.env.get("SUMUP_LIVE") ?? "") === "true";
 // The SECRET API key (Dashboard → Settings → For Developers → API Keys), sent as a
 // Bearer credential. NOT the public key, and no separate OAuth token is needed.
 const SUMUP_API_KEY = Deno.env.get("SUMUP_API_KEY") ?? "";
-// The ACCOUNT merchant code from the SumUp dashboard (short code identifying the
-// merchant account). NOTE: this is NOT "MY3311CY" — that string is the Solo's
-// physical DEVICE identifier, not the merchant code. No default: must be set.
+// The ACCOUNT merchant code (dashboard top-left under the business name). Confirmed
+// via GET /v0.1/me on 29 Oct 2026 to be "MY3311CY" for No Dice Bars Ltd. (SumUp
+// support had called this the "device identifier", but the API returns it as the
+// merchant_code — it's what goes in the /merchants/{code}/... path.) Set as a secret.
 const SUMUP_MERCHANT_CODE = Deno.env.get("SUMUP_MERCHANT_CODE") ?? "";
 // The paired Solo's reader id — begins with "rdr_" (returned by Create Reader at
-// pairing time). Different from the device id MY3311CY.
+// pairing time). This is the separate per-reader id, not the merchant code.
 const SUMUP_READER_ID = Deno.env.get("SUMUP_READER_ID") ?? "";
 // Affiliate key + application id identify THIS app; they go in the `affiliate`
 // section of every reader-checkout (separate from the secret API key).
