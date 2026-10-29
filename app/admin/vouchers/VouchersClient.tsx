@@ -1,9 +1,11 @@
 "use client";
 
 import { useEffect, useState } from "react";
+import { confirmDialog } from "@/lib/dialog";
 import AdminPageHeader from "@/components/admin/AdminPageHeader";
 import Notice from "@/components/Notice";
 import { AdminCard } from "@/components/admin/AdminCard";
+import DatePickerInput from "@/components/admin/DatePickerInput";
 import { fmtMoney } from "@/lib/format";
 import {
   loadVouchers,
@@ -51,7 +53,7 @@ export default function VouchersClient() {
   }, []);
 
   async function cancelVoucher(v: DbVoucher) {
-    if (!confirm(`Cancel voucher ${v.code}? Customers won't be able to redeem it.`)) return;
+    if (!(await confirmDialog(`Cancel voucher ${v.code}? Customers won't be able to redeem it.`))) return;
     setBusy(true);
     try {
       await updateVoucher(v.id, { status: "cancelled" });
@@ -272,10 +274,9 @@ function IssueVoucherModal({
             <span className="text-xs font-bold uppercase tracking-widest text-cream/55">
               Expires on
             </span>
-            <input
-              type="date"
+            <DatePickerInput
               value={expires}
-              onChange={(e) => setExpires(e.target.value)}
+              onChange={setExpires}
               className="mt-1.5 w-full rounded-lg border border-cream/15 bg-ink/40 px-3 py-2 text-sm text-cream focus:border-plonkPink focus:outline-none"
             />
           </label>

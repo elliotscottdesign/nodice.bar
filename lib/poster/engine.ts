@@ -111,6 +111,35 @@ export const DEAL_PALETTE: { name: string; hex: string }[] = [
   { name: "Oyster white", hex: "#E3D9C6" }, // RAL 1013 — light; inverts cleanest
 ];
 
+// Event BRAND colours — the cool navy / blue / teal / slate set the founder
+// picked for events (19 Oct 2026). Offered ALONGSIDE the bright PALETTE on the
+// events poster maker, so an event can lean on the house blues instead of the
+// bright primaries. (Deals keep their own DEAL_PALETTE.)
+export const EVENT_PALETTE: { name: string; hex: string }[] = [
+  // Blues / navies / teals (founder swatch 1)
+  { name: "Royal navy", hex: "#224378" },
+  { name: "Ink", hex: "#252C3D" },
+  { name: "Sky", hex: "#497FB3" },
+  { name: "Midnight", hex: "#252D50" },
+  { name: "Steel", hex: "#6F7B96" },
+  { name: "Cobalt", hex: "#3E72AD" },
+  { name: "Deep blue", hex: "#255089" },
+  { name: "Teal blue", hex: "#43868D" },
+  // Purples / mauves / roses + more cools (founder swatch 2)
+  { name: "Mulberry", hex: "#674A5A" },
+  { name: "Orchid", hex: "#9B6A93" },
+  { name: "Dusk rose", hex: "#AF9DA2" },
+  { name: "Rose", hex: "#C3648B" },
+  { name: "Lilac", hex: "#9A8CAA" },
+  { name: "Slate lilac", hex: "#858291" },
+  { name: "Deep teal", hex: "#327179" },
+  { name: "Indigo", hex: "#2E2A57" },
+  { name: "Denim", hex: "#52658B" },
+  { name: "Powder blue", hex: "#7392AD" },
+  { name: "Petrol", hex: "#396376" },
+  { name: "Night navy", hex: "#172B51" },
+];
+
 export type PosterSize = "ig" | "story" | "zine" | "a3";
 export type PosterMode = "colour" | "negative";
 // 'whites' = greyscale with the whites knocked out so the poster colour shows
@@ -628,7 +657,56 @@ export type PosterImage = {
   ox?: number;
   oy?: number;
   z?: number;
+  /**
+   * Optional words printed UNDER this photo, in the poster ink, in the sub-line
+   * font, ALL CAPS — for labelling an act / DJ / dish. The caption is locked to
+   * the width of its photo (centred, shrunk to fit, never spilling past it) and
+   * the photo shrinks a touch to make room. Travels WITH the photo, so it
+   * follows a reorder. Additive: no caption on ANY photo → output is unchanged.
+   */
+  caption?: string;
 };
+
+// ── Photo grid ───────────────────────────────────────────────────────────────
+// How many photos go in the picture area, and how they lay out. ONE photo fills
+// the frame exactly as the DJ engine always has (byte-identical); TWO or more
+// reflow into a tidy grid of equal cells — the lineup look, e.g. 6 comedians.
+// Capped at MAX_GRID: more photos than that would shrink each headshot to mush,
+// so extras are ignored. 2 is the old side-by-side split (cols 2, 1 row), so
+// that path is unchanged in shape.
+const MAX_GRID = 9;
+
+// columns × rows for a given count. Chosen to keep cells roughly square-to-
+// portrait (headshots): a row of 2/3, a 2×2, a 3×2 for 5–6, up to 3×3.
+const GRID_SHAPE: Record<number, [number, number]> = {
+  1: [1, 1],
+  2: [2, 1],
+  3: [3, 1],
+  4: [2, 2],
+  5: [3, 2],
+  6: [3, 2],
+  7: [4, 2],
+  8: [4, 2],
+  9: [3, 3],
+};
+
+// Grid layout for `count` photos: the column/row count and how many cells sit in
+// each row (rows fill left-to-right, top-to-bottom; a short final row is centred
+// by the renderer). Exported so the studio's crop well can show the real cell
+// shape a photo will land in.
+export function posterGrid(count: number): {
+  cols: number;
+  rows: number;
+  rowCounts: number[];
+} {
+  const n = Math.max(1, Math.min(MAX_GRID, Math.round(count || 1)));
+  const [cols, rows] = GRID_SHAPE[n];
+  const rowCounts: number[] = [];
+  for (let r = 0; r < rows; r++) {
+    rowCounts.push(r < rows - 1 ? cols : n - (rows - 1) * cols);
+  }
+  return { cols, rows, rowCounts };
+}
 
 export type EventPosterInput = {
   /** The event name — the headline. Wraps over up to 3 lines. */
@@ -695,8 +773,12 @@ export type EventPosterInput = {
 // Render to a canvas. Images are pre-loaded HTMLImageElements (see loadImage).
 //   treatment: 'scatter' = Scatter halftone (default) | 'natural' = the real photo
 //              | 'whites' = greyscale with the whites showing the poster colour.
-//   imgs: optional array of { img, exposure } — one entry = single image,
-//         two entries = a split of two portrait columns with a gap.
+//   imgs: optional array of { img, exposure, ox, oy, z } — ONE entry = a single
+//         image filling the frame (unchanged); TWO OR MORE = an auto-reflowing
+//         photo grid (the lineup look) laid out by posterGrid() — 2 is the old
+//         side-by-side split, 4 a 2×2, 6 a 3×2, up to 9. Each entry keeps its own
+//         exposure + reposition. Additive: a single image is byte-identical to
+//         before, so this does NOT need mirroring beyond the grid logic itself.
 export async function renderEventPoster({
   name,
   date,
@@ -762,11 +844,15 @@ export async function renderEventPoster({
   // Scans through to the event on the calendar. Measured out BEFORE the
   // headline so the headline knows to stop short of it. A deal has no QR — the
   // price circle takes that corner instead.
-  const link = dealLayout
-    ? ""
-    : qrUrl === undefined
-      ? eventQrUrl(date)
-      : qrUrl;
+  // Founder 19 Oct 2026: the QR belongs ONLY on the A3 print-out (the thing
+  // that gets stuck on a wall and scanned) — the Instagram post and story don't
+  // need it, so it's suppressed on every size except 'a3'.
+  const link =
+    dealLayout || size !== "a3"
+      ? ""
+      : qrUrl === undefined
+        ? eventQrUrl(date)
+        : qrUrl;
   let qrDrawn = 0;
   let qrModules: boolean[][] | null = null;
   let qrModulePx = 0;
@@ -789,12 +875,23 @@ export async function renderEventPoster({
   const qrY = y;
   const qrGap = Math.round(W * 0.02);
 
-  // ── Deal price circle, top right (instead of the QR) ──────────────────────
-  // A deal shows its price big, in an open circle (no fill), where the QR sits
-  // on other posters. Sized + measured here so the headline clears it.
+  // ── Price circle, top right (instead of the QR) ───────────────────────────
+  // Founder 19 Oct 2026: the price is a CIRCLE only on the Instagram post and
+  // story — there the extra detail lives in the caption/feed, so the poster just
+  // needs the compact price, and it fills the now-empty QR corner. Every other
+  // export (A3 print, zine) shows the price as a LINE under the headline instead
+  // (room for the £ sign + extra info like "per team"). Deals keep their circle
+  // on their own page, whatever the size.
+  // poundPrice prepends a "£" when the founder typed a bare amount ("6" → "£6")
+  // but leaves wording like "Free entry" or an already-£'d value alone.
+  const poundPrice = (s: string) => {
+    const t = (s || "").trim();
+    return /^\d/.test(t) ? `£${t}` : t;
+  };
+  const priceOnBubble = dealLayout || size === "ig" || size === "story";
   const priceBadge =
-    dealLayout && (price || "").trim()
-      ? (price as string).trim().toUpperCase()
+    priceOnBubble && (price || "").trim()
+      ? poundPrice(price as string).toUpperCase()
       : "";
   // The circle grows with its content — a short "£11" stays compact, but extra
   // info widens the ring (up to a cap) so it's readable instead of shrinking the
@@ -878,11 +975,14 @@ export async function renderEventPoster({
     line(d.toUpperCase(), 0.044, 0.02);
   }
   // Optional price line, a touch bigger — it's a selling point, not a footnote.
-  // On a deal the price lives in the top-right circle, not here.
+  // When the price is shown as the top-right circle (priceBadge) it is NOT
+  // repeated here — only the A3 (which has the QR in that corner, so no circle)
+  // falls back to the price as a line.
   const p = (price || "").trim();
-  if (p && !dealLayout) line(p.toUpperCase(), 0.058, 0.02);
-  // With nothing above the photo, keep the DJ poster's exact gap (0.018+0.02).
-  if (!d && (!p || dealLayout)) y += Math.round(SB * 0.02);
+  if (p && !priceBadge) line(poundPrice(p).toUpperCase(), 0.058, 0.02);
+  // With no line above the photo (no detail, and the price is a circle not a
+  // line), keep the DJ poster's exact gap (0.018+0.02).
+  if (!d && (!p || priceBadge)) y += Math.round(SB * 0.02);
 
   const imgTop = y;
 
@@ -915,8 +1015,11 @@ export async function renderEventPoster({
   const imgBottom =
     H - S.safeBottom - m - bottomBlockH - Math.round(SB * 0.01);
 
-  // One framed image (border + photo) within a given x-column. The image always
-  // fills the frame; ox/oy (0–1) set where it's cropped.
+  // One framed image (border + photo) within a given x-column and y-row. The
+  // image always fills the frame; ox/oy (0–1) set where it's cropped. rTop/rH
+  // default to the whole picture region — a single image or a side-by-side split
+  // passes the full height, so its output is unchanged; the grid passes each
+  // cell's own row band.
   const drawFramed = (
     cx0: number,
     cw: number,
@@ -925,16 +1028,18 @@ export async function renderEventPoster({
     ox?: number,
     oy?: number,
     zoom?: number,
+    rTop: number = imgTop,
+    rH: number = imgBottom - imgTop,
   ) => {
     ctx.fillStyle = inkCss;
-    ctx.fillRect(cx0, imgTop, cw, BORDER);
-    ctx.fillRect(cx0, imgBottom - BORDER, cw, BORDER);
-    ctx.fillRect(cx0, imgTop, BORDER, imgBottom - imgTop);
-    ctx.fillRect(cx0 + cw - BORDER, imgTop, BORDER, imgBottom - imgTop);
+    ctx.fillRect(cx0, rTop, cw, BORDER);
+    ctx.fillRect(cx0, rTop + rH - BORDER, cw, BORDER);
+    ctx.fillRect(cx0, rTop, BORDER, rH);
+    ctx.fillRect(cx0 + cw - BORDER, rTop, BORDER, rH);
     const iX = cx0 + BORDER,
-      iY = imgTop + BORDER,
+      iY = rTop + BORDER,
       iW = cw - 2 * BORDER,
-      iH = imgBottom - imgTop - 2 * BORDER;
+      iH = rH - 2 * BORDER;
     const src =
       typeof ox === "number"
         ? coverRect(im.width, im.height, iW, iH, ox, oy, zoom)
@@ -950,6 +1055,42 @@ export async function renderEventPoster({
       ? imgs
       : ([{ img: img as HTMLImageElement, exposure }] as PosterImage[])
   ).filter((e) => e && e.img);
+
+  // ── Per-photo caption ──────────────────────────────────────────────────────
+  // Optional words under a photo (an act / DJ / dish name). When ANY photo in
+  // the set has one, every cell reserves the same strip height below its photo
+  // so the images stay aligned; the photo shrinks by that much. No captions
+  // anywhere → capHeightFor returns 0 and nothing changes. The caption is the
+  // sub-line font, poster ink, ALL CAPS, centred, shrunk to fit its photo's
+  // width (never spills). Call sites pass the photo's own column width.
+  const anyCaption = list.some((e) => (e.caption || "").trim());
+  const capSizeFor = (w: number) =>
+    anyCaption ? Math.max(9, Math.round(Math.min(SB * 0.036, w * 0.15))) : 0;
+  const capHeightFor = (w: number) =>
+    anyCaption ? Math.round(capSizeFor(w) * 1.5) : 0;
+  const drawCaption = (
+    cellX: number,
+    cellW: number,
+    stripTop: number,
+    stripH: number,
+    text: string | undefined,
+    capPx: number,
+  ) => {
+    const t = (text || "").trim().toUpperCase();
+    if (!t || stripH <= 0) return;
+    ctx.save();
+    ctx.fillStyle = inkCss;
+    ctx.textAlign = "center";
+    const px = fitFont(ctx, t, cellW, capPx); // shrink to the photo's width
+    ctx.font = `${px}px "${FONT_FAMILY}"`;
+    const mm = ctx.measureText(t);
+    const asc = mm.actualBoundingBoxAscent,
+      desc = mm.actualBoundingBoxDescent;
+    // Centre the glyph vertically within the reserved strip.
+    const y = stripTop + (stripH + asc - desc) / 2;
+    ctx.fillText(t, cellX + cellW / 2, y);
+    ctx.restore();
+  };
   if (dealLayout && textBox) {
     // No photo — fill the picture area with the info text, no outline, fit to
     // the box and centred vertically. For copy-led deal / statement posters.
@@ -976,36 +1117,50 @@ export async function renderEventPoster({
       }
     }
   } else if (list.length >= 2) {
-    const gap = Math.round(W * 0.022),
-      colW = Math.round((x1 - x0 - gap) / 2);
-    drawFramed(
-      x0,
-      colW,
-      list[0].img,
-      list[0].exposure ?? 1,
-      list[0].ox,
-      list[0].oy,
-      list[0].z,
-    );
-    drawFramed(
-      x1 - colW,
-      colW,
-      list[1].img,
-      list[1].exposure ?? 1,
-      list[1].ox,
-      list[1].oy,
-      list[1].z,
-    );
+    // Photo grid — equal cells, auto-reflowed by count (see posterGrid). 2 is the
+    // old side-by-side split; 4 a 2×2; 6 a 3×2. A short final row is centred.
+    const grid = list.slice(0, MAX_GRID);
+    const { cols, rows, rowCounts } = posterGrid(grid.length);
+    const gap = Math.round(W * 0.022);
+    const fullW = x1 - x0;
+    const fullH = imgBottom - imgTop;
+    const cellW = Math.round((fullW - (cols - 1) * gap) / cols);
+    const cellH = Math.round((fullH - (rows - 1) * gap) / rows);
+    // Captions (if any) take a fixed strip at the foot of every cell; the photo
+    // takes the rest, so all photos stay the same size and aligned.
+    const capPx = capSizeFor(cellW);
+    const capH = capHeightFor(cellW);
+    const photoH = cellH - capH;
+    let idx = 0;
+    for (let r = 0; r < rows; r++) {
+      const rc = rowCounts[r];
+      const rowW = rc * cellW + (rc - 1) * gap;
+      const startX = x0 + Math.round((fullW - rowW) / 2);
+      const rTop = imgTop + r * (cellH + gap);
+      for (let c = 0; c < rc; c++) {
+        const e = grid[idx++];
+        const cellX = startX + c * (cellW + gap);
+        drawFramed(cellX, cellW, e.img, e.exposure ?? 1, e.ox, e.oy, e.z, rTop, photoH);
+        drawCaption(cellX, cellW, rTop + photoH, capH, e.caption, capPx);
+      }
+    }
   } else if (list.length === 1) {
+    const cellW = x1 - x0;
+    const capPx = capSizeFor(cellW);
+    const capH = capHeightFor(cellW);
+    const photoH = imgBottom - imgTop - capH;
     drawFramed(
       x0,
-      x1 - x0,
+      cellW,
       list[0].img,
       list[0].exposure ?? 1,
       list[0].ox ?? 0.5,
       list[0].oy ?? 0.5,
       list[0].z,
+      imgTop,
+      photoH,
     );
+    drawCaption(x0, cellW, imgTop + photoH, capH, list[0].caption, capPx);
   }
 
   ctx.fillStyle = inkCss;
@@ -1073,14 +1228,14 @@ export async function renderEventPoster({
   return cv;
 }
 
-// The aspect of the photo frame for a given size — what the reposition well
-// should show so the crop preview matches where the picture actually lands.
-export function frameAspect(
+// The picture region (width × height, in poster px) for a given size — the box
+// the photo(s) fill between the text block above and the NO DICE line below.
+function frameRegion(
   size: PosterSize,
   hasDetail: boolean,
   hasPrice: boolean,
   titleScale = 1,
-): number {
+): { w: number; h: number } {
   // Rough but stable: the text block eats a fairly predictable share of height.
   const S = SIZES[size] || SIZES.ig;
   const SB = scaleBaseFor(size, S.w, S.h);
@@ -1094,7 +1249,41 @@ export function frameAspect(
   const bottomLine = SB * 0.09 + SB * 0.01;
   const h =
     S.h - S.safeTop - S.safeBottom - 2 * m - head - extra - bottomLine;
-  return (S.w - 2 * m) / Math.max(1, h);
+  return { w: S.w - 2 * m, h: Math.max(1, h) };
+}
+
+// The aspect of the photo frame for a given size — what the reposition well
+// should show so the crop preview matches where the picture actually lands.
+export function frameAspect(
+  size: PosterSize,
+  hasDetail: boolean,
+  hasPrice: boolean,
+  titleScale = 1,
+): number {
+  const { w, h } = frameRegion(size, hasDetail, hasPrice, titleScale);
+  return w / h;
+}
+
+// The aspect of ONE cell in the photo grid, for `count` photos. The studio shows
+// this in the crop well so a photo's reposition matches the cell it lands in —
+// a 6-up cell is near-square, not the tall single-photo frame. Uses the SAME
+// gap + grid maths as the renderer so the well and the poster agree.
+export function frameCellAspect(
+  size: PosterSize,
+  hasDetail: boolean,
+  hasPrice: boolean,
+  titleScale: number,
+  count: number,
+): number {
+  const { w, h } = frameRegion(size, hasDetail, hasPrice, titleScale);
+  const n = Math.max(1, Math.min(MAX_GRID, Math.round(count || 1)));
+  if (n === 1) return w / h;
+  const { cols, rows } = posterGrid(n);
+  const S = SIZES[size] || SIZES.ig;
+  const gap = Math.round(S.w * 0.022);
+  const cellW = (w - (cols - 1) * gap) / cols;
+  const cellH = (h - (rows - 1) * gap) / rows;
+  return Math.max(0.2, cellW) / Math.max(0.2, cellH);
 }
 
 export const canvasToBlob = (cv: HTMLCanvasElement): Promise<Blob> =>

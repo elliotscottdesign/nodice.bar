@@ -1,6 +1,7 @@
 "use client";
 
 import { useCallback, useEffect, useRef, useState } from "react";
+import { alertDialog } from "@/lib/dialog";
 import { SUPABASE_URL } from "@/lib/stripe";
 
 // ── 🍺 On A Roll drinks voucher ──────────────────────────────────────────────
@@ -63,7 +64,7 @@ export default function VoucherPage() {
       const r = await call("redeemDrinkVoucher", id);
       if (r.expired) setExpired(true);
       else if (r.redeemed) setRedeemed(r.redeemed_at || new Date().toISOString());
-      else if (r.error) alert(r.error);
+      else if (r.error) void alertDialog(r.error);
     } finally { setBusy(false); setProgress(0); }
   }, [busy, redeemed, id]);
 

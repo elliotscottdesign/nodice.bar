@@ -6,6 +6,7 @@ import AdminPageHeader from "@/components/admin/AdminPageHeader";
 import Notice from "@/components/Notice";
 import { AdminCard } from "@/components/admin/AdminCard";
 import AddGolfBookingForm from "@/components/admin/AddGolfBookingForm";
+import DatePickerInput from "@/components/admin/DatePickerInput";
 import BookingLockedTag from "@/components/admin/BookingLockedTag";
 import { fmtMoney } from "@/lib/format";
 import {
@@ -196,10 +197,10 @@ export default function BookingsClient() {
         ))}
         <label className="flex items-center gap-2 text-[10px] font-bold uppercase tracking-widest text-cream/45">
           Jump to
-          <input
-            type="date"
+          <DatePickerInput
             value={jumpDate}
-            onChange={(e) => setJumpDate(e.target.value)}
+            onChange={setJumpDate}
+            placeholder="Jump to date"
             className={`rounded-full border px-3 py-1 text-xs font-semibold tracking-normal focus:outline-none ${
               jumpDate
                 ? "border-plonkYellow bg-plonkYellow/10 text-plonkYellow"

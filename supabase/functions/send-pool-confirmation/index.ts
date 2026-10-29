@@ -92,6 +92,15 @@ function formatDuration(min: number): string {
   return `${(min / 60).toFixed(1)} hrs`;
 }
 
+type PoolAddon = {
+  date: string;
+  startTime: string;
+  duration: string;
+  amount: string;
+  paid: boolean;
+  payUrl: string | null;
+};
+
 function renderEmailHtml(o: {
   kind: "pool" | "table";
   firstName: string;
@@ -102,6 +111,7 @@ function renderEmailHtml(o: {
   amountPaid: string;
   notes: string | null;
   officeReview?: boolean;
+  poolAddon?: PoolAddon | null;
 }): string {
   const isPool = o.kind === "pool";
   // Office-review variant (busy-day hold): a warm "with our team" message,
@@ -174,6 +184,25 @@ function renderEmailHtml(o: {
                   : ""
               }
             </table>
+            ${
+              o.poolAddon
+                ? `<div style="margin-top:8px;padding:20px;border:1px solid rgba(218,27,51,0.35);border-radius:12px;background:rgba(218,27,51,0.06);">
+              <div style="font-size:10px;font-weight:700;letter-spacing:0.3em;text-transform:uppercase;color:#DA1B33;margin-bottom:10px;">🎱 Pool table added</div>
+              <div style="font-size:15px;color:#f5efe3;line-height:1.6;">
+                We've added a pool table to your booking: <strong>${o.poolAddon.duration}</strong> from <strong>${o.poolAddon.startTime}</strong>${o.poolAddon.date && o.poolAddon.date !== o.bookingDate ? ` on <strong>${o.poolAddon.date}</strong>` : ""}.
+              </div>
+              <div style="margin-top:10px;font-size:15px;color:#f5efe3;">Pool fee: <strong>${o.poolAddon.amount}</strong>${o.poolAddon.paid ? ` <span style="color:#3ba55d;font-weight:700;">— paid, thank you!</span>` : ""}</div>
+              ${
+                !o.poolAddon.paid && o.poolAddon.payUrl
+                  ? `<div style="margin-top:16px;">
+                <a href="${o.poolAddon.payUrl}" style="display:inline-block;background:#DA1B33;color:#fff;text-decoration:none;font-weight:800;font-size:15px;letter-spacing:0.02em;padding:14px 28px;border-radius:999px;">Pay for pool →</a>
+              </div>
+              <div style="margin-top:10px;font-size:13px;color:rgba(245,239,227,0.6);">Pay whenever suits — the link stays live. You're all set either way; it just saves time on the night.</div>`
+                  : ""
+              }
+            </div>`
+                : ""
+            }
             <div style="margin-top:32px;padding-top:24px;border-top:1px solid rgba(245,239,227,0.12);">
               <div style="font-size:10px;font-weight:700;letter-spacing:0.3em;text-transform:uppercase;color:#DA1B33;margin-bottom:8px;">Where</div>
               <div style="font-size:15px;color:#f5efe3;line-height:1.55;">${VENUE_NAME}<br>${VENUE_ADDRESS}</div>
@@ -217,6 +246,7 @@ function renderEmailText(o: {
   amountPaid: string;
   notes: string | null;
   officeReview?: boolean;
+  poolAddon?: PoolAddon | null;
 }): string {
   const isPool = o.kind === "pool";
   const kicker = o.officeReview
@@ -256,6 +286,17 @@ function renderEmailText(o: {
     paid ? `Paid:       ${o.amountPaid}` : "",
     o.notes ? `Your notes: ${o.notes}` : "",
     ``,
+    ...(o.poolAddon
+      ? [
+          `POOL TABLE ADDED`,
+          `We've added a pool table: ${o.poolAddon.duration} from ${o.poolAddon.startTime}${o.poolAddon.date && o.poolAddon.date !== o.bookingDate ? ` on ${o.poolAddon.date}` : ""}.`,
+          `Pool fee: ${o.poolAddon.amount}${o.poolAddon.paid ? " (paid, thank you!)" : ""}`,
+          ...(!o.poolAddon.paid && o.poolAddon.payUrl
+            ? [`Pay for pool: ${o.poolAddon.payUrl}`, `Pay whenever suits — the link stays live.`]
+            : []),
+          ``,
+        ]
+      : []),
     `WHERE`,
     `${VENUE_NAME}`,
     `${VENUE_ADDRESS}`,
@@ -338,6 +379,44 @@ Deno.serve(async (req) => {
 
   const kind = r.kind as "pool" | "table";
   const firstName = (r.name ?? "").split(" ")[0] || r.name || "there";
+
+  // Pool add-on — office may have added pool time to this TABLE booking
+  // (a linked kind='pool' row). If so, surface it IN this one email with
+  // its pay link, rather than a separate pool confirmation. Only the most
+  // recent non-cancelled add-on is shown. Never for pool rows themselves.
+  let poolAddon:
+    | {
+        date: string;
+        startTime: string;
+        duration: string;
+        amount: string;
+        paid: boolean;
+        payUrl: string | null;
+      }
+    | null = null;
+  if (kind === "table") {
+    const { data: addon } = await db
+      .from("bar_reservations")
+      .select(
+        "reservation_date, start_time, duration_minutes, amount_pence, status, pool_pay_url",
+      )
+      .eq("parent_reservation_id", r.id)
+      .neq("status", "cancelled")
+      .order("created_at", { ascending: false })
+      .limit(1)
+      .maybeSingle();
+    if (addon) {
+      poolAddon = {
+        date: formatDate(addon.reservation_date),
+        startTime: formatTime(addon.start_time),
+        duration: formatDuration(addon.duration_minutes),
+        amount: formatPounds(addon.amount_pence ?? 0),
+        paid: addon.status === "paid",
+        payUrl: addon.pool_pay_url ?? null,
+      };
+    }
+  }
+
   const opts = {
     kind,
     firstName,
@@ -348,6 +427,7 @@ Deno.serve(async (req) => {
     amountPaid: formatPounds(r.amount_pence ?? 0),
     notes: includeNotes ? r.notes : null,
     officeReview,
+    poolAddon,
   };
 
   const subject = officeReview

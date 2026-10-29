@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
+import { confirmDialog } from "@/lib/dialog";
 import AdminPageHeader from "@/components/admin/AdminPageHeader";
 import Notice from "@/components/Notice";
 import { AdminCard } from "@/components/admin/AdminCard";
@@ -60,7 +61,7 @@ export default function SnackBarAdminClient() {
   }, []);
 
   async function handleDeleteSection(s: DbMenuSection) {
-    if (!confirm(`Delete section "${s.title}" and all its items?`)) return;
+    if (!(await confirmDialog(`Delete section "${s.title}" and all its items?`))) return;
     setBusy(true);
     try {
       await deleteMenuSection(s.id);
@@ -72,7 +73,7 @@ export default function SnackBarAdminClient() {
     }
   }
   async function handleDeleteItem(i: DbMenuItem) {
-    if (!confirm(`Delete "${i.title}"?`)) return;
+    if (!(await confirmDialog(`Delete "${i.title}"?`))) return;
     setBusy(true);
     try {
       await deleteMenuItem(i.id);

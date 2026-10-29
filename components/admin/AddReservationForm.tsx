@@ -1,7 +1,9 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { AdminCard } from "@/components/admin/AdminCard";
+import TimeField from "@/components/admin/TimeField";
+import DatePickerInput from "@/components/admin/DatePickerInput";
 import { supabase } from "@/lib/supabase";
 
 const SUPABASE_URL =
@@ -15,6 +17,48 @@ const NOTIFY_BIG_BOOKING_URL =
 // 12+ covers pings the founder inbox so kitchen + management can plan for
 // the extra load. Matches BIG_THRESHOLD in the edge function.
 const BIG_BOOKING_THRESHOLD = 12;
+
+// Office pool add-on (table bookings only) — same edge fn + pricing the
+// 🎱 Add pool time button on each booking card uses.
+const POOL_ADDON_URL = `${SUPABASE_URL}/functions/v1/pool-addon`;
+type PriceWindow = {
+  days_of_week: number[];
+  start_time: string;
+  end_time: string;
+  price_per_30min_pence: number;
+  is_default: boolean;
+  priority: number;
+};
+function estimatePoolPence(
+  windows: PriceWindow[],
+  dateIso: string,
+  timeHHMM: string,
+  durationMin: number,
+): number {
+  if (!dateIso || !timeHHMM || !durationMin || durationMin <= 0) return 0;
+  const t2m = (t: string) => {
+    const [h, m] = t.split(":").map(Number);
+    return h * 60 + (m || 0);
+  };
+  const sorted = [...windows].sort((a, b) => b.priority - a.priority);
+  const dow = new Date(`${dateIso}T00:00:00Z`).getUTCDay();
+  const per30 = (slotMin: number) => {
+    for (const w of sorted) {
+      if (!w.days_of_week.includes(dow)) continue;
+      const ws = t2m(w.start_time);
+      const we = t2m(w.end_time);
+      if (slotMin < ws || slotMin >= we) continue;
+      return w.price_per_30min_pence;
+    }
+    const def = sorted.find((w) => w.is_default);
+    return def ? def.price_per_30min_pence : 600;
+  };
+  const start = t2m(timeHHMM);
+  const blocks = Math.ceil(durationMin / 30);
+  let total = 0;
+  for (let i = 0; i < blocks; i++) total += per30(start + i * 30);
+  return total || Math.ceil(durationMin / 30) * 600;
+}
 
 // A "real-looking" email — has an @, a dot in the domain, and isn't the
 // info@ walk-in placeholder. Used to decide whether to default the
@@ -112,6 +156,41 @@ export default function AddReservationForm({
     "confirmed",
   );
 
+  // Optional pool add-on — table bookings only. Mirrors the 🎱 Add pool
+  // time button on the booking cards: creates a linked pool row that
+  // blocks the slot + a single-use Stripe pay-later link, all in one go
+  // with the table booking. The pay link then rides on the booking's
+  // confirmation email (if "Send confirmation email" is ticked).
+  const [addPool, setAddPool] = useState(false);
+  const [poolTime, setPoolTime] = useState("20:00");
+  const [poolDuration, setPoolDuration] = useState("60");
+  const [poolTables, setPoolTables] = useState("1");
+  const [poolAmount, setPoolAmount] = useState(""); // pounds, as typed
+  const [poolAmountTouched, setPoolAmountTouched] = useState(false);
+  const [priceWindows, setPriceWindows] = useState<PriceWindow[]>([]);
+
+  // Load pool price windows once (table form only) so the fee auto-fills.
+  useEffect(() => {
+    if (kind !== "table") return;
+    supabase()
+      .from("bookable_price_windows")
+      .select(
+        "days_of_week,start_time,end_time,price_per_30min_pence,is_default,priority",
+      )
+      .eq("product_id", "pool")
+      .then(({ data }) => {
+        if (data) setPriceWindows(data as PriceWindow[]);
+      });
+  }, [kind]);
+
+  // Auto-fill the pool fee from the rate until the office hand-edits it.
+  useEffect(() => {
+    if (!addPool || poolAmountTouched) return;
+    const mins = parseInt(poolDuration, 10) || 0;
+    const p = estimatePoolPence(priceWindows, date, poolTime, mins);
+    setPoolAmount(p > 0 ? (p / 100).toFixed(2) : "");
+  }, [addPool, date, poolTime, poolDuration, priceWindows, poolAmountTouched]);
+
   function reset() {
     setName("");
     setEmail("");
@@ -124,6 +203,12 @@ export default function AddReservationForm({
     setSendConfirmation(true);
     setIncludeNotesInEmail(false);
     setBookingStatus("confirmed");
+    setAddPool(false);
+    setPoolTime("20:00");
+    setPoolDuration("60");
+    setPoolTables("1");
+    setPoolAmount("");
+    setPoolAmountTouched(false);
     setErr("");
     setOk("");
   }
@@ -170,6 +255,47 @@ export default function AddReservationForm({
         .select("id")
         .single();
       if (error) throw error;
+
+      // Pool add-on — if the office ticked "Also add pool time", create the
+      // linked pool row + single-use Stripe pay link NOW, before the
+      // confirmation email so that email carries the pool line + Pay button.
+      // The table booking is already saved; a pool failure here doesn't undo
+      // it — we keep the form open and tell the office to add pool from the
+      // booking card instead.
+      let poolOk = !(kind === "table" && addPool);
+      let poolMessage = "";
+      if (kind === "table" && addPool) {
+        const poolMins = Math.max(15, Math.min(600, parseInt(poolDuration, 10) || 60));
+        const poolTablesInt = Math.max(1, Math.min(4, parseInt(poolTables, 10) || 1));
+        const amtPence = Math.round((parseFloat(poolAmount) || 0) * 100);
+        try {
+          const pr = await fetch(POOL_ADDON_URL, {
+            method: "POST",
+            headers: {
+              "Content-Type": "application/json",
+              apikey: SUPABASE_ANON_KEY,
+              Authorization: `Bearer ${SUPABASE_ANON_KEY}`,
+            },
+            body: JSON.stringify({
+              parent_reservation_id: inserted.id,
+              reservation_date: date,
+              start_time: poolTime,
+              duration_minutes: poolMins,
+              resource_count: poolTablesInt,
+              ...(amtPence > 0 ? { amount_pence: amtPence } : {}),
+            }),
+          });
+          const pj = await pr.json().catch(() => ({}));
+          if (pr.ok) {
+            poolOk = true;
+            poolMessage = " Pool time added — the pay link is on the booking.";
+          } else {
+            poolMessage = ` (Pool add-on failed: ${pj.error || `HTTP ${pr.status}`}.)`;
+          }
+        } catch (e2) {
+          poolMessage = ` (Pool add-on errored: ${e2 instanceof Error ? e2.message : String(e2)})`;
+        }
+      }
 
       // Fire the customer confirmation email if the founder ticked the
       // box AND we have a real email (never send to the walk-in
@@ -238,13 +364,26 @@ export default function AddReservationForm({
         }
       }
 
+      // Pool add-on failed but the table booking saved — keep the form open
+      // with the error so the office notices, and can add pool from the
+      // 🎱 button on the booking card instead. Don't reset/close.
+      if (!poolOk) {
+        setErr(
+          `Booking saved for ${name.trim()}, but the pool add-on didn't go through.${poolMessage} You can add it from the 🎱 button on the booking.`,
+        );
+        onCreated();
+        return;
+      }
+      // Success — reload the list, then CLOSE the form (founder 19 Oct 2026:
+      // it should disappear, not sit open ready for the next entry).
       setOk(
         bookingStatus === "pending"
-          ? `Pending booking noted for ${name.trim()} — it shows amber in the list and calendar. Confirm it from the list when they lock it in.`
-          : `Booking added for ${name.trim()}.${emailMessage}${bigMessage}`,
+          ? `Pending booking noted for ${name.trim()} — it shows amber in the list and calendar.`
+          : `Booking added for ${name.trim()}.${emailMessage}${bigMessage}${poolMessage}`,
       );
-      reset();
       onCreated();
+      reset();
+      setOpen(false);
     } catch (e) {
       setErr(e instanceof Error ? e.message : "Failed to add booking.");
     } finally {
@@ -274,11 +413,9 @@ export default function AddReservationForm({
             <label className="text-[10px] font-bold uppercase tracking-widest text-cream/55">
               Date
             </label>
-            <input
-              type="date"
-              required
+            <DatePickerInput
               value={date}
-              onChange={(e) => setDate(e.target.value)}
+              onChange={setDate}
               className={inputCls + " mt-1"}
             />
           </div>
@@ -286,11 +423,9 @@ export default function AddReservationForm({
             <label className="text-[10px] font-bold uppercase tracking-widest text-cream/55">
               Start time
             </label>
-            <input
-              type="time"
-              required
+            <TimeField
               value={time}
-              onChange={(e) => setTime(e.target.value)}
+              onChange={setTime}
               className={inputCls + " mt-1"}
             />
           </div>
@@ -397,6 +532,88 @@ export default function AddReservationForm({
             className={inputCls + " mt-1"}
           />
         </div>
+
+        {/* Optional pool add-on — table bookings only. Creates a linked
+            pool hold + single-use Stripe pay-later link in one go. */}
+        {kind === "table" && (
+          <div className="rounded-lg border border-plonkTeal/25 bg-plonkTeal/5 px-4 py-3">
+            <label className="flex items-start gap-3 text-sm text-cream/90">
+              <input
+                type="checkbox"
+                checked={addPool}
+                onChange={(e) => setAddPool(e.target.checked)}
+                className="mt-0.5 h-4 w-4 accent-plonkTeal"
+              />
+              <span>
+                <span className="font-semibold">🎱 Also add pool time</span>
+                <span className="mt-0.5 block text-xs text-cream/60">
+                  Holds a pool table for this booking and makes a pay-later
+                  link. The link rides on this booking (and its confirmation
+                  email if you send one) — not a separate pool booking.
+                </span>
+              </span>
+            </label>
+            {addPool && (
+              <div className="mt-3 grid gap-3 sm:grid-cols-4">
+                <div>
+                  <label className="text-[10px] font-bold uppercase tracking-widest text-cream/55">
+                    Pool start
+                  </label>
+                  <TimeField
+                    value={poolTime}
+                    onChange={setPoolTime}
+                    className={inputCls + " mt-1"}
+                  />
+                </div>
+                <div>
+                  <label className="text-[10px] font-bold uppercase tracking-widest text-cream/55">
+                    Length (min)
+                  </label>
+                  <input
+                    type="number"
+                    min={15}
+                    step={15}
+                    value={poolDuration}
+                    onChange={(e) => setPoolDuration(e.target.value)}
+                    className={inputCls + " mt-1"}
+                  />
+                </div>
+                <div>
+                  <label className="text-[10px] font-bold uppercase tracking-widest text-cream/55">
+                    Tables
+                  </label>
+                  <input
+                    type="number"
+                    min={1}
+                    max={4}
+                    value={poolTables}
+                    onChange={(e) => setPoolTables(e.target.value)}
+                    className={inputCls + " mt-1"}
+                  />
+                </div>
+                <div>
+                  <label className="text-[10px] font-bold uppercase tracking-widest text-cream/55">
+                    Pool fee (£)
+                  </label>
+                  <input
+                    type="number"
+                    min={0}
+                    step="0.50"
+                    value={poolAmount}
+                    onChange={(e) => {
+                      setPoolAmountTouched(true);
+                      setPoolAmount(e.target.value);
+                    }}
+                    className={inputCls + " mt-1"}
+                  />
+                  <p className="mt-1 text-[10px] text-cream/45">
+                    Auto from the pool rate — edit to override.
+                  </p>
+                </div>
+              </div>
+            )}
+          </div>
+        )}
 
         {/* Confirmed vs pending. A pending booking is a pencilled-in
             enquiry — shows amber, holds the slot, no customer email

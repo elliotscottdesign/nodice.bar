@@ -440,11 +440,9 @@ function TableBookingPageInner() {
                   {blockingEvent.event_name}
                 </h3>
                 <p className="mt-3 max-w-prose text-sm text-cream/75">
-                  {blockingEvent.category === "world_cup"
-                    ? "We're showing the match — every table that night is reserved for ticket-holders. Book a match table instead, or pick a different night."
-                    : blockingEvent.category === "food_event"
-                      ? "We've got a food residency on that night — the kitchen team uses the dining tables for guests. See what's on, or pick a different night."
-                      : "We've got something on that night that needs the dining tables. See what's on, or pick a different night."}
+                  {blockingEvent.category === "food_event"
+                    ? "We've got a food residency on that night — the kitchen team uses the dining tables for guests. See what's on, or pick a different night."
+                    : "We've got something on that night that needs the dining tables. See what's on, or pick a different night."}
                 </p>
                 <div className="mt-5 flex flex-wrap gap-3">
                   <Link

@@ -86,6 +86,35 @@ export default function BingoContentPage() {
             </div>
           </div>
         </AdminCard>
+
+        <AdminCard>
+          <div className="px-5 py-5">
+            <p className="font-display text-lg">On the night</p>
+            <p className="mt-2 text-sm text-cream/70">
+              The bingo <strong className="text-cream/85">controls</strong> — the
+              card maker and the live caller — live in the team hub, with the rest
+              of your event tools. The big screen the room watches stays here.
+            </p>
+            <div className="mt-4 flex flex-wrap gap-2">
+              <a
+                href="https://team.nodice.bar/ops?tab=bingo"
+                target="_blank"
+                rel="noopener noreferrer"
+                className={btn}
+              >
+                Cards &amp; caller (team hub) ↗
+              </a>
+              <a
+                href="/bingo-live"
+                target="_blank"
+                rel="noopener noreferrer"
+                className={btn}
+              >
+                Big screen (/bingo-live) ↗
+              </a>
+            </div>
+          </div>
+        </AdminCard>
       </div>
     </>
   );

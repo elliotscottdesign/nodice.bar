@@ -1,8 +1,10 @@
 "use client";
 
 import { useEffect, useState } from "react";
+import { confirmDialog } from "@/lib/dialog";
 import { AdminCard } from "@/components/admin/AdminCard";
 import MediaPicker from "@/components/admin/MediaPicker";
+import DatePickerInput from "@/components/admin/DatePickerInput";
 import EventPosterStudio from "@/components/admin/EventPosterStudio";
 import Notice from "@/components/Notice";
 import {
@@ -234,7 +236,7 @@ export default function CalendarEventsAdminClient() {
   }
 
   async function remove(id: string) {
-    if (!confirm("Delete this event? This can't be undone.")) return;
+    if (!(await confirmDialog("Delete this event? This can't be undone."))) return;
     try {
       await deleteCalendarEvent(id);
       await reload();
@@ -300,11 +302,9 @@ export default function CalendarEventsAdminClient() {
           </Field>
 
           <Field label="Date">
-            <input
-              type="date"
-              required
+            <DatePickerInput
               value={draft.event_date}
-              onChange={(e) => setDraft({ ...draft, event_date: e.target.value })}
+              onChange={(v) => setDraft({ ...draft, event_date: v })}
               className={inputClass}
             />
           </Field>

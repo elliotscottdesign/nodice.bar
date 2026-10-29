@@ -30,6 +30,7 @@ import MediaStrip from "@/components/MediaStrip";
 import RollerDeck from "@/components/RollerDeck";
 import ManageGalleryLink from "@/components/ManageGalleryLink";
 import XmasMenuTab from "@/components/XmasMenuTab";
+import DrinksMenuPanel from "@/components/DrinksMenuPanel";
 import XmasPackageBuilder from "@/components/XmasPackageBuilder";
 import KidsPartyBuilder from "@/components/KidsPartyBuilder";
 import { useEditMode } from "@/lib/editMode";
@@ -172,7 +173,7 @@ const DEFAULTS = {
   capacity:
     "Standing: 100\nDining: 40\nCabaret: 60",
   features:
-    "Two pool tables\nFull cocktail bar\nCraft beer on draught\nSnack Bar kitchen\nNatural light\nWi-Fi\nStorage space\nStep-free access\nFull DJ booth — 2× Technics SL-1200 MK7, 2× Pioneer CDJ-900 Nexus, rotary mixer\nMartin Audio sound system — bring your own DJ or plug in a playlist",
+    "Two pool tables\nFull cocktail bar\nCraft beer on draught\nSnack Bar kitchen\nNatural light\nWi-Fi\nStorage space\nStep-free access\nFull DJ booth — 2× Technics SL-1200 MK7, 2× Pioneer CDJ-900 Nexus, Omnitronic TRM-222 rotary mixer, Sony MDR7508 headphones, 2× iLoud monitor speakers\nMartin Audio sound system — bring your own DJ or plug in a playlist",
   catering:
     "In-house catering\nApproved caterers only\nWe provide alcohol\nKitchen facilities available\nHalal available\nKosher available\nComplimentary water\nExtensive vegan menu\nExtensive gluten-free menu\nBuyout fee for external catering\nno: External catering (general)\nno: BYOB alcohol\nno: Complimentary tea & coffee",
   licences:
@@ -180,7 +181,7 @@ const DEFAULTS = {
   welcomes:
     // DJ kit lines mirror the booth spec in the DJ portal ("The kit") —
     // keep the two in step if the booth changes.
-    "Games competitions / tournaments\nVIP events\nPrivate parties\nFull DJ booth — 2× Technics SL-1200 MK7, 2× Pioneer CDJ-900 Nexus, rotary mixer\nMartin Audio sound system — bring your own DJ or plug in a playlist",
+    "Games competitions / tournaments\nVIP events\nPrivate parties\nFull DJ booth — 2× Technics SL-1200 MK7, 2× Pioneer CDJ-900 Nexus, Omnitronic TRM-222 rotary mixer, Sony MDR7508 headphones, 2× iLoud monitor speakers\nMartin Audio sound system — bring your own DJ or plug in a playlist",
   house_rules: "No outside catering. No BYOB. Background music only.",
 };
 
@@ -260,6 +261,7 @@ export default function PrivateHirePage() {
   const TABS = [
     { id: "venue" as const, label: "Venue details" },
     { id: "menu" as const, label: "Xmas menu" },
+    { id: "drinks" as const, label: "Drink menu" },
     { id: "builder" as const, label: "Package builder" },
     { id: "kids" as const, label: "Kids parties" },
   ];
@@ -271,7 +273,7 @@ export default function PrivateHirePage() {
   useEffect(() => {
     const fromHash = () => {
       const h = window.location.hash.replace("#", "");
-      if (h === "venue" || h === "menu" || h === "builder" || h === "kids") setActiveTab(h);
+      if (h === "venue" || h === "menu" || h === "drinks" || h === "builder" || h === "kids") setActiveTab(h);
     };
     fromHash();
     window.addEventListener("hashchange", fromHash);
@@ -562,6 +564,15 @@ export default function PrivateHirePage() {
       {/* ═══════════ XMAS MENU ═══════════ */}
       <div hidden={activeTab !== "menu"}>
         <XmasMenuTab />
+      </div>
+
+      {/* ═══════════ DRINK MENU ═══════════ */}
+      <div hidden={activeTab !== "drinks"}>
+        <section className="px-6 py-10">
+          <div className="mx-auto max-w-5xl">
+            <DrinksMenuPanel />
+          </div>
+        </section>
       </div>
 
       {/* ═══════════ PACKAGE BUILDER ═══════════ */}

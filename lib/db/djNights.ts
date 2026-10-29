@@ -46,6 +46,73 @@ type FeedNight = {
 
 export const DJ_EVENT_PREFIX = "dj-";
 
+// Turn the feed's `instagram` field into a URL safe to put in an href — or
+// null, in which case that card just stays non-clickable (today's behaviour).
+//
+// WHY THIS IS CAREFUL: the handle is typed by a human into the team hub and
+// reaches us cross-origin from another Supabase project. It is untrusted data
+// heading for an `href`, so it is NEVER passed through raw — a value like
+// `javascript:alert(1)` or `data:text/html,…` in an href is a live XSS. This
+// function only ever returns a URL it builds itself from a handle that has
+// passed the character whitelist below, so the worst a bad feed value can do
+// is produce a 404 on instagram.com, or nothing at all.
+//
+// The live feed carries four shapes, all seen in the data:
+//   "@wafalovesrecord"                          → at-prefixed handle
+//   "nickmannini"                               → bare handle
+//   "https://www.instagram.com/damianbthomas/"  → full profile URL
+//   "@joshffb //. @discotheque_tropicale"       → two handles; we link the 1st
+const IG_HANDLE = /^[A-Za-z0-9._]{1,30}$/;
+
+export function instagramUrl(raw: string | null | undefined): string | null {
+  if (typeof raw !== "string") return null;
+  const trimmed = raw.trim();
+  if (!trimmed) return null;
+
+  // Some nights list a second DJ/collective after the first. Take the leading
+  // whitespace-separated token and ignore the rest.
+  const first = trimmed.split(/\s+/)[0];
+
+  // Protocol-relative ("//evil.com/x") is never a handle and never a URL we
+  // can vet without a base — drop it before anything else looks at it.
+  if (first.startsWith("//")) return null;
+
+  const hasScheme = /^[A-Za-z][A-Za-z0-9+.-]*:/.test(first);
+  let handle: string;
+
+  if (hasScheme || first.includes("/")) {
+    // URL-shaped. Parse it properly and demand it really is instagram.com over
+    // http(s) before trusting any part of it. This is what rejects
+    // "javascript:alert(1)", "data:…", "https://instagram.com.evil.com/foo"
+    // (host ends in .evil.com, not .instagram.com) and
+    // "https://evil.com/instagram.com/foo" (host is evil.com).
+    let url: URL;
+    try {
+      url = new URL(hasScheme ? first : `https://${first}`);
+    } catch {
+      return null;
+    }
+    if (url.protocol !== "https:" && url.protocol !== "http:") return null;
+    const host = url.hostname.toLowerCase();
+    if (host !== "instagram.com" && !host.endsWith(".instagram.com")) {
+      return null;
+    }
+    const segments = url.pathname.split("/").filter(Boolean);
+    if (segments.length === 0) return null;
+    // Deliberately NOT decodeURIComponent'd: it throws on malformed input
+    // ("%zz") and this runs inside the calendar's render path. A real handle
+    // never needs decoding, and anything percent-encoded fails the gate below.
+    handle = segments[0];
+  } else {
+    handle = first.replace(/^@/, "");
+  }
+
+  // Final gate: only ever build a URL from a whitelisted handle, and require
+  // at least one letter/digit so "..." can't become a link to nowhere.
+  if (!IG_HANDLE.test(handle) || !/[A-Za-z0-9]/.test(handle)) return null;
+  return `https://www.instagram.com/${handle}/`;
+}
+
 export function isDjEvent(ev: { id: string }): boolean {
   return typeof ev.id === "string" && ev.id.startsWith(DJ_EVENT_PREFIX);
 }
@@ -129,7 +196,14 @@ export async function loadDjNightsInRange(
         title: n.dj || "DJ",
         body: bodyParts.join(" — ") || fallback,
         image_url: n.image || "",
-        link_url: null,
+        // Tapping a DJ card opens that DJ's Instagram. The feed already
+        // carries the handle for nearly every night; before this it was
+        // thrown away, so every DJ card on /events was a dead, non-clickable
+        // div. instagramUrl() sanitises it (see above) and returns null for
+        // the odd night with no handle — those cards stay non-clickable,
+        // which is exactly the founder's rule: a link only where a URL
+        // genuinely exists, never an invented destination.
+        link_url: instagramUrl(n.instagram),
         active: true,
         subcategory: overrides[key] || "DJ Night",
         created_at: "",

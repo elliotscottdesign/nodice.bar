@@ -41,17 +41,22 @@ const FALLBACK_CARDS = [
     // to the schedule section instead of the retired standalone form.
     href: "/pool#tournaments",
   },
+  // Comedy Bingo card pulled 19 Oct 2026 — the /comedybingo page is hidden
+  // pre-launch (redirects to home), so nothing should link to it yet. To
+  // re-add at launch, restore the card here (id "comedybingo", href
+  // "/comedybingo", pink hero.bingo image) — see git history for the full
+  // object. It should sit right after Pool Tournament, before Parties.
   {
-    id: "comedybingo",
-    name: "Comedy Bingo",
-    tagline: "£10 ticket · Comedy + bingo",
+    id: "special",
+    name: "Special Events",
+    tagline: "Fundraisers · Comps · One-offs",
     blurb:
-      "Two comics, rounds of bingo and a headline set. £10 gets you in with a drink — free to play, with bar-sponsored prizes.",
-    // The founder's pink bingo header (admin Galleries → hero.bingo).
-    // Override per-card any time via the CMS key "book.comedybingo.image".
-    image:
-      "https://rntcujcpsozvuxvmlejv.supabase.co/storage/v1/object/public/media/page/1791755393791-t31oz9-bingo-header.png",
-    href: "/comedybingo",
+      "Charity fundraisers, one-off competitions and limited nights — grab a ticket before they sell out.",
+    image: "",
+    // Leads to the current special-events page (the Macmillan 12-hour pool
+    // marathon). Repoint via /admin/content/info/book → book.special.href when
+    // the next special takes over.
+    href: "/macmillan",
   },
   {
     id: "parties",

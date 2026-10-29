@@ -44,7 +44,7 @@ function renderHtml(): string {
 <tr><td style="background:#0c0c0c;border:1px solid rgba(245,239,227,0.1);border-radius:16px;padding:36px 28px;">
 <div style="font-size:11px;font-weight:700;letter-spacing:0.28em;text-transform:uppercase;color:#DA1B33;margin-bottom:12px;text-align:center;">Welcome to No Dice</div>
 <h1 style="margin:0 0 8px;text-align:center;font-size:38px;line-height:1;letter-spacing:0.06em;text-transform:uppercase;color:#f5efe3;font-weight:900;">20% off your<br>first event</h1>
-<p style="margin:24px 0 0;text-align:center;font-size:14px;line-height:1.55;color:rgba(245,239,227,0.7);">Use the code below at checkout for 20% off your first event ticket — pool sessions, tournament nights, World Cup matches, DJ sessions, or even a round of golf.</p>
+<p style="margin:24px 0 0;text-align:center;font-size:14px;line-height:1.55;color:rgba(245,239,227,0.7);">Use the code below at checkout for 20% off your first event ticket — pool sessions, tournament nights, DJ sessions, or even a round of golf.</p>
 <div style="margin:28px auto 0;text-align:center;">
 <div style="display:inline-block;border:1px dashed rgba(218,27,51,0.6);background:rgba(218,27,51,0.08);padding:14px 26px;border-radius:10px;"><span style="font-size:32px;letter-spacing:0.18em;color:#DA1B33;font-weight:900;font-style:italic;">WELCOME20</span></div>
 </div>
@@ -61,7 +61,7 @@ function renderText(): string {
 
 20% OFF YOUR FIRST EVENT
 
-Use WELCOME20 at checkout for 20% off your first event ticket — pool sessions, tournament nights, World Cup matches, DJ sessions, or even a round of golf.
+Use WELCOME20 at checkout for 20% off your first event ticket — pool sessions, tournament nights, DJ sessions, or even a round of golf.
 
 Book here: https://nodice.bar
 

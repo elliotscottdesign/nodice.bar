@@ -120,9 +120,20 @@ export function needsPrintFlyer(
 const MEDIA =
   "https://rntcujcpsozvuxvmlejv.supabase.co/storage/v1/object/public/media/";
 export const CATEGORY_DEFAULT_POSTERS: Record<string, string> = {
+  // The five public tags (founder 26 Oct 2026 — POOL / FOOD / SPECIALS / DJ /
+  // DEAL). The older long names below are kept for the events scroller, which
+  // still resolves art from an event's free-text subcategory.
+  DJ: MEDIA + "gallery/hero.events/1780755968715-red-decks-bitmap.png",
+  POOL: MEDIA + "gallery/hero.pool/1780752253680-pool-bitmap.png",
+  FOOD: MEDIA + "library/1781565605067-food-night-burger.jpg",
+  DEAL: MEDIA + "gallery/hero.deals/1780768681209-deal-header-bitmap.png",
+  SPECIALS: MEDIA + "library/1781564278755-happy-hour-pics.png",
   "DJ Night": MEDIA + "gallery/hero.events/1780755968715-red-decks-bitmap.png",
   "Match Day": MEDIA + "page/1780867523626-football-300x-colour.png",
   "Pool Night": MEDIA + "gallery/hero.pool/1780752253680-pool-bitmap.png",
+  // No bespoke ping-pong fallback art yet — reuse the pool bitmap (only shows
+  // when a ping-pong event has no poster of its own, which is rare).
+  "Ping Pong": MEDIA + "gallery/hero.pool/1780752253680-pool-bitmap.png",
   "Food Night": MEDIA + "library/1781565605067-food-night-burger.jpg",
   "Deals": MEDIA + "gallery/hero.deals/1780768681209-deal-header-bitmap.png",
   "Special Event": MEDIA + "library/1781564278755-happy-hour-pics.png",
@@ -226,7 +237,11 @@ export async function createCalendarEvent(
     ...fromCalendar(row),
     // Sensible defaults for fields the inline calendar modal doesn't
     // currently expose. The founder can refine via /admin/events.
-    category: "dj_night",
+    // Category defaults to the neutral "other" — it used to default to
+    // "dj_night", which silently mis-tagged every hand-added event (pool
+    // comps, food takeovers, chess…) as a DJ night and polluted the admin
+    // category filter (founder 19 Oct 2026, taxonomy unification).
+    category: "other",
     recurrence_type: "none",
     show_on_pool_schedule: false,
     show_on_events_calendar: true,

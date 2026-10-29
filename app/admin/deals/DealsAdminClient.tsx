@@ -12,6 +12,7 @@
 // mapping — without bloating the generic event form.
 
 import { useCallback, useEffect, useState } from "react";
+import { confirmDialog } from "@/lib/dialog";
 import {
   loadAllEvents,
   createEvent,
@@ -470,11 +471,11 @@ function DealForm({
   async function remove() {
     if (!deal) return;
     if (
-      !window.confirm(
+      !(await confirmDialog(
         `Delete “${deal.name}”${
           seriesIds.length > 1 ? ` and all ${seriesIds.length} dates` : ""
         }? This can't be undone.`,
-      )
+      ))
     )
       return;
     setBusy(true);

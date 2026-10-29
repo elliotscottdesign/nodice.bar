@@ -1,17 +1,13 @@
 "use client";
 
 import { useEffect, useMemo, useRef, useState } from "react";
+import { confirmDialog } from "@/lib/dialog";
 import { createPortal } from "react-dom";
 import MediaPicker from "@/components/admin/MediaPicker";
 import EventPosterStudio from "@/components/admin/EventPosterStudio";
-import PosterDownloads from "@/components/admin/PosterDownloads";
 import DatePickerInput from "@/components/admin/DatePickerInput";
 import Notice from "@/components/Notice";
-import {
-  EVENT_TYPES,
-  isDealEvent,
-  needsPrintFlyer,
-} from "@/lib/db/calendarEvents";
+import { isDealEvent } from "@/lib/db/calendarEvents";
 
 // Category colour swatches — used by the dropdown and list-row
 // left-stripe so the palette in the calendar view is discoverable
@@ -23,34 +19,22 @@ import {
 // bg-plonkPink and arcade/golf fell through to a grey fallback —
 // visually indistinguishable in the "Filter by category" dropdown.
 function adminCategoryDot(cat: string): string {
-  if (cat === "world_cup")               return "bg-plonkTeal";
   if (cat === "dj_night")                return "bg-plonkPink";
   if (cat === "pool_tournament_doubles") return "bg-red-500";
   if (cat === "pool_tournament_singles") return "bg-rose-400";
   if (cat === "pool_special")            return "bg-purple-400";
+  if (cat === "ping_pong")               return "bg-sky-400";
   if (cat === "food_event")              return "bg-orange-400";
   if (cat === "drink_special")           return "bg-plonkYellow";
+  if (cat === "special_event")           return "bg-sky-500";
+  if (cat === "bingo")                    return "bg-fuchsia-400";
   if (cat === "arcade")                  return "bg-cyan-400";
   if (cat === "golf")                    return "bg-emerald-500";
-  if (cat === "special_event")           return "bg-sky-400";
-  if (cat === "ping_pong")               return "bg-pongLight";
-  if (cat === "bingo")                   return "bg-amber-400";
   return "bg-cream/40"; // "other" / unknown
 }
-function adminEventLeftStripe(ev: {
-  category: string;
-  subcategory: string | null;
-}): string {
-  const sub = primarySub(ev.subcategory);
-  // Subcategory (calendar_events) wins because it's the artwork-level
-  // tag; category is the fallback for events-platform rows. A multi-tagged
-  // event uses its highest-priority tag for the single stripe colour.
-  if (sub === "DJ Night")        return "bg-plonkPink";
-  if (sub === "Match Day")       return "bg-plonkTeal";
-  if (sub === "Pool Night")      return "bg-purple-400";
-  if (sub === "Food Night")      return "bg-orange-400";
-  if (sub === "Deals")           return "bg-plonkYellow";
-  if (sub === "Special Event")   return "bg-sky-400";
+function adminEventLeftStripe(ev: { category: string }): string {
+  // Coloured by CATEGORY — the one tag (founder 19 Oct 2026). The old
+  // subcategory "chips" are retired.
   return adminCategoryDot(ev.category);
 }
 import {
@@ -59,18 +43,57 @@ import {
   createEvent,
   createTicketType,
   updateEvent,
+  updateEventSeries,
+  resetChildToSeries,
   updateTicketType,
   deleteTicketType,
   deleteEvent,
   generateRecurrenceDates,
   nthWeekdayForDate,
-  CATEGORY_LABEL,
   type DbEvent,
   type NewEvent,
   type DbTicketType,
   type EventCategory,
   type RecurrenceType,
 } from "@/lib/db/eventsPlatform";
+import { loadDjNightsInRange, isDjEvent } from "@/lib/db/djNights";
+import type { DbCalendarEvent } from "@/lib/db/calendarEvents";
+
+// DJ nights live in the DJ booking system and auto-feed onto the public
+// calendar — they're NOT rows in the events table. For the backend CRM view we
+// pull that feed in READ-ONLY so "All events" really shows everything live
+// (founder 20 Oct 2026). Mapped to DbEvent shape; the "dj-" id (isDjEvent) marks
+// them so they can't be edited/deleted here (the DJ portal owns them).
+function djNightToDbEvent(dj: DbCalendarEvent): DbEvent {
+  return {
+    id: dj.id,
+    name: dj.title,
+    description: dj.body,
+    external_link: dj.link_url,
+    poster_url: dj.image_url || null,
+    category: "dj_night",
+    subcategory: dj.subcategory,
+    event_date: dj.event_date,
+    start_time: dj.start_time,
+    end_time: null,
+    recurrence_type: "none",
+    recurrence_parent_id: null,
+    recurrence_overridden: false,
+    recurrence_nth: null,
+    recurrence_weekday: null,
+    show_on_pool_schedule: false,
+    show_on_events_calendar: true,
+    show_on_bar_page: false,
+    requires_ticket: false,
+    bookable: false,
+    max_attendees: null,
+    registration_open: false,
+    paid_entries_count: 0,
+    blocks_table_bookings: false,
+    created_at: dj.created_at || "",
+    updated_at: dj.updated_at || "",
+  };
+}
 
 // =============================================================
 // EventsAdminClient — the "Create Event" workbench
@@ -110,21 +133,83 @@ function formatPence(p: number): string {
   return `£${(p / 100).toFixed(2)}`;
 }
 
-const CATEGORY_OPTIONS: EventCategory[] = [
+// Which event posters also render the print-ready black-on-transparent flyer
+// (→ flyer_poster_url) so the zine cover + events flyer print clean black ink
+// on paper with NO CSS inversion (founder print directive, relayed by the
+// print lane 22 Oct 2026). Deals already export it; these "made" tournament /
+// special posters are authored dark (black bg, white art) and otherwise flood
+// ink printed as-is — the engine's "negative" mode re-renders the same artwork
+// as black-on-transparent. flyer_poster_url is a CASCADE field, so saving it on
+// a series ROOT flows to every date. DJ posters already print clean so they're
+// left out; a poster only gains its flyer once re-saved through the maker.
+const PRINT_FLYER_CATEGORIES: EventCategory[] = [
   "pool_tournament_doubles",
   "pool_tournament_singles",
   "pool_special",
-  "dj_night",
-  "food_event",
-  "drink_special",
-  "arcade",
-  "golf",
-  "world_cup",
   "special_event",
+  "food_event",
   "ping_pong",
+  // Comedy Bingo is tagged SPECIALS and goes in the same printed zine, but its
+  // category was missing here, so saving it never produced a flyer and it came
+  // out as a flood-ink block on the coloured paper.
   "bingo",
-  "other",
 ];
+function wantsPrintFlyer(
+  category: EventCategory,
+  subcategory: string | null,
+): boolean {
+  return (
+    isDealEvent(category, subcategory) ||
+    PRINT_FLYER_CATEGORIES.includes(category)
+  );
+}
+
+// There are exactly FIVE tags and nothing else (founder 26 Oct 2026: "i will
+// only accept categories and tags as the same thing… POOL / FOOD / SPECIALS /
+// DJ / DEAL", and "CUE IS POOL"). A tag is a GROUP over the internal
+// categories: a weekly pool comp, a pool special and ping pong are all just
+// POOL. The category still backs behaviour (deal pricing, the pool event page,
+// pool-schedule routing) — the founder only ever sees the five words.
+const TAG_KEYS = ["POOL", "FOOD", "SPECIALS", "DJ", "DEAL"] as const;
+type TagKey = (typeof TAG_KEYS)[number];
+
+// Which tag does a category belong to? Everything pool-shaped is POOL; the
+// odds and ends (bingo, arcade, golf, other) sit under SPECIALS.
+function tagForCategory(cat: EventCategory): TagKey {
+  switch (cat) {
+    case "pool_tournament_doubles":
+    case "pool_tournament_singles":
+    case "pool_special":
+    case "ping_pong":
+      return "POOL";
+    case "food_event":
+      return "FOOD";
+    case "dj_night":
+      return "DJ";
+    case "drink_special":
+      return "DEAL";
+    default:
+      return "SPECIALS"; // special_event, bingo, arcade, golf, other
+  }
+}
+
+// When the founder PICKS a tag, which category to store. If the event is
+// already in that tag's group we keep its exact category (so re-saving CUE as
+// POOL leaves it a doubles comp, not a special); only a genuine tag CHANGE
+// swaps in the group's default category.
+const TAG_DEFAULT_CATEGORY: Record<TagKey, EventCategory> = {
+  POOL: "pool_special",
+  FOOD: "food_event",
+  SPECIALS: "special_event",
+  DJ: "dj_night",
+  DEAL: "drink_special",
+};
+function categoryForPickedTag(
+  tag: TagKey,
+  current: EventCategory,
+): EventCategory {
+  return tagForCategory(current) === tag ? current : TAG_DEFAULT_CATEGORY[tag];
+}
 
 const RECURRENCE_OPTIONS: { value: RecurrenceType; label: string }[] = [
   { value: "none", label: "One-off (no repeat)" },
@@ -197,9 +282,16 @@ export default function EventsAdminClient() {
   // (default). Tick one or more to narrow both the list and the
   // calendar grid. Combines naturally with related types — e.g.
   // tick Doubles + Singles + Special to see every pool tournament.
-  const [categoryFilter, setCategoryFilter] = useState<Set<EventCategory>>(
+  const [categoryFilter, setCategoryFilter] = useState<Set<TagKey>>(
     () => new Set(),
   );
+  // "Edited instances only" filter — narrows to series instances that have
+  // been edited on their own (recurrence_overridden). Marked with a ⭐ in
+  // the list/calendar so staff can find them for corrections.
+  const [editedOnly, setEditedOnly] = useState(false);
+  // "Series masters only" filter — the ROOT of each repeating series
+  // (recurrence set + not itself an instance). Marked with a 🔁.
+  const [rootsOnly, setRootsOnly] = useState(false);
   // List ↔ calendar toggle. Calendar shows a month grid with event
   // chips on each date; click a chip to open the same edit modal.
   const [view, setView] = useState<"list" | "calendar">("list");
@@ -224,11 +316,6 @@ export default function EventsAdminClient() {
   const [posterSubcopy, setPosterSubcopy] = useState<string>("");
   const [posterFooter, setPosterFooter] = useState<string>("");
   const [posterImageUrl, setPosterImageUrl] = useState<string>("");
-  // How the poster was built, so reopening restores it instead of a blank maker.
-  const [posterRecipe, setPosterRecipe] = useState<Record<
-    string,
-    unknown
-  > | null>(null);
   const [posterQrUrl, setPosterQrUrl] = useState<string>("");
   const [posterDayLabel, setPosterDayLabel] = useState<string>("");
   // The deal's price as its own cell (numeric £). Kept as a string for the
@@ -245,7 +332,7 @@ export default function EventsAdminClient() {
   // picks a category that almost always needs the dining tables.
   // They can still untick manually for the rare exception.
   useEffect(() => {
-    if (category === "world_cup" || category === "food_event") {
+    if (category === "food_event") {
       setBlocksTableBookings(true);
     }
   }, [category]);
@@ -275,7 +362,7 @@ export default function EventsAdminClient() {
   const [showOnBar, setShowOnBar] = useState(false);
   // "Blocks /book/table" — closes free dining-table reservations
   // for the event's date. Auto-defaults to true when the category
-  // implies it (World Cup match, food residency); admin can toggle.
+  // implies it (a food residency needs the dining tables); admin can toggle.
   const [blocksTableBookings, setBlocksTableBookings] = useState(false);
   const [requiresTicket, setRequiresTicket] = useState(true);
   const [maxAttendees, setMaxAttendees] = useState<string>("");
@@ -308,7 +395,6 @@ export default function EventsAdminClient() {
     setPosterSubcopy("");
     setPosterFooter("");
     setPosterImageUrl("");
-    setPosterRecipe(null);
     setPosterQrUrl("");
     setPosterDayLabel("");
     setTicketPrice("");
@@ -333,11 +419,19 @@ export default function EventsAdminClient() {
     setLoading(true);
     setErr("");
     try {
-      const [e, t] = await Promise.all([
+      // DJ feed over a wide window (6 months back → 15 ahead) so the backend
+      // tracks past + upcoming DJ nights alongside the events table. The feed
+      // never throws (returns [] on failure), so it can't break the page.
+      const today = new Date();
+      const from = new Date(today.getFullYear(), today.getMonth() - 6, 1);
+      const to = new Date(today.getFullYear(), today.getMonth() + 15, 1);
+      const iso = (d: Date) => d.toISOString().slice(0, 10);
+      const [e, t, dj] = await Promise.all([
         loadAllEvents(),
         loadAllTicketTypes(),
+        loadDjNightsInRange(iso(from), iso(to)),
       ]);
-      setEvents(e);
+      setEvents([...e, ...dj.map(djNightToDbEvent)]);
       setTicketTypes(t);
     } catch (e) {
       setErr(describe(e, "Failed to load events"));
@@ -369,15 +463,25 @@ export default function EventsAdminClient() {
     const byCategory =
       categoryFilter.size === 0
         ? events
-        : events.filter((e) => categoryFilter.has(e.category));
+        : events.filter((e) => categoryFilter.has(tagForCategory(e.category)));
     // 2) Then the live search.
-    const filtered = q
+    const searched = q
       ? byCategory.filter((e) => {
           const name = e.name.toLowerCase();
           const desc = (e.description ?? "").toLowerCase();
           return name.includes(q) || desc.includes(q);
         })
       : byCategory;
+    // 3) Edited-instances-only filter.
+    const edited = editedOnly
+      ? searched.filter((e) => e.recurrence_overridden)
+      : searched;
+    // 4) Series-masters-only filter.
+    const filtered = rootsOnly
+      ? edited.filter(
+          (e) => e.recurrence_type !== "none" && !e.recurrence_parent_id,
+        )
+      : edited;
 
     function revenueOf(ev: DbEvent): number {
       const tts = ticketsByEvent.get(ev.id) ?? [];
@@ -425,7 +529,21 @@ export default function EventsAdminClient() {
         break;
     }
     return sorted;
-  }, [events, ticketsByEvent, search, sortBy, categoryFilter]);
+  }, [events, ticketsByEvent, search, sortBy, categoryFilter, editedOnly, rootsOnly]);
+
+  // Count of edited (overridden) instances — drives the filter pill label.
+  const editedCount = useMemo(
+    () => events.filter((e) => e.recurrence_overridden).length,
+    [events],
+  );
+  // Count of series masters (roots) — drives the roots filter pill label.
+  const rootCount = useMemo(
+    () =>
+      events.filter(
+        (e) => e.recurrence_type !== "none" && !e.recurrence_parent_id,
+      ).length,
+    [events],
+  );
 
   // Preview the dates that will be created when the form is saved.
   // Updates live as the founder changes the recurrence settings so
@@ -542,9 +660,9 @@ export default function EventsAdminClient() {
 
   async function handleDelete(event: DbEvent) {
     if (
-      !confirm(
+      !(await confirmDialog(
         `Delete "${event.name}" on ${formatDate(event.event_date)}? This removes its tickets too and can't be undone.`,
-      )
+      ))
     )
       return;
     setBusy(true);
@@ -672,18 +790,11 @@ export default function EventsAdminClient() {
               }
               currentPosterUrl={posterUrl || null}
               isDeal={isDealEvent(category, subcategory)}
-              // Deals and special events both bake a black-on-transparent
-              // A-page flyer for the printed zine; DJ nights don't (their own
-              // flyer re-renders from the DJ photo).
-              exportFlyer={
-                isDealEvent(category, subcategory) ||
-                needsPrintFlyer(category, subcategory)
-              }
+              exportFlyer={wantsPrintFlyer(category, subcategory)}
               defaultFooter={posterFooter || undefined}
               defaultSubcopy={posterSubcopy || undefined}
               defaultQrUrl={posterQrUrl || undefined}
               defaultImageUrl={posterImageUrl || undefined}
-              defaultRecipe={posterRecipe}
               defaultDayLabel={posterDayLabel || undefined}
               saveLabel="Use as this event's artwork"
               saveHint="Sets the artwork above. It goes live when you create the event."
@@ -703,54 +814,28 @@ export default function EventsAdminClient() {
                   setPosterDayLabel(r.poster_day_label ?? "");
                 if (r.ticket_price !== undefined)
                   setTicketPrice(r.ticket_price != null ? String(r.ticket_price) : "");
-                if (r.poster_recipe !== undefined)
-                  setPosterRecipe(
-                    (r.poster_recipe as Record<string, unknown> | null) ?? null,
-                  );
               }}
             />
-
-            {/* Downloads live OUTSIDE the poster maker (founder rule, 26 Oct):
-                they work on the poster that's already on the event, so there's
-                nothing to rebuild first. */}
-            <div className="rounded-xl border border-cream/10 bg-ink/30 p-4">
-              <p className="mb-2 text-[10px] font-bold uppercase tracking-widest text-cream/55">
-                Download this poster
-              </p>
-              <PosterDownloads
-                name={name}
-                date={eventDate}
-                start={startTime}
-                end={endTime}
-                posterUrl={posterUrl || null}
-                flyerPosterUrl={flyerPosterUrl || null}
-                sourceImageUrl={posterImageUrl || null}
-                recipe={posterRecipe}
-                isDeal={isDealEvent(category, subcategory)}
-              />
-            </div>
           </Section>
 
           {/* Category + visibility */}
-          <Section title="Category + where to show it">
-            <Field label="Category">
+          <Section title="Tag + where to show it">
+            <Field label="Tag">
               <select
-                value={category}
-                onChange={(e) => setCategory(e.target.value as EventCategory)}
+                value={tagForCategory(category)}
+                onChange={(e) =>
+                  setCategory(
+                    categoryForPickedTag(e.target.value as TagKey, category),
+                  )
+                }
                 className={inputCls}
               >
-                {CATEGORY_OPTIONS.map((c) => (
-                  <option key={c} value={c}>
-                    {CATEGORY_LABEL[c]}
+                {TAG_KEYS.map((t) => (
+                  <option key={t} value={t}>
+                    {t}
                   </option>
                 ))}
               </select>
-            </Field>
-            {/* Subcategory drives the /events calendar filter chips. Tick as
-                many as apply (e.g. a DJ Night that's also a Special Event);
-                none ticked = untagged (still appears, matches no chip). */}
-            <Field label="Subcategories (calendar chips)">
-              <SubcategoryPicker value={subcategory} onChange={setSubcategory} />
             </Field>
             <Field label="Visibility">
               <div className="space-y-2">
@@ -1085,10 +1170,38 @@ export default function EventsAdminClient() {
                 />
                 <SortDropdown value={sortBy} onChange={setSortBy} />
                 <ViewToggle value={view} onChange={setView} />
+                {editedCount > 0 && (
+                  <button
+                    type="button"
+                    onClick={() => setEditedOnly((v) => !v)}
+                    title="Show only series dates you've edited on their own (⭐)"
+                    className={`rounded-full border px-3 py-1.5 text-xs font-bold uppercase tracking-wider transition ${
+                      editedOnly
+                        ? "border-plonkYellow bg-plonkYellow/15 text-plonkYellow"
+                        : "border-cream/15 bg-ink/40 text-cream/60 hover:border-cream/40"
+                    }`}
+                  >
+                    ⭐ Edited only ({editedCount})
+                  </button>
+                )}
+                {rootCount > 0 && (
+                  <button
+                    type="button"
+                    onClick={() => setRootsOnly((v) => !v)}
+                    title="Show only the master event of each repeating series (🔁)"
+                    className={`rounded-full border px-3 py-1.5 text-xs font-bold uppercase tracking-wider transition ${
+                      rootsOnly
+                        ? "border-plonkTeal bg-plonkTeal/15 text-plonkTeal"
+                        : "border-cream/15 bg-ink/40 text-cream/60 hover:border-cream/40"
+                    }`}
+                  >
+                    🔁 Series masters ({rootCount})
+                  </button>
+                )}
               </div>
 
               {/* List counter — useful when filtered. */}
-              {(search || sortBy !== "date-asc" || categoryFilter.size > 0) && (
+              {(search || sortBy !== "date-asc" || categoryFilter.size > 0 || editedOnly || rootsOnly) && (
                 <p className="mb-3 text-[11px] uppercase tracking-widest text-cream/45">
                   Showing {visibleEvents.length} of {events.length} events
                 </p>
@@ -1099,11 +1212,18 @@ export default function EventsAdminClient() {
                   events={visibleEvents}
                   month={calMonth}
                   onMonthChange={setCalMonth}
-                  onEventClick={(id) => setEditingEventId(id)}
+                  onEventClick={(id) => {
+                    // DJ nights are read-only (owned by the DJ booking system).
+                    if (!isDjEvent({ id })) setEditingEventId(id);
+                  }}
                 />
               ) : visibleEvents.length === 0 ? (
                 <p className="rounded-xl border border-cream/10 bg-ink/40 px-6 py-10 text-center text-sm text-cream/55">
-                  No events match "{search}". Try a different search.
+                  {rootsOnly
+                    ? "No series masters match the current filters."
+                    : editedOnly
+                    ? "No edited instances match the current filters."
+                    : `No events match "${search}". Try a different search.`}
                 </p>
               ) : (
                 <ul className="space-y-2">
@@ -1125,12 +1245,29 @@ export default function EventsAdminClient() {
                     />
                     <div className="min-w-0 flex-1">
                       <div className="text-sm font-bold text-cream">
+                        {e.recurrence_type !== "none" &&
+                          !e.recurrence_parent_id && (
+                            <span
+                              title="Series master — editing this updates the whole repeating series"
+                              className="mr-1 text-plonkTeal"
+                            >
+                              🔁
+                            </span>
+                          )}
+                        {e.recurrence_overridden && (
+                          <span
+                            title="Edited on its own — no longer follows the series master"
+                            className="mr-1 text-plonkYellow"
+                          >
+                            ⭐
+                          </span>
+                        )}
                         {e.name}
                       </div>
                       <div className="text-xs text-cream/55">
                         {formatDate(e.event_date)}
                         {e.start_time ? ` · ${e.start_time.slice(0, 5)}` : ""} ·{" "}
-                        {CATEGORY_LABEL[e.category]}
+                        {tagForCategory(e.category)}
                         {ticketsForEv.length > 0 && (
                           <>
                             {" · "}
@@ -1151,22 +1288,34 @@ export default function EventsAdminClient() {
                         <Badge label="Calendar" />
                       )}
                       {e.show_on_bar_page && <Badge label="Bar" />}
-                      <button
-                        type="button"
-                        onClick={() => setEditingEventId(e.id)}
-                        disabled={busy}
-                        className="rounded-full border border-plonkTeal/40 px-3 py-1 text-[11px] font-bold uppercase tracking-wider text-plonkTeal hover:bg-plonkTeal/10"
-                      >
-                        Edit
-                      </button>
-                      <button
-                        type="button"
-                        onClick={() => handleDelete(e)}
-                        disabled={busy}
-                        className="text-[11px] font-bold uppercase tracking-wider text-red-400/80 hover:underline"
-                      >
-                        Delete
-                      </button>
+                      {isDjEvent(e) ? (
+                        // Read-only: DJ nights come from the DJ booking system.
+                        <span
+                          title="Managed in the DJ booking system — not editable here"
+                          className="rounded-full border border-cream/20 px-3 py-1 text-[11px] font-bold uppercase tracking-wider text-cream/50"
+                        >
+                          DJ system
+                        </span>
+                      ) : (
+                        <>
+                          <button
+                            type="button"
+                            onClick={() => setEditingEventId(e.id)}
+                            disabled={busy}
+                            className="rounded-full border border-plonkTeal/40 px-3 py-1 text-[11px] font-bold uppercase tracking-wider text-plonkTeal hover:bg-plonkTeal/10"
+                          >
+                            Edit
+                          </button>
+                          <button
+                            type="button"
+                            onClick={() => handleDelete(e)}
+                            disabled={busy}
+                            className="text-[11px] font-bold uppercase tracking-wider text-red-400/80 hover:underline"
+                          >
+                            Delete
+                          </button>
+                        </>
+                      )}
                     </div>
                   </li>
                 );
@@ -1198,25 +1347,16 @@ export default function EventsAdminClient() {
           onClose={() => setEditingEventId(null)}
           onSaved={async () => {
             setEditingEventId(null);
-            // Re-pull both lists so the row summary reflects the edit.
-            const [evs, tts] = await Promise.all([
-              loadAllEvents(),
-              loadAllTicketTypes(),
-            ]);
-            setEvents(evs);
-            setTicketTypes(tts);
+            // reload() re-pulls the events table + ticket types AND re-merges
+            // the DJ feed, so the read-only DJ rows aren't dropped after a save.
+            await reload();
           }}
           // Re-pull the lists WITHOUT closing the modal — used after the
           // poster maker writes artwork straight onto the event, so the row
           // behind updates while the founder stays put to download the
           // Instagram files.
           onRefresh={async () => {
-            const [evs, tts] = await Promise.all([
-              loadAllEvents(),
-              loadAllTicketTypes(),
-            ]);
-            setEvents(evs);
-            setTicketTypes(tts);
+            await reload();
           }}
         />
       )}
@@ -1288,10 +1428,6 @@ function EditEventModal({
   const [posterImageUrl, setPosterImageUrl] = useState<string>(
     event.poster_image_url ?? "",
   );
-  const [posterRecipe, setPosterRecipe] = useState<Record<
-    string,
-    unknown
-  > | null>((event.poster_recipe as Record<string, unknown> | null) ?? null);
   const [posterQrUrl, setPosterQrUrl] = useState<string>(
     event.poster_qr_url ?? "",
   );
@@ -1308,7 +1444,9 @@ function EditEventModal({
   //     the pattern; regenerating future dates is a separate action
   //   • standalone (both null/none) → offer conversion to a series
   const isChildInstance = !!event.recurrence_parent_id;
-  const isSeriesParent = event.recurrence_type !== "none";
+  // A ROOT/master of a series: recurring AND not itself a child of another.
+  const isSeriesParent =
+    event.recurrence_type !== "none" && !event.recurrence_parent_id;
   const [recurrenceType, setRecurrenceType] = useState<RecurrenceType>(
     event.recurrence_type,
   );
@@ -1321,10 +1459,13 @@ function EditEventModal({
   const [recurrenceWeekday, setRecurrenceWeekday] = useState<number>(
     event.recurrence_weekday ?? nthWeekdayForDate(event.event_date).weekday,
   );
-  // Subcategory (calendar chip) — nullable, blank = untagged.
-  const [subcategory, setSubcategory] = useState<string>(
-    event.subcategory ?? "",
-  );
+  // The event's TAG — editable now (founder 26 Oct 2026: an event you've put
+  // online must be re-taggable, e.g. VAMOS BRAZIL went up as DJ and needed
+  // flipping to a Deal). Categories ARE the tags; see TAG_KEYS.
+  const [category, setCategory] = useState<EventCategory>(event.category);
+  // Subcategory is retired as an input (events are tagged by category now); the
+  // existing value is preserved on save, and still feeds isDealEvent.
+  const [subcategory] = useState<string>(event.subcategory ?? "");
 
   // ---- Ticket types ----
   // Mirror state for each existing ticket type, plus a track of which
@@ -1390,8 +1531,9 @@ function EditEventModal({
     setBusy(true);
     try {
       // 1) Update the event row itself.
-      await updateEvent(event.id, {
+      const patch: Partial<NewEvent> = {
         name: name.trim(),
+        category,
         description: description.trim() || null,
         event_date: eventDate,
         start_time: startTime || null,
@@ -1402,6 +1544,17 @@ function EditEventModal({
         registration_open: registrationOpen,
         blocks_table_bookings: blocksTableBookings,
         poster_url: posterUrl || null,
+        // Persist the print-ready flyer render + its structured fields on
+        // EDIT too (the create path already did; this path dropped them, so
+        // re-saving a poster never populated flyer_poster_url — bug found via
+        // the print lane 22 Oct 2026). All six are CASCADE_FIELDS, so saving
+        // a series ROOT flows the flyer to every date.
+        flyer_poster_url: flyerPosterUrl || null,
+        poster_subcopy: posterSubcopy || null,
+        poster_footer: posterFooter || null,
+        poster_image_url: posterImageUrl || null,
+        poster_qr_url: posterQrUrl || null,
+        poster_day_label: posterDayLabel || null,
         subcategory: subcategory || null,
         recurrence_type: recurrenceType,
         recurrence_nth:
@@ -1417,7 +1570,20 @@ function EditEventModal({
           event.recurrence_type !== recurrenceType)
           ? { recurrence_parent_id: null }
           : {}),
-      });
+        // Editing a child instance locks it: future ROOT edits now skip
+        // it. (Harmless when the edit also detaches it above.)
+        ...(isChildInstance ? { recurrence_overridden: true } : {}),
+      };
+
+      if (isSeriesParent) {
+        // Editing the series ROOT: write the full patch to this row and
+        // cascade the shared content fields to every non-overridden
+        // child. Dates and recurrence shape never cascade (excluded by
+        // the CASCADE_FIELDS list in updateEventSeries).
+        await updateEventSeries(event.id, patch, true);
+      } else {
+        await updateEvent(event.id, patch);
+      }
 
       // 1a) Series creation: if this event wasn't yet a parent (or
       //     was a child that just detached) and the founder picked a
@@ -1544,6 +1710,26 @@ function EditEventModal({
     }
   }
 
+  // Re-join the series master: copy the parent's current shared content
+  // back onto this child and clear its override flag.
+  async function resetToSeries() {
+    if (!event.recurrence_parent_id) return;
+    setErr("");
+    setBusy(true);
+    try {
+      await resetChildToSeries(event.id, event.recurrence_parent_id);
+      await onSaved();
+    } catch (e) {
+      setErr(
+        e instanceof Error
+          ? e.message
+          : "Couldn't reset this date to follow the series.",
+      );
+    } finally {
+      setBusy(false);
+    }
+  }
+
   if (typeof document === "undefined") return null;
 
   return createPortal(
@@ -1585,6 +1771,24 @@ function EditEventModal({
               onChange={(ev) => setName(ev.target.value)}
               className={modalInputCls}
             />
+          </ModalField>
+
+          <ModalField label="Tag">
+            <select
+              value={tagForCategory(category)}
+              onChange={(ev) =>
+                setCategory(
+                  categoryForPickedTag(ev.target.value as TagKey, category),
+                )
+              }
+              className={modalInputCls}
+            >
+              {TAG_KEYS.map((t) => (
+                <option key={t} value={t}>
+                  {t}
+                </option>
+              ))}
+            </select>
           </ModalField>
 
           <div className="grid gap-4 sm:grid-cols-3">
@@ -1668,21 +1872,17 @@ function EditEventModal({
             end={endTime}
             description={description}
             defaultPrice={
-              isDealEvent(event.category, subcategory) && ticketPrice
+              isDealEvent(category, subcategory) && ticketPrice
                 ? `£${ticketPrice}`
                 : posterPriceHint
             }
             currentPosterUrl={posterUrl || null}
-            isDeal={isDealEvent(event.category, subcategory)}
-            exportFlyer={
-              isDealEvent(event.category, subcategory) ||
-              needsPrintFlyer(event.category, subcategory)
-            }
+            isDeal={isDealEvent(category, subcategory)}
+            exportFlyer={wantsPrintFlyer(category, subcategory)}
             defaultFooter={posterFooter || undefined}
             defaultSubcopy={posterSubcopy || undefined}
             defaultQrUrl={posterQrUrl || undefined}
             defaultImageUrl={posterImageUrl || undefined}
-            defaultRecipe={posterRecipe}
             defaultDayLabel={posterDayLabel || undefined}
             saveHint="Saves straight onto this event — it shows on nodice.bar/events right away."
             onSave={async (r) => {
@@ -1704,9 +1904,18 @@ function EditEventModal({
                 patch.poster_day_label = r.poster_day_label;
               if (r.ticket_price !== undefined)
                 patch.ticket_price = r.ticket_price;
-              if (r.poster_recipe !== undefined)
-                patch.poster_recipe = r.poster_recipe;
-              await updateEvent(event.id, patch);
+              // Saving a poster on a series ROOT must cascade the artwork (and
+              // its print flyer) to every date — otherwise only the master gets
+              // the new poster and the future dates keep the old one (founder,
+              // 22 Oct 2026: CUE master re-save didn't reach the other CUE
+              // nights). poster_url + flyer_poster_url + the structured fields
+              // are all CASCADE_FIELDS, so updateEventSeries carries them to
+              // every non-overridden child.
+              if (isSeriesParent) {
+                await updateEventSeries(event.id, patch, true);
+              } else {
+                await updateEvent(event.id, patch);
+              }
               setPosterUrl(r.poster_url);
               if (r.flyer_poster_url !== undefined)
                 setFlyerPosterUrl(r.flyer_poster_url ?? "");
@@ -1722,37 +1931,9 @@ function EditEventModal({
                 setPosterDayLabel(r.poster_day_label ?? "");
               if (r.ticket_price !== undefined)
                 setTicketPrice(r.ticket_price != null ? String(r.ticket_price) : "");
-              if (r.poster_recipe !== undefined)
-                setPosterRecipe(
-                  (r.poster_recipe as Record<string, unknown> | null) ?? null,
-                );
               await onRefresh?.();
             }}
           />
-
-          {/* Downloads live OUTSIDE the poster maker (founder rule, 26 Oct):
-              they work on the poster that's already on the event, so opening an
-              event and grabbing its poster needs no rebuild. */}
-          <ModalField label="Download this poster">
-            <PosterDownloads
-              name={name}
-              date={eventDate}
-              start={startTime}
-              end={endTime}
-              posterUrl={posterUrl || null}
-              flyerPosterUrl={flyerPosterUrl || null}
-              sourceImageUrl={posterImageUrl || null}
-              recipe={posterRecipe}
-              isDeal={isDealEvent(event.category, subcategory)}
-            />
-          </ModalField>
-
-          {/* Subcategories — same list as the public /events calendar filter
-              chips. Tick as many as apply; none ticked keeps the event
-              calendar-visible but untagged. */}
-          <ModalField label="Subcategories (calendar chips)">
-            <SubcategoryPicker value={subcategory} onChange={setSubcategory} />
-          </ModalField>
 
           {/* Recurrence — editable on every event, including children
               of an existing series. Founder rule (2026-07-02): the
@@ -1819,21 +2000,48 @@ function EditEventModal({
                 </div>
               )}
             </div>
-            {isChildInstance && (
-              <p className="mt-2 text-[11px] text-cream/60">
-                This instance is currently part of a recurring series.
-                Saving a different pattern here <strong>detaches this
-                date from the series</strong> — the other future dates
-                in the original series are left alone.
-              </p>
-            )}
             {isSeriesParent && (
-              <p className="mt-2 text-[11px] text-cream/60">
-                Existing series parent — changing the frequency here
-                rewrites this row only; future occurrences already in
-                the DB aren't touched. To regenerate them, delete the
-                future dates first, then save with the new pattern.
-              </p>
+              <>
+                <p className="mt-2 text-[11px] text-amber-200/80">
+                  Master of a repeating series — changes here apply to
+                  every date in the series, except any you&rsquo;ve edited
+                  on their own.
+                </p>
+                <p className="mt-2 text-[11px] text-cream/60">
+                  Changing the frequency rewrites this row only; future
+                  occurrences already in the DB aren&rsquo;t touched. To
+                  regenerate them, delete the future dates first, then save
+                  with the new pattern.
+                </p>
+              </>
+            )}
+            {isChildInstance && !event.recurrence_overridden && (
+              <>
+                <p className="mt-2 text-[11px] text-amber-200/80">
+                  Editing this date changes only this one — it&rsquo;ll then
+                  stop following the series master.
+                </p>
+                <p className="mt-2 text-[11px] text-cream/60">
+                  Saving a different pattern here <strong>detaches this
+                  date from the series</strong> — the other future dates
+                  in the original series are left alone.
+                </p>
+              </>
+            )}
+            {isChildInstance && event.recurrence_overridden && (
+              <div className="mt-2 space-y-2">
+                <p className="text-[11px] text-amber-200/80">
+                  Edited separately — no longer follows the series master.
+                </p>
+                <button
+                  type="button"
+                  onClick={resetToSeries}
+                  disabled={busy}
+                  className="rounded-full border border-plonkTeal/40 px-3 py-1 text-[11px] font-bold uppercase tracking-wider text-plonkTeal hover:bg-plonkTeal/10 disabled:opacity-50"
+                >
+                  Reset to follow the series
+                </button>
+              </div>
             )}
           </ModalField>
 
@@ -2096,68 +2304,9 @@ function Field({
   );
 }
 
-// Subcategories are stored in the single `events.subcategory` text column as a
-// comma-joined list ("DJ Night, Special Event") so an event can carry several
-// calendar chips. Single-value legacy rows parse fine (no comma → one tag).
-function parseSubs(s: string | null | undefined): string[] {
-  return (s ?? "")
-    .split(",")
-    .map((x) => x.trim())
-    .filter(Boolean);
-}
-// isDealEvent moved to lib/db/calendarEvents.ts (imported above) so the
-// Calendar posters tab builds deal posters page-shaped too — it was still
-// making them Instagram-shaped, which doesn't fill the zine cover.
-// Re-join in the canonical EVENT_TYPES order so the stored string is stable
-// regardless of the order the founder ticked the boxes.
-function joinSubs(list: string[]): string {
-  return EVENT_TYPES.filter((t) => list.includes(t)).join(", ");
-}
-// The tag that drives a multi-tagged event's single colour swatch: the
-// highest-priority one present (Special Event first, then DJ Night, …).
-const SUB_PRIORITY = [
-  "Special Event",
-  "DJ Night",
-  "Match Day",
-  "Pool Night",
-  "Food Night",
-  "Deals",
-] as const;
-function primarySub(s: string | null | undefined): string {
-  const subs = parseSubs(s);
-  return SUB_PRIORITY.find((p) => subs.includes(p)) ?? subs[0] ?? "";
-}
-
-// Multi-select for the calendar chip(s). Replaces the old single <select>:
-// an event can now be tagged with several types at once (e.g. a DJ Night that
-// is also a Special Event). No ticks = untagged (null).
-function SubcategoryPicker({
-  value,
-  onChange,
-}: {
-  value: string;
-  onChange: (v: string) => void;
-}) {
-  const selected = parseSubs(value);
-  const toggle = (t: string) => {
-    const next = selected.includes(t)
-      ? selected.filter((x) => x !== t)
-      : [...selected, t];
-    onChange(joinSubs(next));
-  };
-  return (
-    <div className="space-y-2">
-      {EVENT_TYPES.map((t) => (
-        <Checkbox
-          key={t}
-          checked={selected.includes(t)}
-          onChange={() => toggle(t)}
-          label={t}
-        />
-      ))}
-    </div>
-  );
-}
+// The subcategory ("calendar chips") picker was removed 19 Oct 2026 — events
+// are tagged by CATEGORY only now (one list). isDealEvent lives in
+// lib/db/calendarEvents.ts (imported above).
 
 function Checkbox({
   checked,
@@ -2318,28 +2467,16 @@ function SortDropdown({
 // more to narrow both the list and the calendar grid. Closing the
 // menu is via outside-click / Esc; "Clear" wipes the selection
 // back to default in one tap.
-const ALL_CATEGORIES: EventCategory[] = [
-  "pool_tournament_doubles",
-  "pool_tournament_singles",
-  "pool_special",
-  "dj_night",
-  "food_event",
-  "drink_special",
-  "arcade",
-  "golf",
-  "world_cup",
-  "special_event",
-  "ping_pong",
-  "bingo",
-  "other",
-];
+// The list filter uses the same five tags as the pickers — one vocabulary
+// everywhere (founder 26 Oct 2026).
+const ALL_CATEGORIES: readonly TagKey[] = TAG_KEYS;
 
 function CategoryDropdown({
   value,
   onChange,
 }: {
-  value: Set<EventCategory>;
-  onChange: (v: Set<EventCategory>) => void;
+  value: Set<TagKey>;
+  onChange: (v: Set<TagKey>) => void;
 }) {
   const [open, setOpen] = useState(false);
   const ref = useRef<HTMLDivElement | null>(null);
@@ -2365,10 +2502,10 @@ function CategoryDropdown({
     value.size === 0
       ? "All categories"
       : value.size === 1
-        ? CATEGORY_LABEL[Array.from(value)[0]]
+        ? Array.from(value)[0]
         : `${value.size} selected`;
 
-  function toggle(cat: EventCategory) {
+  function toggle(cat: TagKey) {
     const next = new Set(value);
     if (next.has(cat)) next.delete(cat);
     else next.add(cat);
@@ -2487,16 +2624,18 @@ function CategoryDropdown({
                       </svg>
                     )}
                   </span>
-                  {/* Category colour dot — matches the pill colour used
-                      in the calendar + list views so the founder can
-                      see the palette at a glance. */}
+                  {/* Tag colour dot — matches the pill colour used in the
+                      calendar + list views so the founder can see the
+                      palette at a glance. */}
                   <span
                     aria-hidden
                     className={`h-2 w-2 shrink-0 rounded-full ${adminCategoryDot(
-                      cat,
+                      TAG_DEFAULT_CATEGORY[cat],
                     )}`}
                   />
-                  <span className="flex-1">{CATEGORY_LABEL[cat]}</span>
+                  <span className="flex-1">
+                    <span className="block">{cat}</span>
+                  </span>
                 </li>
               );
             })}
@@ -2601,30 +2740,21 @@ function CalendarView({
     onMonthChange({ year: d.getFullYear(), month: d.getMonth() });
   }
 
-  // Prefers subcategory (the calendar chip on /events) so admin
-  // colouring matches what customers see; falls back to category
-  // otherwise. Bumped opacity to /35 so the chips stand out cleanly
-  // against the dark cell background — the previous /20 was too
-  // washed out to read at speed.
-  // Calendar chip palette — kept in lock-step with adminCategoryDot()
-  // and adminEventLeftStripe() above so the dropdown, list, and
-  // calendar all agree. Every category has its own hue now.
+  // Calendar chip palette — coloured by CATEGORY (the one tag, founder 19 Oct
+  // 2026), kept in lock-step with adminCategoryDot() / adminEventLeftStripe()
+  // above so the dropdown, list and calendar all agree. /35 opacity reads
+  // cleanly on the dark cell background.
   function chipClass(ev: DbEvent): string {
-    const sub = primarySub(ev.subcategory);
-    if (sub === "DJ Night")                     return "bg-plonkPink/35 text-white border-plonkPink";
-    if (sub === "Match Day")                    return "bg-plonkTeal/35 text-white border-plonkTeal";
-    if (sub === "Pool Night")                   return "bg-purple-500/35 text-white border-purple-400";
-    if (sub === "Food Night")                   return "bg-orange-500/35 text-white border-orange-400";
-    if (sub === "Deals")                        return "bg-plonkYellow/35 text-ink border-plonkYellow";
-    if (sub === "Special Event")                return "bg-sky-500/35 text-white border-sky-400";
     const cat = ev.category;
-    if (cat === "world_cup")                    return "bg-plonkTeal/35 text-white border-plonkTeal";
     if (cat === "dj_night")                     return "bg-plonkPink/35 text-white border-plonkPink";
     if (cat === "pool_tournament_doubles")      return "bg-red-500/35 text-white border-red-400";
     if (cat === "pool_tournament_singles")      return "bg-rose-400/35 text-white border-rose-300";
     if (cat === "pool_special")                 return "bg-purple-500/35 text-white border-purple-400";
+    if (cat === "ping_pong")                    return "bg-sky-500/35 text-white border-sky-400";
     if (cat === "food_event")                   return "bg-orange-500/35 text-white border-orange-400";
     if (cat === "drink_special")                return "bg-plonkYellow/35 text-ink border-plonkYellow";
+    if (cat === "special_event")                return "bg-sky-600/35 text-white border-sky-500";
+    if (cat === "bingo")                        return "bg-fuchsia-500/35 text-white border-fuchsia-400";
     if (cat === "arcade")                       return "bg-cyan-500/35 text-white border-cyan-400";
     if (cat === "golf")                         return "bg-emerald-500/35 text-white border-emerald-400";
     return "bg-cream/15 text-cream/90 border-cream/25";
@@ -2701,11 +2831,13 @@ function CalendarView({
                     key={ev.id}
                     type="button"
                     onClick={() => onEventClick(ev.id)}
-                    title={`${ev.name}${ev.start_time ? ` · ${ev.start_time.slice(0, 5)}` : ""}`}
+                    title={`${ev.recurrence_type !== "none" && !ev.recurrence_parent_id ? "🔁 master · " : ""}${ev.recurrence_overridden ? "⭐ edited · " : ""}${ev.name}${ev.start_time ? ` · ${ev.start_time.slice(0, 5)}` : ""}`}
                     className={`block w-full truncate rounded border px-1.5 py-0.5 text-left text-[10px] font-bold uppercase tracking-wide ${chipClass(
                       ev,
                     )}`}
                   >
+                    {ev.recurrence_type !== "none" && !ev.recurrence_parent_id ? "🔁" : ""}
+                    {ev.recurrence_overridden ? "⭐" : ""}
                     {ev.start_time ? `${ev.start_time.slice(0, 5)} ` : ""}
                     {ev.name}
                   </button>

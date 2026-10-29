@@ -1,9 +1,11 @@
 "use client";
 
 import { useEffect, useState } from "react";
+import { confirmDialog } from "@/lib/dialog";
 import AdminPageHeader from "@/components/admin/AdminPageHeader";
 import Notice from "@/components/Notice";
 import { AdminCard } from "@/components/admin/AdminCard";
+import DatePickerInput from "@/components/admin/DatePickerInput";
 import { fmtMoney } from "@/lib/format";
 import {
   loadPromos,
@@ -82,7 +84,7 @@ export default function PromosClient() {
   }
 
   async function handleDelete(p: DbPromoCode) {
-    if (!confirm(`Delete code "${p.code}"? This can't be undone.`)) return;
+    if (!(await confirmDialog(`Delete code "${p.code}"? This can't be undone.`))) return;
     setBusy(true);
     try {
       await deletePromo(p.id);
@@ -378,18 +380,22 @@ function PromoModal({
             placeholder={draft.kind === "percent" ? "20" : "5.00"}
           />
           <div className="grid grid-cols-2 gap-3">
-            <Field
-              label="Valid from"
-              type="date"
-              value={draft.valid_from}
-              onChange={(v) => setDraft({ ...draft, valid_from: v })}
-            />
-            <Field
-              label="Valid to"
-              type="date"
-              value={draft.valid_to}
-              onChange={(v) => setDraft({ ...draft, valid_to: v })}
-            />
+            <label className="block">
+              <span className="text-xs font-bold uppercase tracking-widest text-cream/55">Valid from</span>
+              <DatePickerInput
+                value={draft.valid_from}
+                onChange={(v) => setDraft({ ...draft, valid_from: v })}
+                className="mt-1.5"
+              />
+            </label>
+            <label className="block">
+              <span className="text-xs font-bold uppercase tracking-widest text-cream/55">Valid to</span>
+              <DatePickerInput
+                value={draft.valid_to}
+                onChange={(v) => setDraft({ ...draft, valid_to: v })}
+                className="mt-1.5"
+              />
+            </label>
           </div>
           <Field
             label="Max uses (blank = unlimited)"

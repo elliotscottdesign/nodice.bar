@@ -22,17 +22,19 @@ import { useCallback, useEffect, useRef, useState } from "react";
 import MediaPicker from "@/components/admin/MediaPicker";
 import Notice from "@/components/Notice";
 import { uploadImage } from "@/lib/db/media";
+import { confirmDialog } from "@/lib/dialog";
 import { RAL, ralLabel, ralSearch } from "@/lib/poster/ralColours";
 import { eventQrUrl } from "@/lib/poster/qr";
-import { parseRecipe, type PosterRecipe } from "@/components/admin/posterRecipe";
 import {
   PALETTE,
   DEAL_PALETTE,
+  EVENT_PALETTE,
   canvasToBlob,
   coverRect,
+  downloadCanvas,
   ensureFont,
   fontReady,
-  frameAspect,
+  frameCellAspect,
   loadImage,
   posterName,
   renderEventPoster,
@@ -71,6 +73,47 @@ function suggestDetail(desc: string | null | undefined): string {
 const PILL =
   "rounded-full border px-3 py-1.5 text-[11px] font-bold uppercase tracking-wider transition";
 
+// A poster can hold one photo (unchanged) or several — a tidy auto-reflowing
+// grid (a comedian line-up, a DJ b2b, a food spread). Each photo keeps its own
+// exposure + reposition; colour / treatment / title size are shared. One photo
+// renders byte-identical to the old single-image poster. Capped at six — more
+// than that and each headshot is too small to read.
+const MAX_PHOTOS = 6;
+
+type StudioPhoto = {
+  id: string;
+  /** What the canvas draws from — an upload's object URL, or a storage URL. */
+  url: string;
+  name: string;
+  /** Persisted storage URL ("" while an upload is still in flight). */
+  sourceUrl: string;
+  img: HTMLImageElement | null;
+  exposure: number;
+  ox: number;
+  oy: number;
+  zoom: number;
+  /** Optional words printed under THIS photo (act / DJ / dish name). */
+  caption: string;
+};
+
+let _photoId = 0;
+const makePhoto = (
+  url: string,
+  name: string,
+  sourceUrl: string,
+): StudioPhoto => ({
+  id: `p${++_photoId}`,
+  url,
+  name,
+  sourceUrl,
+  img: null,
+  exposure: 1,
+  ox: 0.5,
+  oy: 0.5,
+  zoom: 1,
+  caption: "",
+});
+
 // CSS aspect-ratio for each preview shape, so the canvas box matches the file.
 // 'zine' is the A-series page ratio (1:√2) — the deal / zine-cover shape.
 const PREVIEW_AR: Record<PosterSize, string> = {
@@ -94,11 +137,6 @@ export type PosterSaveResult = {
   poster_day_label?: string | null;
   /** The price as a number, parsed from the price field — the deal's own cell. */
   ticket_price?: number | null;
-  /**
-   * The rest of the recipe, so reopening the event rebuilds the poster the
-   * founder actually made instead of a default pink one.
-   */
-  poster_recipe?: Record<string, unknown> | null;
 };
 
 export default function EventPosterStudio({
@@ -115,7 +153,6 @@ export default function EventPosterStudio({
   defaultSubcopy,
   defaultQrUrl,
   defaultImageUrl,
-  defaultRecipe,
   defaultDayLabel,
   hideCopyInputs,
   onSave,
@@ -153,11 +190,6 @@ export default function EventPosterStudio({
   defaultSubcopy?: string | null;
   defaultQrUrl?: string | null;
   defaultImageUrl?: string | null;
-  /**
-   * How this event's poster was built last time, so reopening it restores the
-   * poster instead of starting from a blank maker.
-   */
-  defaultRecipe?: PosterRecipe | null;
   defaultDayLabel?: string | null;
   /**
    * Hide the "Words on the poster" inputs (line / price / bottom line / day).
@@ -177,59 +209,58 @@ export default function EventPosterStudio({
   // A deal's saved poster is page-shaped ("zine"); everything else saves the
   // 4:5 Instagram post exactly as before.
   const saveSize: PosterSize = isDeal ? "zine" : "ig";
-  // The printed flyer is ALWAYS the A-page shape, whatever shape the online
-  // poster is — it has to fill a page in the zine. For a deal that's the same
-  // render as the colour one; for a special event the online poster stays the
-  // 4:5 Instagram graphic and only the flyer is re-laid out for the page.
-  const flyerSize: PosterSize = "zine";
-  // ---- Picture ----
-  // Seed from the event's stored source photo (poster_image_url) so a deal opens
-  // with its own artwork already in the frame, ready to regenerate.
-  const [picUrl, setPicUrl] = useState(defaultImageUrl || "");
-  const [picName, setPicName] = useState(
-    defaultImageUrl ? defaultImageUrl.split("/").pop() || "" : "",
+  // ---- Pictures ----
+  // One photo (unchanged) or several (a grid). Seed from the event's stored
+  // source photo (poster_image_url) so a deal opens with its artwork already in
+  // the frame, ready to regenerate.
+  const [photos, setPhotos] = useState<StudioPhoto[]>(() =>
+    defaultImageUrl
+      ? [
+          makePhoto(
+            defaultImageUrl,
+            defaultImageUrl.split("/").pop() || "",
+            defaultImageUrl,
+          ),
+        ]
+      : [],
   );
-  // The PERSISTED public URL of the source photo (an upload's object URL can't be
-  // saved, so we track the storage URL separately). Written as poster_image_url.
-  const [sourceImageUrl, setSourceImageUrl] = useState(defaultImageUrl || "");
-  // The picture the event opened with. Used to tell "restored from the saved
-  // poster" apart from "the founder just picked a new one".
-  const restoredPicUrl = useRef(defaultImageUrl || "");
+  // Which photo the crop well + exposure/zoom sliders edit, and which is being
+  // dragged in the reorder strip.
+  const [selId, setSelId] = useState("");
+  const [dragId, setDragId] = useState("");
   const [showLibrary, setShowLibrary] = useState(false);
-  const imgRef = useRef<HTMLImageElement | null>(null);
   const fileRef = useRef<HTMLInputElement | null>(null);
+  // Which photos we've already kicked a load for, so the load effect fires once
+  // per photo instead of looping as it fills `img` back into state.
+  const loadingRef = useRef<Set<string>>(new Set());
+  // DOM nodes of the strip thumbnails, for hit-testing during a reorder drag.
+  const thumbRefs = useRef<Record<string, HTMLElement | null>>({});
 
-  // ---- Look ----
+  // Patch one photo by id (used by the exposure / zoom / reposition controls).
+  const patchPhoto = useCallback(
+    (id: string, patch: Partial<StudioPhoto>) =>
+      setPhotos((ps) => ps.map((p) => (p.id === id ? { ...p, ...patch } : p))),
+    [],
+  );
+
+  // ---- Look (shared across photos) ----
   // Deals pick their ink from the dusky DEAL_PALETTE (online brand colours that
   // stand apart from the DJ brights); everything else keeps the house Pink.
   const dealSwatches = isDeal ? DEAL_PALETTE : PALETTE;
-  // Reopening an event brings back the colour and photo treatment it was made
-  // with. Only fall back to the house default when the event has never had a
-  // poster made for it.
-  const saved = parseRecipe(defaultRecipe as Record<string, unknown> | null);
   const [colour, setColour] = useState(
-    saved.colour ||
-      (isDeal
-        ? (DEAL_PALETTE.find((p) => p.name === "Magenta") || DEAL_PALETTE[0]).hex
-        : (PALETTE.find((p) => p.name === "Pink") || PALETTE[0]).hex),
+    isDeal
+      ? (DEAL_PALETTE.find((p) => p.name === "Magenta") || DEAL_PALETTE[0]).hex
+      : (PALETTE.find((p) => p.name === "Pink") || PALETTE[0]).hex,
   );
   const [showRal, setShowRal] = useState(false);
   const [ralQ, setRalQ] = useState("");
-  const [treatment, setTreatment] = useState<PosterTreatment>(
-    saved.treatment ?? "scatter",
-  );
-  const [exposure, setExposure] = useState(saved.exposure ?? 1);
+  const [treatment, setTreatment] = useState<PosterTreatment>("scatter");
   // Deal "text box" mode — swap the photo for a block of info text. Image stays
   // the default; this is the opt-in alternative.
-  const [textBox, setTextBox] = useState(saved.textBox ?? false);
-  const [pos, setPos] = useState({
-    ox: saved.ox ?? 0.5,
-    oy: saved.oy ?? 0.5,
-  });
-  const [zoom, setZoom] = useState(saved.zoom ?? 1);
+  const [textBox, setTextBox] = useState(false);
   // Headline size dial (1 = the standard DJ-poster size). The founder can make
   // the event name bigger (photo shrinks) or smaller (photo grows).
-  const [titleScale, setTitleScale] = useState(saved.titleSize ?? 1);
+  const [titleScale, setTitleScale] = useState(1);
 
   // ---- Copy that goes on the poster ----
   // Both lines are SUGGESTED from the event above and keep following it as the
@@ -303,40 +334,36 @@ export default function EventPosterStudio({
     };
   }, []);
 
-  // Load whichever picture is selected (upload or library).
+  // Load each picture (upload or library) once. Image data lives in state, so a
+  // load completing re-renders the preview and the strip naturally.
   useEffect(() => {
-    let alive = true;
-    setErr("");
-    if (!picUrl) {
-      imgRef.current = null;
-      bump();
-      return;
-    }
-    loadImage(picUrl)
-      .then((im) => {
-        if (!alive) return;
-        imgRef.current = im;
-        // Re-centre for a picture the founder has just chosen, but NOT for the
-        // one restored from the saved poster — that would throw away the crop
-        // he set last time, which is half of "remember the poster".
-        if (picUrl !== restoredPicUrl.current) {
-          setPos({ ox: 0.5, oy: 0.5 });
-          setZoom(1);
-        }
-        bump();
-      })
-      .catch((e) => {
-        if (!alive) return;
-        imgRef.current = null;
-        setErr(describe(e, "Couldn't load that picture."));
-        bump();
-      });
-    return () => {
-      alive = false;
-    };
-  }, [picUrl]);
+    photos.forEach((p) => {
+      if (p.img || loadingRef.current.has(p.id)) return;
+      loadingRef.current.add(p.id);
+      loadImage(p.url)
+        .then((im) =>
+          setPhotos((ps) =>
+            ps.map((x) => (x.id === p.id ? { ...x, img: im } : x)),
+          ),
+        )
+        .catch((e) => {
+          // Drop the picture that wouldn't load so it can't wedge the grid, and
+          // say why — same message the single-image flow used to show.
+          setErr(describe(e, "Couldn't load that picture."));
+          setPhotos((ps) => ps.filter((x) => x.id !== p.id));
+          loadingRef.current.delete(p.id);
+        });
+    });
+  }, [photos]);
 
-  const hasPic = !!imgRef.current;
+  // Keep a valid photo selected as the list changes (add / remove / reorder).
+  useEffect(() => {
+    if (!photos.some((p) => p.id === selId) && photos[0]) setSelId(photos[0].id);
+  }, [photos, selId]);
+
+  const sel = photos.find((p) => p.id === selId) || photos[0] || null;
+  const loaded = photos.filter((p) => p.img);
+  const hasPic = loaded.length > 0;
   // In deal text-box mode there's no photo, so a poster can render/save without
   // a picture. Otherwise a picture is required, as before.
   const canRender = hasPic || (isDeal && textBox);
@@ -362,17 +389,19 @@ export default function EventPosterStudio({
         mode,
         treatment,
         titleScale,
-        imgs: imgRef.current
-          ? [
-              {
-                img: imgRef.current,
-                exposure,
-                ox: pos.ox,
-                oy: pos.oy,
-                z: zoom,
-              },
-            ]
-          : [],
+        // One loaded photo → a single full-frame image (byte-identical to
+        // before); several → the grid, in list order, each with its own
+        // exposure + reposition.
+        imgs: photos
+          .filter((p) => p.img)
+          .map((p) => ({
+            img: p.img as HTMLImageElement,
+            exposure: p.exposure,
+            ox: p.ox,
+            oy: p.oy,
+            z: p.zoom,
+            caption: p.caption,
+          })),
       }),
     [
       name,
@@ -390,9 +419,7 @@ export default function EventPosterStudio({
       colour,
       treatment,
       titleScale,
-      exposure,
-      pos,
-      zoom,
+      photos,
     ],
   );
 
@@ -420,12 +447,15 @@ export default function EventPosterStudio({
     };
   }, [render, previewSize, hasPic, tick]);
 
-  // The little crop well — exact crop, no halftone, so dragging feels direct.
-  const wellAspect = frameAspect(
+  // The little crop well — exact crop, no halftone, so dragging feels direct. It
+  // shows the SELECTED photo at the shape of the cell it will land in, so a 6-up
+  // headshot is cropped to a near-square, not the tall single-photo frame.
+  const wellAspect = frameCellAspect(
     previewSize,
     showDetail && !!detail.trim(),
     !!price.trim(),
     titleScale,
+    Math.max(1, photos.length),
   );
   const WELL_W = 116;
   const WELL_H = Math.round(WELL_W / wellAspect);
@@ -434,33 +464,36 @@ export default function EventPosterStudio({
     if (!c) return;
     const ctx = c.getContext("2d")!;
     ctx.clearRect(0, 0, c.width, c.height);
-    const img = imgRef.current;
+    const img = sel?.img;
     if (!img) return;
     const r = coverRect(
       img.width,
       img.height,
       c.width,
       c.height,
-      pos.ox,
-      pos.oy,
-      zoom,
+      sel.ox,
+      sel.oy,
+      sel.zoom,
     );
     ctx.drawImage(img, r.sx, r.sy, r.sw, r.sh, 0, 0, c.width, c.height);
-  }, [pos, zoom, tick, WELL_H]);
+  }, [sel, tick, WELL_H]);
 
-  // Drag the picture inside the well to choose what's in frame.
+  // Drag the picture inside the well to choose what's in frame (the selected
+  // photo).
   function startReposition(e: React.PointerEvent<HTMLCanvasElement>) {
+    if (!sel) return;
     e.preventDefault();
+    const id = sel.id;
     const rect = e.currentTarget.getBoundingClientRect();
     const sx = e.clientX,
       sy = e.clientY;
-    const base = pos;
+    const base = { ox: sel.ox, oy: sel.oy };
     const cl = (v: number) => (v < 0 ? 0 : v > 1 ? 1 : v);
     const move = (ev: PointerEvent) => {
       const dx = (ev.clientX - sx) / rect.width,
         dy = (ev.clientY - sy) / rect.height;
       // drag the picture → reveal the opposite side
-      setPos({ ox: cl(base.ox - dx), oy: cl(base.oy - dy) });
+      patchPhoto(id, { ox: cl(base.ox - dx), oy: cl(base.oy - dy) });
     };
     const up = () => {
       window.removeEventListener("pointermove", move);
@@ -470,29 +503,128 @@ export default function EventPosterStudio({
     window.addEventListener("pointerup", up);
   }
 
-  // Upload straight off the phone. The poster renders from a local copy right
-  // away (no waiting for the network), and the file is filed into the media
-  // library in the background so it can be reused later.
-  async function onUpload(file: File | undefined) {
-    if (!file) return;
+  // Take a photo off this poster (stays in the media library).
+  function removePhoto(id: string) {
+    loadingRef.current.delete(id);
+    setPhotos((ps) => ps.filter((p) => p.id !== id));
+  }
+
+  // Reorder by dragging a strip thumbnail over its neighbours. Pointer-based so
+  // it works on a phone as well as a mouse; a tap with no drag just selects.
+  function startReorder(e: React.PointerEvent<HTMLElement>, id: string) {
+    setSelId(id);
+    const sx = e.clientX,
+      sy = e.clientY;
+    let moved = false;
+    const move = (ev: PointerEvent) => {
+      if (!moved && Math.abs(ev.clientX - sx) + Math.abs(ev.clientY - sy) < 6)
+        return;
+      moved = true;
+      setDragId(id);
+      let overId = "";
+      for (const [tid, el] of Object.entries(thumbRefs.current)) {
+        if (!el) continue;
+        const r = el.getBoundingClientRect();
+        if (
+          ev.clientX >= r.left &&
+          ev.clientX <= r.right &&
+          ev.clientY >= r.top &&
+          ev.clientY <= r.bottom
+        ) {
+          overId = tid;
+          break;
+        }
+      }
+      if (overId && overId !== id) {
+        setPhotos((ps) => {
+          const from = ps.findIndex((p) => p.id === id);
+          const to = ps.findIndex((p) => p.id === overId);
+          if (from < 0 || to < 0 || from === to) return ps;
+          const next = ps.slice();
+          const [m] = next.splice(from, 1);
+          next.splice(to, 0, m);
+          return next;
+        });
+      }
+    };
+    const up = () => {
+      window.removeEventListener("pointermove", move);
+      window.removeEventListener("pointerup", up);
+      setDragId("");
+    };
+    window.addEventListener("pointermove", move);
+    window.addEventListener("pointerup", up);
+  }
+
+  // Upload straight off the phone (one or several). Each poster renders from a
+  // local copy right away (no waiting for the network), and the files are filed
+  // into the media library in the background so they can be reused later.
+  async function onUpload(files: FileList | null) {
+    const chosen = files ? Array.from(files) : [];
+    if (!chosen.length) return;
     setErr("");
     setDone("");
-    setPicName(file.name);
-    setPicUrl(URL.createObjectURL(file));
+    const room = MAX_PHOTOS - photos.length;
+    if (room <= 0) {
+      setErr(`You can put up to ${MAX_PHOTOS} pictures on a poster.`);
+      if (fileRef.current) fileRef.current.value = "";
+      return;
+    }
+    const take = chosen.slice(0, room);
+    const added = take.map((f) => makePhoto(URL.createObjectURL(f), f.name, ""));
+    setPhotos((ps) => [...ps, ...added]);
+    setSelId(added[0].id);
     setBusy("upload");
+    let anyFailed = false;
     try {
-      // Keep the storage URL so the deal can persist its source photo
-      // (poster_image_url) and be regenerated later.
-      const { public_url } = await uploadImage(file, "event-posters");
-      setSourceImageUrl(public_url);
-    } catch (e) {
-      // Non-fatal: the poster still works off the local copy.
-      setErr(
-        `${describe(e, "Upload failed")} — the poster still works, but this picture wasn't saved to the media library.`,
+      // Keep each storage URL so a single-photo deal can persist its source
+      // photo (poster_image_url) and be regenerated later.
+      await Promise.all(
+        take.map(async (f, i) => {
+          try {
+            const { public_url } = await uploadImage(f, "event-posters");
+            patchPhoto(added[i].id, { sourceUrl: public_url });
+          } catch {
+            anyFailed = true;
+          }
+        }),
       );
     } finally {
       setBusy("");
       if (fileRef.current) fileRef.current.value = "";
+    }
+    if (anyFailed) {
+      // Non-fatal: the posters still work off the local copies.
+      setErr(
+        "Some pictures couldn't be saved to the media library — the poster still works, they just won't be there to reuse later.",
+      );
+    } else if (chosen.length > room) {
+      setErr(`Only the first ${room} fit — a poster holds up to ${MAX_PHOTOS} pictures.`);
+    }
+  }
+
+  // A3 is black-on-paper for the halftone; a real photo can't print as black
+  // ink, so Natural makes the A3 a full-colour poster instead. "Whites to
+  // colour" stays on the negative — knocking the whites out is exactly how the
+  // coloured paper is meant to show through.
+  const a3Mode = treatment === "natural" ? "colour" : "negative";
+
+  async function exportFile(
+    size: PosterSize,
+    mode: "colour" | "negative",
+    tag: string,
+  ) {
+    if (!canRender) return;
+    setBusy(tag);
+    setErr("");
+    setDone("");
+    try {
+      await downloadCanvas(await render(size, mode), posterName(name, date, tag));
+      setDone(`Downloaded — it's in your Downloads folder.`);
+    } catch (e) {
+      setErr(describe(e, "Export failed."));
+    } finally {
+      setBusy("");
     }
   }
 
@@ -503,9 +635,10 @@ export default function EventPosterStudio({
     if (!canRender || !onSave) return;
     if (
       currentPosterUrl &&
-      !window.confirm(
+      !(await confirmDialog(
         `This event already has artwork on it. Saving this poster will replace it — the old picture stays in the media library, but the event will show this poster instead.\n\nGo ahead?`,
-      )
+        { title: "Replace artwork?", confirmLabel: "Replace", danger: false },
+      ))
     )
       return;
     setBusy("save");
@@ -520,43 +653,14 @@ export default function EventPosterStudio({
       });
       const { public_url } = await uploadImage(file, "event-posters");
 
-      // Remember what the poster was MADE from, on every save and for every
-      // kind of event — not just the ones that also export a print flyer.
-      // Without this, reopening the event showed an empty poster maker and the
-      // founder had to start the poster again from scratch. The source photo
-      // and the sub-copy line are poster inputs, so they're always safe to
-      // store; the deal's own cells below are not.
-      const result: PosterSaveResult = {
-        poster_url: public_url,
-        poster_image_url: sourceImageUrl || null,
-        poster_subcopy: detail.trim() || null,
-        poster_recipe: {
-          colour,
-          treatment,
-          exposure,
-          ox: pos.ox,
-          oy: pos.oy,
-          zoom,
-          titleSize: titleScale,
-          detail: detail.trim(),
-          price: price.trim(),
-          ...(isDeal
-            ? {
-                textBox,
-                footer: footer.trim(),
-                dayLabel: dayLabel.trim(),
-                qr: qr.trim(),
-              }
-            : {}),
-        },
-      };
+      const result: PosterSaveResult = { poster_url: public_url };
 
       // 2) When this surface stores them, also render the print-ready flyer
       //    version (black on transparent, same A-page shape) and return the
       //    structured fields, so the team-hub Events flyer can drop in
       //    flyer_poster_url and the deal can be regenerated later.
       if (exportFlyer) {
-        const negCv = await render(flyerSize, "negative");
+        const negCv = await render(saveSize, "negative");
         const negBlob = await canvasToBlob(negCv);
         const negFile = new File([negBlob], posterName(name, date, "flyer"), {
           type: "image/png",
@@ -566,26 +670,24 @@ export default function EventPosterStudio({
           "event-posters",
         );
         result.flyer_poster_url = flyerUrl;
-        // The rest of these are the DEAL's own cells — its footer, day label
-        // and price. A special event has real ticket types, so writing them
-        // from this form would overwrite event data with poster wording.
-        // Only deals fill them in.
-        if (isDeal) {
-          result.poster_footer = footer.trim() || null;
-          result.poster_qr_url = qr.trim() || null;
-          result.poster_day_label = dayLabel.trim() || null;
-          // The price lives in its own numeric cell, not in the sub-copy line.
-          result.ticket_price = parsePrice(price);
-        }
+        result.poster_subcopy = detail.trim() || null;
+        result.poster_footer = footer.trim() || null;
+        result.poster_qr_url = qr.trim() || null;
+        // Only one source photo round-trips (poster_image_url is a single
+        // column) — the primary (first) picture. A multi-photo grid is an events
+        // use; deals that store this are single-photo, so this is unchanged for
+        // them. The saved poster PNG always carries the full artwork regardless.
+        result.poster_image_url = photos[0]?.sourceUrl || null;
+        result.poster_day_label = dayLabel.trim() || null;
+        // The price lives in its own numeric cell, not in the sub-copy line.
+        result.ticket_price = parsePrice(price);
       }
 
       await onSave(result);
       setDone(
-        !exportFlyer
-          ? "Saved — this poster is now the event's artwork on nodice.bar/events."
-          : isDeal
-            ? "Saved — the deal's poster is live on nodice.bar/events, the zine cover and the printed flyer."
-            : "Saved — the poster is live on nodice.bar/events, and a print version was made for the zine (black ink on coloured paper).",
+        exportFlyer
+          ? "Saved — the deal's poster is live on nodice.bar/events, the zine cover and the printed flyer."
+          : "Saved — this poster is now the event's artwork on nodice.bar/events.",
       );
     } catch (e) {
       setErr(
@@ -601,9 +703,10 @@ export default function EventPosterStudio({
   // True when the active colour is one of the quick-pick swatches. When it isn't,
   // it came from the RAL chart (or the custom picker), so the RAL pill shows that
   // colour and reads as "active" — the quick-pick row has nothing to highlight.
-  const colourIsPalette = dealSwatches.some(
-    (p) => p.hex.toLowerCase() === colour.toLowerCase(),
-  );
+  const colourIsPalette = [
+    ...dealSwatches,
+    ...(isDeal ? [] : EVENT_PALETTE),
+  ].some((p) => p.hex.toLowerCase() === colour.toLowerCase());
 
   return (
     <div className="space-y-4 rounded-xl border border-plonkTeal/25 bg-ink/30 p-4">
@@ -691,27 +794,28 @@ export default function EventPosterStudio({
               Pick a picture below and the poster appears here.
             </div>
           )}
-          {/* Every poster carries a QR code in its top right corner — including
-              the A3 print, where it comes out in the same black ink. */}
+          {/* The QR now lives ONLY on the A3 print (founder 19 Oct 2026) — the
+              thing that gets put on a wall and scanned. The Instagram post and
+              story don't carry it. */}
           <p className="mt-2 max-w-[236px] text-[10px] leading-relaxed text-cream/40">
-            The QR code top right opens{" "}
+            The A3 print has a QR code (top right) that opens{" "}
             <span className="break-all text-cream/60">
               {eventQrUrl(date).replace(/^https:\/\//, "")}
             </span>{" "}
-            when it&apos;s scanned.
+            when scanned. The post and story don&apos;t carry it.
           </p>
         </div>
 
         {/* ───── Controls ───── */}
         <div className="min-w-0 flex-1 space-y-5">
-          {/* Picture */}
+          {/* Pictures */}
           <div>
             <p className="mb-2 text-[10px] font-bold uppercase tracking-widest text-cream/55">
-              Picture
+              {photos.length > 1 ? "Pictures" : "Picture"}
             </p>
             <div className="flex gap-3">
               <div className="shrink-0">
-                {hasPic ? (
+                {sel?.img ? (
                   <div className="relative" style={{ width: WELL_W }}>
                     <canvas
                       ref={wellRef}
@@ -732,19 +836,21 @@ export default function EventPosterStudio({
                     style={{ width: WELL_W, height: WELL_H }}
                   />
                 )}
-                {hasPic && (
+                {sel?.img && (
                   <label className="mt-1.5 block">
                     <span className="flex justify-between text-[9px] text-cream/45">
                       <span>Zoom</span>
-                      <span>{zoom.toFixed(1)}×</span>
+                      <span>{sel.zoom.toFixed(1)}×</span>
                     </span>
                     <input
                       type="range"
                       min="1"
                       max="3"
                       step="0.05"
-                      value={zoom}
-                      onChange={(e) => setZoom(Number(e.target.value))}
+                      value={sel.zoom}
+                      onChange={(e) =>
+                        patchPhoto(sel.id, { zoom: Number(e.target.value) })
+                      }
                       className="w-full touch-none accent-plonkPink"
                       style={{ width: WELL_W }}
                     />
@@ -785,46 +891,53 @@ export default function EventPosterStudio({
                     info in the fields above.
                   </p>
                 ) : (
-                  <div className="flex flex-wrap gap-2">
-                    <label
-                      className={`${PILL} cursor-pointer border-cream/20 text-cream/85 hover:bg-cream/5 ${
-                        busy === "upload" ? "opacity-60" : ""
-                      }`}
-                    >
-                      {busy === "upload"
-                        ? "Uploading…"
-                        : hasPic
-                          ? "↻ Upload another"
-                          : "⬆ Upload"}
-                      <input
-                        ref={fileRef}
-                        type="file"
-                        accept="image/*"
-                        hidden
-                        onChange={(e) => onUpload(e.target.files?.[0])}
-                      />
-                    </label>
-                    <button
-                      type="button"
-                      onClick={() => setShowLibrary(true)}
-                      className={`${PILL} border-cream/20 text-cream/85 hover:bg-cream/5`}
-                    >
-                      🗂 Library
-                    </button>
-                  </div>
-                )}
-                {picName && (
-                  <p className="truncate text-[10px] text-cream/45" title={picName}>
-                    {picName}
-                  </p>
+                  <>
+                    <div className="flex flex-wrap gap-2">
+                      <label
+                        className={`${PILL} cursor-pointer border-cream/20 text-cream/85 hover:bg-cream/5 ${
+                          busy === "upload" ? "opacity-60" : ""
+                        } ${photos.length >= MAX_PHOTOS ? "pointer-events-none opacity-40" : ""}`}
+                      >
+                        {busy === "upload"
+                          ? "Uploading…"
+                          : hasPic
+                            ? "↻ Add more"
+                            : "⬆ Upload"}
+                        <input
+                          ref={fileRef}
+                          type="file"
+                          accept="image/*"
+                          multiple
+                          hidden
+                          onChange={(e) => onUpload(e.target.files)}
+                        />
+                      </label>
+                      <button
+                        type="button"
+                        disabled={photos.length >= MAX_PHOTOS}
+                        onClick={() => setShowLibrary(true)}
+                        className={`${PILL} border-cream/20 text-cream/85 hover:bg-cream/5 disabled:opacity-40`}
+                      >
+                        🗂 Library
+                      </button>
+                    </div>
+                    <p className="text-[10px] leading-relaxed text-cream/40">
+                      Add one picture, or several for a grid (up to {MAX_PHOTOS})
+                      — a line-up, a b2b, a spread. One picture fills the frame as
+                      before.
+                    </p>
+                  </>
                 )}
                 <label className="block">
                   <span className="flex justify-between text-[10px] text-cream/45">
-                    <span>Exposure</span>
                     <span>
-                      {exposure < 0.92
+                      Exposure
+                      {photos.length > 1 ? " · this picture" : ""}
+                    </span>
+                    <span>
+                      {(sel?.exposure ?? 1) < 0.92
                         ? "darker"
-                        : exposure > 1.08
+                        : (sel?.exposure ?? 1) > 1.08
                           ? "lighter"
                           : "auto"}
                     </span>
@@ -834,11 +947,117 @@ export default function EventPosterStudio({
                     min="0.6"
                     max="1.5"
                     step="0.05"
-                    value={exposure}
-                    onChange={(e) => setExposure(Number(e.target.value))}
-                    className="w-full touch-none py-1 accent-plonkPink"
+                    value={sel?.exposure ?? 1}
+                    disabled={!sel?.img}
+                    onChange={(e) =>
+                      sel && patchPhoto(sel.id, { exposure: Number(e.target.value) })
+                    }
+                    className="w-full touch-none py-1 accent-plonkPink disabled:opacity-40"
                   />
                 </label>
+
+                {/* Caption under THIS photo — words printed beneath the selected
+                    picture (an act / DJ / dish name), in the sub-line font, ALL
+                    CAPS, locked to the picture's width. Travels with the photo
+                    through reorders. */}
+                {!textBox && sel?.img && (
+                  <label className="block">
+                    <span className="mb-1 block text-[10px] text-cream/45">
+                      Words under this picture (optional)
+                      {photos.length > 1 ? " — labels each one" : ""}
+                    </span>
+                    <input
+                      value={sel.caption}
+                      onChange={(e) =>
+                        patchPhoto(sel.id, { caption: e.target.value })
+                      }
+                      maxLength={40}
+                      placeholder="e.g. GLITTER DAVE"
+                      className="w-full rounded-md border border-cream/20 bg-ink px-2.5 py-1.5 text-xs uppercase text-cream placeholder:text-cream/35 placeholder:normal-case"
+                    />
+                  </label>
+                )}
+
+                {/* Reorder strip — all the photos on the poster, in render
+                    order. Drag a thumbnail over its neighbours to reorder
+                    (works on a phone too); tap one to fine-tune it in the well
+                    above; ✕ takes it off this poster (it stays in the library). */}
+                {!textBox && photos.length > 0 && (
+                  <div className="pt-1">
+                    <div className="mb-1.5 text-[10px] text-cream/45">
+                      {photos.length === 1
+                        ? "1 picture"
+                        : `${photos.length} pictures · drag to reorder, tap to fine-tune`}
+                    </div>
+                    <div className="flex flex-wrap gap-2">
+                      {photos.map((p, i) => (
+                        <div key={p.id} className="flex w-16 flex-col gap-0.5">
+                          <div
+                            ref={(el) => {
+                              thumbRefs.current[p.id] = el;
+                            }}
+                            onPointerDown={(e) => startReorder(e, p.id)}
+                            title="Drag to reorder · tap to fine-tune"
+                            className={`group relative h-16 w-16 shrink-0 cursor-grab touch-none select-none overflow-hidden rounded border bg-black ${
+                              p.id === selId
+                                ? "border-plonkPink ring-1 ring-plonkPink"
+                                : "border-cream/20"
+                            } ${dragId === p.id ? "opacity-50" : ""}`}
+                          >
+                            {p.img ? (
+                              // eslint-disable-next-line @next/next/no-img-element
+                              <img
+                                src={p.url}
+                                alt=""
+                                draggable={false}
+                                className="pointer-events-none h-full w-full object-cover"
+                              />
+                            ) : (
+                              <span className="flex h-full w-full items-center justify-center text-[9px] text-cream/40">
+                                …
+                              </span>
+                            )}
+                            <span className="pointer-events-none absolute left-0.5 top-0.5 rounded bg-black/60 px-1 text-[8px] font-bold text-white">
+                              {i + 1}
+                            </span>
+                            <button
+                              type="button"
+                              onPointerDown={(e) => e.stopPropagation()}
+                              onClick={() => removePhoto(p.id)}
+                              title="Remove this picture"
+                              className="absolute right-0.5 top-0.5 rounded-full bg-black/70 px-1 text-[9px] font-bold text-red-300 hover:bg-red-500/40"
+                            >
+                              ✕
+                            </button>
+                          </div>
+                          {p.caption.trim() && (
+                            <span
+                              title={p.caption}
+                              className="w-16 truncate text-center text-[8px] uppercase text-cream/55"
+                            >
+                              {p.caption}
+                            </span>
+                          )}
+                        </div>
+                      ))}
+                      {photos.length < MAX_PHOTOS && (
+                        <label
+                          title="Add another picture"
+                          className="flex h-16 w-16 shrink-0 cursor-pointer items-center justify-center rounded border border-dashed border-cream/30 text-cream/50 hover:bg-cream/5"
+                        >
+                          <span className="text-lg leading-none">＋</span>
+                          <input
+                            type="file"
+                            accept="image/*"
+                            multiple
+                            hidden
+                            onChange={(e) => onUpload(e.target.files)}
+                          />
+                        </label>
+                      )}
+                    </div>
+                  </div>
+                )}
                 <div className="flex flex-wrap gap-2">
                   {(
                     [
@@ -914,6 +1133,26 @@ export default function EventPosterStudio({
                   className="h-full w-full cursor-pointer opacity-0"
                 />
               </label>
+              {/* Event brand colours — the house blues (founder 19 Oct 2026),
+                  offered alongside the bright picks. Deals keep their own set. */}
+              {!isDeal && (
+                <span className="mx-1 inline-block h-5 w-px shrink-0 bg-cream/15" />
+              )}
+              {!isDeal &&
+                EVENT_PALETTE.map((p) => (
+                  <button
+                    key={p.hex}
+                    type="button"
+                    title={`${p.name} — No Dice event colour`}
+                    onClick={() => setColour(p.hex)}
+                    style={{ background: p.hex }}
+                    className={`h-7 w-7 rounded-full ${
+                      colour.toLowerCase() === p.hex.toLowerCase()
+                        ? "ring-2 ring-cream ring-offset-2 ring-offset-ink"
+                        : "border border-cream/25"
+                    }`}
+                  />
+                ))}
               <button
                 type="button"
                 onClick={() => setShowRal((o) => !o)}
@@ -1052,8 +1291,8 @@ export default function EventPosterStudio({
                     setPriceTouched(true);
                     setPrice(e.target.value);
                   }}
-                  maxLength={40}
-                  placeholder="e.g. £5 on the door / Free entry"
+                  maxLength={60}
+                  placeholder="e.g. £6 per team · £5 on the door · Free entry"
                   className="w-full rounded-md border border-cream/20 bg-ink px-2.5 py-1.5 text-xs text-cream placeholder:text-cream/35"
                 />
               </label>
@@ -1145,10 +1384,48 @@ export default function EventPosterStudio({
                 )}
               </>
             )}
-            {/* Downloads deliberately do NOT live here. The poster maker's one
-                job is to save the poster onto the event; the download buttons
-                sit in the event form (PosterDownloads) so they work on the
-                poster that's already there, without having to remake it. */}
+            {isDeal && (
+              <button
+                type="button"
+                disabled={disabled}
+                onClick={() => exportFile("zine", "colour", "Deal-page")}
+                className="w-full rounded-full border border-plonkYellow/40 px-4 py-2.5 text-xs font-bold uppercase tracking-wider text-plonkYellow transition hover:bg-plonkYellow/10 disabled:opacity-40"
+              >
+                {busy === "Deal-page"
+                  ? "Building…"
+                  : "⬇ Deal poster · page shape"}
+              </button>
+            )}
+            <button
+              type="button"
+              disabled={disabled}
+              onClick={() => exportFile("ig", "colour", "IG-post")}
+              className="w-full rounded-full bg-plonkPink px-4 py-2.5 text-xs font-bold uppercase tracking-wider text-white transition hover:brightness-110 disabled:opacity-40"
+            >
+              {busy === "IG-post" ? "Building…" : "⬇ Instagram post · 1080×1350"}
+            </button>
+            <button
+              type="button"
+              disabled={disabled}
+              onClick={() => exportFile("story", "colour", "IG-story")}
+              className="w-full rounded-full border border-cream/25 px-4 py-2.5 text-xs font-bold uppercase tracking-wider text-cream/90 transition hover:bg-cream/5 disabled:opacity-40"
+            >
+              {busy === "IG-story"
+                ? "Building…"
+                : "⬇ Instagram story · 1080×1920"}
+            </button>
+            <button
+              type="button"
+              disabled={disabled}
+              onClick={() => exportFile("a3", a3Mode, "A3-print")}
+              className="w-full rounded-full border border-cream/25 px-4 py-2.5 text-xs font-bold uppercase tracking-wider text-cream/90 transition hover:bg-cream/5 disabled:opacity-40"
+            >
+              {busy === "A3-print"
+                ? "Building…"
+                : treatment === "natural"
+                  ? "⬇ A3 print · full colour"
+                  : "⬇ A3 print · black on coloured paper"}
+            </button>
           </div>
         </div>
       </div>
@@ -1158,14 +1435,19 @@ export default function EventPosterStudio({
         <MediaPicker
           onClose={() => setShowLibrary(false)}
           onPick={(value) => {
-            const url = typeof value === "string" ? value : value.src;
-            setPicUrl(url);
-            setPicName(url.split("/").pop() || "");
-            // A library image already has a storage URL — persist it as the
-            // deal's source photo.
-            setSourceImageUrl(url);
             setShowLibrary(false);
             setDone("");
+            if (photos.length >= MAX_PHOTOS) {
+              setErr(`You can put up to ${MAX_PHOTOS} pictures on a poster.`);
+              return;
+            }
+            const url = typeof value === "string" ? value : value.src;
+            // A library image already has a storage URL — it doubles as the
+            // persisted source photo.
+            const p = makePhoto(url, url.split("/").pop() || "", url);
+            setPhotos((ps) => [...ps, p]);
+            setSelId(p.id);
+            setErr("");
           }}
         />
       )}
