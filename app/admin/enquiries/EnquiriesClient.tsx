@@ -73,6 +73,9 @@ import {
   saveAiKnowledge,
   loadEmailSignature,
   saveEmailSignature,
+  loadQuickLinks,
+  saveQuickLinks,
+  type QuickLink,
   markEnquiryPaid,
   SOURCE_LABEL,
   STATUS_LABEL,
@@ -312,6 +315,7 @@ export default function EnquiriesClient() {
   const [typeFilter, setTypeFilter] = useState<EnquiryType | "all">("all");
   const [aiOpen, setAiOpen] = useState(false);
   const [sigOpen, setSigOpen] = useState(false);
+  const [linksOpen, setLinksOpen] = useState(false);
   const [activity, setActivity] = useState<Record<string, EnquiryActivity>>({});
   const [sortBy, setSortBy] = useState<SortKey>("newest");
   const [onlyOwed, setOnlyOwed] = useState(false);
@@ -508,6 +512,13 @@ export default function EnquiriesClient() {
           </button>
           <button
             type="button"
+            onClick={() => setLinksOpen((v) => !v)}
+            className="rounded-full border border-cream/25 px-4 py-2 text-xs font-bold uppercase tracking-wider text-cream/70 transition hover:border-cream/50"
+          >
+            {linksOpen ? "Close" : "🔗 Links"}
+          </button>
+          <button
+            type="button"
             onClick={() => setCreating((v) => !v)}
             className="rounded-full bg-plonkTeal px-4 py-2 text-xs font-bold uppercase tracking-wider text-ink transition hover:brightness-110"
           >
@@ -518,6 +529,7 @@ export default function EnquiriesClient() {
 
       {aiOpen && <AiKnowledgeEditor />}
       {sigOpen && <SignatureEditor />}
+      {linksOpen && <QuickLinksEditor />}
 
       {/* Pipeline switch: normal venue enquiries vs Wacky Works course-builds */}
       <div className="flex items-center gap-2">
@@ -1018,6 +1030,11 @@ function ComposeModal({
   const [linkUrl, setLinkUrl] = useState("");
   const [imgOpen, setImgOpen] = useState(false);
   const [imgUrl, setImgUrl] = useState("");
+  const [quickLinks, setQuickLinks] = useState<QuickLink[]>([]);
+
+  useEffect(() => {
+    loadQuickLinks().then(setQuickLinks).catch(() => setQuickLinks([]));
+  }, []);
 
   // Seed the editor: greeting + blank line + signature (like Gmail). Caret
   // lands on the blank line, ready to type.
@@ -1126,6 +1143,16 @@ function ComposeModal({
     if (!sig) return;
     editorRef.current?.focus();
     document.execCommand("insertHTML", false, `<p><br></p>${sig}`);
+  }
+  // One-tap: drop a ready-made hyperlink (label → url) at the caret.
+  function insertQuickLink(l: QuickLink) {
+    editorRef.current?.focus();
+    const url = l.url.trim().replace(/"/g, "");
+    document.execCommand(
+      "insertHTML",
+      false,
+      `<a href="${url}">${escapeText(l.label)}</a>&nbsp;`,
+    );
   }
 
   async function draftAi() {
@@ -1252,6 +1279,26 @@ function ComposeModal({
               <span className="mx-1 h-4 w-px bg-cream/15" />
               <TBtn label="Clear" title="Clear formatting" onClick={() => exec("removeFormat")} />
             </div>
+            {/* quick links — one tap drops a ready-made hyperlink */}
+            {quickLinks.length > 0 && (
+              <div className="flex flex-wrap items-center gap-1.5 border-b border-cream/10 px-3 py-2">
+                <span className="mr-0.5 text-[9px] font-bold uppercase tracking-widest text-cream/35">
+                  Add link
+                </span>
+                {quickLinks.map((l, i) => (
+                  <button
+                    key={i}
+                    type="button"
+                    title={l.url}
+                    onMouseDown={(e) => e.preventDefault()}
+                    onClick={() => insertQuickLink(l)}
+                    className="rounded-full border border-plonkTeal/40 bg-plonkTeal/5 px-2.5 py-1 text-[11px] font-bold text-plonkTeal transition hover:bg-plonkTeal/15"
+                  >
+                    + {l.label}
+                  </button>
+                ))}
+              </div>
+            )}
             {/* link / image inline inputs */}
             {(linkOpen || imgOpen) && (
               <div className="flex items-center gap-2 border-b border-cream/10 bg-ink/60 px-3 py-2">
@@ -1429,6 +1476,130 @@ function SignatureEditor() {
           className="rounded-full bg-plonkTeal px-5 py-2 text-xs font-bold uppercase tracking-wider text-ink transition hover:brightness-110 disabled:opacity-40"
         >
           {busy ? "Saving…" : "Save signature"}
+        </button>
+        {msg && <span className="text-[10px] text-cream/50">{msg}</span>}
+      </div>
+    </div>
+  );
+}
+
+// Manage the one-tap quick links shown in the compose window. Add / edit /
+// remove, and drag to reorder (like the On A Roll menu).
+function QuickLinksEditor() {
+  const [links, setLinks] = useState<QuickLink[]>([]);
+  const [loaded, setLoaded] = useState(false);
+  const [busy, setBusy] = useState(false);
+  const [msg, setMsg] = useState("");
+  const dragIndex = useRef<number | null>(null);
+
+  useEffect(() => {
+    loadQuickLinks()
+      .then((l) => setLinks(l))
+      .catch(() => setLinks([]))
+      .finally(() => setLoaded(true));
+  }, []);
+
+  function setRow(i: number, patch: Partial<QuickLink>) {
+    setLinks((prev) => prev.map((r, j) => (j === i ? { ...r, ...patch } : r)));
+  }
+  function addRow() {
+    setLinks((prev) => [...prev, { label: "", url: "" }]);
+  }
+  function removeRow(i: number) {
+    setLinks((prev) => prev.filter((_, j) => j !== i));
+  }
+  function onDrop(to: number) {
+    const from = dragIndex.current;
+    dragIndex.current = null;
+    if (from == null || from === to) return;
+    setLinks((prev) => {
+      const copy = [...prev];
+      const [moved] = copy.splice(from, 1);
+      copy.splice(to, 0, moved);
+      return copy;
+    });
+  }
+
+  async function save() {
+    setBusy(true);
+    setMsg("");
+    try {
+      const clean = links
+        .map((l) => ({ label: l.label.trim(), url: l.url.trim() }))
+        .filter((l) => l.label && l.url);
+      await saveQuickLinks(clean);
+      setLinks(clean);
+      setMsg("Saved — these show in the compose window.");
+    } catch (e) {
+      setMsg(describe(e, "Couldn't save."));
+    } finally {
+      setBusy(false);
+    }
+  }
+
+  return (
+    <div className="rounded-xl border border-cream/15 bg-ink/40 p-4">
+      <p className="text-[11px] font-bold uppercase tracking-widest text-cream/70">
+        Quick links
+      </p>
+      <p className="mt-1 max-w-2xl text-xs text-cream/55">
+        One-tap “+” buttons in the reply window — drop a ready-made hyperlink
+        (the label is what the customer sees). Drag the ⠿ handle to reorder.
+      </p>
+      <div className="mt-3 space-y-2">
+        {links.map((l, i) => (
+          <div
+            key={i}
+            draggable
+            onDragStart={() => (dragIndex.current = i)}
+            onDragOver={(e) => e.preventDefault()}
+            onDrop={() => onDrop(i)}
+            className="flex items-center gap-2 rounded-lg border border-cream/10 bg-ink/50 p-1.5"
+          >
+            <span className="cursor-grab select-none px-1 text-cream/30" title="Drag to reorder">
+              ⠿
+            </span>
+            <input
+              value={l.label}
+              onChange={(e) => setRow(i, { label: e.target.value })}
+              placeholder="Label (e.g. Book a table)"
+              className="w-40 shrink-0 rounded-md border border-cream/20 bg-ink px-2 py-1 text-xs text-cream outline-none"
+            />
+            <input
+              value={l.url}
+              onChange={(e) => setRow(i, { url: e.target.value })}
+              placeholder="https://nodice.bar/…"
+              className="flex-1 rounded-md border border-cream/20 bg-ink px-2 py-1 text-xs text-cream outline-none"
+            />
+            <button
+              type="button"
+              onClick={() => removeRow(i)}
+              className="shrink-0 rounded px-2 py-1 text-xs text-red-400/70 hover:bg-red-500/10"
+              title="Remove"
+            >
+              ✕
+            </button>
+          </div>
+        ))}
+        {loaded && links.length === 0 && (
+          <p className="text-[11px] text-cream/35">No quick links yet.</p>
+        )}
+      </div>
+      <div className="mt-3 flex items-center gap-2">
+        <button
+          type="button"
+          onClick={addRow}
+          className="rounded-full border border-cream/25 px-3 py-1.5 text-[11px] font-bold uppercase tracking-wider text-cream/70 hover:border-cream/50"
+        >
+          + Add link
+        </button>
+        <button
+          type="button"
+          onClick={save}
+          disabled={busy || !loaded}
+          className="rounded-full bg-plonkTeal px-5 py-1.5 text-[11px] font-bold uppercase tracking-wider text-ink transition hover:brightness-110 disabled:opacity-40"
+        >
+          {busy ? "Saving…" : "Save links"}
         </button>
         {msg && <span className="text-[10px] text-cream/50">{msg}</span>}
       </div>

@@ -475,6 +475,37 @@ export async function saveEmailSignature(value: string): Promise<void> {
   if (error) throw new Error(error.message);
 }
 
+// Quick links = one-tap hyperlink buttons in the compose window (Book a table,
+// Menu, Events…). Stored as a JSON array in crm_settings.quick_links; the
+// office edits the list (label + url) in the CRM.
+export type QuickLink = { label: string; url: string };
+export async function loadQuickLinks(): Promise<QuickLink[]> {
+  const db = supabase();
+  const { data } = await db
+    .from("crm_settings")
+    .select("value")
+    .eq("key", "quick_links")
+    .maybeSingle();
+  try {
+    const arr = JSON.parse((data?.value as string) || "[]");
+    return Array.isArray(arr)
+      ? arr.filter((x) => x && typeof x.label === "string" && typeof x.url === "string")
+      : [];
+  } catch {
+    return [];
+  }
+}
+export async function saveQuickLinks(links: QuickLink[]): Promise<void> {
+  const db = supabase();
+  const { error } = await db
+    .from("crm_settings")
+    .upsert(
+      { key: "quick_links", value: JSON.stringify(links), updated_at: new Date().toISOString() },
+      { onConflict: "key" },
+    );
+  if (error) throw new Error(error.message);
+}
+
 // Manually settle an enquiry — "bar" = paid in person, "comp" = free. Stamps
 // paid_at, settles the linked booking (paid for bar, stays confirmed for comp),
 // and logs a note so there's a record of how it was settled.
