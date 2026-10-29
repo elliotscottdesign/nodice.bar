@@ -67,9 +67,6 @@ export default function BarPage() {
             </p>
           ) : (
             <>
-              {/* Today's deal + Happy Hour — the moving parts, up top */}
-              <DealStrip deal={menu.todayDeal} />
-
               {/* DRINKS — flows into columns like the A4 sheet */}
               {menu.drinks.length > 0 && (
                 <>
@@ -114,37 +111,6 @@ function MenuHeading({ children }: { children: React.ReactNode }) {
     >
       {children}
     </h2>
-  );
-}
-
-function DealStrip({
-  deal,
-}: {
-  deal: { name: string; description: string } | null;
-}) {
-  if (!deal) return null;
-  return (
-    <div className="mb-10">
-      <div
-        className="rounded-2xl border bg-ink/40 p-5 sm:max-w-md"
-        style={{ borderColor: `${MENU_YELLOW}66` }}
-      >
-        <p
-          className="text-xs font-bold uppercase tracking-[0.3em]"
-          style={{ color: MENU_YELLOW }}
-        >
-          Today's deal
-        </p>
-        <h3 className="mt-1 font-display text-2xl uppercase tracking-wide text-cream">
-          {deal.name}
-        </h3>
-        {deal.description && (
-          <p className="mt-2 text-sm leading-relaxed text-cream/70">
-            {deal.description}
-          </p>
-        )}
-      </div>
-    </div>
   );
 }
 
