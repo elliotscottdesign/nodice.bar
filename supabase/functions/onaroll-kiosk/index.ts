@@ -118,6 +118,19 @@ function hhmmToMin(s?: string | null): number | null {
   const mt = /^(\d{1,2}):(\d{2})$/.exec(String(s || "").trim());
   return mt ? Number(mt[1]) * 60 + Number(mt[2]) : null;
 }
+
+// Normalise a SumUp reader callback (or our own sumupWebhook body) into a flat
+// shape. SumUp may nest the fields under `payload` or `transaction`, and names the
+// id either client_transaction_id or foreign_transaction_id (we send ours as both).
+function parseSumupHook(b: any): { clientTxId: string; status: string; txCode: string; reason: string } | null {
+  const p = b?.payload || b?.transaction || {};
+  const clientTxId = String(b.client_transaction_id || p.client_transaction_id || b.foreign_transaction_id || p.foreign_transaction_id || b.checkout_reference || p.checkout_reference || "");
+  const status = String(b.status || p.status || "").toLowerCase();
+  const txCode = String(b.transaction_code || p.transaction_code || b.transaction_id || p.transaction_id || "");
+  const reason = String(b.reason || p.reason || b.error || p.error || "");
+  if (!clientTxId && !status) return null;   // not a SumUp callback
+  return { clientTxId, status, txCode, reason };
+}
 // Same open/paused rule the kitchen screen + food-order-checkout enforce.
 async function orderingOpen(): Promise<{ open: boolean; reason: string | null; waiting?: number }> {
   const { data: s } = await db.from("food_settings").select("*").eq("id", 1).maybeSingle();
@@ -263,21 +276,25 @@ Deno.serve(async (req) => {
   try { b = await req.json(); } catch { return json({ error: "Invalid JSON body" }, { status: 400 }); }
   const action = String(b.action || "");
 
-  // ── SumUp webhook (solo.transaction.updated) ── NOT LIVE until SUMUP_LIVE ──────
-  // TODO(sumup-live): verify the webhook signature before trusting the body.
-  if (action === "sumupWebhook") {
-    const clientTxId = String(b.client_transaction_id || b.checkout_reference || "");
-    const status = String(b.status || b?.transaction?.status || "").toLowerCase();
-    if (!clientTxId) return json({ ok: false, error: "no client_transaction_id" }, { status: 400 });
-    const { data: order } = await db.from("food_orders").select("id, order_no, paid").eq("sumup_client_tx_id", clientTxId).maybeSingle();
+  // ── SumUp reader callback (sent to return_url) + our own sumupWebhook action ─────
+  // SumUp POSTs its OWN shape to return_url (no `action` field) — fields may sit at
+  // the top level or under payload/transaction. We also accept our explicit
+  // {action:"sumupWebhook"}. Normalise both, then look the order up by the client
+  // transaction id. A non-matching call just 404s harmlessly.
+  // TODO(sumup-live): verify the webhook signature header before trusting the body.
+  const hook = (action === "sumupWebhook" || !action) ? parseSumupHook(b) : null;
+  if (hook) {
+    if (!hook.clientTxId) return json({ ok: false, error: "no client_transaction_id" }, { status: 400 });
+    const { data: order } = await db.from("food_orders").select("id, order_no, paid").eq("sumup_client_tx_id", hook.clientTxId).maybeSingle();
     if (!order) return json({ ok: false, error: "no matching order" }, { status: 404 });
-    if (status === "successful") {
-      const r = await markOrderPaid(order.id, { sumup_tx_code: String(b.transaction_code || b?.transaction?.transaction_code || "") || null });
+    if (hook.status === "successful") {
+      const r = await markOrderPaid(order.id, { sumup_tx_code: hook.txCode || null });
       return json({ ok: r.ok, order_no: r.order_no });
     }
-    // failed / cancelled → leave unpaid, stamp the reason for staff/diagnostics.
-    await db.from("food_orders").update({ failure_reason: String(b.reason || status || "failed").slice(0, 200) }).eq("id", order.id);
-    return json({ ok: true, paid: false });
+    if (hook.status === "failed" || hook.status === "cancelled" || hook.status === "canceled") {
+      await db.from("food_orders").update({ failure_reason: (hook.reason || hook.status).slice(0, 200) }).eq("id", order.id);
+    }
+    return json({ ok: true, paid: false });   // 'pending'/unknown → ack, wait for the next event
   }
 
   // ── Pair the Solo (one-off, admin) — Create Reader with the pairing code ─────────

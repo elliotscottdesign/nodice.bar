@@ -75,6 +75,7 @@ export default function KioskClient() {
   const [tipChoice, setTipChoice] = useState<"none" | "5" | "10">("none");
   const [orderNo, setOrderNo] = useState<number | null>(null);
   const [busy, setBusy] = useState(false);
+  const [payMsg, setPayMsg] = useState("");
 
   const [exitOpen, setExitOpen] = useState(false);
 
@@ -217,12 +218,25 @@ export default function KioskClient() {
   }
 
   // ── PAY: create the order server-side (priced server-side), then take payment ──
-  // STUB today: `takePayment` marks the order paid so it runs end-to-end into the
-  // kitchen + "ready" SMS. Drop-in later: the server triggers the SumUp Solo and we
-  // poll `orderStatus` until paid — see supabase/functions/onaroll-kiosk.
+  // STUB mode: `takePayment` returns { paid:true } immediately. LIVE (SUMUP_LIVE):
+  // it triggers the Solo and returns { pending:true } — we then POLL `orderStatus`
+  // until the reader callback marks it paid (or failed). See supabase/functions/onaroll-kiosk.
+  const pollPaid = async (orderId: string): Promise<"paid" | "failed" | "timeout"> => {
+    const deadline = Date.now() + 120000;   // give the customer up to 2 min at the reader
+    while (Date.now() < deadline) {
+      await new Promise((r) => setTimeout(r, 2000));
+      try {
+        const s = await api("onaroll-kiosk", { action: "orderStatus", order_id: orderId }, true);
+        if (s.paid) return "paid";
+        if (s.failure_reason) return "failed";
+      } catch { /* transient — keep polling */ }
+    }
+    return "timeout";
+  };
+
   const takePayment = async () => {
     if (busy) return;
-    setBusy(true); setErr("");
+    setBusy(true); setErr(""); setPayMsg("Setting up your payment…");
     try {
       const created = await api("onaroll-kiosk", {
         action: "createOrder",
@@ -230,15 +244,20 @@ export default function KioskClient() {
         tip_pct: tipChoice === "5" ? 5 : tipChoice === "10" ? 10 : 0,
         cart: cart.map((l) => l.bundle_id ? { bundle_id: l.bundle_id, qty: l.qty } : { id: l.item.id, qty: l.qty, addon_ids: l.addons.map((a) => a.id) }),
       }, true);
+      setOrderNo(created.order_no);
       const paid = await api("onaroll-kiosk", { action: "takePayment", order_id: created.order_id, client_tx_id: created.client_tx_id }, true);
-      if (paid.paid) { setOrderNo(created.order_no); setPhase("done"); return; }
-      // Real SumUp (SUMUP_LIVE) would return { pending:true } → poll here.
-      setErr("Waiting for the card reader… please tap your card.");
+      if (paid.paid) { setPhase("done"); return; }                    // stub, or already-paid
+      // LIVE: the reader is now asking for the card — wait for confirmation.
+      setPayMsg("Tap or insert your card on the reader 💳");
+      const res = await pollPaid(created.order_id);
+      if (res === "paid") { setPhase("done"); return; }
+      if (res === "failed") { setErr("That didn't go through — please try again, or ask a staff member."); return; }
+      setErr("The reader is taking a while — please ask a staff member for a hand.");
     } catch (e) {
       const d = (e as Error & { data?: any }).data;
       if (d && d.open === false) { setStatus({ open: false, waiting: d.waiting, reason: d.reason ?? "paused" }); setPhase("menu"); return; }
       setErr((e as Error).message || "Something went wrong — please find a staff member.");
-    } finally { setBusy(false); }
+    } finally { setBusy(false); setPayMsg(""); }
   };
 
   const headerLogo = (sections || []).map((s) => (s as any).logoImg || POPUP_LOGOS[(s as any).logo]).find(Boolean) || LOGO;
@@ -435,22 +454,28 @@ export default function KioskClient() {
         </Screen>
       )}
 
-      {/* ── PAY (SumUp Solo — stubbed) ── */}
+      {/* ── PAY (SumUp Solo — customer taps their own card on the reader) ── */}
       {phase === "pay" && (
         <Screen>
           <Header title="Pay" onBack={() => setPhase("tip")} />
           <div style={{ flex: 1, minHeight: 0, display: "flex", flexDirection: "column", justifyContent: "center", alignItems: "center", textAlign: "center", gap: 10 }}>
             <div style={{ fontFamily: BODY, fontSize: 18, color: MUTED }}>{count} item{count > 1 ? "s" : ""}{tipPence > 0 ? ` + ${gbp(tipPence)} tip` : ""}</div>
             <div style={{ fontFamily: DISPLAY, fontSize: 92, color: RED, lineHeight: 1 }}>{gbp(grand)}</div>
-            <div style={{ fontFamily: BODY, fontSize: 20, color: INK, maxWidth: 420, lineHeight: 1.4, marginTop: 8 }}>
-              Tap your card or phone on the <b>card reader</b> to pay.
-            </div>
-            <div style={{ fontFamily: BODY, fontSize: 13, color: MUTED }}>Card payment · contactless, Apple Pay &amp; Google Pay</div>
+            {busy && payMsg ? (
+              <div style={{ fontFamily: DISPLAY, fontSize: 32, color: GREEN, letterSpacing: "0.5px", maxWidth: 460, lineHeight: 1.1, marginTop: 6 }}>{payMsg}</div>
+            ) : (
+              <>
+                <div style={{ fontFamily: BODY, fontSize: 20, color: INK, maxWidth: 420, lineHeight: 1.4, marginTop: 8 }}>
+                  Tap or insert your card on the <b>card reader</b> to pay.
+                </div>
+                <div style={{ fontFamily: BODY, fontSize: 13, color: MUTED }}>Card payment · contactless, Apple Pay &amp; Google Pay</div>
+              </>
+            )}
             {err && <div style={{ fontFamily: BODY, background: "#fff", border: `1px solid ${RED}`, color: RED, borderRadius: 12, padding: "12px 16px", fontSize: 16, marginTop: 8, maxWidth: 440 }}>{err}</div>}
           </div>
           <BottomBar>
             <button disabled={busy} onClick={takePayment} style={bigBtnStyle(busy ? LINE : GREEN, "#fff")}>
-              {busy ? "Starting the reader…" : `Take payment · ${gbp(grand)}`}
+              {busy ? (payMsg || "Working…") : `Take payment · ${gbp(grand)}`}
             </button>
           </BottomBar>
         </Screen>
