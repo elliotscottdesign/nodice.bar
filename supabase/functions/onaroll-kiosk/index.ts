@@ -244,9 +244,31 @@ async function tillCharge(opts: { amountPence: number; clientTxId: string; descr
     const t = await res.text().catch(() => "");
     return { ok: false, error: `SumUp checkout failed (${res.status}): ${t.slice(0, 300)}` };
   }
-  // 2xx = the reader has been told to collect. Payment itself confirms via the
-  // webhook (solo.transaction.updated). We do NOT mark paid here.
+  // 2xx = the reader has been told to collect. Payment itself is confirmed by
+  // polling SumUp (confirmSumupPaid) — the return_url webhook is only a fast-path.
   return { ok: true };
+}
+
+// Ask SumUp directly whether our charge settled. The reader checkout's
+// client_transaction_id comes back as the transaction's `foreign_transaction_id`.
+// This is the RELIABLE confirmation (don't depend on the return_url webhook firing).
+async function confirmSumupPaid(clientTxId: string): Promise<{ state: "successful" | "failed" | "pending"; txCode: string }> {
+  if (!SUMUP_API_KEY || !clientTxId) return { state: "pending", txCode: "" };
+  try {
+    const res = await fetch(`${SUMUP_API_BASE}/v0.1/me/transactions?foreign_transaction_id=${encodeURIComponent(clientTxId)}`, {
+      headers: { "Authorization": `Bearer ${SUMUP_API_KEY}` },
+    });
+    if (res.status === 404) return { state: "pending", txCode: "" };   // not created yet = still waiting at the reader
+    if (!res.ok) return { state: "pending", txCode: "" };
+    const t = await res.json().catch(() => ({} as any));
+    const status = String(t?.status || "").toUpperCase();
+    const txCode = String(t?.transaction_code || "");
+    if (status === "SUCCESSFUL") return { state: "successful", txCode };
+    if (status === "FAILED" || status === "CANCELLED" || status === "CANCELED") return { state: "failed", txCode };
+    return { state: "pending", txCode };   // PENDING / in-progress at the reader
+  } catch {
+    return { state: "pending", txCode: "" };
+  }
 }
 
 // Flip a priced, pending kiosk order to PAID + 'new' so it hits the kitchen KDS and
@@ -406,11 +428,27 @@ Deno.serve(async (req) => {
   }
 
   // ── Order status poll (used by the kiosk while the reader collects) ─────────────
+  // This is also where a LIVE charge gets CONFIRMED: if the order is still unpaid,
+  // we ask SumUp directly whether our charge settled (reliable; not dependent on the
+  // return_url webhook) and mark it paid here. The kiosk polls this until paid/failed.
   if (action === "orderStatus") {
     const order_id = String(b.order_id || "");
     if (!order_id) return json({ error: "no order_id" }, { status: 400 });
-    const { data: order } = await db.from("food_orders").select("order_no, paid, status, failure_reason").eq("id", order_id).maybeSingle();
+    const { data: order } = await db.from("food_orders").select("id, order_no, paid, status, failure_reason, source, sumup_client_tx_id").eq("id", order_id).maybeSingle();
     if (!order) return json({ error: "order not found" }, { status: 404 });
+
+    if (!order.paid && SUMUP_LIVE && order.source === "kiosk" && order.sumup_client_tx_id) {
+      const chk = await confirmSumupPaid(order.sumup_client_tx_id);
+      if (chk.state === "successful") {
+        const r = await markOrderPaid(order.id, { sumup_tx_code: chk.txCode || null });
+        return json({ ok: true, paid: r.ok, status: "new", order_no: order.order_no, failure_reason: null });
+      }
+      if (chk.state === "failed") {
+        await db.from("food_orders").update({ failure_reason: "reader declined/cancelled" }).eq("id", order.id);
+        return json({ ok: true, paid: false, status: order.status, order_no: order.order_no, failure_reason: "reader declined/cancelled" });
+      }
+      // pending → fall through and report current (unpaid) state
+    }
     return json({ ok: true, paid: !!order.paid, status: order.status, order_no: order.order_no, failure_reason: order.failure_reason || null });
   }
 
