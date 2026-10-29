@@ -657,6 +657,14 @@ export type PosterImage = {
   ox?: number;
   oy?: number;
   z?: number;
+  /**
+   * Optional words printed UNDER this photo, in the poster ink, in the sub-line
+   * font, ALL CAPS — for labelling an act / DJ / dish. The caption is locked to
+   * the width of its photo (centred, shrunk to fit, never spilling past it) and
+   * the photo shrinks a touch to make room. Travels WITH the photo, so it
+   * follows a reorder. Additive: no caption on ANY photo → output is unchanged.
+   */
+  caption?: string;
 };
 
 // ── Photo grid ───────────────────────────────────────────────────────────────
@@ -1047,6 +1055,42 @@ export async function renderEventPoster({
       ? imgs
       : ([{ img: img as HTMLImageElement, exposure }] as PosterImage[])
   ).filter((e) => e && e.img);
+
+  // ── Per-photo caption ──────────────────────────────────────────────────────
+  // Optional words under a photo (an act / DJ / dish name). When ANY photo in
+  // the set has one, every cell reserves the same strip height below its photo
+  // so the images stay aligned; the photo shrinks by that much. No captions
+  // anywhere → capHeightFor returns 0 and nothing changes. The caption is the
+  // sub-line font, poster ink, ALL CAPS, centred, shrunk to fit its photo's
+  // width (never spills). Call sites pass the photo's own column width.
+  const anyCaption = list.some((e) => (e.caption || "").trim());
+  const capSizeFor = (w: number) =>
+    anyCaption ? Math.max(9, Math.round(Math.min(SB * 0.036, w * 0.15))) : 0;
+  const capHeightFor = (w: number) =>
+    anyCaption ? Math.round(capSizeFor(w) * 1.5) : 0;
+  const drawCaption = (
+    cellX: number,
+    cellW: number,
+    stripTop: number,
+    stripH: number,
+    text: string | undefined,
+    capPx: number,
+  ) => {
+    const t = (text || "").trim().toUpperCase();
+    if (!t || stripH <= 0) return;
+    ctx.save();
+    ctx.fillStyle = inkCss;
+    ctx.textAlign = "center";
+    const px = fitFont(ctx, t, cellW, capPx); // shrink to the photo's width
+    ctx.font = `${px}px "${FONT_FAMILY}"`;
+    const mm = ctx.measureText(t);
+    const asc = mm.actualBoundingBoxAscent,
+      desc = mm.actualBoundingBoxDescent;
+    // Centre the glyph vertically within the reserved strip.
+    const y = stripTop + (stripH + asc - desc) / 2;
+    ctx.fillText(t, cellX + cellW / 2, y);
+    ctx.restore();
+  };
   if (dealLayout && textBox) {
     // No photo — fill the picture area with the info text, no outline, fit to
     // the box and centred vertically. For copy-led deal / statement posters.
@@ -1082,6 +1126,11 @@ export async function renderEventPoster({
     const fullH = imgBottom - imgTop;
     const cellW = Math.round((fullW - (cols - 1) * gap) / cols);
     const cellH = Math.round((fullH - (rows - 1) * gap) / rows);
+    // Captions (if any) take a fixed strip at the foot of every cell; the photo
+    // takes the rest, so all photos stay the same size and aligned.
+    const capPx = capSizeFor(cellW);
+    const capH = capHeightFor(cellW);
+    const photoH = cellH - capH;
     let idx = 0;
     for (let r = 0; r < rows; r++) {
       const rc = rowCounts[r];
@@ -1090,29 +1139,28 @@ export async function renderEventPoster({
       const rTop = imgTop + r * (cellH + gap);
       for (let c = 0; c < rc; c++) {
         const e = grid[idx++];
-        drawFramed(
-          startX + c * (cellW + gap),
-          cellW,
-          e.img,
-          e.exposure ?? 1,
-          e.ox,
-          e.oy,
-          e.z,
-          rTop,
-          cellH,
-        );
+        const cellX = startX + c * (cellW + gap);
+        drawFramed(cellX, cellW, e.img, e.exposure ?? 1, e.ox, e.oy, e.z, rTop, photoH);
+        drawCaption(cellX, cellW, rTop + photoH, capH, e.caption, capPx);
       }
     }
   } else if (list.length === 1) {
+    const cellW = x1 - x0;
+    const capPx = capSizeFor(cellW);
+    const capH = capHeightFor(cellW);
+    const photoH = imgBottom - imgTop - capH;
     drawFramed(
       x0,
-      x1 - x0,
+      cellW,
       list[0].img,
       list[0].exposure ?? 1,
       list[0].ox ?? 0.5,
       list[0].oy ?? 0.5,
       list[0].z,
+      imgTop,
+      photoH,
     );
+    drawCaption(x0, cellW, imgTop + photoH, capH, list[0].caption, capPx);
   }
 
   ctx.fillStyle = inkCss;

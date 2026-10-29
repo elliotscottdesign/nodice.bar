@@ -92,6 +92,8 @@ type StudioPhoto = {
   ox: number;
   oy: number;
   zoom: number;
+  /** Optional words printed under THIS photo (act / DJ / dish name). */
+  caption: string;
 };
 
 let _photoId = 0;
@@ -109,6 +111,7 @@ const makePhoto = (
   ox: 0.5,
   oy: 0.5,
   zoom: 1,
+  caption: "",
 });
 
 // CSS aspect-ratio for each preview shape, so the canvas box matches the file.
@@ -397,6 +400,7 @@ export default function EventPosterStudio({
             ox: p.ox,
             oy: p.oy,
             z: p.zoom,
+            caption: p.caption,
           })),
       }),
     [
@@ -952,6 +956,28 @@ export default function EventPosterStudio({
                   />
                 </label>
 
+                {/* Caption under THIS photo — words printed beneath the selected
+                    picture (an act / DJ / dish name), in the sub-line font, ALL
+                    CAPS, locked to the picture's width. Travels with the photo
+                    through reorders. */}
+                {!textBox && sel?.img && (
+                  <label className="block">
+                    <span className="mb-1 block text-[10px] text-cream/45">
+                      Words under this picture (optional)
+                      {photos.length > 1 ? " — labels each one" : ""}
+                    </span>
+                    <input
+                      value={sel.caption}
+                      onChange={(e) =>
+                        patchPhoto(sel.id, { caption: e.target.value })
+                      }
+                      maxLength={40}
+                      placeholder="e.g. GLITTER DAVE"
+                      className="w-full rounded-md border border-cream/20 bg-ink px-2.5 py-1.5 text-xs uppercase text-cream placeholder:text-cream/35 placeholder:normal-case"
+                    />
+                  </label>
+                )}
+
                 {/* Reorder strip — all the photos on the poster, in render
                     order. Drag a thumbnail over its neighbours to reorder
                     (works on a phone too); tap one to fine-tune it in the well
@@ -965,44 +991,53 @@ export default function EventPosterStudio({
                     </div>
                     <div className="flex flex-wrap gap-2">
                       {photos.map((p, i) => (
-                        <div
-                          key={p.id}
-                          ref={(el) => {
-                            thumbRefs.current[p.id] = el;
-                          }}
-                          onPointerDown={(e) => startReorder(e, p.id)}
-                          title="Drag to reorder · tap to fine-tune"
-                          className={`group relative h-16 w-16 shrink-0 cursor-grab touch-none select-none overflow-hidden rounded border bg-black ${
-                            p.id === selId
-                              ? "border-plonkPink ring-1 ring-plonkPink"
-                              : "border-cream/20"
-                          } ${dragId === p.id ? "opacity-50" : ""}`}
-                        >
-                          {p.img ? (
-                            // eslint-disable-next-line @next/next/no-img-element
-                            <img
-                              src={p.url}
-                              alt=""
-                              draggable={false}
-                              className="pointer-events-none h-full w-full object-cover"
-                            />
-                          ) : (
-                            <span className="flex h-full w-full items-center justify-center text-[9px] text-cream/40">
-                              …
+                        <div key={p.id} className="flex w-16 flex-col gap-0.5">
+                          <div
+                            ref={(el) => {
+                              thumbRefs.current[p.id] = el;
+                            }}
+                            onPointerDown={(e) => startReorder(e, p.id)}
+                            title="Drag to reorder · tap to fine-tune"
+                            className={`group relative h-16 w-16 shrink-0 cursor-grab touch-none select-none overflow-hidden rounded border bg-black ${
+                              p.id === selId
+                                ? "border-plonkPink ring-1 ring-plonkPink"
+                                : "border-cream/20"
+                            } ${dragId === p.id ? "opacity-50" : ""}`}
+                          >
+                            {p.img ? (
+                              // eslint-disable-next-line @next/next/no-img-element
+                              <img
+                                src={p.url}
+                                alt=""
+                                draggable={false}
+                                className="pointer-events-none h-full w-full object-cover"
+                              />
+                            ) : (
+                              <span className="flex h-full w-full items-center justify-center text-[9px] text-cream/40">
+                                …
+                              </span>
+                            )}
+                            <span className="pointer-events-none absolute left-0.5 top-0.5 rounded bg-black/60 px-1 text-[8px] font-bold text-white">
+                              {i + 1}
+                            </span>
+                            <button
+                              type="button"
+                              onPointerDown={(e) => e.stopPropagation()}
+                              onClick={() => removePhoto(p.id)}
+                              title="Remove this picture"
+                              className="absolute right-0.5 top-0.5 rounded-full bg-black/70 px-1 text-[9px] font-bold text-red-300 hover:bg-red-500/40"
+                            >
+                              ✕
+                            </button>
+                          </div>
+                          {p.caption.trim() && (
+                            <span
+                              title={p.caption}
+                              className="w-16 truncate text-center text-[8px] uppercase text-cream/55"
+                            >
+                              {p.caption}
                             </span>
                           )}
-                          <span className="pointer-events-none absolute left-0.5 top-0.5 rounded bg-black/60 px-1 text-[8px] font-bold text-white">
-                            {i + 1}
-                          </span>
-                          <button
-                            type="button"
-                            onPointerDown={(e) => e.stopPropagation()}
-                            onClick={() => removePhoto(p.id)}
-                            title="Remove this picture"
-                            className="absolute right-0.5 top-0.5 rounded-full bg-black/70 px-1 text-[9px] font-bold text-red-300 hover:bg-red-500/40"
-                          >
-                            ✕
-                          </button>
                         </div>
                       ))}
                       {photos.length < MAX_PHOTOS && (
