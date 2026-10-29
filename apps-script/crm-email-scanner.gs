@@ -8,6 +8,8 @@
  * AND info@plonkgolf.co.uk mail both land in that account.
  *
  * It is deliberately careful:
+ *  - It ALSO checks the Spam folder, and rescues a genuine enquiry back into
+ *    the inbox (Google sometimes mis-files real ones there).
  *  - It IGNORES your own replies (anything sent from your own addresses).
  *  - It handles FORWARDED enquiries (Fwd: ...) by pulling the real
  *    enquirer's name/email out of the forwarded text.
@@ -81,58 +83,80 @@ function setup() {
 function scanInbox() {
   var inbox = whoAmI_();
   var label = getOrCreateLabel_();
-  var query = 'in:inbox ' + LOOKBACK +
-    ' -label:"' + LABEL_NAME + '"' +
-    ' -category:promotions -category:social -category:forums';
-  var threads = GmailApp.search(query, 0, MAX_THREADS);
+  var base = LOOKBACK + ' -label:"' + LABEL_NAME + '"';
   var logged = 0, skipped = 0;
 
-  for (var t = 0; t < threads.length; t++) {
-    var thread = threads[t];
-    var messages = thread.getMessages();
-    if (!messages.length) { thread.addLabel(label); continue; }
-
-    var picked = pickEnquiryMessage_(messages);
-    if (!picked) { thread.addLabel(label); skipped++; continue; }
-
-    var subject = picked.msg.getSubject() || "";
-    var body = (picked.msg.getPlainBody() || "").slice(0, 8000);
-
-    if (!looksLikeEnquiry_(subject + " " + body)) {
-      thread.addLabel(label); skipped++; continue;
-    }
-
-    var payload = {
-      app: APP_TAG,
-      gmail_message_id: picked.msg.getId(),
-      from_name: picked.name,
-      from_email: picked.email,
-      subject: subject,
-      body: body,
-      received_at: picked.msg.getDate().toISOString(),
-      source_inbox: inbox
-    };
-
-    try {
-      var res = UrlFetchApp.fetch(ENDPOINT, {
-        method: "post",
-        contentType: "application/json",
-        headers: { "apikey": ANON_KEY, "Authorization": "Bearer " + ANON_KEY },
-        payload: JSON.stringify(payload),
-        muteHttpExceptions: true
-      });
-      var code = res.getResponseCode();
-      if (code >= 200 && code < 300) {
-        thread.addLabel(label);
-        logged++;
-      } else {
-        Logger.log("Post failed (" + code + "): " + res.getContentText());
-      }
-    } catch (e) {
-      Logger.log("Error posting: " + e);
-    }
+  // 1) The inbox — the normal catch.
+  var inboxThreads = GmailApp.search('in:inbox ' + base +
+    ' -category:promotions -category:social -category:forums', 0, MAX_THREADS);
+  for (var i = 0; i < inboxThreads.length; i++) {
+    var r = processThread_(inboxThreads[i], label, inbox, false);
+    if (r === "logged") logged++; else if (r === "skipped") skipped++;
   }
-  Logger.log("Scan done for " + inbox + " — " + logged + " logged, " + skipped + " skipped.");
+
+  // 2) SPAM — Google sometimes mis-files a genuine enquiry (we nearly lost 2).
+  //    A real one found here is logged AND moved back into the inbox so it's
+  //    visible in Gmail too; junk is left where it is.
+  var spamThreads = GmailApp.search('in:spam ' + base, 0, MAX_THREADS);
+  for (var j = 0; j < spamThreads.length; j++) {
+    var r2 = processThread_(spamThreads[j], label, inbox, true);
+    if (r2 === "logged") logged++; else if (r2 === "skipped") skipped++;
+  }
+
+  Logger.log("Scan done for " + inbox + " — " + logged + " logged, " + skipped +
+    " skipped (inbox + spam).");
+}
+
+// Process one thread. fromSpam=true means it came from the Spam folder — a
+// genuine enquiry found there is rescued back into the inbox. Returns
+// "logged", "skipped" or "none".
+function processThread_(thread, label, inbox, fromSpam) {
+  var messages = thread.getMessages();
+  if (!messages.length) { if (!fromSpam) thread.addLabel(label); return "none"; }
+
+  var picked = pickEnquiryMessage_(messages);
+  // Only tag junk that's in the inbox — never label things sitting in spam.
+  if (!picked) { if (!fromSpam) thread.addLabel(label); return "skipped"; }
+
+  var subject = picked.msg.getSubject() || "";
+  var body = (picked.msg.getPlainBody() || "").slice(0, 8000);
+  if (!looksLikeEnquiry_(subject + " " + body)) {
+    if (!fromSpam) thread.addLabel(label);
+    return "skipped";
+  }
+
+  var payload = {
+    app: APP_TAG,
+    gmail_message_id: picked.msg.getId(),
+    from_name: picked.name,
+    from_email: picked.email,
+    subject: subject,
+    body: body,
+    received_at: picked.msg.getDate().toISOString(),
+    source_inbox: inbox
+  };
+
+  try {
+    var res = UrlFetchApp.fetch(ENDPOINT, {
+      method: "post",
+      contentType: "application/json",
+      headers: { "apikey": ANON_KEY, "Authorization": "Bearer " + ANON_KEY },
+      payload: JSON.stringify(payload),
+      muteHttpExceptions: true
+    });
+    var code = res.getResponseCode();
+    if (code >= 200 && code < 300) {
+      // Rescue a genuine enquiry out of spam into the inbox.
+      if (fromSpam) { try { thread.moveToInbox(); } catch (e3) {} }
+      thread.addLabel(label);
+      return "logged";
+    }
+    Logger.log("Post failed (" + code + "): " + res.getContentText());
+    return "none";
+  } catch (e) {
+    Logger.log("Error posting: " + e);
+    return "none";
+  }
 }
 
 // ---- PICK THE RIGHT MESSAGE -----------------------------------------
