@@ -71,6 +71,7 @@ type Customer = {
   phone?: string;
   heard_from?: string;
   marketing_opt_in?: boolean;
+  notes?: string;             // optional free-text request — never blocks checkout
 };
 
 type Payload = {
@@ -222,6 +223,13 @@ Deno.serve(async (req) => {
   const total = Math.max(0, subtotal - discount);
   if (total <= 0) return bad("Order total must be positive", 400);
 
+  // Optional customer note (occasion / accessibility / special request).
+  // Trimmed + capped so a runaway paste can't bloat the row; empty → null.
+  const notes =
+    typeof customer.notes === "string" && customer.notes.trim()
+      ? customer.notes.trim().slice(0, 500)
+      : null;
+
   // ---------- Create pending booking row ----------
   const reference = randomRef();
   const expiresAt = new Date(Date.now() + HOLD_MINUTES * 60 * 1000).toISOString();
@@ -236,6 +244,7 @@ Deno.serve(async (req) => {
       customer_phone: customer.phone ?? null,
       heard_from: customer.heard_from ?? null,
       marketing_opt_in: !!customer.marketing_opt_in,
+      notes,
       party_size: partySize,
       subtotal_pence: subtotal,
       discount_pence: discount,

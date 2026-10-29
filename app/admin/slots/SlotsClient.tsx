@@ -1,9 +1,11 @@
 "use client";
 
 import { useEffect, useState } from "react";
+import { confirmDialog } from "@/lib/dialog";
 import AdminPageHeader from "@/components/admin/AdminPageHeader";
 import Notice from "@/components/Notice";
 import { AdminCard } from "@/components/admin/AdminCard";
+import DatePickerInput from "@/components/admin/DatePickerInput";
 import { loadVenues, type DbVenue } from "@/lib/db/tickets";
 import {
   loadSlotOverrides,
@@ -47,7 +49,7 @@ export default function SlotsClient() {
   }, []);
 
   async function handleDelete(s: DbSlotOverride) {
-    if (!confirm(`Remove override on ${s.date}?`)) return;
+    if (!(await confirmDialog(`Remove override on ${s.date}?`))) return;
     setBusy(true);
     try {
       await deleteSlotOverride(s.id);
@@ -227,8 +229,10 @@ function AddOverrideModal({
 
   return (
     <div
+      // No click-off. This form holds unsaved typing, so the backdrop
+      // deliberately has NO onClick — it used to call onCancel and throw
+      // the work away. Close with the X / Cancel, or by saving.
       className="fixed inset-0 z-50 flex items-end justify-center bg-ink/80 p-3 sm:items-center sm:p-6"
-      onClick={onCancel}
     >
       <div
         className="w-full max-w-md rounded-2xl border border-cream/15 bg-ink p-6 shadow-2xl"
@@ -252,10 +256,9 @@ function AddOverrideModal({
           </label>
           <label className="block">
             <span className="text-xs font-bold uppercase tracking-widest text-cream/55">Date</span>
-            <input
-              type="date"
+            <DatePickerInput
               value={date}
-              onChange={(e) => setDate(e.target.value)}
+              onChange={setDate}
               className="mt-1.5 w-full rounded-lg border border-cream/15 bg-ink/40 px-3 py-2 text-sm text-cream focus:border-plonkPink focus:outline-none"
             />
           </label>

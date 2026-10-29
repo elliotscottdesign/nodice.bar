@@ -4,10 +4,16 @@ import { useCallback, useEffect, useMemo, useState } from "react";
 import {
   loadCalendarEventsInRange,
   defaultPosterFor,
-  EVENT_TYPES,
   type DbCalendarEvent,
 } from "@/lib/db/calendarEvents";
 import { loadDjNightsInRange, isDjEvent } from "@/lib/db/djNights";
+import { loadOpenDecksNightsInRange } from "@/lib/db/openDecksNights";
+import {
+  loadLeadOrder,
+  leadRankFromOrder,
+  DEFAULT_LEAD_ORDER,
+  type LeadBucket,
+} from "@/lib/db/leadPriority";
 import { useContent, useImage } from "@/lib/content";
 import { Editable } from "@/components/Editable";
 import PageHero from "@/components/PageHero";
@@ -49,52 +55,111 @@ const MONTHS_SHORT = [
 //   - `stripe`  — a 3px accent bar down the left of the artwork
 //   - `pill`    — the top-right badge that already showed subcategory
 //   - `dot`     — a small round marker for lists/day-detail
+//   - `hoverBorder` — desktop hover outline on a clickable card (2026-10-15),
+//                     so the lift picks up the colour the card already uses
 // Blank / unknown subcategory → neutral cream fallback so the grid
 // stays consistent for untagged events.
 const CATEGORY_COLOURS: Record<
   string,
-  { stripe: string; pill: string; dot: string }
+  { stripe: string; pill: string; dot: string; hoverBorder: string }
 > = {
-  "DJ Night": {
+  DJ: {
     stripe: "bg-plonkPink",
     pill: "bg-plonkPink/90 text-white",
     dot: "bg-plonkPink",
+    hoverBorder: "group-hover/card:border-plonkPink",
   },
-  "Match Day": {
-    stripe: "bg-plonkTeal",
-    pill: "bg-plonkTeal/90 text-ink",
-    dot: "bg-plonkTeal",
-  },
-  "Pool Night": {
+  POOL: {
     stripe: "bg-purple-400",
     pill: "bg-purple-500/90 text-white",
     dot: "bg-purple-400",
+    hoverBorder: "group-hover/card:border-purple-400",
   },
-  "Food Night": {
+  FOOD: {
     stripe: "bg-orange-400",
     pill: "bg-orange-500/90 text-white",
     dot: "bg-orange-400",
+    hoverBorder: "group-hover/card:border-orange-400",
   },
-  Deals: {
+  DEAL: {
     stripe: "bg-plonkYellow",
     pill: "bg-plonkYellow/90 text-ink",
     dot: "bg-plonkYellow",
+    hoverBorder: "group-hover/card:border-plonkYellow",
   },
-  "Special Event": {
+  SPECIALS: {
     stripe: "bg-sky-400",
     pill: "bg-sky-500/90 text-white",
     dot: "bg-sky-400",
+    hoverBorder: "group-hover/card:border-sky-400",
   },
 };
 const CATEGORY_FALLBACK = {
   stripe: "bg-cream/40",
   pill: "bg-ink/80 text-cream/85",
   dot: "bg-cream/50",
+  hoverBorder: "group-hover/card:border-cream/40",
 };
 function categoryColours(subcategory: string | null | undefined) {
   if (!subcategory) return CATEGORY_FALLBACK;
   return CATEGORY_COLOURS[subcategory] ?? CATEGORY_FALLBACK;
 }
+
+// The public calendar colours + labels every event by its CATEGORY, using the
+// SAME five tags as the admin (founder 26 Oct 2026: "make public facing filters
+// the same… POOL / FOOD / SPECIALS / DJ / DEAL", and "CUE IS POOL"). A tag is a
+// group over categories: everything pool-shaped (comps, specials, ping pong) is
+// POOL; bingo sits under SPECIALS. chipForEvent() maps a category to its tag,
+// which keys the colour (CATEGORY_COLOURS) and the default poster
+// (defaultPosterFor). DJ-feed events carry no category, so they fall back to DJ.
+const CATEGORY_TO_CHIP: Record<string, string> = {
+  dj_night: "DJ",
+  pool_tournament_doubles: "POOL",
+  pool_tournament_singles: "POOL",
+  pool_special: "POOL",
+  ping_pong: "POOL",
+  food_event: "FOOD",
+  drink_special: "DEAL",
+  special_event: "SPECIALS",
+  bingo: "SPECIALS",
+  // arcade / golf / other → no chip (neutral fallback, no filter match)
+};
+// The public filter chips, in the founder's order.
+const FILTER_CHIPS = ["POOL", "FOOD", "SPECIALS", "DJ", "DEAL"];
+function chipForEvent(ev: DbCalendarEvent): string | null {
+  if (isDjEvent(ev)) return "DJ";
+  return CATEGORY_TO_CHIP[ev.category ?? ""] ?? null;
+}
+
+// Where a card goes when you click it.
+//
+// Founder 2026-10-15, on whether events without a link should fall back to
+// their category page (/pool, /deals, …): "if there isn't a link in event
+// info then it's fine — this is only when there is a URL, like for special
+// events." So: NO invented destinations. A card is a link when, and only
+// when, the event carries its own link, and an event with no link stays a
+// plain, honestly non-clickable card with no ↗ glyph.
+//
+// Add a link to an event in /admin/events and it becomes clickable on its
+// own. Never build a per-event URL here either — the site is a static
+// export, so a dynamic route that wasn't pre-rendered 404s.
+function eventDestination(ev: DbCalendarEvent): string | null {
+  return ev.link_url || null;
+}
+
+// When a single day has MULTIPLE events, pick which one leads the calendar
+// cell (its poster becomes the day's headline image). Founder rule
+// (2026-10-13): the SPECIAL / one-off / limited-edition thing headlines a busy
+// night FIRST, then a DJ night — never a recurring regular (a weekly pool
+// tournament, a monthly Pingers "Sunday Sports", a standing martini+fries
+// deal). Happy Hour always comes dead last.
+//
+// The priority order is now EDITABLE from /admin/event-priority — see
+// lib/db/leadPriority.ts for the buckets, the classification and the saved
+// order. This page loads the saved order (falling back to the old hard-coded
+// default) and sorts each day's list by leadRankFromOrder(). The badge + full
+// list in the cell and the tap/expand view still show EVERY event — only the
+// lead-image choice changes.
 
 // Show only the current month + next 3 — per founder direction,
 // the scroller stays focused on "what's coming up" rather than
@@ -130,6 +195,7 @@ function isoFor(year: number, month: number, day: number): string {
 function buildMonthGrid(
   year: number,
   month: number,
+  skipBeforeDay?: number,
 ): (number | null)[] {
   const firstDow = (new Date(year, month, 1).getDay() + 6) % 7; // 0 = Mon
   const daysInMonth = new Date(year, month + 1, 0).getDate();
@@ -137,6 +203,23 @@ function buildMonthGrid(
   for (let i = 0; i < firstDow; i++) cells.push(null);
   for (let d = 1; d <= daysInMonth; d++) cells.push(d);
   while (cells.length % 7 !== 0) cells.push(null);
+  // Collapse fully-past weeks (founder, Oct 2026): for the CURRENT month,
+  // drop any leading Mon-Sun week whose days are all before today, so the
+  // calendar opens on the current week instead of making you scroll down
+  // past the empty past weeks. The week containing today stays.
+  if (skipBeforeDay != null) {
+    let start = 0;
+    while (start + 7 <= cells.length) {
+      const week = cells.slice(start, start + 7);
+      const lastDay = week.reduce<number>(
+        (m, c) => (c != null && c > m ? c : m),
+        0,
+      );
+      if (lastDay > 0 && lastDay < skipBeforeDay) start += 7;
+      else break;
+    }
+    return cells.slice(start);
+  }
   return cells;
 }
 
@@ -175,6 +258,10 @@ export default function EventsPage() {
   });
   const [events, setEvents] = useState<DbCalendarEvent[]>([]);
   const [loading, setLoading] = useState(false);
+  // The office-set order in which event kinds lead a busy day's poster
+  // (/admin/event-priority). Defaults to the old hard-coded order, so the
+  // calendar is unchanged until it's edited; loaded once on mount.
+  const [leadOrder, setLeadOrder] = useState<LeadBucket[]>(DEFAULT_LEAD_ORDER);
 
   // Inline-edit state — only relevant when the founder has flipped
   // the admin Edit-mode toggle on the floating AdminBar.
@@ -190,9 +277,9 @@ export default function EventsPage() {
 
   // Category filter — tick which kinds of event to show. All on by default.
   const [selectedCats, setSelectedCats] = useState<Set<string>>(
-    () => new Set(EVENT_TYPES),
+    () => new Set(FILTER_CHIPS),
   );
-  const allCatsOn = selectedCats.size === EVENT_TYPES.length;
+  const allCatsOn = selectedCats.size === FILTER_CHIPS.length;
   // "Event types" dropdown open state (founder 2026-09-11: the row of
   // pills was messy — collapse it into one labelled dropdown).
   const [typesOpen, setTypesOpen] = useState(false);
@@ -228,13 +315,15 @@ export default function EventsPage() {
     // Manually-added events (this site's DB) + confirmed DJ nights (team hub
     // feed). allSettled so one source failing never blanks the other — a DB
     // hiccup still shows DJ nights, and a feed hiccup still shows your events.
-    const [calRes, djRes] = await Promise.allSettled([
+    const [calRes, djRes, odRes] = await Promise.allSettled([
       loadCalendarEventsInRange(from, to),
       loadDjNightsInRange(from, to),
+      loadOpenDecksNightsInRange(from, to),
     ]);
     const cal = calRes.status === "fulfilled" ? calRes.value : [];
     const dj = djRes.status === "fulfilled" ? djRes.value : [];
-    setEvents([...cal, ...dj]);
+    const od = odRes.status === "fulfilled" ? odRes.value : [];
+    setEvents([...cal, ...dj, ...od]);
     setLoading(false);
   }, [active.year, active.month]);
 
@@ -247,11 +336,13 @@ export default function EventsPage() {
     Promise.allSettled([
       loadCalendarEventsInRange(from, to),
       loadDjNightsInRange(from, to),
+      loadOpenDecksNightsInRange(from, to),
     ]).then((res) => {
       if (cancelled) return;
       const cal = res[0].status === "fulfilled" ? res[0].value : [];
       const dj = res[1].status === "fulfilled" ? res[1].value : [];
-      setEvents([...cal, ...dj]);
+      const od = res[2].status === "fulfilled" ? res[2].value : [];
+      setEvents([...cal, ...dj, ...od]);
       setLoading(false);
     });
     return () => {
@@ -259,9 +350,28 @@ export default function EventsPage() {
     };
   }, [active.year, active.month]);
 
+  // Load the office-set lead-poster order once. Never throws — on any
+  // failure it keeps the default order already in state.
+  useEffect(() => {
+    let cancelled = false;
+    loadLeadOrder().then((order) => {
+      if (!cancelled) setLeadOrder(order);
+    });
+    return () => {
+      cancelled = true;
+    };
+  }, []);
+
   const grid = useMemo(
-    () => buildMonthGrid(active.year, active.month),
-    [active.year, active.month],
+    () =>
+      buildMonthGrid(
+        active.year,
+        active.month,
+        active.year === today.year && active.month === today.month
+          ? today.day
+          : undefined,
+      ),
+    [active.year, active.month, today.year, today.month, today.day],
   );
 
   // Index events by day-of-month for fast cell lookup. Multiple
@@ -273,7 +383,12 @@ export default function EventsPage() {
     () =>
       allCatsOn
         ? events
-        : events.filter((e) => selectedCats.has(e.subcategory ?? "")),
+        : events.filter((e) => {
+            // Match on the event's category-derived chip; events with no chip
+            // (arcade/golf/other) drop out when the filter is narrowed.
+            const chip = chipForEvent(e);
+            return chip ? selectedCats.has(chip) : false;
+          }),
     [events, selectedCats, allCatsOn],
   );
 
@@ -283,18 +398,21 @@ export default function EventsPage() {
       const d = parseInt(e.event_date.slice(-2), 10);
       (m[d] ??= []).push(e);
     }
-    // Founder 2026-09-29: when a night has multiple events / deals, the
-    // DJ night is the primary — its poster is the day's headline image
-    // and its link is the click target. So sort each day's list DJ-first
-    // (stable otherwise, so within a group the original order holds).
-    const isDj = (e: DbCalendarEvent) =>
-      isDjEvent(e) || e.subcategory === "DJ Night";
+    // Founder 2026-09-29 / 2026-10-13: when a night has multiple events /
+    // deals, the SPECIAL / one-off thing — or a DJ night — is the primary:
+    // its poster is the day's headline image and its link is the click
+    // target. A recurring regular (weekly tournament, monthly Pingers,
+    // standing deal) never headlines over a special. So sort each day's list
+    // by leadRank (stable within a tier, so original order holds).
     for (const day of Object.keys(m)) {
       const list = m[Number(day)];
-      list.sort((a, b) => (isDj(a) ? 0 : 1) - (isDj(b) ? 0 : 1));
+      list.sort(
+        (a, b) =>
+          leadRankFromOrder(a, leadOrder) - leadRankFromOrder(b, leadOrder),
+      );
     }
     return m;
-  }, [visibleEvents]);
+  }, [visibleEvents, leadOrder]);
 
   return (
     <main>
@@ -355,7 +473,7 @@ export default function EventsPage() {
                   ? "· All"
                   : selectedCats.size === 0
                     ? "· None"
-                    : `· ${selectedCats.size} of ${EVENT_TYPES.length}`}
+                    : `· ${selectedCats.size} of ${FILTER_CHIPS.length}`}
               </span>
               <svg
                 width="10"
@@ -396,7 +514,7 @@ export default function EventsPage() {
                       type="button"
                       onClick={() =>
                         setSelectedCats(
-                          allCatsOn ? new Set() : new Set(EVENT_TYPES),
+                          allCatsOn ? new Set() : new Set(FILTER_CHIPS),
                         )
                       }
                       className="text-[10px] font-bold uppercase tracking-[0.14em] text-plonkPink hover:text-plonkPink/80"
@@ -405,7 +523,7 @@ export default function EventsPage() {
                     </button>
                   </div>
                   <ul className="mt-1">
-                    {EVENT_TYPES.map((c) => {
+                    {FILTER_CHIPS.map((c) => {
                       const on = selectedCats.has(c);
                       return (
                         <li key={c}>
@@ -509,17 +627,19 @@ export default function EventsPage() {
                       : "border-cream/10"
                   } ${isPastDay ? "opacity-30" : ""} ${editing && !isToday ? "ring-1 ring-cream/10" : ""}`}
                 >
-                  {/* Day-number badge — DESKTOP only. On mobile the
-                      dedicated header strip below carries the date;
-                      keeping this absolute badge visible there caused
-                      the day number to sit on top of the weekday label
-                      (founder bug 2026-07-02). */}
-                  <div
-                    className={`absolute left-2 top-2 z-10 hidden rounded-full px-1.5 py-0.5 text-xs font-bold sm:block ${
-                      isToday ? "bg-cream text-ink" : "bg-ink/80 text-cream/85"
-                    }`}
-                  >
-                    {day}
+                  {/* Day-number header — DESKTOP only. Sits ABOVE the poster
+                      in normal flow so the date never covers the artwork
+                      (founder 19 Oct 2026 — the old absolute badge sat on top
+                      of the poster). On mobile the dedicated header strip below
+                      carries the date instead. */}
+                  <div className="hidden items-center px-2 pt-2 pb-1 sm:flex">
+                    <span
+                      className={`rounded-full px-1.5 py-0.5 text-xs font-bold ${
+                        isToday ? "bg-cream text-ink" : "bg-ink/80 text-cream/85"
+                      }`}
+                    >
+                      {day}
+                    </span>
                   </div>
 
                   {/* Mobile date header — dedicated strip so the day
@@ -597,6 +717,7 @@ export default function EventsPage() {
                         ev={dayEvents[0]}
                         editing={editing}
                         onEdit={() => openEdit(dayEvents[0])}
+                        onOpen={() => setOpenDayIso(dayIso)}
                       />
                     ) : (
                       <MultiEventStack
@@ -632,11 +753,63 @@ export default function EventsPage() {
         </div>
       </section>
 
-      {/* Record stores we love — founder-curated list of local digging
-          spots for the DJ-night crowd (6 Aug 2026). Collapsed by default
-          so it doesn't push the Instagram feed down for people who just
-          came for the calendar. */}
-      <RecordStores />
+      {/* ─── Join our Community ─── one uniform block under the calendar
+          (founder, 26 Oct 2026): Open Decks sign-up, the pro-DJ open call and
+          the Record Stores list, stacked as consistent cards. Each row keeps its
+          own destination / behaviour — just restyled, reordered and grouped. */}
+      <section className="px-6 pb-8 pt-4">
+        <div className="mx-auto max-w-3xl">
+          <h2 className="font-display text-3xl uppercase tracking-wide text-cream sm:text-4xl">
+            Join our Community
+          </h2>
+          <div className="mt-4 flex flex-col gap-3">
+            {/* 1 · Open Decks sign-up */}
+            <a
+              href="/open-decks/"
+              className="group flex flex-wrap items-center gap-4 rounded-2xl border border-cream/12 bg-ink/40 px-5 py-5 transition hover:border-plonkPink/60 sm:px-6"
+            >
+              <div className="min-w-[200px] flex-1">
+                <p className="text-[11px] font-bold uppercase tracking-[0.2em] text-plonkTeal">
+                  DJs in training
+                </p>
+                <p className="mt-0.5 font-display text-xl uppercase tracking-wide text-cream sm:text-2xl">
+                  Wanna play open decks?
+                </p>
+                <p className="mt-1 text-sm leading-snug text-cream/70">
+                  Free 1-hour slots on our quiet nights — grab a date and come play.
+                </p>
+              </div>
+              <span className="shrink-0 rounded-full bg-plonkPink px-6 py-3 text-xs font-bold uppercase tracking-[0.18em] text-white transition group-hover:opacity-90">
+                Sign up here
+              </span>
+            </a>
+
+            {/* 2 · Professional DJ access */}
+            <a
+              href="https://team.nodice.bar/dj/join"
+              className="group flex flex-wrap items-center gap-4 rounded-2xl border border-cream/12 bg-ink/40 px-5 py-5 transition hover:border-plonkPink/60 sm:px-6"
+            >
+              <div className="min-w-[200px] flex-1">
+                <p className="text-[11px] font-bold uppercase tracking-[0.2em] text-plonkTeal">
+                  Professionals only
+                </p>
+                <p className="mt-0.5 font-display text-xl uppercase tracking-wide text-cream sm:text-2xl">
+                  Want to play at No Dice?
+                </p>
+                <p className="mt-1 text-sm leading-snug text-cream/70">
+                  Set up a DJ profile and our booking team will be in touch — no need to know anyone.
+                </p>
+              </div>
+              <span className="shrink-0 rounded-full bg-plonkPink px-6 py-3 text-xs font-bold uppercase tracking-[0.18em] text-white transition group-hover:opacity-90">
+                Become a No Dice DJ
+              </span>
+            </a>
+
+            {/* 3 · Record Stores We Love (keeps its expander behaviour) */}
+            <RecordStores />
+          </div>
+        </div>
+      </section>
 
       {/* Live @nodice.bar feed under the calendar. Same Behold widget
           as the homepage; copy is independently editable via its own
@@ -647,29 +820,6 @@ export default function EventsPage() {
         headingKey="events.instagram.heading"
         headingFallback="What's been going on."
       />
-
-      {/* Open call — end-of-page CTA so any DJ can put themselves forward to play.
-          The DJ portal lives on the team hub, so this links out to
-          team.nodice.bar/dj/join (a code-gated profile form, not a booking). */}
-      <section className="px-6 pb-20 pt-4">
-        <div className="mx-auto flex max-w-6xl flex-wrap items-center gap-4 rounded-2xl border border-plonkPink/30 bg-plonkPink/10 px-5 py-4 sm:px-6 sm:py-5">
-          <div className="min-w-[200px] flex-1">
-            <p className="font-display text-lg uppercase tracking-wide text-cream sm:text-xl">
-              Want to play at No Dice?
-            </p>
-            <p className="mt-1 text-sm leading-snug text-cream/70">
-              Set up a DJ profile and our booking team will be in touch — no need to
-              know anyone.
-            </p>
-          </div>
-          <a
-            href="https://team.nodice.bar/dj/join"
-            className="shrink-0 rounded-full border border-plonkPink bg-plonkPink px-6 py-3 text-xs font-bold uppercase tracking-[0.18em] text-white transition hover:opacity-90"
-          >
-            Become a No Dice DJ
-          </a>
-        </div>
-      </section>
 
       {/* Inline create/edit modal — only mounted when something is
           open. Save / delete refresh the month's events. */}
@@ -710,35 +860,83 @@ export default function EventsPage() {
 // In admin Edit mode (`editing=true`), the whole card becomes a
 // button that calls onEdit instead of opening the public link. A
 // small pencil pill in the top-right hints at the click target.
+//
+// CLICK AFFORDANCE (founder 2026-10-15). A card with a link used to look
+// IDENTICAL to one without, so customers couldn't tell which posters opened
+// anything. Now a linked card says so, in this order of importance:
+//   1. A ↗ glyph on the title line, ALWAYS visible — never hover-only.
+//      Load-bearing: most of these customers are on a phone, where there is
+//      no hover, so a hover-only hint just reads as a dead card. It sits on
+//      the title line and NOT on the artwork — the posters are the point of
+//      this page, and both poster corners are already taken (category chip
+//      top-right, EDIT pill bottom-right in edit mode).
+//   2. The whole card is the hit target, not just the title.
+//   3. The title underlines and lightens on hover, like any other link.
+//   4. Desktop-only lift: the poster brightens a touch and a 1px outline
+//      picks up the card's own category colour. A bonus on top of 1, never
+//      the only signal.
+// A card with no link gets NONE of this — that's the point: the glyph is
+// what tells the two apart. No glyph in edit mode either, where the EDIT
+// pill is the affordance and the card opens the editor instead.
 function DayEventCard({
   ev,
   editing,
   onEdit,
+  onOpen,
 }: {
   ev: DbCalendarEvent;
   editing: boolean;
   onEdit: () => void;
+  /** When set (and not editing), a public click opens the big day popup instead
+   *  of navigating to the event's own link — so EVERY event opens large first,
+   *  the way a multi-event day already does (founder, 18 Oct 2026). The event's
+   *  own link is still reachable from the copy of this card rendered INSIDE the
+   *  popup, which is given no onOpen and so keeps its normal link behaviour. */
+  onOpen?: () => void;
 }) {
   const base = process.env.NEXT_PUBLIC_BASE_PATH || "";
   // No artwork of its own → fall back to the category default so a customer
   // never sees a blank tile.
-  const raw = ev.image_url || defaultPosterFor(ev.subcategory);
+  // An event can carry several tags; the primary (highest-priority) one drives
+  // its single colour swatch, default poster and grid badge.
+  const primary = chipForEvent(ev);
+  const raw = ev.image_url || defaultPosterFor(primary);
   const src = raw && raw.startsWith("/") ? `${base}${raw}` : raw;
   // DJ nights are auto-fed from the team hub — shown everywhere but never
   // editable from this site's admin (the DJ system owns them).
   const dj = isDjEvent(ev);
+  // The description (title / time / body) under the poster is a per-event
+  // toggle — off for deals and DJ nights whose poster already says it all, on
+  // for events that want the extra context. DJ-fed nights are always off.
+  const showDesc = !dj && (ev.show_description ?? true);
 
-  const cc = categoryColours(ev.subcategory);
+  const cc = categoryColours(primary);
+
+  // Edit mode wins over the public link (see the return below), so a card is
+  // only "clickable" in the public sense when we're NOT editing it.
+  const editable = editing && !dj;
+  // When onOpen is provided (the grid's single-event card), a public click opens
+  // the big day popup rather than following the event's own link. In that case
+  // the ↗ new-tab affordance is suppressed and the whole card is that button —
+  // the link itself lives on the card INSIDE the popup.
+  const opensPopup = !editable && !!onOpen;
+  const href = editable || opensPopup ? null : eventDestination(ev);
+  // A link typed as root-relative ("/bingo") gets the same basePath prefix the
+  // artwork above does, so it survives a future move onto a subpath. Absolute
+  // links (the usual case) pass through untouched.
+  const resolvedHref =
+    href && href.startsWith("/") ? `${base}${href}` : href;
 
   const inner = (
     <div className="relative flex h-full flex-col">
-      {/* Left-edge accent stripe — instant visual signal of which
-          subcategory this event belongs to. Fully hidden for untagged
-          events (fallback stripe is cream/40 — subtle enough to feel
-          intentional). */}
+      {/* Desktop hover outline in the card's own category colour. Absolute +
+          pointer-events-none so it costs no layout and never eats a click;
+          `group-hover/card` only matches the <a> below, so a non-clickable
+          card never lights up (the day cell itself carries a plain `group`,
+          which is why this variant is NAMED). */}
       <span
         aria-hidden="true"
-        className={`pointer-events-none absolute inset-y-0 left-0 z-10 w-1 ${cc.stripe}`}
+        className={`pointer-events-none absolute inset-0 z-20 border border-transparent transition-colors duration-200 ${cc.hoverBorder}`}
       />
       {/* 4:5 artwork slot. object-contain (founder rule 2026-07-02)
           so uploaded posters are shown WHOLE — portrait DJ flyers,
@@ -752,53 +950,87 @@ function DayEventCard({
             src={src}
             alt={ev.title}
             loading="lazy"
-            className="h-full w-full object-contain"
+            className="h-full w-full object-contain transition duration-200 group-hover/card:brightness-110"
           />
         ) : (
           <div className="flex h-full w-full items-center justify-center text-[10px] uppercase tracking-widest text-cream/40">
             no artwork
           </div>
         )}
-        {/* Category badge — top-RIGHT so it never overlaps the day-number badge
-            (which sits top-left of the cell). Shows the event's type; DJ-fed
-            nights keep the pink accent, a re-categorised DJ night shows its new
-            category here so admin changes are visible publicly. */}
-        {ev.subcategory && (
-          <span
-            className={`absolute right-1 top-1 z-10 rounded-full px-1.5 py-0.5 text-[9px] font-bold uppercase tracking-wider ${cc.pill}`}
-          >
-            {ev.subcategory}
-          </span>
-        )}
+        {/* The category label used to sit here, ON the poster. Founder
+            19 Oct 2026: nothing covers the artwork — it's moved into the
+            caption below (the left-edge colour stripe still flags the
+            category for poster-only cards that have no caption). */}
         {editing && !dj && (
           <span className="absolute bottom-1 right-1 z-10 rounded-full bg-cream/90 px-1.5 py-0.5 text-[9px] font-bold uppercase tracking-wider text-ink">
             Edit
           </span>
         )}
       </div>
-      {/* Title + time + body */}
-      <div className="px-1.5 py-1.5 sm:px-2 sm:py-2">
-        <p className="line-clamp-2 text-[10px] font-bold uppercase tracking-wider text-cream sm:text-[11px]">
-          {ev.title}
-        </p>
-        {ev.start_time && (
-          <p className="mt-1 text-[9px] font-bold uppercase tracking-[0.18em] text-plonkPink sm:text-[10px]">
-            {formatTime(ev.start_time)}
-          </p>
-        )}
-        {ev.body && (
-          <p className="mt-1 line-clamp-2 text-[9px] leading-snug text-cream/65 sm:text-[10px]">
-            {ev.body}
-          </p>
-        )}
-      </div>
+      {/* Title + time + body — a per-event toggle (showDesc). When off, the
+          poster stands alone and the whole card is still the link. */}
+      {showDesc && (
+        <div className="px-1.5 py-1.5 sm:px-2 sm:py-2">
+          {/* Category chip — moved OFF the poster (founder 19 Oct 2026) so the
+              artwork is never covered. Sits above the title in the caption. */}
+          {primary && (
+            <span
+              className={`mb-1 inline-block rounded-full px-1.5 py-0.5 text-[9px] font-bold uppercase tracking-wider ${cc.pill}`}
+            >
+              {primary}
+            </span>
+          )}
+          {/* Title line doubles as the link affordance: the ↗ is pinned to its
+              right edge (off the poster, see the note above the component) and
+              the title underlines + lightens on hover like any other link. */}
+          <div className="flex items-start gap-1">
+            <p className="line-clamp-2 min-w-0 flex-1 text-[10px] font-bold uppercase tracking-wider text-cream transition-colors group-hover/card:text-white group-hover/card:underline sm:text-[11px]">
+              {ev.title}
+            </p>
+            {resolvedHref && (
+              <span
+                aria-hidden="true"
+                className="mt-px shrink-0 text-[10px] leading-none text-cream/70 transition-colors group-hover/card:text-cream sm:text-[11px]"
+              >
+                ↗
+              </span>
+            )}
+          </div>
+          {ev.start_time && (
+            <p className="mt-1 text-[9px] font-bold uppercase tracking-[0.18em] text-plonkPink sm:text-[10px]">
+              {formatTime(ev.start_time)}
+            </p>
+          )}
+          {ev.body && (
+            <p className="mt-1 line-clamp-2 text-[9px] leading-snug text-cream/65 sm:text-[10px]">
+              {ev.body}
+            </p>
+          )}
+        </div>
+      )}
+      {/* Poster-only cards have NO title line to hang the ↗ on — and DJ nights
+          are always poster-only (showDesc is forced off for them above). They
+          can still be links, and a link that looks identical to a dead card is
+          the very problem the affordance note above exists to fix. So give
+          them their own slim ↗ row UNDER the poster. Deliberately not ON the
+          artwork: founder rule 19 Oct 2026 is that nothing covers the poster. */}
+      {!showDesc && resolvedHref && (
+        <div className="flex justify-end px-1.5 py-1 sm:px-2">
+          <span
+            aria-hidden="true"
+            className="text-[10px] leading-none text-cream/70 transition-colors group-hover/card:text-cream sm:text-[11px]"
+          >
+            ↗
+          </span>
+        </div>
+      )}
     </div>
   );
 
   // Edit mode wins over the public link — clicking always opens the
   // editor instead of navigating away. DJ nights are read-only (managed
   // in the team hub), so they fall through to the normal display.
-  if (editing && !dj) {
+  if (editable) {
     return (
       <button
         type="button"
@@ -810,16 +1042,37 @@ function DayEventCard({
     );
   }
 
-  return ev.link_url ? (
+  // Public single-event card asked to open the day popup — the whole card is a
+  // button that opens it large (same destination as a multi-event day). group/card
+  // keeps the hover lift so it still reads as clickable.
+  if (opensPopup) {
+    return (
+      <button
+        type="button"
+        onClick={onOpen}
+        className="group/card block flex-1 cursor-pointer overflow-hidden text-left transition hover:opacity-90"
+      >
+        {inner}
+      </button>
+    );
+  }
+
+  // The whole card is the hit target, and it opens in a new tab per the
+  // founder's brief, so a customer browsing the diary never loses their
+  // place in it.
+  return resolvedHref ? (
     <a
-      href={ev.link_url}
+      href={resolvedHref}
       target="_blank"
       rel="noopener noreferrer"
-      className="group block flex-1 overflow-hidden"
+      className="group/card block flex-1 overflow-hidden"
     >
       {inner}
+      <span className="sr-only"> (opens in a new tab)</span>
     </a>
   ) : (
+    // No link on the event — stays a plain, honestly non-clickable card with
+    // no ↗ and no hover lift. Add a link in /admin/events to change that.
     <div className="flex-1">{inner}</div>
   );
 }
@@ -851,7 +1104,7 @@ function MultiEventStack({
 }) {
   const base = process.env.NEXT_PUBLIC_BASE_PATH || "";
   const first = events[0];
-  const headlineRaw = first.image_url || defaultPosterFor(first.subcategory);
+  const headlineRaw = first.image_url || defaultPosterFor(chipForEvent(first));
   const headlineSrc =
     headlineRaw && headlineRaw.startsWith("/")
       ? `${base}${headlineRaw}`
@@ -865,7 +1118,7 @@ function MultiEventStack({
   const mobileThumbs = events.slice(0, MOBILE_THUMB_CAP);
   const mobileOverflow = Math.max(0, events.length - MOBILE_THUMB_CAP);
   function thumbSrc(ev: DbCalendarEvent): string {
-    const raw = ev.image_url || defaultPosterFor(ev.subcategory);
+    const raw = ev.image_url || defaultPosterFor(chipForEvent(ev));
     if (!raw) return "";
     return raw.startsWith("/") ? `${base}${raw}` : raw;
   }
@@ -883,19 +1136,14 @@ function MultiEventStack({
       <div className="relative flex w-full gap-0.5 overflow-hidden bg-ink sm:hidden">
         {mobileThumbs.map((ev) => {
           const src = thumbSrc(ev);
-          const c = categoryColours(ev.subcategory);
           return (
             <div
               key={ev.id}
               className="relative aspect-square flex-1 overflow-hidden bg-ink"
             >
-              {/* Colour stripe across the top of each mini thumbnail
-                  so multi-event days read at a glance which subcategory
-                  is which without having to expand. */}
-              <span
-                aria-hidden="true"
-                className={`absolute inset-x-0 top-0 z-10 h-0.5 ${c.stripe}`}
-              />
+              {/* No colour stripe here — founder 20 Oct 2026: the artwork stands
+                  alone on mobile; the category is shown by the dot in the list
+                  below, not a line over the poster. */}
               {src ? (
                 // eslint-disable-next-line @next/next/no-img-element
                 <img
@@ -917,14 +1165,11 @@ function MultiEventStack({
             +{mobileOverflow}
           </div>
         )}
-        <span className="absolute right-1 top-1 rounded-full bg-plonkPink px-2 py-0.5 text-[9px] font-bold uppercase tracking-wider text-white shadow-md">
-          {events.length} events
-        </span>
       </div>
 
-      {/* DESKTOP — original single headline poster + count pill. The
-          founder specifically said desktop is fine as-is. Kept
-          hidden on mobile via `hidden sm:block`. */}
+      {/* DESKTOP — single headline poster, uncovered (the count moved to the
+          caption below, founder 19 Oct 2026). Hidden on mobile via
+          `hidden sm:block`. */}
       <div className="relative hidden aspect-square w-full overflow-hidden bg-ink sm:block">
         {headlineSrc ? (
           // eslint-disable-next-line @next/next/no-img-element
@@ -939,10 +1184,6 @@ function MultiEventStack({
             multi-event
           </div>
         )}
-        <span className="absolute right-1 top-1 rounded-full bg-plonkPink px-2 py-0.5 text-[9px] font-bold uppercase tracking-wider text-white shadow-md">
-          {events.length} events
-        </span>
-        <div className="pointer-events-none absolute inset-x-0 bottom-0 h-6 bg-gradient-to-b from-transparent to-ink/80" />
       </div>
 
       {/* Chip stack — one chip per event. Limited to the first 4 so
@@ -950,8 +1191,13 @@ function MultiEventStack({
           A small subcategory-coloured dot leads each row so the
           founder / customer can eyeball the day's mix at a glance. */}
       <div className="flex flex-col gap-0.5 px-1.5 py-1.5 sm:px-2 sm:py-2">
+        {/* Event count — moved OFF the poster into the caption (founder 19 Oct
+            2026) so the artwork is never covered. */}
+        <span className="mb-0.5 text-[9px] font-bold uppercase tracking-widest text-plonkPink">
+          {events.length} events
+        </span>
         {events.slice(0, 4).map((ev) => {
-          const c = categoryColours(ev.subcategory);
+          const c = categoryColours(chipForEvent(ev));
           return (
             <div
               key={ev.id}
@@ -1048,15 +1294,20 @@ function DayEventsPopup({
         </button>
 
         <div className="mb-1 text-[11px] font-bold uppercase tracking-[0.28em] text-plonkPink">
-          {events.length} events
+          {events.length} event{events.length === 1 ? "" : "s"}
         </div>
         <h2 className="font-display text-2xl uppercase tracking-wider sm:text-3xl">
           {heading}
         </h2>
 
-        {/* Grid of full-size event cards. 1 column on mobile, 2 on
-            tablet+ so the popup stays compact even with 4+ events. */}
-        <div className="mt-6 grid grid-cols-1 gap-4 sm:grid-cols-2">
+        {/* Grid of full-size event cards. A single event gets the full modal
+            width so its poster opens BIG (founder 19 Oct 2026); 2+ events go
+            1 column on mobile, 2 on tablet+ so the popup stays compact. */}
+        <div
+          className={`mt-6 grid gap-4 ${
+            events.length === 1 ? "grid-cols-1" : "grid-cols-1 sm:grid-cols-2"
+          }`}
+        >
           {events.map((ev) => (
             <div
               key={ev.id}
@@ -1161,29 +1412,28 @@ const CRAWL_LEGS: { stop: string; mins?: number }[] = [
 function RecordStores() {
   const [open, setOpen] = useState(false);
   return (
-    <section className="px-6 pb-4">
-      <div className="mx-auto max-w-3xl">
+    <div>
         <button
           type="button"
           onClick={() => setOpen((v) => !v)}
           aria-expanded={open}
-          className="flex w-full items-center gap-3 rounded-2xl border border-cream/10 bg-ink/40 px-5 py-4 text-left transition hover:border-cream/25"
+          className="group flex w-full flex-wrap items-center gap-4 rounded-2xl border border-cream/12 bg-ink/40 px-5 py-5 text-left transition hover:border-plonkPink/60 sm:px-6"
         >
-          <span
-            className={`inline-block text-xs text-plonkPink transition-transform ${open ? "rotate-90" : ""}`}
-            aria-hidden
-          >
-            ▶
-          </span>
-          <span className="flex-1">
-            <span className="block text-[11px] font-bold uppercase tracking-[0.28em] text-plonkPink">
+          <div className="min-w-[200px] flex-1">
+            <p className="text-[11px] font-bold uppercase tracking-[0.2em] text-plonkTeal">
               For the diggers
-            </span>
-            <span className="mt-1 block font-display text-2xl uppercase tracking-wider text-cream">
+            </p>
+            <p className="mt-0.5 font-display text-xl uppercase tracking-wide text-cream sm:text-2xl">
               Record Stores We Love
-            </span>
+            </p>
+            <p className="mt-1 text-sm leading-snug text-cream/70">
+              {RECORD_STORES.length} local shops we rate.
+            </p>
+          </div>
+          <span className="flex shrink-0 items-center gap-2 rounded-full bg-plonkPink px-6 py-3 text-xs font-bold uppercase tracking-[0.18em] text-white transition group-hover:opacity-90">
+            {open ? "Hide" : "Browse"}
+            <span className={`inline-block transition-transform ${open ? "rotate-90" : ""}`} aria-hidden>▸</span>
           </span>
-          <span className="text-xs text-cream/40">{RECORD_STORES.length} shops</span>
         </button>
 
         {/* Plan-a-trip cycle crawl — HIDDEN per founder direction 7 Aug 2026.
@@ -1247,7 +1497,6 @@ function RecordStores() {
             ))}
           </div>
         )}
-      </div>
-    </section>
+    </div>
   );
 }

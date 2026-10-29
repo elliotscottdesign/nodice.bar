@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
+import { confirmDialog } from "@/lib/dialog";
 import { createPortal } from "react-dom";
 import MediaPicker from "@/components/admin/MediaPicker";
 import DatePickerInput from "@/components/admin/DatePickerInput";
@@ -146,7 +147,7 @@ export default function CalendarEventModal({
 
   async function remove() {
     if (!event) return;
-    if (!confirm("Delete this event? This can't be undone.")) return;
+    if (!(await confirmDialog("Delete this event? This can't be undone."))) return;
     setDeleting(true);
     setErr("");
     try {
@@ -197,20 +198,42 @@ export default function CalendarEventModal({
         </header>
 
         <form onSubmit={save} className="grid gap-4 p-5 sm:grid-cols-2">
-          <Field label="Type" className="sm:col-span-2">
-            <select
-              value={draft.subcategory}
-              onChange={(e) =>
-                setDraft({ ...draft, subcategory: e.target.value })
-              }
-              className={inputClass}
-            >
-              {EVENT_TYPES.map((t) => (
-                <option key={t} value={t}>
-                  {t}
-                </option>
-              ))}
-            </select>
+          {/* Type(s) — tick as many as apply. Stored comma-joined in the one
+              subcategory field so an event can carry several calendar chips. */}
+          <Field label="Type(s)" className="sm:col-span-2">
+            <div className="flex flex-wrap gap-x-4 gap-y-2">
+              {EVENT_TYPES.map((t) => {
+                const sel = draft.subcategory
+                  .split(",")
+                  .map((s) => s.trim())
+                  .filter(Boolean);
+                const on = sel.includes(t);
+                return (
+                  <label
+                    key={t}
+                    className="flex cursor-pointer items-center gap-2 text-sm text-cream/85"
+                  >
+                    <input
+                      type="checkbox"
+                      checked={on}
+                      onChange={() => {
+                        const next = on
+                          ? sel.filter((x) => x !== t)
+                          : [...sel, t];
+                        setDraft({
+                          ...draft,
+                          subcategory: EVENT_TYPES.filter((x) =>
+                            next.includes(x),
+                          ).join(", "),
+                        });
+                      }}
+                      className="h-4 w-4 accent-plonkTeal"
+                    />
+                    {t}
+                  </label>
+                );
+              })}
+            </div>
           </Field>
 
           <Field label="Date">

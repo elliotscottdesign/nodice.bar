@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
+import { confirmDialog } from "@/lib/dialog";
 import AdminPageHeader from "@/components/admin/AdminPageHeader";
 import Notice from "@/components/Notice";
 import { AdminCard } from "@/components/admin/AdminCard";
@@ -94,7 +95,7 @@ export default function TicketsClient() {
   }
 
   async function removeTicket(t: DbTicket) {
-    if (!confirm(`Delete "${t.name}"? This can't be undone.`)) return;
+    if (!(await confirmDialog(`Delete "${t.name}"? This can't be undone.`))) return;
     setBusy(true);
     setErr("");
     try {
@@ -339,8 +340,10 @@ function TicketModal({
 
   return (
     <div
+      // No click-off. This form holds unsaved typing, so the backdrop
+      // deliberately has NO onClick — it used to call onCancel and throw
+      // the work away. Close with the X / Cancel, or by saving.
       className="fixed inset-0 z-50 flex items-end justify-center bg-ink/80 p-3 sm:items-center sm:p-6"
-      onClick={onCancel}
     >
       <div
         className="w-full max-w-md rounded-2xl border border-cream/15 bg-ink p-6 shadow-2xl"

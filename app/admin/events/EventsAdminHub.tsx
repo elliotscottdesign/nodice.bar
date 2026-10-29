@@ -2,26 +2,24 @@
 
 import { useState } from "react";
 import EventsAdminClient from "./EventsAdminClient";
-import CalendarEventsAdminClient from "@/app/admin/calendar-events/CalendarEventsAdminClient";
+import DealsAdminClient from "@/app/admin/deals/DealsAdminClient";
 
-// EventsAdminHub — merged admin surface for the two event tables.
-// Founder rule (2026-07-02): one sidebar entry, one starting point.
-// Ticketed events (World Cup matches, pool tournaments, DJ nights)
-// and calendar posters (artwork on /events with no bookings) still
-// live in separate database tables — merging under the hood would
-// mean a risky migration that breaks the DJ auto-feed and existing
-// paid bookings. The two tabs below preserve the boundary without
-// forcing the founder to remember where each thing lives.
+// EventsAdminHub — one place for everything event-shaped.
+// Founder 19 Oct 2026: the old "Calendar posters" tab is gone — the Events tab
+// below now makes any event (ticketed OR a plain poster), so there's a single
+// editor. DJ nights still auto-feed from the booking system; drinks deals keep
+// their own focused builder. (The /admin/calendar-events route is no longer
+// linked here.)
 
-type Tab = "ticketed" | "posters";
+type Tab = "ticketed" | "deals";
 
 export default function EventsAdminHub() {
-  // Read ?tab=posters from the URL client-side. Server-side reads
-  // bail Next.js out of the static export.
+  // Read ?tab=… from the URL client-side. Server-side reads bail Next.js out of
+  // the static export. (?tab=posters is retired → falls through to the Events tab.)
   const [tab, setTab] = useState<Tab>(() => {
     if (typeof window === "undefined") return "ticketed";
     const q = new URLSearchParams(window.location.search).get("tab");
-    return q === "posters" ? "posters" : "ticketed";
+    return q === "deals" ? "deals" : "ticketed";
   });
 
   return (
@@ -30,8 +28,8 @@ export default function EventsAdminHub() {
       <div className="inline-flex rounded-full border border-cream/15 p-1">
         {(
           [
-            { id: "ticketed" as const, label: "Ticketed events" },
-            { id: "posters" as const, label: "Calendar posters" },
+            { id: "ticketed" as const, label: "Events" },
+            { id: "deals" as const, label: "Deals" },
           ]
         ).map((t) => {
           const isActive = tab === t.id;
@@ -54,15 +52,11 @@ export default function EventsAdminHub() {
 
       <p className="text-xs text-cream/55">
         {tab === "ticketed"
-          ? "Anything customers pay for or reserve a spot at — World Cup match tables, pool tournaments, DJ nights with tickets. Category, capacity, ticket types."
-          : "Poster artwork on the public /events calendar — DJ nights, food specials, one-off promos. No bookings, no tickets. DJ nights from the DJ booking system auto-feed here."}
+          ? "Every event — ticketed or just a poster on the calendar. Pool & ping pong tournaments, DJ nights, food nights, specials, one-off promos. Pick the category + artwork; add capacity + ticket types only if it sells tickets."
+          : "Drinks deals — a focused builder for each deal. Fill the parameters, make the poster, and it drives the website, the drinks-zine cover and the printed flyer."}
       </p>
 
-      {tab === "ticketed" ? (
-        <EventsAdminClient />
-      ) : (
-        <CalendarEventsAdminClient />
-      )}
+      {tab === "ticketed" ? <EventsAdminClient /> : <DealsAdminClient />}
     </div>
   );
 }

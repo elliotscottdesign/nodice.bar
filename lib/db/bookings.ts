@@ -17,6 +17,7 @@ export type DbBookingRow = {
   customer_email: string;
   customer_phone: string | null;
   party_size: number;
+  notes: string | null;
   total_pence: number;
   subtotal_pence: number;
   discount_pence: number;
@@ -32,7 +33,7 @@ export async function loadBookings(): Promise<DbBookingRow[]> {
     .from("bookings")
     .select(
       `id, reference, venue_id, customer_name, customer_email, customer_phone,
-       party_size, total_pence, subtotal_pence, discount_pence, status,
+       party_size, notes, total_pence, subtotal_pence, discount_pence, status,
        stripe_payment_intent_id, created_at,
        slots:booking_slots(slot_date, slot_time, count)`,
     )
@@ -81,6 +82,7 @@ export type ManualGolfBooking = {
   customer_phone: string | null;
   tickets: GolfTicketLine[];
   comp?: boolean;      // true = free/guest entry (total £0)
+  notes?: string | null; // optional free-text (occasion / accessibility / request)
 };
 
 // Short, phone-friendly reference. "ND-" prefix (the old golf flow
@@ -135,6 +137,7 @@ export async function createManualGolfBooking(
       customer_phone: input.customer_phone,
       heard_from: "Manual admin entry",
       marketing_opt_in: false,
+      notes: input.notes?.trim() ? input.notes.trim().slice(0, 500) : null,
       party_size: partySize,
       subtotal_pence: subtotal,
       discount_pence: discount,

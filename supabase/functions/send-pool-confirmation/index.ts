@@ -92,6 +92,15 @@ function formatDuration(min: number): string {
   return `${(min / 60).toFixed(1)} hrs`;
 }
 
+type PoolAddon = {
+  date: string;
+  startTime: string;
+  duration: string;
+  amount: string;
+  paid: boolean;
+  payUrl: string | null;
+};
+
 function renderEmailHtml(o: {
   kind: "pool" | "table";
   firstName: string;
@@ -101,13 +110,25 @@ function renderEmailHtml(o: {
   partySize: number;
   amountPaid: string;
   notes: string | null;
+  officeReview?: boolean;
+  poolAddon?: PoolAddon | null;
 }): string {
   const isPool = o.kind === "pool";
-  const kicker = isPool ? "Pool table confirmed" : "Table confirmed";
-  const headline = isPool
+  // Office-review variant (busy-day hold): a warm "with our team" message,
+  // NOT a confirmation — nothing's guaranteed until staff come back.
+  const kicker = o.officeReview
+    ? "Request received"
+    : isPool
+    ? "Pool table confirmed"
+    : "Table confirmed";
+  const headline = o.officeReview
+    ? `${o.firstName}, your request is with our team.`
+    : isPool
     ? `${o.firstName}, your pool table's locked in.`
     : `${o.firstName}, your table's locked in.`;
-  const introLine = o.amountPaid && o.amountPaid !== "£0"
+  const introLine = o.officeReview
+    ? "Thanks for booking with us. It's a busy day, so to make sure we can look after you properly a member of our team will be in touch shortly to confirm the details. Nothing's held just yet — we'll sort it out with you first."
+    : o.amountPaid && o.amountPaid !== "£0"
     ? "Payment landed — see you on the night. Bring this email or just show up with your name at the door."
     : "See you on the night. Bring this email or just show up with your name at the door.";
   return `<!DOCTYPE html>
@@ -163,15 +184,36 @@ function renderEmailHtml(o: {
                   : ""
               }
             </table>
+            ${
+              o.poolAddon
+                ? `<div style="margin-top:8px;padding:20px;border:1px solid rgba(218,27,51,0.35);border-radius:12px;background:rgba(218,27,51,0.06);">
+              <div style="font-size:10px;font-weight:700;letter-spacing:0.3em;text-transform:uppercase;color:#DA1B33;margin-bottom:10px;">🎱 Pool table added</div>
+              <div style="font-size:15px;color:#f5efe3;line-height:1.6;">
+                We've added a pool table to your booking: <strong>${o.poolAddon.duration}</strong> from <strong>${o.poolAddon.startTime}</strong>${o.poolAddon.date && o.poolAddon.date !== o.bookingDate ? ` on <strong>${o.poolAddon.date}</strong>` : ""}.
+              </div>
+              <div style="margin-top:10px;font-size:15px;color:#f5efe3;">Pool fee: <strong>${o.poolAddon.amount}</strong>${o.poolAddon.paid ? ` <span style="color:#3ba55d;font-weight:700;">— paid, thank you!</span>` : ""}</div>
+              ${
+                !o.poolAddon.paid && o.poolAddon.payUrl
+                  ? `<div style="margin-top:16px;">
+                <a href="${o.poolAddon.payUrl}" style="display:inline-block;background:#DA1B33;color:#fff;text-decoration:none;font-weight:800;font-size:15px;letter-spacing:0.02em;padding:14px 28px;border-radius:999px;">Pay for pool →</a>
+              </div>
+              <div style="margin-top:10px;font-size:13px;color:rgba(245,239,227,0.6);">Pay whenever suits — the link stays live. You're all set either way; it just saves time on the night.</div>`
+                  : ""
+              }
+            </div>`
+                : ""
+            }
             <div style="margin-top:32px;padding-top:24px;border-top:1px solid rgba(245,239,227,0.12);">
               <div style="font-size:10px;font-weight:700;letter-spacing:0.3em;text-transform:uppercase;color:#DA1B33;margin-bottom:8px;">Where</div>
               <div style="font-size:15px;color:#f5efe3;line-height:1.55;">${VENUE_NAME}<br>${VENUE_ADDRESS}</div>
             </div>
             <div style="margin-top:24px;padding-top:24px;border-top:1px solid rgba(245,239,227,0.12);">
-              <div style="font-size:10px;font-weight:700;letter-spacing:0.3em;text-transform:uppercase;color:#DA1B33;margin-bottom:8px;">On the night</div>
+              <div style="font-size:10px;font-weight:700;letter-spacing:0.3em;text-transform:uppercase;color:#DA1B33;margin-bottom:8px;">${o.officeReview ? "What happens next" : "On the night"}</div>
               <div style="font-size:14px;color:rgba(245,239,227,0.85);line-height:1.6;">
                 ${
-                  isPool
+                  o.officeReview
+                    ? "We'll be in touch at this email (or by phone if you left a number) to confirm we can seat your group and sort any details. If you'd rather talk it through now, just reply to this email."
+                    : isPool
                     ? "We hold the table for 15 minutes past your slot. After that we may give it to walk-ins, so please arrive on time. The table's set up and chalked when you get there — just say your name at the bar."
                     : "We hold your table for 15 minutes past your slot. After that we may give it to walk-ins, so please arrive on time. Just say your name at the door and the team will bring you over."
                 }
@@ -203,17 +245,29 @@ function renderEmailText(o: {
   partySize: number;
   amountPaid: string;
   notes: string | null;
+  officeReview?: boolean;
+  poolAddon?: PoolAddon | null;
 }): string {
   const isPool = o.kind === "pool";
-  const kicker = isPool ? "POOL TABLE CONFIRMED" : "TABLE CONFIRMED";
-  const headline = isPool
+  const kicker = o.officeReview
+    ? "REQUEST RECEIVED"
+    : isPool
+    ? "POOL TABLE CONFIRMED"
+    : "TABLE CONFIRMED";
+  const headline = o.officeReview
+    ? `${o.firstName}, your request is with our team.`
+    : isPool
     ? `${o.firstName}, your pool table's locked in.`
     : `${o.firstName}, your table's locked in.`;
   const paid = o.amountPaid && o.amountPaid !== "£0";
-  const introLine = paid
+  const introLine = o.officeReview
+    ? "Thanks for booking with us. It's a busy day, so to make sure we can look after you properly a member of our team will be in touch shortly to confirm the details. Nothing's held just yet — we'll sort it out with you first."
+    : paid
     ? "Payment landed — see you on the night. Bring this email or just show up with your name at the door."
     : "See you on the night. Bring this email or just show up with your name at the door.";
-  const onTheNight = isPool
+  const onTheNight = o.officeReview
+    ? "We'll be in touch at this email (or by phone if you left a number) to confirm we can seat your group and sort any details. If you'd rather talk it through now, just reply to this email."
+    : isPool
     ? "We hold the table for 15 minutes past your slot. After that we may give it to walk-ins, so please arrive on time. The table's set up and chalked when you get there — just say your name at the bar."
     : "We hold your table for 15 minutes past your slot. After that we may give it to walk-ins, so please arrive on time. Just say your name at the door and the team will bring you over.";
   return [
@@ -232,11 +286,22 @@ function renderEmailText(o: {
     paid ? `Paid:       ${o.amountPaid}` : "",
     o.notes ? `Your notes: ${o.notes}` : "",
     ``,
+    ...(o.poolAddon
+      ? [
+          `POOL TABLE ADDED`,
+          `We've added a pool table: ${o.poolAddon.duration} from ${o.poolAddon.startTime}${o.poolAddon.date && o.poolAddon.date !== o.bookingDate ? ` on ${o.poolAddon.date}` : ""}.`,
+          `Pool fee: ${o.poolAddon.amount}${o.poolAddon.paid ? " (paid, thank you!)" : ""}`,
+          ...(!o.poolAddon.paid && o.poolAddon.payUrl
+            ? [`Pay for pool: ${o.poolAddon.payUrl}`, `Pay whenever suits — the link stays live.`]
+            : []),
+          ``,
+        ]
+      : []),
     `WHERE`,
     `${VENUE_NAME}`,
     `${VENUE_ADDRESS}`,
     ``,
-    `ON THE NIGHT`,
+    o.officeReview ? `WHAT HAPPENS NEXT` : `ON THE NIGHT`,
     onTheNight,
     ``,
     `Need to change or cancel? Reply to this email.`,
@@ -260,7 +325,11 @@ Deno.serve(async (req) => {
     );
   }
 
-  let body: { reservation_id?: string; include_notes?: boolean };
+  let body: {
+    reservation_id?: string;
+    include_notes?: boolean;
+    office_review?: boolean;
+  };
   try {
     body = await req.json();
   } catch {
@@ -274,6 +343,10 @@ Deno.serve(async (req) => {
   // include_notes: false unless the staff ticks "Include staff notes
   // in email" (default off) — internal notes stay internal.
   const includeNotes = body.include_notes !== false;
+  // Busy-day hold: send the "with our team, we'll be in touch" variant
+  // instead of a confirmation. Caller (create-table-reservation) sets this
+  // when the day is over DAILY_CAPACITY.
+  const officeReview = body.office_review === true;
   if (!reservation_id) {
     return jsonResponse(
       { error: "Missing reservation_id" },
@@ -306,6 +379,44 @@ Deno.serve(async (req) => {
 
   const kind = r.kind as "pool" | "table";
   const firstName = (r.name ?? "").split(" ")[0] || r.name || "there";
+
+  // Pool add-on — office may have added pool time to this TABLE booking
+  // (a linked kind='pool' row). If so, surface it IN this one email with
+  // its pay link, rather than a separate pool confirmation. Only the most
+  // recent non-cancelled add-on is shown. Never for pool rows themselves.
+  let poolAddon:
+    | {
+        date: string;
+        startTime: string;
+        duration: string;
+        amount: string;
+        paid: boolean;
+        payUrl: string | null;
+      }
+    | null = null;
+  if (kind === "table") {
+    const { data: addon } = await db
+      .from("bar_reservations")
+      .select(
+        "reservation_date, start_time, duration_minutes, amount_pence, status, pool_pay_url",
+      )
+      .eq("parent_reservation_id", r.id)
+      .neq("status", "cancelled")
+      .order("created_at", { ascending: false })
+      .limit(1)
+      .maybeSingle();
+    if (addon) {
+      poolAddon = {
+        date: formatDate(addon.reservation_date),
+        startTime: formatTime(addon.start_time),
+        duration: formatDuration(addon.duration_minutes),
+        amount: formatPounds(addon.amount_pence ?? 0),
+        paid: addon.status === "paid",
+        payUrl: addon.pool_pay_url ?? null,
+      };
+    }
+  }
+
   const opts = {
     kind,
     firstName,
@@ -315,9 +426,13 @@ Deno.serve(async (req) => {
     partySize: r.party_size,
     amountPaid: formatPounds(r.amount_pence ?? 0),
     notes: includeNotes ? r.notes : null,
+    officeReview,
+    poolAddon,
   };
 
-  const subject = kind === "pool"
+  const subject = officeReview
+    ? `Request received — we'll be in touch · ${opts.bookingDate}`
+    : kind === "pool"
     ? `Pool table confirmed — ${opts.bookingDate} ${opts.startTime}`
     : `Table confirmed — ${opts.bookingDate} ${opts.startTime}`;
 

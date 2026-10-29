@@ -178,10 +178,16 @@ Deno.serve(async (req) => {
     if ((line as any).bundle_id) {
       const bn = bundleIndex.get(String((line as any).bundle_id));
       if (!bn) return json({ error: "That deal has just changed — please refresh and try again." }, { status: 409 });
+      if (bn.active === false) return json({ error: "That deal isn't available right now — please refresh the menu." }, { status: 409 });
       const days = Array.isArray(bn.days) ? bn.days : [];
       if (days.length && !days.includes(todayDow)) return json({ error: "That deal isn't running today — please refresh the menu." }, { status: 409 });
-      const burger = itemIndex.get(String(bn.burger_id));
-      if (!burger) return json({ error: "That deal's burger isn't available right now — please refresh the menu." }, { status: 409 });
+      // A deal can offer several foods; the customer picked one (food_id). Validate
+      // it's one of the deal's options (fall back to the legacy single burger_id).
+      const allowed = (Array.isArray(bn.burger_ids) && bn.burger_ids.length ? bn.burger_ids : (bn.burger_id ? [bn.burger_id] : [])).map(String);
+      const wanted = String((line as any).food_id || "");
+      const foodId = allowed.includes(wanted) ? wanted : allowed[0];
+      const burger = foodId ? itemIndex.get(foodId) : undefined;
+      if (!burger) return json({ error: "That deal's food isn't available right now — please refresh the menu." }, { status: 409 });
       const price = parseInt(bn.price_pence, 10) || 0;
       if (price <= 0) return json({ error: "That deal isn't priced — please refresh the menu." }, { status: 409 });
       const drink = (typeof bn.drink === "string" && bn.drink.trim()) ? bn.drink.trim() : "beer";

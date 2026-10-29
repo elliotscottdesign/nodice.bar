@@ -1,6 +1,7 @@
 import type { Metadata, Viewport } from "next";
 import "./globals.css";
 import CookieConsent from "@/components/CookieConsent";
+import { DialogHost } from "@/lib/dialog";
 
 // =============================================================
 // Canonical site URL — used by metadataBase + structured data
@@ -186,7 +187,7 @@ export default function RootLayout({
         <link rel="preconnect" href="https://fonts.googleapis.com" />
         <link rel="preconnect" href="https://fonts.gstatic.com" crossOrigin="" />
         <link
-          href="https://fonts.googleapis.com/css2?family=Bebas+Neue&family=Shrikhand&family=Inter:wght@400;500;600;700&display=swap"
+          href="https://fonts.googleapis.com/css2?family=Bebas+Neue&family=Fredoka:wght@500;600;700&family=Shrikhand&family=Inter:wght@400;500;600;700&display=swap"
           rel="stylesheet"
         />
         {/* JSON-LD structured data — renders on every page so Google
@@ -201,6 +202,10 @@ export default function RootLayout({
       <body>
         {children}
         <CookieConsent />
+        {/* Styled confirm/alert dialogs — replaces the native grey browser
+            box across every public page and the whole admin (founder, 22 Oct
+            2026). Call confirmDialog()/alertDialog() from @/lib/dialog. */}
+        <DialogHost />
       </body>
     </html>
   );

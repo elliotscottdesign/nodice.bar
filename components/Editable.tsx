@@ -126,10 +126,10 @@ export function Editable({
           e.preventDefault();
           (e.target as HTMLElement).blur();
         }
-        if (e.key === "Escape") {
-          if (ref.current) ref.current.innerText = initialRef.current;
-          (e.target as HTMLElement).blur();
-        }
+        // No Escape-to-revert. Escape used to wipe what had just been
+        // typed and blur the field, which is the same lost-work trap as
+        // clicking off a modal. Typing is kept and committed on blur, so
+        // nothing can be thrown away by a stray key.
       }}
       className={`relative cursor-text rounded outline outline-1 outline-dashed outline-transparent transition hover:outline-plonkTeal/60 focus:outline-plonkTeal focus:bg-plonkTeal/5 ${
         saved ? "outline-plonkTeal" : ""
@@ -304,9 +304,9 @@ function EditChooserModal({
   return createPortal(
     <div
       className="fixed inset-0 z-[80] flex items-center justify-center bg-ink/85 p-4"
-      onClick={(e) => {
-        if (e.target === e.currentTarget) onClose();
-      }}
+      // No click-off, for consistency with every other back-end panel —
+      // the Close button in the header is the way out. Escape is still
+      // wired up below because this chooser holds no input of its own.
     >
       <div className="w-full max-w-md overflow-hidden rounded-2xl border border-cream/15 bg-ink shadow-2xl">
         <div className="flex items-center justify-between gap-3 border-b border-cream/10 px-5 py-4">
@@ -386,22 +386,15 @@ function RepositionModal({
     };
   }, []);
 
-  useEffect(() => {
-    function onKey(e: KeyboardEvent) {
-      if (e.key === "Escape") onCancel();
-    }
-    window.addEventListener("keydown", onKey);
-    return () => window.removeEventListener("keydown", onKey);
-  }, [onCancel]);
+  // No Escape-to-close and no click-off. The positioner holds an unsaved
+  // crop / zoom / position, and both of those threw it away. The Close
+  // button in the header is the way out; saving closes it too.
 
   if (typeof document === "undefined") return null;
 
   return createPortal(
     <div
       className="fixed inset-0 z-[80] flex items-stretch justify-center bg-ink/90 p-2 sm:p-6"
-      onClick={(e) => {
-        if (e.target === e.currentTarget) onCancel();
-      }}
     >
       <div className="flex h-full w-full max-w-3xl flex-col overflow-hidden rounded-2xl border border-cream/15 bg-ink shadow-2xl">
         <div className="flex items-center justify-between gap-3 border-b border-cream/10 px-5 py-4">

@@ -104,7 +104,7 @@ const SECTIONS: Section[] = [
       },
       {
         q: "What's the Tuesday Hackney bundle?",
-        a: "Every Tuesday at No Dice we offer the Drink, Golf & Game bundle for £12 per person — a round of golf, a house drink (cocktail / beer / soft) and 4 arcade tokens. Available on the booking page when you pick a Tuesday slot.",
+        a: "Every Tuesday at No Dice we offer the Drink, Golf & Game bundle for £14 per person — a round of golf, a house drink (cocktail / beer / soft) and 4 arcade tokens. Available on the booking page when you pick a Tuesday slot.",
       },
       {
         q: "Do you offer student or hospitality discounts?",

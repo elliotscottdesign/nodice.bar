@@ -11,19 +11,26 @@
 --     -d "$(python3 -c "import json;print(json.dumps({'query':open('supabase/sql/bingo_event_insert.sql').read()}))")"
 --
 -- WHY THIS SHAPE (see lib/db/bingo.ts for the full rationale):
---   • category='pool_tournament_singles'  → makes the EXISTING tournament-
---     checkout function + InlineTournamentBooking work with NO code change,
---     and renders the right form (one person: name + email + phone +
---     marketing opt-in — a single £10 ticket).
---   • show_on_pool_schedule=false         → keeps it OFF /pool; this flag is
---     also how the /bingo page tells a bingo night from a pool-singles one.
+--   • category='bingo'  → bingo's OWN category (19 Oct decouple). loadBingoNights
+--     reads it; the dedicated `bingo-checkout` Edge Function + <BingoBooking>
+--     render the single £10 ticket (name + email + phone + marketing opt-in).
+--     NB tournament-checkout no longer handles bingo (and would reject it).
+--   • show_on_pool_schedule=false         → keeps it OFF /pool.
 --   • show_on_events_calendar=true + subcategory='Special Event'
---                                         → also lists it under Special
---                                           Events on the /events calendar.
+--                                         → lists it under Special Events on the
+--                                           /events calendar (category 'bingo'
+--                                           maps to the Special Event chip).
 --   • one active ticket_type at £10 (price_pence=1000).
+--   • a MATCHING public.tournaments row with the SAME id, tournament_type
+--     'special'. REQUIRED: tournament_entries.tournament_id has a FOREIGN KEY to
+--     tournaments(id), so without this row every paid booking 500s at the final
+--     insert. The row also makes the booking show in the /admin special-events
+--     tracker (grouped under Special events) with its live paid count. It's never
+--     read for public display. (FK discovered 18 Oct; type→'special' 20 Oct.)
 --
 -- Idempotent: guarded by NOT EXISTS on (name, event_date), so a re-run is a
--- no-op. The ticket row is inserted only when the event was freshly created.
+-- no-op. The ticket + tournaments rows are inserted only when the event was
+-- freshly created (both guarded further by ON CONFLICT (id) DO NOTHING).
 -- =============================================================
 
 with new_event as (
@@ -37,8 +44,8 @@ with new_event as (
   )
   select
     'Bingo Night',
-    'Comedy & Bingo at No Dice, London Fields. A £10 ticket gets you in and gets you a drink; the bingo is free to play with bar-sponsored prizes. Warm-up comedy set, bingo, comedy set, bingo, main comedy set.',
-    'pool_tournament_singles', 'Special Event',
+    'Comedy & Bingo at No Dice, London Fields. A £10 ticket gets you in and gets you a drink; the bingo is free to play with bar-sponsored prizes. Two comics, a round of bingo, a break — twice — then the headline set.',
+    'bingo', 'Special Event',
     date '2026-11-25', time '19:00:00', time '22:30:00',
     'none',
     false, true, false,
@@ -47,6 +54,22 @@ with new_event as (
     select 1 from public.events
     where name = 'Bingo Night' and event_date = date '2026-11-25'
   )
+  returning id
+),
+-- REQUIRED FK mirror — see header. Same id as the event so the booking's
+-- tournament_entries insert (tournament_id = event id) passes the FK.
+new_tournament as (
+  insert into public.tournaments (
+    id, name, description, event_date, start_time,
+    max_teams, entry_fee_pence, registration_open, bookable, tournament_type
+  )
+  select
+    id, 'Bingo Night',
+    'FK mirror for the Bingo Night events row — exists only so ticket bookings (tournament_entries.tournament_id FK) can save. Not shown on /pool.',
+    date '2026-11-25', time '19:00:00',
+    60, 1000, true, true, 'special'
+  from new_event
+  on conflict (id) do nothing
   returning id
 )
 insert into public.ticket_types (

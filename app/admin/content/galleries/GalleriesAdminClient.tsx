@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useRef, useState } from "react";
+import { confirmDialog } from "@/lib/dialog";
 import { useSearchParams } from "next/navigation";
 import AdminPageHeader from "@/components/admin/AdminPageHeader";
 import Notice from "@/components/Notice";
@@ -86,18 +87,11 @@ const KNOWN_GALLERIES: {
     previewPath: "/pool",
   },
   {
-    key: "hero.worldcup",
-    label: "HERO slider — World Cup",
-    description:
-      "Top-of-page slider on /worldcup. Crowd / big-screen shots work best.",
-    previewPath: "/worldcup",
-  },
-  {
     key: "hero.bingo",
     label: "HERO slider — Bingo",
     description:
-      "Top-of-page banner on /bingo (Comedy & Bingo night). Upload 1 to set the header image, 2+ to make it a slider.",
-    previewPath: "/bingo",
+      "Top-of-page banner on /comedybingo (Comedy & Bingo night). Upload 1 to set the header image, 2+ to make it a slider.",
+    previewPath: "/comedybingo",
   },
   {
     key: "hero.vouchers",
@@ -160,8 +154,8 @@ const KNOWN_GALLERIES: {
     key: "bingo.gallery",
     label: "Bingo — hosts & machine slider",
     description:
-      "Photo slider on /bingo: comedian / host headshots and shots of the bingo machine. Portrait (4:5) shots work best.",
-    previewPath: "/bingo",
+      "Photo slider on /comedybingo: comedian / host headshots and shots of the bingo machine. Portrait (4:5) shots work best.",
+    previewPath: "/comedybingo",
   },
   {
     key: "about.gallery",
@@ -221,6 +215,13 @@ const KNOWN_GALLERIES: {
     label: "Parties — Venue scroller",
     description:
       "Full-width venue photo scroller at the top of /parties AND /xmas. Upload landscape shots of the space — shared across both party pages. Shows blank placeholders until you add photos.",
+    previewPath: "/parties",
+  },
+  {
+    key: "parties.kids",
+    label: "Parties — Kids party scroller",
+    description:
+      "Full-width photo scroller at the top of the Kids parties tab on /parties. Upload landscape shots of kids' parties. Shows blank placeholders until you add photos.",
     previewPath: "/parties",
   },
   {
@@ -504,7 +505,7 @@ export default function GalleriesAdminClient() {
   }
 
   async function handleDelete(g: DbGalleryImage) {
-    if (!confirm(`Remove this image from the gallery? (The original file in Storage isn't deleted.)`)) return;
+    if (!(await confirmDialog(`Remove this image from the gallery? (The original file in Storage isn't deleted.)`))) return;
     setBusy(true);
     try {
       await deleteGalleryImage(g.id);

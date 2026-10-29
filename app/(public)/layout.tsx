@@ -1,6 +1,7 @@
 import Header from "@/components/Header";
 import Footer from "@/components/Footer";
 import AdminBar from "@/components/AdminBar";
+import AdminFavicon from "@/components/AdminFavicon";
 import { ContentProvider } from "@/lib/content";
 import { EditModeProvider } from "@/lib/editMode";
 
@@ -22,6 +23,7 @@ export default function PublicLayout({
           <Footer />
         </div>
         <AdminBar />
+        <AdminFavicon />
       </EditModeProvider>
     </ContentProvider>
   );

@@ -68,17 +68,25 @@ export default function LeagueTable() {
           </p>
         ) : (
           <div className="overflow-x-auto">
-            <table className="w-full border-collapse text-sm">
+            {/* Column spacing tightens on phones so all eight columns fit a
+                narrow screen without the Pts column spilling past the card
+                (founder 28 Oct 2026 — it was clipping on mobile). Roomier
+                from sm up. */}
+            <table className="w-full table-auto border-collapse text-sm">
               <thead>
                 <tr className="text-[10px] uppercase tracking-[0.14em] text-violet-200/55">
-                  <th className="py-4 pl-5 pr-3 text-left font-semibold">#</th>
-                  <th className="py-4 pr-3 text-left font-semibold">Player</th>
-                  <th className="px-2 py-4 text-right font-semibold">Played</th>
-                  <th className="px-2 py-4 text-right font-semibold">🥇</th>
-                  <th className="px-2 py-4 text-right font-semibold">🥈</th>
-                  <th className="px-2 py-4 text-right font-semibold">🥉</th>
-                  <th className="px-2 py-4 text-right font-semibold">+/−</th>
-                  <th className="px-3 py-4 pr-5 text-right font-semibold">Pts</th>
+                  <th className="py-4 pl-3 pr-2 text-left font-semibold sm:pl-5 sm:pr-3">#</th>
+                  <th className="py-4 pr-2 text-left font-semibold sm:pr-3">Player</th>
+                  <th className="px-1.5 py-4 text-right font-semibold sm:px-2">Played</th>
+                  {/* Medal tallies are hidden on phones so the core standings
+                      (rank · player · played · +/− · points) always fit without
+                      the Pts column spilling off the card. They return from the
+                      sm breakpoint up. (founder 28 Oct 2026) */}
+                  <th className="hidden px-1 py-4 text-right font-semibold sm:table-cell sm:px-2">🥇</th>
+                  <th className="hidden px-1 py-4 text-right font-semibold sm:table-cell sm:px-2">🥈</th>
+                  <th className="hidden px-1 py-4 text-right font-semibold sm:table-cell sm:px-2">🥉</th>
+                  <th className="px-1.5 py-4 text-right font-semibold sm:px-2">+/−</th>
+                  <th className="px-2 py-4 pr-3 text-right font-semibold sm:px-3 sm:pr-5">Pts</th>
                 </tr>
               </thead>
               <tbody>
@@ -87,19 +95,19 @@ export default function LeagueTable() {
                     key={r.key}
                     className={`border-t border-white/5 ${r.qualifies ? "bg-violet-500/10" : ""}`}
                   >
-                    <td className={`py-3.5 pl-5 pr-3 text-left font-bold tabular-nums ${r.rank <= 8 ? "text-violet-300" : "text-white/45"}`}>
+                    <td className={`py-3.5 pl-3 pr-2 text-left font-bold tabular-nums sm:pl-5 sm:pr-3 ${r.rank <= 8 ? "text-violet-300" : "text-white/45"}`}>
                       {r.rank}
                       {r.rank <= 8 && <span className="ml-1 text-violet-400">✦</span>}
                     </td>
-                    <td className="py-3.5 pr-3 text-left font-semibold text-white">{r.name}</td>
-                    <td className="px-2 py-3.5 text-right tabular-nums text-white/55">{r.nights}</td>
-                    <td className="px-2 py-3.5 text-right tabular-nums text-white/80">{r.wins || ""}</td>
-                    <td className="px-2 py-3.5 text-right tabular-nums text-white/80">{r.seconds || ""}</td>
-                    <td className="px-2 py-3.5 text-right tabular-nums text-white/80">{r.thirds || ""}</td>
-                    <td className={`px-2 py-3.5 text-right tabular-nums ${r.frameDiff > 0 ? "text-emerald-400" : r.frameDiff < 0 ? "text-rose-400" : "text-white/55"}`}>
+                    <td className="py-3.5 pr-2 text-left font-semibold text-white sm:pr-3">{r.name}</td>
+                    <td className="px-1.5 py-3.5 text-right tabular-nums text-white/55 sm:px-2">{r.nights}</td>
+                    <td className="hidden px-1 py-3.5 text-right tabular-nums text-white/80 sm:table-cell sm:px-2">{r.wins || ""}</td>
+                    <td className="hidden px-1 py-3.5 text-right tabular-nums text-white/80 sm:table-cell sm:px-2">{r.seconds || ""}</td>
+                    <td className="hidden px-1 py-3.5 text-right tabular-nums text-white/80 sm:table-cell sm:px-2">{r.thirds || ""}</td>
+                    <td className={`px-1.5 py-3.5 text-right tabular-nums sm:px-2 ${r.frameDiff > 0 ? "text-emerald-400" : r.frameDiff < 0 ? "text-rose-400" : "text-white/55"}`}>
                       {r.frameDiff > 0 ? "+" : ""}{r.frameDiff}
                     </td>
-                    <td className="px-3 py-3.5 pr-5 text-right text-lg font-extrabold tabular-nums text-violet-300">{r.pts}</td>
+                    <td className="px-2 py-3.5 pr-3 text-right text-base font-extrabold tabular-nums text-violet-300 sm:px-3 sm:pr-5 sm:text-lg">{r.pts}</td>
                   </tr>
                 ))}
               </tbody>

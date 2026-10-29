@@ -33,6 +33,13 @@ export type DbCalendarEvent = {
   link_url: string | null;
   active: boolean;
   subcategory: string | null;   // event type: DJ Night / Match Day / Pool Night / Food Night / Special Event
+  // Signals the public calendar uses to pick a day's LEAD poster when a
+  // day has several events (one-off/special beats recurring; see /events).
+  // Optional because DJ-feed events (djNights.ts) don't carry them.
+  category?: string | null;         // underlying events.category (pool_special, dj_night, drink_special, …)
+  recurrence_type?: string | null;  // 'none' = one-off/special; weekly/monthly/… = recurring/regular
+  /** Show the title/time/body under the poster on the calendar card. */
+  show_description?: boolean | null;
   created_at: string;
   updated_at: string;
 };
@@ -47,6 +54,22 @@ export const EVENT_TYPES = [
   "Special Event",
 ] as const;
 
+// A drinks DEAL — category drink_special OR a "Deals" calendar chip. Its poster
+// is built page-shaped so it fills the team-hub drinks zine's front cover (the
+// zine pulls the deal event's poster_url). Matches the zine edge function's own
+// "deal" test. Lives here, next to EVENT_TYPES, because BOTH admin tabs build
+// deal posters and each needs the same answer.
+export function isDealEvent(
+  category: string | null | undefined,
+  subcategory: string | null | undefined,
+): boolean {
+  const subs = (subcategory ?? "")
+    .split(",")
+    .map((x) => x.trim())
+    .filter(Boolean);
+  return category === "drink_special" || subs.includes("Deals");
+}
+
 // Fallback poster shown on the PUBLIC calendar when an event has no artwork of
 // its own — keyed by category, so a customer never sees a blank tile (e.g. a
 // recurring pool night nobody added art to). The admin still shows the real
@@ -55,9 +78,20 @@ export const EVENT_TYPES = [
 const MEDIA =
   "https://rntcujcpsozvuxvmlejv.supabase.co/storage/v1/object/public/media/";
 export const CATEGORY_DEFAULT_POSTERS: Record<string, string> = {
+  // The five public tags (founder 26 Oct 2026 — POOL / FOOD / SPECIALS / DJ /
+  // DEAL). The older long names below are kept for the events scroller, which
+  // still resolves art from an event's free-text subcategory.
+  DJ: MEDIA + "gallery/hero.events/1780755968715-red-decks-bitmap.png",
+  POOL: MEDIA + "gallery/hero.pool/1780752253680-pool-bitmap.png",
+  FOOD: MEDIA + "library/1781565605067-food-night-burger.jpg",
+  DEAL: MEDIA + "gallery/hero.deals/1780768681209-deal-header-bitmap.png",
+  SPECIALS: MEDIA + "library/1781564278755-happy-hour-pics.png",
   "DJ Night": MEDIA + "gallery/hero.events/1780755968715-red-decks-bitmap.png",
   "Match Day": MEDIA + "page/1780867523626-football-300x-colour.png",
   "Pool Night": MEDIA + "gallery/hero.pool/1780752253680-pool-bitmap.png",
+  // No bespoke ping-pong fallback art yet — reuse the pool bitmap (only shows
+  // when a ping-pong event has no poster of its own, which is rare).
+  "Ping Pong": MEDIA + "gallery/hero.pool/1780752253680-pool-bitmap.png",
   "Food Night": MEDIA + "library/1781565605067-food-night-burger.jpg",
   "Deals": MEDIA + "gallery/hero.deals/1780768681209-deal-header-bitmap.png",
   "Special Event": MEDIA + "library/1781564278755-happy-hour-pics.png",
@@ -82,12 +116,15 @@ type EventsRow = {
   external_link: string | null;
   registration_open: boolean;
   subcategory: string | null;
+  category: string | null;
+  recurrence_type: string | null;
+  show_description: boolean | null;
   created_at: string;
   updated_at: string;
 };
 
 const SELECT =
-  "id, event_date, start_time, name, description, poster_url, external_link, registration_open, subcategory, created_at, updated_at";
+  "id, event_date, start_time, name, description, poster_url, external_link, registration_open, subcategory, category, recurrence_type, show_description, created_at, updated_at";
 
 function toCalendar(r: EventsRow): DbCalendarEvent {
   return {
@@ -100,6 +137,9 @@ function toCalendar(r: EventsRow): DbCalendarEvent {
     link_url: r.external_link,
     active: r.registration_open,
     subcategory: r.subcategory,
+    category: r.category,
+    recurrence_type: r.recurrence_type,
+    show_description: r.show_description ?? true,
     created_at: r.created_at,
     updated_at: r.updated_at,
   };
@@ -155,7 +195,11 @@ export async function createCalendarEvent(
     ...fromCalendar(row),
     // Sensible defaults for fields the inline calendar modal doesn't
     // currently expose. The founder can refine via /admin/events.
-    category: "dj_night",
+    // Category defaults to the neutral "other" — it used to default to
+    // "dj_night", which silently mis-tagged every hand-added event (pool
+    // comps, food takeovers, chess…) as a DJ night and polluted the admin
+    // category filter (founder 19 Oct 2026, taxonomy unification).
+    category: "other",
     recurrence_type: "none",
     show_on_pool_schedule: false,
     show_on_events_calendar: true,

@@ -30,6 +30,11 @@ export type DbBarReservation = {
   stripe_payment_intent_id: string | null;
   paid_at: string | null;
   status: "pending" | "paid" | "confirmed" | "cancelled" | "refunded";
+  /** Office pool add-on: the parent TABLE reservation this pool row hangs
+   *  off (null for a standalone booking). See the pool-addon Edge Fn. */
+  parent_reservation_id: string | null;
+  /** Office pool add-on: the Stripe Payment Link the customer pays later. */
+  pool_pay_url: string | null;
   created_at: string;
   updated_at: string;
 };
@@ -89,11 +94,8 @@ export async function setBarReservationStatus(
 
 // ─── Unified admin loader ─────────────────────────────────────────
 // A single list of "things sat at a table tonight" — the bar_reservations
-// rows PLUS the paid match-night event_entries (World Cup matches),
-// each shaped to fit the same render row. Founder rule (2026-06-22):
-// admin needs to see both side-by-side on /admin/table-reservations
-// because the World Cup rules block normal table bookings from
-// clashing — staff must see what's actually held.
+// rows (table bookings + office pool add-ons), each shaped to the same
+// render row for /admin/table-reservations.
 // ─────────────────────────────────────────────────────────────────
 
 export type UnifiedReservation = DbBarReservation & {
@@ -102,6 +104,10 @@ export type UnifiedReservation = DbBarReservation & {
   match_name?: string;
   /** Source: 'bar' = bar_reservations row, 'event' = event_entries row. */
   source: "bar" | "event";
+  /** Office pool add-on hung off this TABLE row (most recent non-cancelled),
+   *  attached for display so the pool time + pay link shows inside the one
+   *  table booking instead of as a separate card. */
+  pool_addon?: DbBarReservation | null;
 };
 
 const TODAY_MINUS_30 = () => {
@@ -110,100 +116,43 @@ const TODAY_MINUS_30 = () => {
   return d.toISOString().slice(0, 10);
 };
 
-// Map an event_entries row + its parent event into the unified shape.
-// We invent minutes/party-size/resource fields with sensible defaults
-// — these aren't tracked on event_entries and the founder doesn't
-// want a party-size tracker anyway.
-function eventEntryToUnified(row: {
-  id: string;
-  attendee_name: string;
-  attendee_email: string;
-  attendee_phone: string;
-  notes: string | null;
-  heard_from: string | null;
-  marketing_opt_in: boolean;
-  status: string;
-  amount_paid_pence: number | null;
-  stripe_payment_intent_id: string | null;
-  paid_at: string | null;
-  created_at: string;
-  updated_at: string;
-  event: {
-    name: string;
-    event_date: string;
-    start_time: string | null;
-    category: string;
-  };
-}): UnifiedReservation {
-  // Map event_entries status -> bar_reservations status vocabulary.
-  const statusMap: Record<string, DbBarReservation["status"]> = {
-    pending_payment: "pending",
-    paid: "paid",
-    refunded: "refunded",
-    cancelled: "cancelled",
-  };
-  return {
-    id: row.id,
-    kind: "table",
-    reservation_date: row.event.event_date,
-    start_time: row.event.start_time ?? "20:00:00",
-    duration_minutes: 150,           // ~2h30m match window
-    party_size: 2,                    // founder rule: "good for 2"
-    resource_count: 1,
-    name: row.attendee_name,
-    email: row.attendee_email,
-    phone: row.attendee_phone || null,
-    notes: row.notes,
-    heard_from: row.heard_from,
-    marketing_opt_in: row.marketing_opt_in,
-    amount_pence: row.amount_paid_pence,
-    stripe_payment_intent_id: row.stripe_payment_intent_id,
-    paid_at: row.paid_at,
-    status: statusMap[row.status] ?? "pending",
-    created_at: row.created_at,
-    updated_at: row.updated_at,
-    match_name: row.event.name,
-    source: "event",
-  };
-}
-
-// Load both sources, merged + sorted newest-date first. Limits
-// event_entries to category=world_cup (other event types — pool
-// tournaments etc. — have their own admin pages). Also drops anything
-// older than 30 days so the list stays focused on what's coming.
+// Load the table-surface reservations (bar_reservations), newest-date first,
+// dropping anything older than 30 days so the list stays focused on what's
+// coming. (Match-night event_entries were removed with World Cup, Oct 2026.)
 export async function loadAllTableSurfaceReservations(): Promise<
   UnifiedReservation[]
 > {
   const since = TODAY_MINUS_30();
   const sb = supabase();
-  const [barRes, eventRes] = await Promise.all([
-    sb
-      .from("bar_reservations")
-      .select("*")
-      .gte("reservation_date", since)
-      .order("reservation_date", { ascending: false })
-      .order("start_time", { ascending: false }),
-    sb
-      .from("event_entries")
-      .select(
-        "id,attendee_name,attendee_email,attendee_phone,notes,heard_from,marketing_opt_in,status,amount_paid_pence,stripe_payment_intent_id,paid_at,created_at,updated_at,event:events!inner(name,event_date,start_time,category)",
-      )
-      .eq("event.category", "world_cup")
-      .gte("event.event_date", since)
-      .order("created_at", { ascending: false }),
-  ]);
+  const barRes = await sb
+    .from("bar_reservations")
+    .select("*")
+    .gte("reservation_date", since)
+    .order("reservation_date", { ascending: false })
+    .order("start_time", { ascending: false });
   if (barRes.error) throw barRes.error;
-  if (eventRes.error) throw eventRes.error;
-  const bar: UnifiedReservation[] = (barRes.data ?? []).map((r) => ({
-    ...(r as DbBarReservation),
+  const barRows = (barRes.data ?? []) as DbBarReservation[];
+  // Pool add-ons (office-added pool time) are kind='pool' rows that point
+  // at a parent TABLE row. Attach the most recent non-cancelled add-on to
+  // its parent so the table card can show it as a pool line + pay link.
+  // The add-on rows still appear on the Pool page as genuine holds (the
+  // slot IS blocked); they just don't show as a second card on the Table
+  // page because that page only lists kind='table' / event rows.
+  const addonByParent = new Map<string, DbBarReservation>();
+  for (const row of barRows) {
+    if (row.kind === "pool" && row.parent_reservation_id && row.status !== "cancelled") {
+      const existing = addonByParent.get(row.parent_reservation_id);
+      if (!existing || row.created_at > existing.created_at) {
+        addonByParent.set(row.parent_reservation_id, row);
+      }
+    }
+  }
+  const bar: UnifiedReservation[] = barRows.map((r) => ({
+    ...r,
     source: "bar",
+    pool_addon: addonByParent.get(r.id) ?? null,
   }));
-  const events: UnifiedReservation[] = (eventRes.data ?? []).map((r) =>
-    eventEntryToUnified(
-      r as unknown as Parameters<typeof eventEntryToUnified>[0],
-    ),
-  );
-  return [...bar, ...events].sort((a, b) => {
+  return bar.sort((a, b) => {
     if (a.reservation_date !== b.reservation_date) {
       return a.reservation_date < b.reservation_date ? 1 : -1;
     }
@@ -217,23 +166,5 @@ export async function setUnifiedReservationStatus(
   row: Pick<UnifiedReservation, "id" | "source">,
   status: DbBarReservation["status"],
 ): Promise<void> {
-  if (row.source === "event") {
-    // event_entries uses a different status vocabulary; map back.
-    const eventStatus = (
-      {
-        pending: "pending_payment",
-        paid: "paid",
-        confirmed: "paid",
-        refunded: "refunded",
-        cancelled: "cancelled",
-      } as Record<DbBarReservation["status"], string>
-    )[status];
-    const { error } = await supabase()
-      .from("event_entries")
-      .update({ status: eventStatus })
-      .eq("id", row.id);
-    if (error) throw error;
-    return;
-  }
   await setBarReservationStatus(row.id, status);
 }

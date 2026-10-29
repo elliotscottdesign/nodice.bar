@@ -1,8 +1,11 @@
 "use client";
 
 import { useEffect, useState } from "react";
+import { confirmDialog } from "@/lib/dialog";
 import { AdminCard } from "@/components/admin/AdminCard";
 import MediaPicker from "@/components/admin/MediaPicker";
+import DatePickerInput from "@/components/admin/DatePickerInput";
+import EventPosterStudio from "@/components/admin/EventPosterStudio";
 import Notice from "@/components/Notice";
 import {
   loadAllCalendarEvents,
@@ -11,6 +14,7 @@ import {
   deleteCalendarEvent,
   setPosterForEvents,
   EVENT_TYPES,
+  isDealEvent,
   type DbCalendarEvent,
   type NewCalendarEvent,
 } from "@/lib/db/calendarEvents";
@@ -195,8 +199,44 @@ export default function CalendarEventsAdminClient() {
     }
   }
 
+  // The poster maker has just rendered + uploaded a poster. On an event that
+  // already exists we write it straight onto the row so it's live on /events
+  // immediately — the founder shouldn't have to make a poster AND remember to
+  // press Save. On a brand-new event there's no row yet, so it just fills the
+  // artwork field and goes live with "Add event".
+  //
+  // The URL handed in is already uploaded and known-good; the studio only calls
+  // this after a successful render and upload, so this can never blank a poster.
+  async function savePosterToDraft(result: { poster_url: string }) {
+    const url = result.poster_url;
+    setDraft((d) => ({ ...d, image_url: url }));
+    if (!draft.id) return;
+    setErr("");
+    setNotice("");
+    try {
+      await updateCalendarEvent(draft.id, { image_url: url });
+      // Honour the series checkbox here rather than waiting for Save changes —
+      // after this write the "did the artwork change?" check in save() can no
+      // longer tell, so the series would otherwise never get the new poster.
+      let seriesMsg = "";
+      if (applyToSeries && seriesMembers.length > 1) {
+        await setPosterForEvents(
+          seriesMembers.map((r) => r.id),
+          url,
+        );
+        seriesMsg = ` Applied to all ${seriesMembers.length} “${editingRow?.title}” events.`;
+      }
+      await reload();
+      setNotice(`Poster saved onto this event.${seriesMsg}`);
+    } catch (e) {
+      setErr(
+        `${describe(e, "Couldn't save the poster onto the event")} — the poster itself is safe in the media library, and the event's old artwork hasn't changed.`,
+      );
+    }
+  }
+
   async function remove(id: string) {
-    if (!confirm("Delete this event? This can't be undone.")) return;
+    if (!(await confirmDialog("Delete this event? This can't be undone."))) return;
     try {
       await deleteCalendarEvent(id);
       await reload();
@@ -262,11 +302,9 @@ export default function CalendarEventsAdminClient() {
           </Field>
 
           <Field label="Date">
-            <input
-              type="date"
-              required
+            <DatePickerInput
               value={draft.event_date}
-              onChange={(e) => setDraft({ ...draft, event_date: e.target.value })}
+              onChange={(v) => setDraft({ ...draft, event_date: v })}
               className={inputClass}
             />
           </Field>
@@ -358,6 +396,31 @@ export default function CalendarEventsAdminClient() {
               </div>
             </div>
           </Field>
+
+          {/* Poster maker — build the artwork here instead of uploading one.
+              Same engine as the DJ night posters. Fed by the fields above, so
+              typing the title/date/time is all it needs. */}
+          <div className="sm:col-span-2">
+            <EventPosterStudio
+              name={draft.title}
+              date={draft.event_date}
+              start={draft.start_time}
+              description={draft.body}
+              currentPosterUrl={draft.image_url || null}
+              // A "Deals"-chipped event builds its poster page-shaped for the
+              // drinks zine cover, same as the ticketed tab does.
+              isDeal={isDealEvent(null, draft.subcategory)}
+              saveLabel={
+                draft.id ? "Save onto this event" : "Use as this event's artwork"
+              }
+              saveHint={
+                draft.id
+                  ? "Saves straight onto the event — it shows on nodice.bar/events right away."
+                  : "Sets the artwork above. It goes live when you press Add event."
+              }
+              onSave={savePosterToDraft}
+            />
+          </div>
 
           {seriesMembers.length > 1 && (
             <Field label="Recurring series" className="sm:col-span-2">

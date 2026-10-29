@@ -1,8 +1,11 @@
 "use client";
 
 import { useEffect, useState } from "react";
+import { confirmDialog } from "@/lib/dialog";
 import { AdminCard } from "@/components/admin/AdminCard";
 import AddReservationForm from "@/components/admin/AddReservationForm";
+import TimeField from "@/components/admin/TimeField";
+import DatePickerInput from "@/components/admin/DatePickerInput";
 import BookingLockedTag from "@/components/admin/BookingLockedTag";
 import {
   loadAllTableSurfaceReservations,
@@ -22,6 +25,49 @@ const SUPABASE_URL =
   "https://rntcujcpsozvuxvmlejv.supabase.co";
 const SUPABASE_ANON_KEY = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY ?? "";
 const SEND_CONFIRMATION_URL = `${SUPABASE_URL}/functions/v1/send-pool-confirmation`;
+const POOL_ADDON_URL = `${SUPABASE_URL}/functions/v1/pool-addon`;
+
+// Pool price windows drive the auto-filled fee in the Add-pool form. Same
+// shape + rate logic the pool-checkout / pool-addon Edge Functions use, so
+// the number the office sees matches what the server would compute.
+type PriceWindow = {
+  days_of_week: number[];
+  start_time: string;
+  end_time: string;
+  price_per_30min_pence: number;
+  is_default: boolean;
+  priority: number;
+};
+function estimatePoolPence(
+  windows: PriceWindow[],
+  dateIso: string,
+  timeHHMM: string,
+  durationMin: number,
+): number {
+  if (!dateIso || !timeHHMM || !durationMin || durationMin <= 0) return 0;
+  const t2m = (t: string) => {
+    const [h, m] = t.split(":").map(Number);
+    return h * 60 + (m || 0);
+  };
+  const sorted = [...windows].sort((a, b) => b.priority - a.priority);
+  const dow = new Date(`${dateIso}T00:00:00Z`).getUTCDay();
+  const per30 = (slotMin: number) => {
+    for (const w of sorted) {
+      if (!w.days_of_week.includes(dow)) continue;
+      const ws = t2m(w.start_time);
+      const we = t2m(w.end_time);
+      if (slotMin < ws || slotMin >= we) continue;
+      return w.price_per_30min_pence;
+    }
+    const def = sorted.find((w) => w.is_default);
+    return def ? def.price_per_30min_pence : 600;
+  };
+  const start = t2m(timeHHMM);
+  const blocks = Math.ceil(durationMin / 30);
+  let total = 0;
+  for (let i = 0; i < blocks; i++) total += per30(start + i * 30);
+  return total || Math.ceil(durationMin / 30) * 600;
+}
 
 function looksLikeRealEmail(raw: string): boolean {
   const s = raw.trim().toLowerCase();
@@ -38,7 +84,7 @@ const editInputCls =
 // or cancels here. Stripe / email confirmation are stubs for now;
 // confirming today just updates the status.
 
-type Filter = "pending" | "confirmed" | "cancelled" | "all";
+type Filter = "pending" | "confirmed" | "cancelled" | "refunded" | "all";
 
 function describe(err: unknown, fallback: string) {
   if (err instanceof Error) return err.message;
@@ -79,14 +125,7 @@ export default function BarReservationsClient({
   const [loading, setLoading] = useState(true);
   const [err, setErr] = useState("");
   const [busyId, setBusyId] = useState<string | null>(null);
-  // Source filter — distinguishes regular bar_reservations rows from
-  // World Cup match-night event_entries shown on the table surface.
-  // Only matters on the table page (and the combined /admin/bar-
-  // reservations view); the pool page never has event-sourced rows.
-  const [sourceFilter, setSourceFilter] = useState<"all" | "bar" | "event">(
-    "all",
-  );
-  // Search box — matches name / email / phone / notes / match name.
+  // Search box — matches name / email / phone / notes.
   const [search, setSearch] = useState("");
   // Date filter (2026-08-26 founder request): bookings stack closest
   // date first. "Upcoming" is the default working view; "Past" flips
@@ -97,6 +136,24 @@ export default function BarReservationsClient({
   const [jumpDate, setJumpDate] = useState("");
   // Inline-edit state — only one row open at a time.
   const [editingId, setEditingId] = useState<string | null>(null);
+  // Add-pool-time state (office pool add-on on a table booking). One form
+  // open at a time. priceWindows feed the auto-filled fee.
+  const [priceWindows, setPriceWindows] = useState<PriceWindow[]>([]);
+  const [poolFormId, setPoolFormId] = useState<string | null>(null);
+  const [poolForm, setPoolForm] = useState<{
+    date: string;
+    time: string;
+    duration: string;
+    amount: string; // pounds, as typed
+    email: boolean;
+  } | null>(null);
+  // Tracks whether the office hand-edited the fee — once touched we stop
+  // auto-overwriting it when they change the date / time / duration.
+  const [poolAmountTouched, setPoolAmountTouched] = useState(false);
+  // Transient per-row note ("Pool time added — link copied", etc.).
+  const [poolMsg, setPoolMsg] = useState<{ id: string; text: string } | null>(
+    null,
+  );
   // Number fields kept as strings so the founder can clear the box
   // and type a new value — a raw number state coerces empty back to
   // the default the instant the input goes blank.
@@ -112,23 +169,26 @@ export default function BarReservationsClient({
   } | null>(null);
   // Initial filter respects ?filter=all|pending|confirmed|cancelled in
   // the URL so the founder can bookmark "all bookings" or land staff
-  // directly on the right tab via a shared link. Default stays
-  // "pending" so the page opens on what needs action.
+  // directly on the right tab via a shared link. Default is "all"
+  // (founder 19 Oct 2026) — "pending" is usually empty, which left the
+  // page looking blank; matches the golf + tournament lists.
   const [filter, setFilter] = useState<Filter>(() => {
-    if (typeof window === "undefined") return "pending";
+    if (typeof window === "undefined") return "all";
     const q = new URLSearchParams(window.location.search).get("filter");
-    if (q === "all" || q === "pending" || q === "confirmed" || q === "cancelled")
+    if (
+      q === "all" || q === "pending" || q === "confirmed" ||
+      q === "cancelled" || q === "refunded"
+    )
       return q;
-    return "pending";
+    return "all";
   });
 
   async function reload() {
     setLoading(true);
     setErr("");
     try {
-      // loadAllTableSurfaceReservations returns BOTH bar_reservations
-      // (table + pool rows) AND World Cup event_entries shaped as
-      // table rows. The kindFilter below decides which subset to show.
+      // loadAllTableSurfaceReservations returns the bar_reservations
+      // table + pool rows. The kindFilter below decides which subset to show.
       setRows(await loadAllTableSurfaceReservations());
     } catch (e) {
       setErr(describe(e, "Failed to load reservations"));
@@ -139,7 +199,160 @@ export default function BarReservationsClient({
 
   useEffect(() => {
     reload();
+    // Load pool price windows once so the Add-pool form can auto-fill the
+    // fee. Non-fatal if it fails — the office can still type an amount.
+    supabase()
+      .from("bookable_price_windows")
+      .select(
+        "days_of_week,start_time,end_time,price_per_30min_pence,is_default,priority",
+      )
+      .eq("product_id", "pool")
+      .then(({ data }) => {
+        if (data) setPriceWindows(data as PriceWindow[]);
+      });
   }, []);
+
+  // ─── Add pool time (office pool add-on) ────────────────────────────
+  function poundsFromEstimate(
+    dateIso: string,
+    timeHHMM: string,
+    durationMin: number,
+  ): string {
+    const p = estimatePoolPence(priceWindows, dateIso, timeHHMM, durationMin);
+    return p > 0 ? (p / 100).toFixed(2) : "";
+  }
+  function openPoolForm(r: UnifiedReservation) {
+    if (poolFormId === r.id) {
+      setPoolFormId(null);
+      setPoolForm(null);
+      return;
+    }
+    const date = r.reservation_date;
+    const time = (r.start_time ?? "19:00").slice(0, 5);
+    const duration = "60";
+    setPoolAmountTouched(false);
+    setPoolForm({
+      date,
+      time,
+      duration,
+      amount: poundsFromEstimate(date, time, 60),
+      email: false,
+    });
+    setPoolFormId(r.id);
+  }
+  // Recompute the auto fee when date/time/duration change, unless the
+  // office has hand-edited the amount.
+  function updatePoolField(
+    patch: Partial<{ date: string; time: string; duration: string; amount: string; email: boolean }>,
+  ) {
+    setPoolForm((f) => {
+      if (!f) return f;
+      const next = { ...f, ...patch };
+      if (!poolAmountTouched && !("amount" in patch)) {
+        const mins = parseInt(next.duration, 10);
+        next.amount = poundsFromEstimate(next.date, next.time, mins || 0);
+      }
+      return next;
+    });
+  }
+  async function submitPoolAddon(r: UnifiedReservation) {
+    if (!poolForm) return;
+    const mins = Math.max(15, Math.min(600, parseInt(poolForm.duration, 10) || 60));
+    const amountPence = Math.round((parseFloat(poolForm.amount) || 0) * 100);
+    if (amountPence <= 0) {
+      setErr("Enter a pool fee greater than £0 (or clear the box to use the standard rate — but it came out as £0).");
+      return;
+    }
+    setBusyId(r.id);
+    setErr("");
+    setPoolMsg(null);
+    try {
+      const res = await fetch(POOL_ADDON_URL, {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          apikey: SUPABASE_ANON_KEY,
+          Authorization: `Bearer ${SUPABASE_ANON_KEY}`,
+        },
+        body: JSON.stringify({
+          parent_reservation_id: r.id,
+          reservation_date: poolForm.date,
+          start_time: poolForm.time,
+          duration_minutes: mins,
+          amount_pence: amountPence,
+        }),
+      });
+      const json = await res.json().catch(() => ({}));
+      if (!res.ok) {
+        throw new Error(json?.error || `HTTP ${res.status}`);
+      }
+      const payUrl: string | undefined = json?.pay_url;
+      // Optionally email the customer the pay link now — this re-sends the
+      // table confirmation, which now carries the pool line + Pay button.
+      let emailNote = "";
+      if (poolForm.email && looksLikeRealEmail(r.email) && payUrl) {
+        try {
+          const em = await fetch(SEND_CONFIRMATION_URL, {
+            method: "POST",
+            headers: {
+              "Content-Type": "application/json",
+              apikey: SUPABASE_ANON_KEY,
+              Authorization: `Bearer ${SUPABASE_ANON_KEY}`,
+            },
+            body: JSON.stringify({ reservation_id: r.id, include_notes: false }),
+          });
+          emailNote = em.ok
+            ? " Pay link emailed to the customer."
+            : ` (Email failed: HTTP ${em.status}.)`;
+        } catch (e) {
+          emailNote = ` (Email errored: ${describe(e, "network problem")})`;
+        }
+      } else if (poolForm.email) {
+        emailNote = " (No email — the address looks like a placeholder.)";
+      }
+      // Copy the pay link to the clipboard for convenience.
+      if (payUrl) {
+        try {
+          await navigator.clipboard.writeText(payUrl);
+        } catch {
+          /* clipboard may be blocked — the link still shows on the card */
+        }
+      }
+      setPoolFormId(null);
+      setPoolForm(null);
+      setPoolMsg({
+        id: r.id,
+        text: `Pool time added — pay link ready${payUrl ? " (copied to clipboard)" : ""}.${emailNote}`,
+      });
+      await reload();
+    } catch (e) {
+      setErr(describe(e, "Failed to add pool time"));
+    } finally {
+      setBusyId(null);
+    }
+  }
+  async function emailPayLink(r: UnifiedReservation) {
+    setBusyId(r.id);
+    setErr("");
+    setPoolMsg(null);
+    try {
+      const res = await fetch(SEND_CONFIRMATION_URL, {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          apikey: SUPABASE_ANON_KEY,
+          Authorization: `Bearer ${SUPABASE_ANON_KEY}`,
+        },
+        body: JSON.stringify({ reservation_id: r.id, include_notes: false }),
+      });
+      if (!res.ok) throw new Error(`HTTP ${res.status}`);
+      setPoolMsg({ id: r.id, text: "Pay link emailed to the customer." });
+    } catch (e) {
+      setErr(describe(e, "Failed to email the pay link"));
+    } finally {
+      setBusyId(null);
+    }
+  }
 
   async function setStatus(
     row: UnifiedReservation,
@@ -151,17 +364,17 @@ export default function BarReservationsClient({
       await setUnifiedReservationStatus(row, status);
       // Pending → confirmed is the moment a pencilled-in booking becomes
       // real, so offer the standard confirmation email here (manual
-      // pending entries never emailed at creation). Only for regular
-      // bar rows with a real-looking address — never the info@ walk-in
-      // placeholder, and event_entries have their own email flow.
+      // pending entries never emailed at creation). Only for rows with a
+      // real-looking address — never the info@ walk-in placeholder.
       if (
         status === "confirmed" &&
         row.status === "pending" &&
         row.source === "bar" &&
         looksLikeRealEmail(row.email) &&
-        window.confirm(
+        (await confirmDialog(
           `Send ${row.name} the confirmation email now? (${row.email})`,
-        )
+          { danger: false, confirmLabel: "Send", title: "Send confirmation?" },
+        ))
       ) {
         try {
           const res = await fetch(SEND_CONFIRMATION_URL, {
@@ -218,43 +431,28 @@ export default function BarReservationsClient({
     setBusyId(r.id);
     setErr("");
     try {
-      if (r.source === "event") {
-        // event_entries rows are tied to a match — date/time/duration
-        // come from the parent event. Only customer fields editable.
-        const { error } = await supabase()
-          .from("event_entries")
-          .update({
-            attendee_name: editForm.name.trim(),
-            attendee_email: editForm.email.trim(),
-            attendee_phone: editForm.phone.trim(),
-            notes: editForm.notes.trim() || null,
-          })
-          .eq("id", r.id);
-        if (error) throw error;
-      } else {
-        const duration = Math.max(
-          30,
-          Math.min(300, parseInt(editForm.duration_minutes, 10) || 60),
-        );
-        const party = Math.max(
-          1,
-          Math.min(80, parseInt(editForm.party_size, 10) || 2),
-        );
-        const { error } = await supabase()
-          .from("bar_reservations")
-          .update({
-            reservation_date: editForm.reservation_date,
-            start_time: editForm.start_time + ":00",
-            duration_minutes: duration,
-            party_size: party,
-            name: editForm.name.trim(),
-            email: editForm.email.trim(),
-            phone: editForm.phone.trim() || null,
-            notes: editForm.notes.trim() || null,
-          })
-          .eq("id", r.id);
-        if (error) throw error;
-      }
+      const duration = Math.max(
+        30,
+        Math.min(300, parseInt(editForm.duration_minutes, 10) || 60),
+      );
+      const party = Math.max(
+        1,
+        Math.min(80, parseInt(editForm.party_size, 10) || 2),
+      );
+      const { error } = await supabase()
+        .from("bar_reservations")
+        .update({
+          reservation_date: editForm.reservation_date,
+          start_time: editForm.start_time + ":00",
+          duration_minutes: duration,
+          party_size: party,
+          name: editForm.name.trim(),
+          email: editForm.email.trim(),
+          phone: editForm.phone.trim() || null,
+          notes: editForm.notes.trim() || null,
+        })
+        .eq("id", r.id);
+      if (error) throw error;
       cancelEdit();
       await reload();
     } catch (e) {
@@ -264,25 +462,17 @@ export default function BarReservationsClient({
     }
   }
 
-  // World Cup event_entries are always shown on the table surface
-  // (founder rule: staff need to see match-night holds alongside
-  // regular table bookings to spot clashes at a glance). Pool page
-  // never includes event_entries.
   const kindRows =
     kindFilter === "all"
       ? rows
       : kindFilter === "table"
-      ? rows.filter((r) => r.kind === "table" || r.source === "event")
-      : rows.filter((r) => r.kind === "pool" && r.source === "bar");
-  const sourceRows =
-    sourceFilter === "all"
-      ? kindRows
-      : kindRows.filter((r) => r.source === sourceFilter);
+      ? rows.filter((r) => r.kind === "table")
+      : rows.filter((r) => r.kind === "pool");
   const q = search.trim().toLowerCase();
   const searchedRows = !q
-    ? sourceRows
-    : sourceRows.filter((r) =>
-        [r.name, r.email, r.phone ?? "", r.notes ?? "", r.match_name ?? ""]
+    ? kindRows
+    : kindRows.filter((r) =>
+        [r.name, r.email, r.phone ?? "", r.notes ?? ""]
           .some((v) => v.toLowerCase().includes(q)),
       );
 
@@ -326,11 +516,6 @@ export default function BarReservationsClient({
       : dateRows.filter((r) => r.status === filter);
 
   const pendingCount = kindRows.filter((r) => r.status === "pending").length;
-  // The source dropdown is only meaningful when event_entries can be
-  // mixed in — i.e. the table page or the combined view. On the pool
-  // page the dropdown would only ever have one option, so we hide it.
-  const showSourceFilter = kindFilter !== "pool";
-  const worldCupCount = kindRows.filter((r) => r.source === "event").length;
 
   // Manual-entry surface is only meaningful on a kind-specific page.
   // On the combined /admin/bar-reservations view we don't render a
@@ -348,7 +533,16 @@ export default function BarReservationsClient({
       )}
 
       {manualKind && (
-        <AddReservationForm kind={manualKind} onCreated={() => reload()} />
+        <AddReservationForm
+          kind={manualKind}
+          onCreated={() => {
+            // Show the booking that was just added — the page defaults to the
+            // "Pending" tab (usually empty), so after a confirmed manual add
+            // jump to "All" so it's visible rather than landing on a blank list.
+            setFilter("all");
+            reload();
+          }}
+        />
       )}
 
       <div className="flex flex-wrap gap-3">
@@ -360,30 +554,16 @@ export default function BarReservationsClient({
           placeholder="Search name, email, phone, notes, match…"
           className="min-w-[220px] flex-1 rounded-full border border-cream/15 bg-ink/40 px-4 py-1.5 text-xs text-cream placeholder:text-cream/40 focus:border-plonkPink focus:outline-none"
         />
-        {showSourceFilter && (
-          <select
-            value={sourceFilter}
-            onChange={(e) =>
-              setSourceFilter(e.target.value as "all" | "bar" | "event")
-            }
-            className="rounded-full border border-cream/15 bg-ink/40 px-4 py-1.5 text-xs font-bold uppercase tracking-wider text-cream/85 focus:border-plonkPink focus:outline-none"
-          >
-            <option value="all">All sources</option>
-            <option value="bar">Regular tables only</option>
-            <option value="event">
-              World Cup only{worldCupCount > 0 ? ` (${worldCupCount})` : ""}
-            </option>
-          </select>
-        )}
       </div>
 
       <div className="flex flex-wrap gap-2">
         {(
           [
-            { id: "pending" as const, label: `Pending${pendingCount ? ` (${pendingCount})` : ""}` },
-            { id: "confirmed" as const, label: "Confirmed" },
-            { id: "cancelled" as const, label: "Cancelled" },
             { id: "all" as const, label: "All" },
+            { id: "confirmed" as const, label: "Confirmed" },
+            { id: "pending" as const, label: `Pending${pendingCount ? ` (${pendingCount})` : ""}` },
+            { id: "cancelled" as const, label: "Cancelled" },
+            { id: "refunded" as const, label: "Refunded" },
           ]
         ).map((t) => (
           <button
@@ -428,10 +608,10 @@ export default function BarReservationsClient({
         ))}
         <label className="flex items-center gap-2 text-[10px] font-bold uppercase tracking-widest text-cream/45">
           Jump to
-          <input
-            type="date"
+          <DatePickerInput
             value={jumpDate}
-            onChange={(e) => setJumpDate(e.target.value)}
+            onChange={setJumpDate}
+            placeholder="Jump to date"
             className={`rounded-full border px-3 py-1 text-xs font-semibold tracking-normal focus:outline-none ${
               jumpDate
                 ? "border-plonkYellow bg-plonkYellow/10 text-plonkYellow"
@@ -482,22 +662,16 @@ export default function BarReservationsClient({
                   <div className="flex items-center gap-3">
                     <span
                       className={`rounded-full px-2 py-0.5 text-[10px] font-bold uppercase tracking-[0.18em] ${
-                        r.source === "event"
-                          ? "bg-plonkTeal/15 text-plonkTeal"
-                          : r.kind === "pool"
-                          ? "bg-plonkPink/15 text-plonkPink"
+                        r.kind === "pool"
+                          ? "bg-purple-500/15 text-purple-300"
                           : "bg-plonkYellow/15 text-plonkYellow"
                       }`}
                     >
-                      {r.source === "event"
-                        ? "World Cup"
-                        : r.kind === "pool"
-                        ? "Pool"
-                        : "Table"}
+                      {r.kind === "pool" ? "Pool" : "Table"}
                     </span>
-                    {r.match_name && (
-                      <span className="text-[11px] font-semibold uppercase tracking-wider text-cream/85">
-                        {r.match_name}
+                    {r.parent_reservation_id && (
+                      <span className="rounded-full bg-cream/10 px-2 py-0.5 text-[10px] font-bold uppercase tracking-[0.18em] text-cream/60">
+                        ↳ table add-on
                       </span>
                     )}
                     {r.status === "confirmed" || r.status === "paid" ? (
@@ -608,6 +782,21 @@ export default function BarReservationsClient({
                 >
                   {editingId === r.id ? "Close edit" : "Edit"}
                 </button>
+                {/* Add pool time — office pool add-on, only on real table
+                    bookings (not pool rows). */}
+                {r.kind === "table" && (
+                  <button
+                    type="button"
+                    onClick={() => openPoolForm(r)}
+                    className="rounded-full border border-plonkTeal/40 bg-plonkTeal/10 px-3 py-1 text-[11px] font-bold uppercase tracking-wider text-plonkTeal transition hover:bg-plonkTeal/20"
+                  >
+                    {poolFormId === r.id
+                      ? "Close"
+                      : r.pool_addon
+                      ? "🎱 Add more pool"
+                      : "🎱 Add pool time"}
+                  </button>
+                )}
                 {r.stripe_payment_intent_id && (
                   <a
                     href={STRIPE_PAYMENT_URL(r.stripe_payment_intent_id)}
@@ -625,21 +814,188 @@ export default function BarReservationsClient({
                 )}
               </div>
 
+              {/* Transient per-row note after adding / emailing. */}
+              {poolMsg?.id === r.id && (
+                <div className="mt-3 rounded-lg border border-plonkTeal/40 bg-plonkTeal/10 px-3 py-2 text-xs text-plonkTeal">
+                  {poolMsg.text}
+                </div>
+              )}
+
+              {/* Existing pool add-on on this table booking — one line, with
+                  pay status + the Stripe pay link. */}
+              {r.pool_addon && (
+                <div className="mt-4 rounded-2xl border border-plonkTeal/25 bg-plonkTeal/5 p-4">
+                  <div className="flex flex-wrap items-center justify-between gap-2">
+                    <p className="text-[10px] font-bold uppercase tracking-[0.22em] text-plonkTeal">
+                      🎱 Pool added to this booking
+                    </p>
+                    <span
+                      className={`rounded-full px-2 py-0.5 text-[10px] font-bold uppercase tracking-[0.18em] ${
+                        r.pool_addon.status === "paid"
+                          ? "bg-plonkTeal/15 text-plonkTeal"
+                          : "bg-amber-400/15 text-amber-300"
+                      }`}
+                    >
+                      {r.pool_addon.status === "paid" ? "Paid" : "Unpaid"}
+                    </span>
+                  </div>
+                  <p className="mt-2 text-sm text-cream/85">
+                    {formatDate(r.pool_addon.reservation_date)} ·{" "}
+                    {formatTime(r.pool_addon.start_time)} ·{" "}
+                    {r.pool_addon.duration_minutes} min
+                    {r.pool_addon.amount_pence != null
+                      ? ` · £${(r.pool_addon.amount_pence / 100).toFixed(2)}`
+                      : ""}
+                  </p>
+                  {r.pool_addon.status !== "paid" && r.pool_addon.pool_pay_url && (
+                    <div className="mt-3 flex flex-wrap items-center gap-2">
+                      <a
+                        href={r.pool_addon.pool_pay_url}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        className="rounded-full border border-plonkPink/40 bg-plonkPink/10 px-3 py-1 text-[11px] font-bold uppercase tracking-wider text-plonkPink transition hover:bg-plonkPink/20"
+                      >
+                        Open pay link ↗
+                      </a>
+                      <button
+                        type="button"
+                        onClick={async () => {
+                          try {
+                            await navigator.clipboard.writeText(
+                              r.pool_addon!.pool_pay_url!,
+                            );
+                            setPoolMsg({ id: r.id, text: "Pay link copied to clipboard." });
+                          } catch {
+                            setPoolMsg({ id: r.id, text: r.pool_addon!.pool_pay_url! });
+                          }
+                        }}
+                        className="rounded-full border border-cream/15 bg-ink/30 px-3 py-1 text-[11px] font-bold uppercase tracking-wider text-cream/85 transition hover:border-cream/40"
+                      >
+                        Copy link
+                      </button>
+                      {looksLikeRealEmail(r.email) && (
+                        <button
+                          type="button"
+                          disabled={busyId === r.id}
+                          onClick={() => emailPayLink(r)}
+                          className="rounded-full border border-cream/15 bg-ink/30 px-3 py-1 text-[11px] font-bold uppercase tracking-wider text-cream/85 transition hover:border-cream/40 disabled:opacity-50"
+                        >
+                          Email pay link
+                        </button>
+                      )}
+                    </div>
+                  )}
+                </div>
+              )}
+
+              {/* Add-pool-time form. */}
+              {poolFormId === r.id && poolForm && (
+                <div className="mt-4 rounded-2xl border border-plonkTeal/25 bg-ink/30 p-4">
+                  <p className="mb-3 text-[10px] font-bold uppercase tracking-[0.22em] text-plonkTeal">
+                    Add pool time — a pay link goes on this booking (no second
+                    booking, no second email unless you tick it)
+                  </p>
+                  <div className="grid gap-3 sm:grid-cols-4">
+                    <div>
+                      <label className="text-[10px] font-bold uppercase tracking-widest text-cream/55">Date</label>
+                      <DatePickerInput
+                        value={poolForm.date}
+                        onChange={(v) => updatePoolField({ date: v })}
+                        className={editInputCls + " mt-1"}
+                      />
+                    </div>
+                    <div>
+                      <label className="text-[10px] font-bold uppercase tracking-widest text-cream/55">Start time</label>
+                      <TimeField
+                        value={poolForm.time}
+                        onChange={(v) => updatePoolField({ time: v })}
+                        className={editInputCls + " mt-1"}
+                      />
+                    </div>
+                    <div>
+                      <label className="text-[10px] font-bold uppercase tracking-widest text-cream/55">Length (min)</label>
+                      <input
+                        type="number"
+                        min={15}
+                        step={15}
+                        value={poolForm.duration}
+                        onChange={(e) => updatePoolField({ duration: e.target.value })}
+                        className={editInputCls + " mt-1"}
+                      />
+                    </div>
+                    <div>
+                      <label className="text-[10px] font-bold uppercase tracking-widest text-cream/55">Pool fee (£)</label>
+                      <input
+                        type="number"
+                        min={0}
+                        step="0.50"
+                        value={poolForm.amount}
+                        onChange={(e) => {
+                          setPoolAmountTouched(true);
+                          setPoolForm((f) => (f ? { ...f, amount: e.target.value } : f));
+                        }}
+                        className={editInputCls + " mt-1"}
+                      />
+                      <p className="mt-1 text-[10px] text-cream/45">
+                        Auto from the pool rate — edit to override.
+                      </p>
+                    </div>
+                  </div>
+                  <label className="mt-3 flex items-start gap-3 text-sm text-cream/90">
+                    <input
+                      type="checkbox"
+                      checked={poolForm.email}
+                      onChange={(e) => updatePoolField({ email: e.target.checked })}
+                      disabled={!looksLikeRealEmail(r.email)}
+                      className="mt-0.5 h-4 w-4 accent-plonkPink disabled:opacity-40"
+                    />
+                    <span className={!looksLikeRealEmail(r.email) ? "opacity-50" : undefined}>
+                      <span className="font-semibold">Email the customer the pay link now</span>
+                      <span className="mt-0.5 block text-xs text-cream/60">
+                        {looksLikeRealEmail(r.email)
+                          ? `Re-sends ${r.name}'s table confirmation with the pool line + Pay button added (${r.email}).`
+                          : "No real email on this booking — give them the link yourself."}
+                      </span>
+                    </span>
+                  </label>
+                  <div className="mt-3 flex justify-end gap-2">
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setPoolFormId(null);
+                        setPoolForm(null);
+                      }}
+                      disabled={busyId === r.id}
+                      className="rounded-full border border-cream/15 px-4 py-2 text-xs font-bold uppercase tracking-wider text-cream/75 hover:bg-cream/5 disabled:opacity-50"
+                    >
+                      Cancel
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => submitPoolAddon(r)}
+                      disabled={busyId === r.id}
+                      className="rounded-full bg-plonkTeal px-4 py-2 text-xs font-bold uppercase tracking-wider text-ink hover:bg-plonkTeal/90 disabled:opacity-50"
+                    >
+                      {busyId === r.id ? "Adding…" : "Add pool + make pay link"}
+                    </button>
+                  </div>
+                </div>
+              )}
+
               {editingId === r.id && editForm && (
                 <div className="mt-4 rounded-2xl border border-cream/10 bg-ink/30 p-4">
                   <p className="mb-3 text-[10px] font-bold uppercase tracking-[0.22em] text-cream/55">
                     Edit booking
-                    {r.source === "event" && " (match-tied — only contact details editable)"}
                   </p>
                   {r.source === "bar" && (
                     <div className="mb-3 grid gap-3 sm:grid-cols-2">
                       <div>
                         <label className="text-[10px] font-bold uppercase tracking-widest text-cream/55">Date</label>
-                        <input type="date" value={editForm.reservation_date} onChange={(e) => setEditForm({ ...editForm, reservation_date: e.target.value })} className={editInputCls + " mt-1"} />
+                        <DatePickerInput value={editForm.reservation_date} onChange={(v) => setEditForm({ ...editForm, reservation_date: v })} className={editInputCls + " mt-1"} />
                       </div>
                       <div>
                         <label className="text-[10px] font-bold uppercase tracking-widest text-cream/55">Start time</label>
-                        <input type="time" value={editForm.start_time} onChange={(e) => setEditForm({ ...editForm, start_time: e.target.value })} className={editInputCls + " mt-1"} />
+                        <TimeField value={editForm.start_time} onChange={(v) => setEditForm({ ...editForm, start_time: v })} className={editInputCls + " mt-1"} />
                       </div>
                       <div>
                         <label className="text-[10px] font-bold uppercase tracking-widest text-cream/55">Duration (min)</label>

@@ -185,7 +185,6 @@ const EXPLICIT_SPECS: Record<string, ImageSpec> = {
   "hero.privatehire": HERO_SPEC,
   "hero.privatehire.hackney": HERO_SPEC,
   "hero.privatehire.borough": HERO_SPEC,
-  "hero.worldcup": HERO_SPEC,
   "home.press": {
     label: "Press logo",
     orientation: "landscape",

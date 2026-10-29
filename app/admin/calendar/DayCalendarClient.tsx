@@ -17,7 +17,7 @@ const BAR_CAPACITY = 70;
 const GOLF_CAPACITY = 54;
 
 // ─── Types ─────────────────────────────────────────────────────
-type Source = "pool" | "table" | "worldcup" | "golf" | "event";
+type Source = "pool" | "table" | "golf" | "private_hire";
 
 type CalendarBooking = {
   id: string;
@@ -26,12 +26,12 @@ type CalendarBooking = {
   duration_minutes: number | null;
   party_size: number;
   name: string;
-  match_or_event: string | null; // World Cup fixture name / event title
+  match_or_event: string | null; // optional label shown next to a booking
   status: string;
 };
 
 type DayBucket = {
-  bar_people: number;   // pool + table + world-cup match holds
+  bar_people: number;   // pool + table holds
   golf_people: number;
   bookings: CalendarBooking[];
 };
@@ -80,18 +80,16 @@ function heatClass(util: number): string {
 function sourceLabel(s: Source): string {
   if (s === "pool") return "Pool";
   if (s === "table") return "Table";
-  if (s === "worldcup") return "World Cup";
-  if (s === "golf") return "Golf";
-  return "Event";
+  if (s === "private_hire") return "Private";
+  return "Golf";
 }
 function sourcePill(s: Source): string {
   const base =
     "rounded-full px-2 py-0.5 text-[9px] font-bold uppercase tracking-widest";
-  if (s === "pool") return `${base} bg-plonkPink/15 text-plonkPink`;
+  if (s === "pool") return `${base} bg-purple-500/15 text-purple-300`;
   if (s === "table") return `${base} bg-plonkYellow/15 text-plonkYellow`;
-  if (s === "worldcup") return `${base} bg-plonkTeal/15 text-plonkTeal`;
-  if (s === "golf") return `${base} bg-orange-500/15 text-orange-300`;
-  return `${base} bg-cream/10 text-cream/70`;
+  if (s === "private_hire") return `${base} bg-plonkTeal/15 text-plonkTeal`;
+  return `${base} bg-orange-500/15 text-orange-300`;
 }
 
 // ─── Component ─────────────────────────────────────────────────
@@ -130,25 +128,17 @@ export default function DayCalendarClient() {
       setErr("");
       try {
         const sb = supabase();
-        const [barRes, eventRes, golfRes] = await Promise.all([
+        const [barRes, golfRes] = await Promise.all([
           sb
             .from("bar_reservations")
             .select(
               "id,kind,reservation_date,start_time,duration_minutes,party_size,name,status",
             )
             .neq("status", "cancelled"),
-          sb
-            .from("event_entries")
-            .select(
-              "id,attendee_name,status,event:events!inner(id,name,event_date,start_time,category)",
-            )
-            .neq("status", "cancelled")
-            .neq("status", "pending_payment"),
           loadBookings().catch(() => [] as DbBookingRow[]),
         ]);
         if (cancelled) return;
         if (barRes.error) throw barRes.error;
-        if (eventRes.error) throw eventRes.error;
         const map: Record<string, DayBucket> = {};
         function ensure(date: string): DayBucket {
           if (!map[date])
@@ -158,7 +148,7 @@ export default function DayCalendarClient() {
         // Bar reservations
         for (const r of barRes.data as Array<{
           id: string;
-          kind: "pool" | "table";
+          kind: "pool" | "table" | "golf" | "private_hire";
           reservation_date: string;
           start_time: string;
           duration_minutes: number;
@@ -177,33 +167,6 @@ export default function DayCalendarClient() {
             name: r.name,
             match_or_event: null,
             status: r.status,
-          });
-        }
-        // Event entries (World Cup + other event types)
-        for (const e of eventRes.data as unknown as Array<{
-          id: string;
-          attendee_name: string;
-          status: string;
-          event: {
-            id: string;
-            name: string;
-            event_date: string;
-            start_time: string | null;
-            category: string;
-          };
-        }>) {
-          const b = ensure(e.event.event_date);
-          const size = 2; // founder rule: match table = 2 people
-          b.bar_people += size;
-          b.bookings.push({
-            id: e.id,
-            source: e.event.category === "world_cup" ? "worldcup" : "event",
-            time: e.event.start_time ? e.event.start_time.slice(0, 5) : null,
-            duration_minutes: 150,
-            party_size: size,
-            name: e.attendee_name,
-            match_or_event: e.event.name,
-            status: e.status,
           });
         }
         // Golf bookings — legacy Plonk Golf table.
@@ -348,11 +311,7 @@ export default function DayCalendarClient() {
                 pool: bucket.bookings.filter((b) => b.source === "pool").length,
                 table: bucket.bookings.filter((b) => b.source === "table")
                   .length,
-                worldcup: bucket.bookings.filter((b) => b.source === "worldcup")
-                  .length,
                 golf: bucket.bookings.filter((b) => b.source === "golf").length,
-                event: bucket.bookings.filter((b) => b.source === "event")
-                  .length,
                 pending: bucket.bookings.filter((b) => b.status === "pending")
                   .length,
               }
@@ -387,11 +346,7 @@ export default function DayCalendarClient() {
                 <div className="mt-1 space-y-0.5 text-[10px] leading-tight text-cream/70">
                   {counts!.table > 0 && <div>🍽 {counts!.table} table</div>}
                   {counts!.pool > 0 && <div>🎱 {counts!.pool} pool</div>}
-                  {counts!.worldcup > 0 && (
-                    <div>⚽ {counts!.worldcup} World Cup</div>
-                  )}
                   {counts!.golf > 0 && <div>⛳ {counts!.golf} golf</div>}
-                  {counts!.event > 0 && <div>🎉 {counts!.event} event</div>}
                   {counts!.pending > 0 && (
                     <div className="font-bold text-amber-300">
                       ⏳ {counts!.pending} pending

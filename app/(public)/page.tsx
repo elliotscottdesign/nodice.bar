@@ -137,15 +137,6 @@ export default function HomePage() {
               <Editable k="home.hero.subcopy" multiline>{heroSubcopy}</Editable>
             </p>
           </Reveal>
-
-          <Reveal delay={360} className="w-full">
-            <Link
-              href="/book"
-              className="mt-8 inline-block rounded-full bg-plonkPink px-10 py-4 text-sm font-bold uppercase tracking-wider text-white shadow-lg shadow-plonkPink/20 transition hover:bg-plonkPink/90 md:hidden"
-            >
-              Book a tee time
-            </Link>
-          </Reveal>
         </div>
       </section>
 
@@ -163,10 +154,10 @@ export default function HomePage() {
             "Kitchen residencies",
             "Big screens for sport",
           ]}
-          bookLabel="Book Hackney"
-          detailLabel="Venue details →"
+          bookLabel="Book"
+          detailLabel="Party bookings →"
           bookHref="/book"
-          detailHref="/venue/hackney"
+          detailHref="/parties"
           image=""
           imageAlt="No Dice Hackney"
           align="left"

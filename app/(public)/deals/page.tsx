@@ -1,48 +1,56 @@
 "use client";
 
-import Image from "next/image";
+import { useEffect, useState } from "react";
 import PageHero from "@/components/PageHero";
-import ManageGalleryLink from "@/components/ManageGalleryLink";
-import { useContent, useGallery } from "@/lib/content";
+import { useContent } from "@/lib/content";
+import { loadCalendarDeals, type CalendarDeal } from "@/lib/db/dealsCalendar";
 
-// /deals — image-led page per founder brief. A 4×2 (cols × rows) grid
-// on tablet+, collapses to 2×4 on mobile portrait. Each tile is
-// portrait aspect (3:4) so phones read the page as a vertical stack
-// of paired posters.
-//
-// CMS surface:
-//   • text       — useContent("deals.eyebrow"|"deals.title"|"deals.intro")
-//   • hero img   — gallery key "hero.deals"  (slider above the grid)
-//   • grid imgs  — gallery key "deals.grid"  (upload 7–10 portrait
-//                   poster images; first 10 render in order)
-//
-// The page renders WHATEVER images are uploaded to deals.grid — no
-// captions, no text overlays, just the images as a clean grid. If
-// the founder wants text on each tile, render the words into the
-// poster image itself (Canva / Photoshop / Figma).
+// Today as 0 = Mon … 6 = Sun, to highlight the deal that's on right now.
+const TODAY_WD = (new Date().getDay() + 6) % 7;
 
-const FALLBACK_HERO = [""];
+// /deals — fed straight from the events calendar (founder 29 Oct 2026). The
+// founder adds/edits deals in ONE place (the admin calendar, tagged DEAL) and
+// this page reflects them automatically: one card per day deal, Mon→Sun, plus
+// the everyday Happy Hour featured on top. No manual image uploads any more.
 
-const FALLBACK_GRID: { src: string; alt: string | null }[] = [
-  { src: "", alt: null },
-  { src: "", alt: null },
-  { src: "", alt: null },
-  { src: "", alt: null },
-  { src: "", alt: null },
-  { src: "", alt: null },
-  { src: "", alt: null },
-  { src: "", alt: null },
-];
+// Split a deal description into its individual lines so a listing like
+// "PINT £5 / WINE £5 / SGL £5" renders as tidy rows. Handles new-lines,
+// slashes and bullet separators.
+function dealLines(desc: string): string[] {
+  return desc
+    .split(/\n|·|•|\s\/\s/g)
+    .map((s) => s.trim())
+    .filter(Boolean);
+}
 
 export default function DealsPage() {
-  const eyebrow = useContent("deals.eyebrow", "What's on this month");
+  const eyebrow = useContent("deals.eyebrow", "What's on this week");
   const title = useContent("deals.title", "Deals");
   const intro = useContent(
     "deals.intro",
-    "Off-peak deals on drinks, food and games. New posters added every month — tap an image for the small print.",
+    "A deal for every day of the week, plus Happy Hour. Straight from the calendar — always current.",
   );
 
-  const images = useGallery("deals.grid", FALLBACK_GRID);
+  const [dayDeals, setDayDeals] = useState<CalendarDeal[]>([]);
+  const [happyHour, setHappyHour] = useState<CalendarDeal | null>(null);
+  const [loading, setLoading] = useState(true);
+
+  useEffect(() => {
+    let alive = true;
+    loadCalendarDeals()
+      .then((d) => {
+        if (!alive) return;
+        setDayDeals(d.dayDeals);
+        setHappyHour(d.happyHour);
+        setLoading(false);
+      })
+      .catch(() => {
+        if (alive) setLoading(false);
+      });
+    return () => {
+      alive = false;
+    };
+  }, []);
 
   return (
     <main>
@@ -50,7 +58,7 @@ export default function DealsPage() {
         eyebrow={eyebrow}
         title={title}
         intro={intro}
-        image={FALLBACK_HERO}
+        image={[""]}
         eyebrowKey="deals.eyebrow"
         titleKey="deals.title"
         introKey="deals.intro"
@@ -58,31 +66,80 @@ export default function DealsPage() {
       />
 
       <section className="px-6 py-16">
-        <div className="relative mx-auto max-w-6xl">
-          {/* 4 cols × 2 rows on tablet+ (sm); 2 cols × 4 rows on mobile.
-              Up to 10 tiles render — extra uploads are silently dropped
-              so the layout stays clean. */}
-          <div className="grid grid-cols-2 gap-3 sm:grid-cols-4 sm:gap-4">
-            {images.slice(0, 10).map((img, i) => (
-              <div
-                key={`${img.src}-${i}`}
-                className="relative aspect-[9/16] overflow-hidden rounded-xl"
-              >
-                <Image
-                  src={img.src}
-                  alt={img.alt ?? ""}
-                  fill
-                  sizes="(min-width: 640px) 25vw, 50vw"
-                  className="object-cover transition duration-500 hover:scale-105"
-                />
+        <div className="mx-auto max-w-5xl">
+          {loading ? (
+            <p className="py-16 text-center text-sm text-cream/55">
+              Loading this week's deals…
+            </p>
+          ) : (
+            <>
+              {/* Happy Hour — featured wide card with the drinks listing */}
+              {happyHour && (
+                <div className="mb-6 overflow-hidden rounded-3xl border border-plonkPink/40 bg-plonkPink/10">
+                  <div className="flex flex-col gap-6 p-7 sm:flex-row sm:items-center sm:justify-between">
+                    <div>
+                      <p className="text-xs font-bold uppercase tracking-[0.3em] text-plonkPink">
+                        Every day
+                      </p>
+                      <h2 className="mt-2 font-display text-4xl uppercase tracking-wide text-cream sm:text-5xl">
+                        {happyHour.name}
+                      </h2>
+                    </div>
+                    <ul className="flex flex-wrap gap-2 sm:justify-end">
+                      {dealLines(happyHour.description).map((line) => (
+                        <li
+                          key={line}
+                          className="rounded-full border border-plonkPink/40 bg-ink/40 px-4 py-2 text-sm font-semibold uppercase tracking-wide text-cream"
+                        >
+                          {line}
+                        </li>
+                      ))}
+                    </ul>
+                  </div>
+                </div>
+              )}
+
+              {/* One card per day deal, Mon→Sun */}
+              <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3">
+                {dayDeals.map((d) => {
+                  const isToday = d.weekday === TODAY_WD;
+                  return (
+                  <div
+                    key={d.id}
+                    className={`flex flex-col rounded-2xl border p-6 transition ${
+                      isToday
+                        ? "border-plonkPink/60 bg-plonkPink/10 ring-1 ring-plonkPink/40"
+                        : "border-cream/12 bg-ink/40 hover:border-plonkPink/50"
+                    }`}
+                  >
+                    <span className="flex items-center gap-2 text-xs font-bold uppercase tracking-[0.3em] text-plonkPink">
+                      {d.dayLabel}
+                      {isToday && (
+                        <span className="rounded-full bg-plonkPink px-2 py-0.5 text-[9px] tracking-[0.2em] text-white">
+                          Today
+                        </span>
+                      )}
+                    </span>
+                    <h3 className="mt-2 font-display text-2xl uppercase leading-tight tracking-wide text-cream">
+                      {d.name}
+                    </h3>
+                    {d.description && (
+                      <p className="mt-3 text-sm leading-relaxed text-cream/70">
+                        {d.description}
+                      </p>
+                    )}
+                  </div>
+                  );
+                })}
               </div>
-            ))}
-          </div>
-          {/* Floats bottom-right of the grid in edit mode. */}
-          <ManageGalleryLink
-            galleryKey="deals.grid"
-            label="Manage deals posters"
-          />
+
+              {dayDeals.length === 0 && !happyHour && (
+                <p className="py-16 text-center text-sm text-cream/55">
+                  No deals on the calendar right now — check back soon.
+                </p>
+              )}
+            </>
+          )}
         </div>
       </section>
     </main>

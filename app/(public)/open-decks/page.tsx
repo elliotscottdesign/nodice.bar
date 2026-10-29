@@ -1,0 +1,298 @@
+"use client";
+
+// /open-decks — public DJ sign-up for FREE 1-hour open-decks slots on No Dice's
+// quiet nights (Sun/Tue/Wed). A month-grid CALENDAR (site convention, Mon-first)
+// → pick a night → a time-slots screen (7/8/9/10pm) → your details (name, phone,
+// email, 3 genres, CDJ/vinyl, optional Insta). Reads the calendar + submits
+// through the team hub's `open-decks` edge function. Bebas Neue + Inter.
+
+import { useEffect, useMemo, useState } from "react";
+import { buildMonthGrid, ymd } from "@/lib/calendarGrid";
+import {
+  loadOpenDecksCalendar,
+  submitOpenDeckSignup,
+  type OpenDecksCalendar,
+  type OpenDeckDate,
+} from "@/lib/db/openDecks";
+
+const GENRES = [
+  "House", "Techno", "Disco", "Garage", "DnB", "Jungle", "Dubstep",
+  "Hip-Hop", "R&B", "Funk", "Soul", "Jazz", "Afrobeat", "Amapiano",
+  "Latin", "Dub", "Reggae", "Dancehall", "Breaks", "Ambient", "Trance",
+  "Electro", "Indie", "Rock", "Pop", "Bass", "Minimal", "Edits",
+];
+const MONTHS = ["January", "February", "March", "April", "May", "June", "July", "August", "September", "October", "November", "December"];
+const WEEKDAYS = ["Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun"];
+
+const inputCls =
+  "w-full rounded-lg border border-cream/25 bg-ink/60 px-3.5 py-3 text-base text-cream placeholder:text-cream/35 focus:border-plonkTeal focus:outline-none";
+
+function fmtLong(iso: string) {
+  const d = new Date(iso + "T00:00:00Z");
+  const wd = ["Sunday", "Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday"][d.getUTCDay()];
+  return `${wd} ${d.getUTCDate()} ${MONTHS[d.getUTCMonth()].slice(0, 3)}`;
+}
+
+export default function OpenDecksPage() {
+  const [cal, setCal] = useState<OpenDecksCalendar | null>(null);
+  const [loadErr, setLoadErr] = useState("");
+  const [step, setStep] = useState<"date" | "slot" | "details">("date");
+  const [monthIdx, setMonthIdx] = useState(0);
+  const [date, setDate] = useState("");
+  const [slot, setSlot] = useState("");
+  const [f, setF] = useState({ name: "", phone: "", email: "", instagram: "" });
+  const [formats, setFormats] = useState<string[]>([]);   // "cdj" / "vinyl" — one or both
+  const [genres, setGenres] = useState<string[]>([]);
+  const [customGenre, setCustomGenre] = useState("");
+  const [sending, setSending] = useState(false);
+  const [done, setDone] = useState(false);
+  const [err, setErr] = useState("");
+
+  useEffect(() => {
+    loadOpenDecksCalendar().then(setCal).catch((e) => setLoadErr(e.message || "Couldn't load the calendar."));
+  }, []);
+
+  // date → its availability info.
+  const byDate = useMemo(() => {
+    const m = new Map<string, OpenDeckDate>();
+    for (const d of cal?.dates || []) m.set(d.date, d);
+    return m;
+  }, [cal]);
+
+  // The months that have any open-decks night, in order — the calendar pages
+  // through these (no empty months).
+  const months = useMemo(() => {
+    const seen = new Set<string>();
+    const out: { y: number; m: number }[] = [];
+    for (const d of cal?.dates || []) {
+      const dt = new Date(d.date + "T00:00:00Z");
+      const key = `${dt.getUTCFullYear()}-${dt.getUTCMonth()}`;
+      if (!seen.has(key)) { seen.add(key); out.push({ y: dt.getUTCFullYear(), m: dt.getUTCMonth() }); }
+    }
+    return out;
+  }, [cal]);
+
+  const cur = months[Math.min(monthIdx, Math.max(0, months.length - 1))];
+  const selectedDate = date ? byDate.get(date) || null : null;
+  const slotLabel = cal?.slots.find((s) => s.start === slot)?.label || "";
+
+  function pickDate(iso: string) {
+    const info = byDate.get(iso);
+    if (!info || info.closed || info.full) return;
+    setDate(iso); setSlot(""); setErr(""); setStep("slot");
+  }
+  function pickSlot(s: string) { setSlot(s); setErr(""); setStep("details"); }
+
+  function toggleGenre(g: string) {
+    setGenres((prev) => prev.includes(g) ? prev.filter((x) => x !== g) : prev.length >= 3 ? prev : [...prev, g]);
+  }
+  function addCustom() {
+    const g = customGenre.trim();
+    if (!g || genres.length >= 3 || genres.some((x) => x.toLowerCase() === g.toLowerCase())) { setCustomGenre(""); return; }
+    setGenres((prev) => [...prev, g]); setCustomGenre("");
+  }
+
+  const canSubmit = date && slot && f.name.trim() && f.phone.trim() && f.email.trim() && genres.length === 3 && formats.length > 0;
+
+  async function submit() {
+    setErr("");
+    if (!canSubmit) {
+      setErr(genres.length !== 3 ? "Please pick exactly 3 genres." : formats.length === 0 ? "Please choose CDJs/USB, vinyl, or both." : "Please fill in your name, phone and email.");
+      return;
+    }
+    setSending(true);
+    try {
+      await submitOpenDeckSignup({
+        date, slot, name: f.name.trim(), phone: f.phone.trim(), email: f.email.trim(),
+        genres, format: formats, instagram: f.instagram.trim() || undefined,
+      });
+      setDone(true);
+    } catch (e: any) {
+      setErr(e.message || "That didn't go through — try again.");
+      loadOpenDecksCalendar().then(setCal).catch(() => {});
+    } finally { setSending(false); }
+  }
+
+  function reset() {
+    setDone(false); setStep("date"); setDate(""); setSlot(""); setGenres([]); setCustomGenre("");
+    setF({ name: "", phone: "", email: "", instagram: "" }); setFormats([]);
+    loadOpenDecksCalendar().then(setCal).catch(() => {});
+  }
+
+  return (
+    <main className="min-h-screen bg-ink text-cream">
+      <div className="mx-auto max-w-xl px-4 py-12 sm:py-16">
+        <p className="font-display text-plonkPink text-xl tracking-[0.18em]">NO DICE · LONDON FIELDS</p>
+        <h1 className="font-display text-6xl leading-[0.9] mt-1 sm:text-7xl">WANNA PLAY<br />OPEN DECKS?</h1>
+        <p className="mt-4 text-base leading-relaxed text-creamDim">
+          Free 1-hour slots on our open-decks nights. Pick a night and a time, bring a USB or your records, and come play. We&apos;ll email you back to lock it in.
+        </p>
+
+        {loadErr && <div className="mt-8 rounded-lg border border-plonkPink/40 bg-plonkPink/10 px-4 py-3 text-sm">{loadErr}</div>}
+        {!cal && !loadErr && <div className="mt-10 text-creamDim">Loading the calendar…</div>}
+
+        {done ? (
+          <div className="mt-10 rounded-2xl border border-plonkTeal/40 bg-plonkTeal/5 p-6">
+            <h2 className="font-display text-4xl text-plonkTeal">YOU&apos;RE IN 🎧</h2>
+            <p className="mt-2 text-base text-cream">
+              Thanks — we&apos;ve got your open-decks slot for <strong>{fmtLong(date)}</strong> at <strong>{slotLabel}</strong>. We&apos;ll be in touch. See you on the decks.
+            </p>
+            <button onClick={reset} className="mt-5 rounded-lg border border-cream/25 px-4 py-2.5 text-sm hover:border-cream/60">Sign up for another slot</button>
+          </div>
+        ) : cal && months.length === 0 && !loadErr ? (
+          <div className="mt-10 rounded-lg border border-cream/15 bg-cream/5 px-4 py-6 text-creamDim">
+            No open-decks dates are free right now — check back soon.
+          </div>
+        ) : cal ? (
+          <>
+            {/* STEP 1 — calendar */}
+            {step === "date" && cur && (
+              <section className="mt-10">
+                <div className="flex items-center justify-between">
+                  <h2 className="font-display text-3xl tracking-wide">PICK A NIGHT</h2>
+                  <div className="flex items-center gap-2">
+                    <button aria-label="Previous month" disabled={monthIdx <= 0} onClick={() => setMonthIdx((i) => Math.max(0, i - 1))}
+                      className="rounded-full border border-cream/25 w-9 h-9 text-lg leading-none disabled:opacity-30 hover:border-cream/60">‹</button>
+                    <button aria-label="Next month" disabled={monthIdx >= months.length - 1} onClick={() => setMonthIdx((i) => Math.min(months.length - 1, i + 1))}
+                      className="rounded-full border border-cream/25 w-9 h-9 text-lg leading-none disabled:opacity-30 hover:border-cream/60">›</button>
+                  </div>
+                </div>
+                <p className="mt-2 font-display text-2xl text-creamDim">{MONTHS[cur.m]} {cur.y}</p>
+
+                <div className="mt-3 grid grid-cols-7 gap-1.5 text-center">
+                  {WEEKDAYS.map((w) => <div key={w} className="text-[11px] uppercase tracking-wide text-cream/40 pb-1">{w}</div>)}
+                  {buildMonthGrid(cur.y, cur.m).map((day, i) => {
+                    if (day == null) return <div key={i} />;
+                    const iso = ymd(cur.y, cur.m, day);
+                    const info = byDate.get(iso);
+                    const open = info && !info.closed && !info.full;
+                    const booked = info && info.closed;
+                    const full = info && info.full;
+                    return (
+                      <button
+                        key={i}
+                        disabled={!open}
+                        onClick={() => pickDate(iso)}
+                        title={booked ? "DJ night booked" : full ? "Fully booked" : open ? "Open decks — tap to sign up" : ""}
+                        className={`aspect-square rounded-lg flex flex-col items-center justify-center text-base transition ${
+                          open ? "border border-plonkPink/50 bg-plonkPink/10 text-cream hover:border-plonkPink hover:bg-plonkPink/20 font-semibold"
+                          : booked || full ? "border border-cream/10 bg-cream/[0.03] text-cream/30"
+                          : "text-cream/20"}`}
+                      >
+                        {day}
+                        {open && <span className="mt-0.5 h-1 w-1 rounded-full bg-plonkPink" />}
+                      </button>
+                    );
+                  })}
+                </div>
+                <p className="mt-3 text-xs text-creamDim">Highlighted nights have free open-decks slots. Dim nights are booked or full.</p>
+              </section>
+            )}
+
+            {/* STEP 2 — time slots */}
+            {step === "slot" && selectedDate && (
+              <section className="mt-10">
+                <button onClick={() => { setStep("date"); }} className="text-sm text-creamDim hover:text-cream">‹ Back to the calendar</button>
+                <h2 className="mt-3 font-display text-3xl tracking-wide">PICK A TIME</h2>
+                <p className="mt-1 text-sm text-creamDim">{fmtLong(date)} · one-hour sets</p>
+                <div className="mt-4 grid grid-cols-2 gap-3">
+                  {selectedDate.slots.map((s) => (
+                    <button key={s.start} disabled={s.taken} onClick={() => pickSlot(s.start)}
+                      className={`rounded-xl border px-3 py-5 font-display text-3xl transition ${s.taken ? "cursor-not-allowed border-cream/10 bg-cream/[0.03] text-cream/25" : "border-cream/25 bg-cream/5 hover:border-plonkPink hover:bg-plonkPink/15"}`}>
+                      {s.label}
+                      {s.taken && <span className="block text-[10px] font-body tracking-wide">TAKEN</span>}
+                    </button>
+                  ))}
+                </div>
+              </section>
+            )}
+
+            {/* STEP 3 — details */}
+            {step === "details" && selectedDate && slot && (
+              <section className="mt-10">
+                <button onClick={() => { setStep("slot"); }} className="text-sm text-creamDim hover:text-cream">‹ Back to times</button>
+                <h2 className="mt-3 font-display text-3xl tracking-wide">YOUR DETAILS</h2>
+                <p className="mt-1 text-sm text-creamDim">{fmtLong(date)} · {slotLabel}</p>
+                <div className="mt-4 space-y-4">
+                  <div>
+                    <label className="mb-1.5 block text-xs uppercase tracking-[0.12em] text-creamDim">DJ name</label>
+                    <input className={inputCls} value={f.name} onChange={(e) => setF((p) => ({ ...p, name: e.target.value }))} placeholder="What should we put on the poster?" maxLength={80} />
+                  </div>
+                  <div className="grid gap-4 sm:grid-cols-2">
+                    <div>
+                      <label className="mb-1.5 block text-xs uppercase tracking-[0.12em] text-creamDim">Phone</label>
+                      <input className={inputCls} value={f.phone} onChange={(e) => setF((p) => ({ ...p, phone: e.target.value }))} inputMode="tel" placeholder="07…" maxLength={40} />
+                    </div>
+                    <div>
+                      <label className="mb-1.5 block text-xs uppercase tracking-[0.12em] text-creamDim">Email</label>
+                      <input className={inputCls} value={f.email} onChange={(e) => setF((p) => ({ ...p, email: e.target.value }))} inputMode="email" placeholder="you@email.com" maxLength={120} />
+                    </div>
+                  </div>
+
+                  <div>
+                    <label className="mb-1.5 block text-xs uppercase tracking-[0.12em] text-creamDim">
+                      Your 3 genres <span className="text-cream/40">· {genres.length}/3</span>
+                    </label>
+                    <div className="flex flex-wrap gap-2">
+                      {GENRES.map((g) => {
+                        const on = genres.includes(g);
+                        const dim = !on && genres.length >= 3;
+                        return (
+                          <button key={g} type="button" onClick={() => toggleGenre(g)} disabled={dim}
+                            className={`rounded-full border px-3 py-1.5 text-sm transition ${on ? "border-plonkTeal bg-plonkTeal/20 text-cream" : dim ? "cursor-not-allowed border-cream/10 text-cream/25" : "border-cream/25 hover:border-cream/60"}`}>
+                            {g}
+                          </button>
+                        );
+                      })}
+                    </div>
+                    <div className="mt-2 flex gap-2">
+                      <input className={inputCls + " flex-1"} value={customGenre} onChange={(e) => setCustomGenre(e.target.value)}
+                        onKeyDown={(e) => { if (e.key === "Enter") { e.preventDefault(); addCustom(); } }}
+                        placeholder="Something else? Type it and add" maxLength={24} disabled={genres.length >= 3} />
+                      <button type="button" onClick={addCustom} disabled={genres.length >= 3 || !customGenre.trim()}
+                        className="rounded-lg border border-cream/25 px-4 text-sm hover:border-cream/60 disabled:opacity-40">Add</button>
+                    </div>
+                    {genres.some((g) => !GENRES.includes(g)) && (
+                      <div className="mt-2 flex flex-wrap gap-2">
+                        {genres.filter((g) => !GENRES.includes(g)).map((g) => (
+                          <button key={g} type="button" onClick={() => toggleGenre(g)} className="rounded-full border border-plonkTeal bg-plonkTeal/20 px-3 py-1.5 text-sm">{g} ✕</button>
+                        ))}
+                      </div>
+                    )}
+                  </div>
+
+                  <div>
+                    <label className="mb-1.5 block text-xs uppercase tracking-[0.12em] text-creamDim">Playing on <span className="text-cream/40">· pick one or both</span></label>
+                    <div className="flex gap-2">
+                      {([["cdj", "CDJs / USB"], ["vinyl", "Vinyl"]] as const).map(([k, lbl]) => {
+                        const on = formats.includes(k);
+                        return (
+                          <button key={k} type="button" onClick={() => setFormats((p) => p.includes(k) ? p.filter((x) => x !== k) : [...p, k])}
+                            className={`flex-1 rounded-lg border px-4 py-3 font-display text-2xl transition ${on ? "border-plonkPink bg-plonkPink/15" : "border-cream/25 hover:border-cream/60"}`}>
+                            {on ? "✓ " : ""}{lbl}
+                          </button>
+                        );
+                      })}
+                    </div>
+                  </div>
+
+                  <div>
+                    <label className="mb-1.5 block text-xs uppercase tracking-[0.12em] text-creamDim">Instagram <span className="text-cream/40">· optional</span></label>
+                    <input className={inputCls} value={f.instagram} onChange={(e) => setF((p) => ({ ...p, instagram: e.target.value }))} placeholder="@you or a link" maxLength={200} />
+                  </div>
+
+                  {err && <div className="rounded-lg border border-plonkPink/40 bg-plonkPink/10 px-4 py-3 text-sm">{err}</div>}
+
+                  <button onClick={submit} disabled={sending}
+                    className="w-full rounded-xl bg-plonkPink py-4 font-display text-3xl tracking-wide text-cream transition hover:brightness-110 disabled:opacity-60">
+                    {sending ? "SENDING…" : "SIGN ME UP"}
+                  </button>
+                </div>
+              </section>
+            )}
+          </>
+        ) : null}
+      </div>
+    </main>
+  );
+}

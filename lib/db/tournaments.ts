@@ -42,6 +42,13 @@ export type DbTournament = {
   /** True = customers can actually pay to enter. False = display
    *  only, e.g. GRAND FINAL which is invitation-only. */
   bookable: boolean;
+  /** SPECIAL EVENTS (founder rule, 18 Oct 2026): a special event is
+   *  presented by its POSTER and its button goes to the organiser's own
+   *  page — these nights are run or ticketed elsewhere (Macmillan's
+   *  fundraising page, Ball Breakers on clyx, Pocket Society on Ticket
+   *  Tailor), so the inline booking form would be wrong. */
+  poster_url: string | null;
+  external_link: string | null;
   tournament_type: TournamentType;
   created_at: string;
   updated_at: string;
@@ -104,7 +111,7 @@ export async function loadOpenTournaments(): Promise<DbTournament[]> {
       sb
         .from("events")
         .select(
-          "id, name, description, event_date, start_time, category, max_attendees, bookable, registration_open, paid_entries_count, created_at, updated_at",
+          "id, name, description, event_date, start_time, category, max_attendees, bookable, registration_open, paid_entries_count, poster_url, external_link, created_at, updated_at",
         )
         .in("category", [
           "pool_tournament_doubles",
@@ -149,6 +156,8 @@ export async function loadOpenTournaments(): Promise<DbTournament[]> {
     bookable: boolean;
     registration_open: boolean;
     paid_entries_count: number;
+    poster_url: string | null;
+    external_link: string | null;
     created_at: string;
     updated_at: string;
   }>).map<DbTournament>((e) => ({
@@ -162,6 +171,8 @@ export async function loadOpenTournaments(): Promise<DbTournament[]> {
     entry_fee_pence: firstTicket.get(e.id) ?? 0,
     registration_open: e.registration_open,
     bookable: e.bookable,
+    poster_url: e.poster_url,
+    external_link: e.external_link,
     tournament_type:
       e.category === "pool_tournament_doubles"
         ? "doubles"
@@ -313,4 +324,66 @@ export async function setTournamentEntryStatus(
     .single();
   if (error) throw error;
   return data as DbTournamentEntry;
+}
+
+// ── Skill tiers on a single event ────────────────────────────────────────────
+// A big event can be split into several bookable slots that share one public
+// card: the Macmillan 12-hour marathon runs Amateur / Intermediate / Pro, four
+// hours each, 16 players apiece. Each tier is its own events row (so it has its
+// own cap, start time and paid count, and the checkout validates it unchanged)
+// whose `recurrence_parent_id` points at the event customers actually see, and
+// whose `show_on_pool_schedule` is false so it never appears as a card of its
+// own. In the engine each tier is a separate competition with the same id.
+export type EventTier = {
+  id: string;
+  name: string;
+  start_time: string | null;
+  end_time: string | null;
+  max_attendees: number | null;
+  paid_entries_count: number;
+  registration_open: boolean;
+  spotsLeft: number | null;
+  full: boolean;
+};
+
+export async function loadEventTiers(parentId: string): Promise<EventTier[]> {
+  // `recurrence_parent_id` is ALSO how a weekly series links its occurrences
+  // back to the first one, so a plain children-of-parent query would return
+  // every future CUE / Happy Mondays / Ball Breakers date as a bogus "session"
+  // (15 identical "CUE · 19:00–22:30" tiles was the 28 Oct booking outage).
+  // A genuine skill-tier runs on the SAME DAY as its public card (Macmillan:
+  // Beginner / Intermediate / Advanced on one date); a weekly recurrence never
+  // does. So pin the lookup to the parent's own event_date.
+  const { data: parent } = await supabase()
+    .from("events")
+    .select("event_date")
+    .eq("id", parentId)
+    .maybeSingle();
+  const parentDate = parent?.event_date as string | undefined;
+  if (!parentDate) return [];
+  const { data, error } = await supabase()
+    .from("events")
+    .select(
+      "id, name, start_time, end_time, max_attendees, paid_entries_count, registration_open",
+    )
+    .eq("recurrence_parent_id", parentId)
+    .eq("event_date", parentDate)
+    .order("start_time", { ascending: true });
+  // A tier lookup must never block a booking — fall back to "no tiers".
+  if (error) return [];
+  return (data ?? []).map((e) => {
+    const cap = e.max_attendees ?? null;
+    const left = cap == null ? null : Math.max(0, cap - (e.paid_entries_count ?? 0));
+    return {
+      id: e.id as string,
+      name: e.name as string,
+      start_time: e.start_time as string | null,
+      end_time: e.end_time as string | null,
+      max_attendees: cap,
+      paid_entries_count: (e.paid_entries_count ?? 0) as number,
+      registration_open: Boolean(e.registration_open),
+      spotsLeft: left,
+      full: left === 0 || !e.registration_open,
+    };
+  });
 }

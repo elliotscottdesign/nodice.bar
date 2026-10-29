@@ -22,10 +22,7 @@ import {
 //   pool       /book/pool   — 30-min slots on the hour, pool tables
 //   table      /book/table  — 15-min granularity, restaurant tables
 //   golf       (external)   — Plonk Golf's own booking site
-// World Cup archived 2026-07-23 — kept in the ItemId union as dormant
-// scaffolding so the routing switch below still compiles, but dropped
-// from the ITEMS picker so customers no longer see it as an option.
-type ItemId = "pool" | "table" | "worldcup" | "golf";
+type ItemId = "pool" | "table" | "golf";
 
 const ITEMS: { id: ItemId; label: string; description: string }[] = [
   { id: "pool",     label: "Pool table",   description: "30 min slots · on the hour" },
@@ -73,8 +70,8 @@ export default function HeroBookingWidget() {
   // Drives the calendar grey-outs (closed days), the date-overrides
   // (private hire), and the max party size in the WHO picker.
   // Item IDs map directly to bookable_products.id ('pool', 'table').
-  // World Cup + golf don't have config rows yet — they fall through
-  // to defaults.
+  // Golf doesn't have a config row (external booking) — it falls
+  // through to defaults.
   const [cfg, setCfg] = useState<BookableProductConfig | null>(null);
   useEffect(() => {
     setCfg(null);
@@ -125,11 +122,12 @@ export default function HeroBookingWidget() {
     if (size > 0 && size > maxPartySize) setSize(maxPartySize);
     if (size > 0 && size < minPartySize) setSize(minPartySize);
   }, [size, maxPartySize, minPartySize]);
-  // Trim the default 1..12 list down to the product's range. Keeps the
-  // hand-picked "1,2,3,4,5,6,7,8,10,12" choices (no 9/11) for table
-  // bookings, but caps at 8 for pool.
+  // Trim the default list down to the product's range. Keeps the
+  // hand-picked "1..8,10,12" singles then even jumps to 20 (no odd
+  // numbers past 8 — a table "for 13" is just the 14 layout) so big
+  // groups can book up to the table max of 20; pool still caps at 8.
   const partySizeOptions = useMemo(() => {
-    const base = [1, 2, 3, 4, 5, 6, 7, 8, 10, 12];
+    const base = [1, 2, 3, 4, 5, 6, 7, 8, 10, 12, 14, 16, 18, 20];
     return base.filter((n) => n >= minPartySize && n <= maxPartySize);
   }, [minPartySize, maxPartySize]);
 
@@ -150,14 +148,13 @@ export default function HeroBookingWidget() {
       return;
     }
 
-    // Build the query string. World Cup uses date only (no party-size
-    // checkout flow yet); pool and table take both.
+    // Build the query string — pool and table take date + party size.
     const params = new URLSearchParams();
     if (date) params.set("date", date);
-    if (size > 0 && chosen !== "worldcup") params.set("size", String(size));
+    if (size > 0) params.set("size", String(size));
     const qs = params.toString();
 
-    const path = chosen === "worldcup" ? "/worldcup" : `/book/${chosen}`;
+    const path = `/book/${chosen}`;
     router.push(`${path}${qs ? `?${qs}` : ""}`);
   }
 

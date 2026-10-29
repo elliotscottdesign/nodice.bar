@@ -36,16 +36,13 @@ export type BlockedDate = {
 };
 
 // Maps each blocking category to where the customer should book
-// instead. world_cup matches live on /worldcup; everything else
-// (food residencies, future categories) routes to /events where
-// the calendar shows the poster + any external link.
+// instead. Food residencies and other categories route to /events
+// where the calendar shows the poster + any external link.
 function redirectFor(category: string): {
   href: string;
   label: string;
 } {
   switch (category) {
-    case "world_cup":
-      return { href: "/worldcup", label: "Book a match table" };
     case "food_event":
       return { href: "/events", label: "See what's on" };
     default:

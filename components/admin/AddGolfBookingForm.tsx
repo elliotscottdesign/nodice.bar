@@ -2,6 +2,8 @@
 
 import { useState } from "react";
 import { AdminCard } from "@/components/admin/AdminCard";
+import TimeField from "@/components/admin/TimeField";
+import DatePickerInput from "@/components/admin/DatePickerInput";
 import { createManualGolfBooking } from "@/lib/db/bookings";
 
 // =============================================================
@@ -25,7 +27,8 @@ const inputCls =
 const GOLF_TICKETS: { name: string; label: string; hint: string }[] = [
   { name: "Adult round", label: "Adult", hint: "£7" },
   { name: "Child round", label: "Child", hint: "£7" },
-  { name: "Drink, Golf & Game", label: "Drink · Golf · Game", hint: "£12" },
+  { name: "Golf + 4 Tokens", label: "Golf + 4 Tokens", hint: "£10" },
+  { name: "Drink, Golf & Game", label: "Drink · Golf · Game", hint: "£14" },
 ];
 
 export default function AddGolfBookingForm({
@@ -53,6 +56,7 @@ export default function AddGolfBookingForm({
   const [name, setName] = useState("");
   const [email, setEmail] = useState("");
   const [phone, setPhone] = useState("");
+  const [notes, setNotes] = useState("");
   const [settlement, setSettlement] = useState<"paid" | "comp">("paid");
 
   const totalPlayers = Object.values(qty).reduce((a, b) => a + b, 0);
@@ -67,6 +71,7 @@ export default function AddGolfBookingForm({
     setName("");
     setEmail("");
     setPhone("");
+    setNotes("");
     setSettlement("paid");
     setErr("");
     setOk("");
@@ -97,6 +102,7 @@ export default function AddGolfBookingForm({
           quantity: qty[t.name] ?? 0,
         })),
         comp: settlement === "comp",
+        notes: notes.trim() || null,
       });
       setOk(
         `Golf booking added for ${name.trim()} — ${totalPlayers} player${
@@ -134,11 +140,9 @@ export default function AddGolfBookingForm({
             <label className="text-[10px] font-bold uppercase tracking-widest text-cream/55">
               Date
             </label>
-            <input
-              type="date"
-              required
+            <DatePickerInput
               value={date}
-              onChange={(e) => setDate(e.target.value)}
+              onChange={setDate}
               className={inputCls + " mt-1"}
             />
           </div>
@@ -146,11 +150,9 @@ export default function AddGolfBookingForm({
             <label className="text-[10px] font-bold uppercase tracking-widest text-cream/55">
               Tee time
             </label>
-            <input
-              type="time"
-              required
+            <TimeField
               value={time}
-              onChange={(e) => setTime(e.target.value)}
+              onChange={setTime}
               className={inputCls + " mt-1"}
             />
           </div>
@@ -270,6 +272,20 @@ export default function AddGolfBookingForm({
               </span>
             </button>
           </div>
+        </div>
+
+        <div>
+          <label className="text-[10px] font-bold uppercase tracking-widest text-cream/55">
+            Notes (optional)
+          </label>
+          <textarea
+            value={notes}
+            onChange={(e) => setNotes(e.target.value.slice(0, 500))}
+            rows={2}
+            maxLength={500}
+            placeholder="Occasion, accessibility, special request…"
+            className={inputCls + " mt-1 resize-y"}
+          />
         </div>
 
         {err && (

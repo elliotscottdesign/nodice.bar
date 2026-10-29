@@ -60,6 +60,12 @@ const SUPABASE_URL =
 const SUPABASE_ANON_KEY = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY ?? "";
 const RESERVATION_FN_URL = `${SUPABASE_URL}/functions/v1/create-table-reservation`;
 
+// Biggest table group we take online (founder 2026-10-13). Matches the
+// `table` product's max_party_size in the DB and the create-table-
+// reservation edge function's MAX_PARTY_SIZE guard. Bigger groups go
+// through private hire. Seeded from the hero widget's ?size= param.
+const MAX_PARTY_SIZE = 20;
+
 function todayIso(): string {
   const d = new Date();
   const y = d.getFullYear();
@@ -87,7 +93,7 @@ function TableBookingPageInner() {
   const [date, setDate] = useState(params.get("date") || todayIso());
   const [time, setTime] = useState("");
   const [partySize, setPartySize] = useState<number>(
-    Math.max(1, Math.min(12, parseInt(params.get("size") || "2", 10) || 2)),
+    Math.max(1, Math.min(MAX_PARTY_SIZE, parseInt(params.get("size") || "2", 10) || 2)),
   );
   const [duration, setDuration] = useState<number>(90); // sensible default until cfg lands
   // "All night" (founder request 2026-09-08): keep the table from the
@@ -333,12 +339,15 @@ function TableBookingPageInner() {
             {bookingStatus === "pending" ? "Request received" : "You're booked"}
           </div>
           <h1 className="mt-3 font-display text-4xl uppercase tracking-wider">
-            {bookingStatus === "pending" ? "Got it" : "See you soon"}
+            {bookingStatus === "pending" ? "With our team" : "See you soon"}
           </h1>
           {bookingStatus === "pending" ? (
             <p className="mt-4 text-base text-cream/75">
-              We've got your request for {time} on {date} — it's a busy slot,
-              so we'll confirm by email to <strong>{email}</strong> shortly.
+              Thanks — your request for {time} on {date} has gone through to our
+              office. It's a busy day, so to make sure we can look after you
+              properly a member of the team will be in touch at{" "}
+              <strong>{email}</strong> shortly to confirm. Nothing's held just
+              yet — we'll sort the details with you first.
             </p>
           ) : (
             <p className="mt-4 text-base text-cream/75">
@@ -431,11 +440,9 @@ function TableBookingPageInner() {
                   {blockingEvent.event_name}
                 </h3>
                 <p className="mt-3 max-w-prose text-sm text-cream/75">
-                  {blockingEvent.category === "world_cup"
-                    ? "We're showing the match — every table that night is reserved for ticket-holders. Book a match table instead, or pick a different night."
-                    : blockingEvent.category === "food_event"
-                      ? "We've got a food residency on that night — the kitchen team uses the dining tables for guests. See what's on, or pick a different night."
-                      : "We've got something on that night that needs the dining tables. See what's on, or pick a different night."}
+                  {blockingEvent.category === "food_event"
+                    ? "We've got a food residency on that night — the kitchen team uses the dining tables for guests. See what's on, or pick a different night."
+                    : "We've got something on that night that needs the dining tables. See what's on, or pick a different night."}
                 </p>
                 <div className="mt-5 flex flex-wrap gap-3">
                   <Link

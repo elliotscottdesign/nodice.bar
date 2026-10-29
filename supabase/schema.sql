@@ -212,6 +212,7 @@ create table if not exists public.bookings (
   customer_phone     text,
   heard_from         text,
   marketing_opt_in   boolean not null default false,
+  notes              text,                                                  -- optional customer request (occasion / accessibility / special request)
   party_size         int  not null check (party_size > 0),
   subtotal_pence     int  not null check (subtotal_pence >= 0),
   discount_pence     int  not null default 0,

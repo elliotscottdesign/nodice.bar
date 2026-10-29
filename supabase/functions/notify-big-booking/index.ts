@@ -102,15 +102,24 @@ function renderAlertHtml(r: {
   duration_minutes: number | null;
   notes: string | null;
   heard_from: string | null;
+  status?: string | null;
 }): string {
   const big = (r.party_size ?? 0) >= BIG_THRESHOLD;
+  // A table booking saved as 'pending' is an over-capacity hold the
+  // customer was NOT auto-confirmed on — the office needs to review it
+  // and come back to them. Louder than BIG; it's an action, not an FYI.
+  const review = r.status === "pending";
   const kindLabel = r.kind === "pool" ? "Pool table" : "Table";
   const kindEmoji = r.kind === "pool" ? "🎱" : "🍽";
   const durationLine = r.duration_minutes ? `${r.duration_minutes} minutes` : "—";
-  const banner = big
+  const banner = review
+    ? `<p style="font-size:11px;letter-spacing:0.22em;text-transform:uppercase;color:#F59E0B;margin:0 0 12px;font-weight:700">⚠ Office review needed · busy day · not yet confirmed</p>`
+    : big
     ? `<p style="font-size:11px;letter-spacing:0.22em;text-transform:uppercase;color:#DA1B33;margin:0 0 12px;font-weight:700">Big booking · action recommended</p>`
     : `<p style="font-size:11px;letter-spacing:0.22em;text-transform:uppercase;color:#2DD4BF;margin:0 0 12px;font-weight:700">New booking from the website</p>`;
-  const intro = big
+  const intro = review
+    ? `This ${r.party_size}-cover ${esc(kindLabel)} booking would push the day past capacity, so it was NOT auto-confirmed. The customer has been told we'll be in touch. Confirm or cancel it in /admin/table-reservations → Pending.`
+    : big
     ? `A ${r.party_size}-cover ${esc(kindLabel)} booking just landed. Kitchen + management heads-up.`
     : `A ${esc(kindLabel)} booking just came in through the website.`;
   return `<div style="font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Helvetica,Arial,sans-serif;background:#0c0c0c;color:#f5efe3;padding:28px;border-radius:14px;max-width:560px;margin:auto;border:1px solid rgba(245,239,227,0.12)">
@@ -150,10 +159,13 @@ function renderAlertText(r: {
   duration_minutes: number | null;
   notes: string | null;
   heard_from: string | null;
+  status?: string | null;
 }): string {
   const kindLabel = r.kind === "pool" ? "Pool table" : "Table";
   return [
-    (r.party_size ?? 0) >= BIG_THRESHOLD
+    r.status === "pending"
+      ? `⚠ OFFICE REVIEW NEEDED · BUSY DAY · NOT YET CONFIRMED\n(Confirm or cancel in /admin/table-reservations → Pending)`
+      : (r.party_size ?? 0) >= BIG_THRESHOLD
       ? `BIG BOOKING · ACTION RECOMMENDED`
       : `NEW BOOKING FROM THE WEBSITE`,
     ``,
@@ -220,8 +232,11 @@ Deno.serve(async (req) => {
   // Every web reservation alerts the founder (2026-08-26 request) —
   // 12+ parties get the louder BIG subject + styling.
   const big = (r.party_size ?? 0) >= BIG_THRESHOLD;
+  const review = r.status === "pending";
   const kindLabel = r.kind === "pool" ? "Pool" : "Table";
-  const subject = big
+  const subject = review
+    ? `⚠ Office review · ${r.party_size}-cover ${kindLabel} · busy day · ${formatDate(r.reservation_date)}`
+    : big
     ? `🔔 BIG booking · ${r.party_size}-cover ${kindLabel} · ${formatDate(r.reservation_date)}`
     : `🔔 New ${kindLabel.toLowerCase()} booking · ${r.party_size} covers · ${formatDate(r.reservation_date)}`;
 
