@@ -1,34 +1,27 @@
 "use client";
 
-import { useRef, useState, type UIEvent } from "react";
-import Image from "next/image";
+import { useEffect, useState } from "react";
 import PageHero from "@/components/PageHero";
-import ManageGalleryLink from "@/components/ManageGalleryLink";
-import { useContent, useGallery } from "@/lib/content";
+import { useContent } from "@/lib/content";
+import { loadBarMenu, type BarMenu, type MenuSection } from "@/lib/db/barMenu";
 
-// /bar — single purpose: show the menu as a swipeable page slider.
-//
-// CMS surface (everything below is editable from /admin):
-//   • text       — useContent("bar.eyebrow"|"bar.title"|"bar.intro")
-//   • hero img   — gallery key "hero.bar"           (upload 2+ for a slider)
-//   • menu pages — gallery key "bar.menu_pages"     (the menu itself,
-//                                                    one image per page)
-//
-// Fallback images point at existing public/images/* shots so the page
-// is never empty before the founder has uploaded anything.
+// /bar — the LIVE A4 menu (founder 29 Oct 2026). Nothing is uploaded any more:
+// the drinks come from the till (via the public drinks-menu feed), the food
+// from the kitchen menu, and the day's deal + Happy Hour from the calendar, so
+// a price change or a new deal shows here automatically. Laid out like the A4
+// sheet — sections flow into columns on desktop, stack on a phone — with the
+// house yellow on every section header.
 
-const FALLBACK_HERO = [
-  "",
-];
+// The "same yellow as the header" the founder means — the warm No Dice gold.
+const MENU_YELLOW = "#E8C547";
 
-// Three placeholder pages so the slider has something to render before
-// the founder uploads the real menu artwork. Swap by uploading to the
-// bar.menu_pages gallery — that wins automatically.
-const FALLBACK_MENU_PAGES: { src: string; alt: string | null }[] = [
-  { src: "", alt: "Menu — page 1" },
-  { src: "",    alt: "Menu — page 2" },
-  { src: "",                     alt: "Menu — page 3" },
-];
+// Split a deal/happy-hour description ("PINT £5 / WINE £5 …") into tidy lines.
+function dealLines(desc: string): string[] {
+  return desc
+    .split(/\n|·|•|\s\/\s/g)
+    .map((s) => s.trim())
+    .filter(Boolean);
+}
 
 export default function BarPage() {
   const eyebrow = useContent("bar.eyebrow", "Drinks · Cocktails · Pints");
@@ -38,7 +31,24 @@ export default function BarPage() {
     "Cask + craft on rotation, classic cocktails poured properly, low-intervention wines and soft drinks done right.",
   );
 
-  const menuPages = useGallery("bar.menu_pages", FALLBACK_MENU_PAGES);
+  const [menu, setMenu] = useState<BarMenu | null>(null);
+  const [loading, setLoading] = useState(true);
+
+  useEffect(() => {
+    let alive = true;
+    loadBarMenu()
+      .then((m) => {
+        if (!alive) return;
+        setMenu(m);
+        setLoading(false);
+      })
+      .catch(() => {
+        if (alive) setLoading(false);
+      });
+    return () => {
+      alive = false;
+    };
+  }, []);
 
   return (
     <main>
@@ -46,134 +56,163 @@ export default function BarPage() {
         eyebrow={eyebrow}
         title={title}
         intro={intro}
-        image={FALLBACK_HERO}
+        image={[""]}
         eyebrowKey="bar.eyebrow"
         titleKey="bar.title"
         introKey="bar.intro"
         sliderKey="hero.bar"
       />
 
-      {/* MENU SLIDER — the page IS the menu. Horizontal scroll-snap with
-          prev/next + dots. Founder uploads each menu page as an image to
-          the bar.menu_pages gallery (one upload = one page). */}
-      <section className="relative px-6 pt-16 pb-12">
-        <MenuSlider pages={menuPages} />
-        <ManageGalleryLink
-          galleryKey="bar.menu_pages"
-          label="Manage menu pages"
-        />
-      </section>
+      <section className="px-6 pb-20 pt-14">
+        <div className="mx-auto max-w-5xl">
+          {loading ? (
+            <p className="py-16 text-center text-sm text-cream/55">
+              Loading the menu…
+            </p>
+          ) : !menu ? (
+            <p className="py-16 text-center text-sm text-cream/55">
+              Menu's having a moment — try again in a sec.
+            </p>
+          ) : (
+            <>
+              {/* Today's deal + Happy Hour — the moving parts, up top */}
+              <DealStrip deal={menu.todayDeal} happyHour={menu.happyHour} />
 
-      {/* No duplicate "manage hero images" button here — PageHero
-          already mounts one above the hero slider for the same
-          hero.bar gallery key. Keeping just the menu pages button
-          (rendered inside the menu section above). */}
+              {/* DRINKS — flows into columns like the A4 sheet */}
+              {menu.drinks.length > 0 && (
+                <>
+                  <MenuHeading>Drinks</MenuHeading>
+                  <div className="gap-x-10 sm:columns-2 lg:columns-3 [&>*]:mb-8 [&>*]:break-inside-avoid">
+                    {menu.drinks.map((s) => (
+                      <SectionBlock key={s.id} section={s} />
+                    ))}
+                  </div>
+                </>
+              )}
+
+              {/* FOOD — the A4 has the room, so the kitchen menu rides along */}
+              {menu.food.length > 0 && (
+                <>
+                  <MenuHeading>Kitchen · On A Roll</MenuHeading>
+                  <div className="gap-x-10 sm:columns-2 [&>*]:mb-8 [&>*]:break-inside-avoid">
+                    {menu.food.map((s) => (
+                      <SectionBlock key={s.id} section={s} />
+                    ))}
+                  </div>
+                </>
+              )}
+            </>
+          )}
+        </div>
+      </section>
     </main>
   );
 }
 
-// ──────────────────────────────────────────────────────────────────────
-// MenuSlider — horizontal scroll-snap carousel for the bar menu pages.
-// One image per page, full-width, portrait aspect. Prev/next arrows
-// scroll by one page; dots reflect the current page and can be clicked
-// to jump. Native scroll-snap means swipe works on mobile for free.
-// ──────────────────────────────────────────────────────────────────────
-function MenuSlider({
-  pages,
-}: {
-  // alt is optional to match the useGallery return shape — uploads
-  // without a caption come back as undefined, not null.
-  pages: { src: string; alt?: string | null }[];
-}) {
-  const scrollRef = useRef<HTMLDivElement | null>(null);
-  const [activeIdx, setActiveIdx] = useState(0);
-
-  // Inline scroll handler — React wires this up as a normal listener,
-  // no useEffect / addEventListener / cleanup needed. Recalc the active
-  // page on every scroll event (cheap: one rounding op).
-  function onScroll(e: UIEvent<HTMLDivElement>) {
-    const el = e.currentTarget;
-    setActiveIdx(Math.round(el.scrollLeft / el.clientWidth));
-  }
-
-  function jumpTo(idx: number) {
-    const el = scrollRef.current;
-    if (!el) return;
-    el.scrollTo({ left: idx * el.clientWidth, behavior: "smooth" });
-  }
-
-  if (pages.length === 0) return null;
-
+// A big yellow band that separates Drinks from Food.
+function MenuHeading({ children }: { children: React.ReactNode }) {
   return (
-    <div className="mx-auto max-w-3xl">
-      <div className="relative">
-        {/* Scrollable strip — one page per snap point. */}
+    <h2
+      className="mb-7 mt-4 border-b-2 pb-2 font-display text-3xl uppercase tracking-wider"
+      style={{ color: MENU_YELLOW, borderColor: MENU_YELLOW }}
+    >
+      {children}
+    </h2>
+  );
+}
+
+function DealStrip({
+  deal,
+  happyHour,
+}: {
+  deal: { name: string; description: string } | null;
+  happyHour: { name: string; description: string } | null;
+}) {
+  if (!deal && !happyHour) return null;
+  return (
+    <div className="mb-10 grid gap-4 sm:grid-cols-2">
+      {deal && (
         <div
-          ref={scrollRef}
-          onScroll={onScroll}
-          className="no-scrollbar flex snap-x snap-mandatory overflow-x-auto scroll-smooth"
+          className="rounded-2xl border bg-ink/40 p-5"
+          style={{ borderColor: `${MENU_YELLOW}66` }}
         >
-          {pages.map((p, i) => (
-            <div
-              key={`${p.src}-${i}`}
-              className="flex w-full shrink-0 snap-center justify-center"
-            >
-              <div className="relative aspect-[3/4] w-full overflow-hidden rounded-2xl bg-ink">
-                <Image
-                  src={p.src}
-                  alt={p.alt ?? `Menu page ${i + 1}`}
-                  fill
-                  sizes="(min-width: 768px) 720px, 100vw"
-                  className="object-contain"
-                />
-              </div>
-            </div>
-          ))}
-        </div>
-
-        {/* Prev arrow — disabled on the first page. */}
-        <button
-          type="button"
-          aria-label="Previous page"
-          onClick={() => jumpTo(Math.max(0, activeIdx - 1))}
-          disabled={activeIdx === 0}
-          className="absolute left-2 top-1/2 -translate-y-1/2 rounded-full bg-ink/70 p-2 text-cream backdrop-blur transition hover:bg-ink disabled:cursor-not-allowed disabled:opacity-30"
-        >
-          <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" aria-hidden>
-            <polyline points="15 18 9 12 15 6" />
-          </svg>
-        </button>
-
-        {/* Next arrow — disabled on the last page. */}
-        <button
-          type="button"
-          aria-label="Next page"
-          onClick={() => jumpTo(Math.min(pages.length - 1, activeIdx + 1))}
-          disabled={activeIdx === pages.length - 1}
-          className="absolute right-2 top-1/2 -translate-y-1/2 rounded-full bg-ink/70 p-2 text-cream backdrop-blur transition hover:bg-ink disabled:cursor-not-allowed disabled:opacity-30"
-        >
-          <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" aria-hidden>
-            <polyline points="9 18 15 12 9 6" />
-          </svg>
-        </button>
-      </div>
-
-      {/* Dot indicators — also clickable. Hidden if only one page. */}
-      {pages.length > 1 && (
-        <div className="mt-5 flex justify-center gap-2">
-          {pages.map((_, i) => (
-            <button
-              key={i}
-              type="button"
-              aria-label={`Go to page ${i + 1}`}
-              onClick={() => jumpTo(i)}
-              className={`h-2 rounded-full transition-all ${
-                i === activeIdx ? "w-8 bg-plonkPink" : "w-2 bg-cream/30 hover:bg-cream/50"
-              }`}
-            />
-          ))}
+          <p
+            className="text-xs font-bold uppercase tracking-[0.3em]"
+            style={{ color: MENU_YELLOW }}
+          >
+            Today's deal
+          </p>
+          <h3 className="mt-1 font-display text-2xl uppercase tracking-wide text-cream">
+            {deal.name}
+          </h3>
+          {deal.description && (
+            <p className="mt-2 text-sm leading-relaxed text-cream/70">
+              {deal.description}
+            </p>
+          )}
         </div>
       )}
+      {happyHour && (
+        <div
+          className="rounded-2xl border bg-ink/40 p-5"
+          style={{ borderColor: `${MENU_YELLOW}66` }}
+        >
+          <p
+            className="text-xs font-bold uppercase tracking-[0.3em]"
+            style={{ color: MENU_YELLOW }}
+          >
+            {happyHour.name}
+          </p>
+          <ul className="mt-2 flex flex-wrap gap-2">
+            {dealLines(happyHour.description).map((line) => (
+              <li
+                key={line}
+                className="rounded-full border border-cream/15 bg-ink/50 px-3 py-1 text-xs font-semibold uppercase tracking-wide text-cream"
+              >
+                {line}
+              </li>
+            ))}
+          </ul>
+        </div>
+      )}
+    </div>
+  );
+}
+
+// One menu section: a yellow title, an optional deal note, then its items.
+function SectionBlock({ section }: { section: MenuSection }) {
+  return (
+    <div>
+      <h3
+        className="font-display text-xl uppercase tracking-wide"
+        style={{ color: MENU_YELLOW }}
+      >
+        {section.title}
+      </h3>
+      {section.note && (
+        <p className="mt-0.5 text-[11px] font-semibold uppercase tracking-wider text-cream/55">
+          {section.note}
+        </p>
+      )}
+      <ul className="mt-3 space-y-3">
+        {section.items.map((it, i) => (
+          <li key={`${it.name}-${i}`}>
+            <div className="flex items-baseline justify-between gap-3">
+              <span className="font-semibold text-cream">{it.name}</span>
+              {it.price && (
+                <span className="shrink-0 font-semibold tabular-nums text-cream/85">
+                  {it.price}
+                </span>
+              )}
+            </div>
+            {it.desc && (
+              <p className="mt-0.5 text-xs leading-snug text-cream/55">
+                {it.desc}
+              </p>
+            )}
+          </li>
+        ))}
+      </ul>
     </div>
   );
 }
