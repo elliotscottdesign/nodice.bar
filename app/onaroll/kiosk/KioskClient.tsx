@@ -3,12 +3,35 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 import { SUPABASE_URL, SUPABASE_ANON_KEY } from "@/lib/stripe";
 
-// ── On A Roll diner kit (same palette as OnARollClient) — but typography is the
-// nodice.bar house pair: Bebas Neue (display) + Inter (body). ───────────────────
-const CREAM = "#fdf2e0", BLUE = "#183fa0", RED = "#e0231b", GREEN = "#1f8a4d",
-  INK = "#15305c", LINE = "#e3d6b6", MUTED = "#8a7f63";
+// ── On A Roll diner kit — colours are CSS VARIABLES so the kiosk can switch to a
+// black NIGHT MODE for dim rooms (the bar). The vars are defined in THEME_CSS and
+// follow the iPad's own Dark Mode by default, overridable via the staff Day/Night
+// toggle. Names kept (CREAM/INK/…) so the rest of the file reads the same.
+// Typography stays the nodice.bar house pair: Bebas Neue (display) + Inter (body).
+const CREAM = "var(--k-bg)", BLUE = "var(--k-accent)", RED = "var(--k-primary)", GREEN = "var(--k-positive)",
+  INK = "var(--k-text)", LINE = "var(--k-line)", MUTED = "var(--k-muted)", SURFACE = "var(--k-surface)";
 const DISPLAY = "'Bebas Neue', Impact, 'Arial Narrow Bold', sans-serif";
 const BODY = "'Inter', system-ui, -apple-system, sans-serif";
+
+// Light (day, the diner cream) + dark (night, near-black) token sets.
+const THEME_CSS = `
+:root{--k-bg:#fdf2e0;--k-text:#15305c;--k-surface:#ffffff;--k-line:#e3d6b6;--k-muted:#8a7f63;--k-accent:#183fa0;--k-primary:#e0231b;--k-positive:#1f8a4d;}
+@media (prefers-color-scheme: dark){:root:not([data-ktheme="light"]){--k-bg:#000000;--k-text:#f3e7cd;--k-surface:#17171a;--k-line:#3a3a40;--k-muted:#9a958a;--k-accent:#7aa0ff;--k-primary:#ff5a4d;--k-positive:#4ccb82;}}
+:root[data-ktheme="dark"]{--k-bg:#000000;--k-text:#f3e7cd;--k-surface:#17171a;--k-line:#3a3a40;--k-muted:#9a958a;--k-accent:#7aa0ff;--k-primary:#ff5a4d;--k-positive:#4ccb82;}
+html,body{background:var(--k-bg);}
+`;
+// Apply a saved theme choice ("auto" = follow the iPad; "light"/"dark" = forced).
+function applyKioskTheme(mode: "auto" | "light" | "dark") {
+  try {
+    localStorage.setItem("kioskTheme", mode);
+    const el = document.documentElement;
+    if (mode === "auto") el.removeAttribute("data-ktheme");
+    else el.setAttribute("data-ktheme", mode);
+  } catch { /* ignore */ }
+}
+function currentKioskTheme(): "auto" | "light" | "dark" {
+  try { return (localStorage.getItem("kioskTheme") as any) || "auto"; } catch { return "auto"; }
+}
 const LOGO = "/onaroll-logo.png";
 const POPUP_LOGOS: Record<string, string> = { cyprus: "/cyprus-grill-logo.png" };
 
@@ -158,25 +181,24 @@ export default function KioskClient() {
         !!d.burger && (parseInt(String(d.bn.price_pence), 10) || 0) > 0 && (!d.bn.days?.length || d.bn.days.includes(dow)));
   }, [bundles, sections]);
 
-  // ONE flat tile list that fills the screen: deals → specials → the rest.
-  const tiles = useMemo<Tile[]>(() => {
+  // Menu grouped into ordered sections: DEALS → SPECIALS → the live menu sections
+  // (an unnamed section is shown as "Mains"), each with a header. Starred items are
+  // lifted into SPECIALS. Deals/Specials headers are red, the rest blue.
+  type Group = { title: string; accent: string; tiles: Tile[] };
+  const groups = useMemo<Group[]>(() => {
     if (!sections) return [];
-    const dealTiles: Tile[] = deals.map((d) => ({ kind: "deal", bn: d.bn, burger: d.burger }));
+    const g: Group[] = [];
+    if (deals.length) g.push({ title: "Deals", accent: RED, tiles: deals.map((d) => ({ kind: "deal", bn: d.bn, burger: d.burger })) });
     const starred = sections.flatMap((s) => s.items.filter((it) => it.name && it.star));
-    const rest = sections.flatMap((s) => s.items.filter((it) => it.name && !it.star));
-    const itemTiles: Tile[] = [...starred, ...rest].map((item) => ({ kind: "item", item }));
-    return [...dealTiles, ...itemTiles];
+    if (starred.length) g.push({ title: "Specials", accent: RED, tiles: starred.map((item) => ({ kind: "item", item })) });
+    for (const s of sections) {
+      const items = s.items.filter((it) => it.name && !it.star);
+      if (!items.length) continue;
+      const title = (s.name && s.name.trim()) ? s.name.trim() : "Mains";
+      g.push({ title, accent: BLUE, tiles: items.map((item) => ({ kind: "item", item })) });
+    }
+    return g;
   }, [sections, deals]);
-
-  // Columns chosen so a SHORT menu fills the portrait screen as big tiles and a
-  // longer one still fits (rows share the fixed height; tiles shrink). If a menu
-  // ever gets genuinely huge the tiles get small — flagged below.
-  const cols = tiles.length <= 2 ? 1 : tiles.length <= 6 ? 2 : 3;
-  const rows = Math.ceil(tiles.length / Math.max(1, cols));
-  const tooMany = rows > 4;   // > ~12 tiles on 3 cols: readable but tight — TODO flag
-  useEffect(() => {
-    if (tooMany) console.warn(`[kiosk] ${tiles.length} live tiles → ${rows} rows; tiles are getting small. TODO: paginate / group the menu when it grows past one screen.`);
-  }, [tooMany, tiles.length, rows]);
 
   const flagged = useMemo(() => {
     if (noAllergies || declared.size === 0) return [];
@@ -280,30 +302,36 @@ export default function KioskClient() {
       {/* ── MENU ── */}
       {phase === "menu" && (
         <Screen>
-          <div style={{ flex: 1, minHeight: 0, display: "grid", gridTemplateColumns: `repeat(${cols}, 1fr)`, gridAutoRows: "1fr", gap: 14, overflow: "hidden" }}>
-            {tiles.map((t) => {
-              if (t.kind === "deal") {
-                const soldOut = avail(t.burger) <= 0;
-                const price = parseInt(String(t.bn.price_pence), 10) || 0;
-                const drink = (t.bn.drink && t.bn.drink.trim()) || "beer";
-                return (
-                  <Tile key={`deal-${t.bn.id}`} img={t.burger.img} soldOut={soldOut} accent={RED}
-                    onTap={() => !soldOut && addDeal(t.bn, t.burger)}
-                    badge="🎟 Deal" title={t.bn.name || "Beer + Burger"} sub={`${t.burger.name} + ${drink}`} price={gbp(price)} soldOutLabel={soldOut} />
-                );
-              }
-              const it = t.item;
-              const left = avail(it); const soldOut = left <= 0;
-              const low = !soldOut && left !== Infinity && left <= 6;
-              return (
-                <Tile key={it.id} img={it.img} soldOut={soldOut} accent={it.star ? RED : BLUE}
-                  onTap={() => !soldOut && (it.addons && it.addons.length ? setPicking(it) : addItem(it, [], 1))}
-                  badge={it.star ? "★ Special" : undefined} title={it.name} sub={it.desc} price={gbp(it.sell_pence)}
-                  low={low ? left : undefined} hasAddons={!!(it.addons && it.addons.length)} soldOutLabel={soldOut} />
-              );
-            })}
+          <div style={{ flex: 1, minHeight: 0, overflowY: "auto", WebkitOverflowScrolling: "touch" as any }}>
+            {groups.map((grp) => (
+              <div key={grp.title} style={{ marginBottom: 26 }}>
+                <div style={{ fontFamily: DISPLAY, fontSize: 36, color: grp.accent, letterSpacing: "1.5px", textTransform: "uppercase", borderBottom: `3px solid ${grp.accent}`, paddingBottom: 5, marginBottom: 14 }}>{grp.title}</div>
+                <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(340px, 1fr))", gap: 16 }}>
+                  {grp.tiles.map((t) => {
+                    if (t.kind === "deal") {
+                      const soldOut = avail(t.burger) <= 0;
+                      const price = parseInt(String(t.bn.price_pence), 10) || 0;
+                      const drink = (t.bn.drink && t.bn.drink.trim()) || "beer";
+                      return (
+                        <Tile key={`deal-${t.bn.id}`} img={t.burger.img} soldOut={soldOut} accent={RED} allergens={t.burger.allergens}
+                          onTap={() => !soldOut && addDeal(t.bn, t.burger)}
+                          badge="🎟 Deal" title={t.bn.name || "Beer + Burger"} sub={`${t.burger.name} + a ${drink} (poured at the bar)`} price={gbp(price)} soldOutLabel={soldOut} />
+                      );
+                    }
+                    const it = t.item;
+                    const left = avail(it); const soldOut = left <= 0;
+                    const low = !soldOut && left !== Infinity && left <= 6;
+                    return (
+                      <Tile key={it.id} img={it.img} soldOut={soldOut} accent={it.star ? RED : BLUE} allergens={it.allergens}
+                        onTap={() => !soldOut && (it.addons && it.addons.length ? setPicking(it) : addItem(it, [], 1))}
+                        badge={it.star ? "★ Special" : undefined} title={it.name} sub={it.desc} price={gbp(it.sell_pence)}
+                        low={low ? left : undefined} hasAddons={!!(it.addons && it.addons.length)} soldOutLabel={soldOut} />
+                    );
+                  })}
+                </div>
+              </div>
+            ))}
           </div>
-          {tooMany && <div style={{ flex: "none", textAlign: "center", color: MUTED, fontFamily: BODY, fontSize: 12, padding: "4px 0 0" }}>Scroll-free menu is tight at this many items — tap a tile to order.</div>}
           <BottomBar>
             {count > 0 ? (
               <div style={{ display: "flex", gap: 12 }}>
@@ -377,7 +405,7 @@ export default function KioskClient() {
                 })}
               </div>
               {declaredAndFlagged && flagged.length > 0 && (
-                <div style={{ border: `2px solid ${RED}`, borderRadius: 14, padding: 16, margin: "16px 0", background: "#fff" }}>
+                <div style={{ border: `2px solid ${RED}`, borderRadius: 14, padding: 16, margin: "16px 0", background: SURFACE }}>
                   <div style={{ fontFamily: DISPLAY, color: RED, fontSize: 24, marginBottom: 8 }}>⚠ Heads up about your order</div>
                   {flagged.map((f) => (
                     <div key={f.name} style={{ fontFamily: BODY, fontSize: 16, lineHeight: 1.45, marginBottom: 6 }}>
@@ -416,8 +444,8 @@ export default function KioskClient() {
               <Label>Your name</Label>
               <input value={name} onChange={(e) => setName(e.target.value)} placeholder="First name" autoComplete="off"
                 style={{ ...fieldStyle, fontSize: 24, padding: "16px 18px" }} />
-              <Label>Mobile — we text you the moment it's ready 📲</Label>
-              <div style={{ ...fieldStyle, fontSize: 30, padding: "14px 18px", fontFamily: DISPLAY, letterSpacing: "2px", minHeight: 30, color: phone ? INK : MUTED }}>
+              <Label>Mobile — we text you the moment it's ready 📲 <span style={{ textTransform: "none", color: BLUE }}>(not UK? tap + first)</span></Label>
+              <div style={{ ...fieldStyle, fontSize: 34, padding: "14px 18px", fontFamily: DISPLAY, letterSpacing: "2px", minHeight: 34, color: phone ? INK : MUTED }}>
                 {phone || "07…"}
               </div>
               <Keypad value={phone} onChange={setPhone} />
@@ -471,7 +499,7 @@ export default function KioskClient() {
                 <div style={{ fontFamily: BODY, fontSize: 13, color: MUTED }}>Card payment · contactless, Apple Pay &amp; Google Pay</div>
               </>
             )}
-            {err && <div style={{ fontFamily: BODY, background: "#fff", border: `1px solid ${RED}`, color: RED, borderRadius: 12, padding: "12px 16px", fontSize: 16, marginTop: 8, maxWidth: 440 }}>{err}</div>}
+            {err && <div style={{ fontFamily: BODY, background: SURFACE, border: `1px solid ${RED}`, color: RED, borderRadius: 12, padding: "12px 16px", fontSize: 16, marginTop: 8, maxWidth: 440 }}>{err}</div>}
           </div>
           <BottomBar>
             <button disabled={busy} onClick={takePayment} style={bigBtnStyle(busy ? LINE : GREEN, "#fff")}>
@@ -505,18 +533,23 @@ function Keypad({ value, onChange }: { value: string; onChange: (v: string) => v
   const keys = ["1", "2", "3", "4", "5", "6", "7", "8", "9", "+", "0", "⌫"];
   const press = (k: string) => {
     if (k === "⌫") return onChange(value.slice(0, -1));
+    // "+" starts an international number (e.g. +33 6…). Only valid as the first
+    // character; tap it before any digits.
     if (k === "+") return onChange(value.includes("+") || value.length ? value : "+");
     if (value.replace(/\D/g, "").length >= 15) return;
     onChange(value + k);
   };
   return (
     <div style={{ flex: 1, minHeight: 0, display: "grid", gridTemplateColumns: "repeat(3, 1fr)", gridAutoRows: "1fr", gap: 10, marginTop: 4 }}>
-      {keys.map((k) => (
-        <button key={k} onClick={() => press(k)}
-          style={{ border: `2px solid ${LINE}`, background: "#fff", borderRadius: 14, fontFamily: DISPLAY, fontSize: 34, color: k === "⌫" ? RED : INK, cursor: "pointer", touchAction: "manipulation" }}>
-          {k}
-        </button>
-      ))}
+      {keys.map((k) => {
+        const isPlus = k === "+";
+        return (
+          <button key={k} onClick={() => press(k)}
+            style={{ display: "flex", alignItems: "center", justifyContent: "center", border: `2px solid ${isPlus ? BLUE : LINE}`, background: SURFACE, borderRadius: 14, fontFamily: DISPLAY, fontSize: "clamp(44px, 7.2vh, 70px)", lineHeight: 1, color: k === "⌫" ? RED : isPlus ? BLUE : INK, cursor: "pointer", touchAction: "manipulation", padding: 0 }}>
+            {k}
+          </button>
+        );
+      })}
     </div>
   );
 }
@@ -539,7 +572,7 @@ function AddonSheet({ item, onClose, onAdd }: { item: Item; onClose: () => void;
           return (
             <button key={a.id} onClick={() => setSel((s) => { const n = new Set(s); n.has(a.id) ? n.delete(a.id) : n.add(a.id); return n; })}
               style={{ display: "flex", justifyContent: "space-between", width: "100%", padding: "18px 18px", borderRadius: 12, marginBottom: 10, cursor: "pointer",
-                border: `3px solid ${on ? RED : LINE}`, background: on ? "#fff" : "transparent", fontFamily: BODY, fontSize: 19, fontWeight: 700, color: INK }}>
+                border: `3px solid ${on ? RED : LINE}`, background: on ? SURFACE : "transparent", fontFamily: BODY, fontSize: 19, fontWeight: 700, color: INK }}>
               <span>{on ? "✓ " : ""}{a.name}</span><span style={{ color: RED }}>+{gbp(a.price_pence)}</span>
             </button>
           );
@@ -556,28 +589,36 @@ function AddonSheet({ item, onClose, onAdd }: { item: Item; onClose: () => void;
 }
 
 // ── menu tile ─────────────────────────────────────────────────────────────────────
-// Works with OR without a photo: an image fills a top band when present, otherwise
-// the text is centred on a soft accent-tinted card so the tile never looks empty.
-function Tile({ img, title, sub, price, badge, low, hasAddons, soldOut, soldOutLabel, accent, onTap }: {
+// Image band on top (above the name) when a photo exists — a slim accent strip
+// stands in when it doesn't. Full name + FULL description (never truncated) + a
+// small "Contains:" allergen line, then price + Add. Tiles size to their content
+// so nothing is ever cut off; the menu grid scrolls if it needs to.
+function Tile({ img, title, sub, price, badge, low, hasAddons, soldOut, soldOutLabel, accent, allergens, onTap }: {
   img?: string; title: string; sub?: string; price: string; badge?: string; low?: number; hasAddons?: boolean;
-  soldOut?: boolean; soldOutLabel?: boolean; accent: string; onTap: () => void;
+  soldOut?: boolean; soldOutLabel?: boolean; accent: string; allergens?: Record<string, "contains" | "trace">; onTap: () => void;
 }) {
-  const tint = accent === RED ? "rgba(224,35,27,0.06)" : "rgba(24,63,160,0.05)";
+  const contains = Object.keys(allergens || {}).filter((k) => allergens![k] === "contains").map(allergenLabel);
   return (
     <button onClick={onTap} disabled={soldOut}
-      style={{ position: "relative", display: "flex", flexDirection: "column", textAlign: img ? "left" : "center", overflow: "hidden",
-        border: `3px solid ${soldOut ? LINE : accent}`, borderRadius: 18, background: img ? "#fff" : tint, padding: 0, cursor: soldOut ? "default" : "pointer",
-        opacity: soldOut ? 0.55 : 1, touchAction: "manipulation", minHeight: 0 }}>
-      {img && <img src={img} alt="" style={{ flex: 1, minHeight: 0, width: "100%", objectFit: "cover", filter: soldOut ? "grayscale(1)" : "none" }} />}
-      <div style={{ padding: img ? "10px 14px 12px" : "16px 16px 54px", flex: img ? "none" : 1, minHeight: 0, display: "flex", flexDirection: "column", justifyContent: "center", gap: 4 }}>
+      style={{ position: "relative", display: "flex", flexDirection: "column", textAlign: "left", overflow: "hidden",
+        border: `3px solid ${soldOut ? LINE : accent}`, borderRadius: 18, background: SURFACE, padding: 0, cursor: soldOut ? "default" : "pointer",
+        opacity: soldOut ? 0.55 : 1, touchAction: "manipulation" }}>
+      {/* image area ABOVE the dish name (slim accent strip when there's no photo yet) */}
+      {img
+        ? <img src={img} alt="" style={{ width: "100%", height: 130, objectFit: "cover", flex: "none", filter: soldOut ? "grayscale(1)" : "none" }} />
+        : <div style={{ width: "100%", height: 8, flex: "none", background: accent }} />}
+      <div style={{ padding: "14px 16px 16px", display: "flex", flexDirection: "column", gap: 6, flex: 1 }}>
         {badge && <div style={{ fontFamily: BODY, fontSize: 13, fontWeight: 800, color: accent, textTransform: "uppercase", letterSpacing: "0.06em" }}>{badge}</div>}
-        <div style={{ fontFamily: DISPLAY, fontSize: 30, color: INK, lineHeight: 1.05, letterSpacing: "0.5px", overflow: "hidden", display: "-webkit-box", WebkitLineClamp: 3, WebkitBoxOrient: "vertical" as any }}>{title}</div>
-        {sub && <div style={{ fontFamily: BODY, fontSize: 13.5, color: MUTED, lineHeight: 1.35, overflow: "hidden", display: "-webkit-box", WebkitLineClamp: 2, WebkitBoxOrient: "vertical" as any }}>{sub}</div>}
-        <div style={{ fontFamily: DISPLAY, fontSize: 30, color: RED, lineHeight: 1, marginTop: 2 }}>{price}</div>
+        <div style={{ fontFamily: DISPLAY, fontSize: 32, color: INK, lineHeight: 1.04, letterSpacing: "0.4px" }}>{title}</div>
+        {sub && <div style={{ fontFamily: BODY, fontSize: 16, color: MUTED, lineHeight: 1.4 }}>{sub}</div>}
+        {contains.length > 0 && <div style={{ fontFamily: BODY, fontSize: 13.5, fontWeight: 700, color: RED, lineHeight: 1.35 }}>⚠ Contains: {contains.join(", ")}</div>}
+        <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: 8, marginTop: "auto", paddingTop: 10 }}>
+          <span style={{ fontFamily: DISPLAY, fontSize: 34, color: RED, lineHeight: 1 }}>{price}</span>
+          {!soldOut && <span style={{ fontFamily: DISPLAY, fontSize: 22, letterSpacing: "0.5px", color: "#fff", background: accent, borderRadius: 999, padding: "10px 24px", lineHeight: 1, whiteSpace: "nowrap" }} aria-label={hasAddons ? "Choose extras" : "Add"}>{hasAddons ? "Add +" : "Add"}</span>}
+        </div>
       </div>
-      {soldOutLabel && <div style={{ position: "absolute", top: 12, left: 12, background: "#efe6cf", color: "#8a7f63", fontFamily: DISPLAY, fontSize: 18, padding: "4px 12px", borderRadius: 10, letterSpacing: "0.5px" }}>Sold out</div>}
-      {!soldOut && typeof low === "number" && <div style={{ position: "absolute", top: 12, left: 12, background: RED, color: "#fff", fontFamily: BODY, fontSize: 12, fontWeight: 800, padding: "4px 10px", borderRadius: 999 }}>Only {low} left</div>}
-      {!soldOut && <div style={{ position: "absolute", bottom: 12, right: 12, width: 48, height: 48, borderRadius: 999, background: accent, color: "#fff", fontFamily: DISPLAY, fontSize: 32, display: "flex", alignItems: "center", justifyContent: "center", lineHeight: 1 }} aria-label={hasAddons ? "Choose extras" : "Add"}>+</div>}
+      {soldOutLabel && <div style={{ position: "absolute", top: 10, left: 10, background: "#efe6cf", color: "#8a7f63", fontFamily: DISPLAY, fontSize: 17, padding: "4px 12px", borderRadius: 10, letterSpacing: "0.5px" }}>Sold out</div>}
+      {!soldOut && typeof low === "number" && <div style={{ position: "absolute", top: 10, left: 10, background: RED, color: "#fff", fontFamily: BODY, fontSize: 12, fontWeight: 800, padding: "4px 10px", borderRadius: 999 }}>Only {low} left</div>}
     </button>
   );
 }
@@ -587,15 +628,18 @@ function Frame({ children, logo, onExit, exitOpen, closeExit }: { children: Reac
   const timer = useRef<number | null>(null);
   const startHold = () => { timer.current = window.setTimeout(onExit, 1600); };
   const cancelHold = () => { if (timer.current) { clearTimeout(timer.current); timer.current = null; } };
+  // Apply the saved Day/Night choice on mount (default auto = follow the iPad).
+  useEffect(() => { applyKioskTheme(currentKioskTheme()); }, []);
   return (
     <div style={{ position: "fixed", inset: 0, background: CREAM, color: INK, fontFamily: BODY, userSelect: "none", WebkitUserSelect: "none", touchAction: "manipulation", display: "flex", flexDirection: "column" }}>
-      <div style={{ flex: "none", background: CREAM, padding: "14px 18px", textAlign: "center", borderBottom: `4px solid ${BLUE}`, position: "relative" }}>
+      <style dangerouslySetInnerHTML={{ __html: THEME_CSS }} />
+      <div style={{ flex: "none", background: CREAM, padding: "calc(14px + env(safe-area-inset-top)) 18px 14px", textAlign: "center", borderBottom: `4px solid ${BLUE}`, position: "relative" }}>
         {/* discreet staff exit — long-press this corner */}
         <div onPointerDown={startHold} onPointerUp={cancelHold} onPointerLeave={cancelHold}
           style={{ position: "absolute", top: 0, left: 0, width: 72, height: 72, zIndex: 5 }} aria-hidden />
         <img src={logo} alt="On A Roll" style={{ height: 64, maxWidth: "70%", objectFit: "contain" }} draggable={false} />
       </div>
-      <div style={{ flex: 1, minHeight: 0, width: "100%", maxWidth: 820, margin: "0 auto", padding: "16px 18px 18px", display: "flex", flexDirection: "column" }}>
+      <div style={{ flex: 1, minHeight: 0, width: "100%", maxWidth: 820, margin: "0 auto", padding: "16px 18px calc(18px + env(safe-area-inset-bottom))", display: "flex", flexDirection: "column" }}>
         {children}
       </div>
       {exitOpen && <ExitPad onClose={closeExit} />}
@@ -606,14 +650,24 @@ function Frame({ children, logo, onExit, exitOpen, closeExit }: { children: Reac
 function ExitPad({ onClose }: { onClose: () => void }) {
   const [code, setCode] = useState("");
   const [bad, setBad] = useState(false);
+  const [theme, setTheme] = useState<"auto" | "light" | "dark">("auto");
+  useEffect(() => { setTheme(currentKioskTheme()); }, []);
+  const pickTheme = (m: "auto" | "light" | "dark") => { applyKioskTheme(m); setTheme(m); };
   const submit = (c: string) => {
     if (c.length < 4) return;
     if (c === STAFF_EXIT_CODE) { window.location.href = "/onaroll"; return; }
     setBad(true); setCode("");
   };
   return (
-    <div onClick={onClose} style={{ position: "fixed", inset: 0, background: "rgba(21,48,92,0.7)", display: "flex", alignItems: "center", justifyContent: "center", zIndex: 80 }}>
-      <div onClick={(e) => e.stopPropagation()} style={{ background: CREAM, borderRadius: 20, padding: 24, width: 320, textAlign: "center" }}>
+    <div onClick={onClose} style={{ position: "fixed", inset: 0, background: "rgba(0,0,0,0.78)", display: "flex", alignItems: "center", justifyContent: "center", zIndex: 80 }}>
+      <div onClick={(e) => e.stopPropagation()} style={{ background: CREAM, border: `2px solid ${LINE}`, borderRadius: 20, padding: 24, width: 320, textAlign: "center" }}>
+        <div style={{ fontFamily: BODY, fontSize: 12, color: MUTED, textTransform: "uppercase", letterSpacing: "0.08em", marginBottom: 8 }}>Screen brightness</div>
+        <div style={{ display: "grid", gridTemplateColumns: "repeat(3,1fr)", gap: 8, marginBottom: 18 }}>
+          {([["light", "☀︎ Day"], ["dark", "☾ Night"], ["auto", "Auto"]] as const).map(([m, lbl]) => {
+            const on = theme === m;
+            return <button key={m} onClick={() => pickTheme(m)} style={{ border: `2px solid ${on ? BLUE : LINE}`, background: on ? SURFACE : "transparent", color: on ? BLUE : INK, borderRadius: 12, padding: "12px 0", fontFamily: BODY, fontWeight: 700, fontSize: 15, cursor: "pointer" }}>{lbl}</button>;
+          })}
+        </div>
         <div style={{ fontFamily: DISPLAY, fontSize: 26, color: INK, letterSpacing: "0.5px" }}>Staff code</div>
         <div style={{ fontFamily: DISPLAY, fontSize: 38, letterSpacing: "8px", color: bad ? RED : INK, margin: "10px 0 14px", minHeight: 40 }}>{code.replace(/./g, "•") || "— — — —"}</div>
         <div style={{ display: "grid", gridTemplateColumns: "repeat(3,1fr)", gap: 10 }}>
@@ -622,7 +676,7 @@ function ExitPad({ onClose }: { onClose: () => void }) {
               if (k === "✕") return onClose();
               if (k === "⌫") return setCode((c) => c.slice(0, -1));
               const nc = (code + k).slice(0, 4); setCode(nc); setBad(false); if (nc.length === 4) setTimeout(() => submit(nc), 120);
-            }} style={{ border: `2px solid ${LINE}`, background: "#fff", borderRadius: 12, padding: "16px 0", fontFamily: DISPLAY, fontSize: 26, color: k === "✕" ? MUTED : k === "⌫" ? RED : INK, cursor: "pointer" }}>{k}</button>
+            }} style={{ border: `2px solid ${LINE}`, background: SURFACE, borderRadius: 12, padding: "16px 0", fontFamily: DISPLAY, fontSize: 26, color: k === "✕" ? MUTED : k === "⌫" ? RED : INK, cursor: "pointer" }}>{k}</button>
           ))}
         </div>
         {bad && <div style={{ fontFamily: BODY, color: RED, fontSize: 14, marginTop: 10 }}>Wrong code</div>}
@@ -636,7 +690,7 @@ const Screen = ({ children }: { children: React.ReactNode }) => <div style={{ fl
 const BottomBar = ({ children }: { children: React.ReactNode }) => <div style={{ flex: "none", paddingTop: 14 }}>{children}</div>;
 const Header = ({ title, onBack }: { title: string; onBack: () => void }) => (
   <div style={{ flex: "none", display: "flex", alignItems: "center", gap: 14, marginBottom: 10 }}>
-    <button onClick={onBack} style={{ flex: "none", width: 52, height: 52, borderRadius: 14, border: `2px solid ${BLUE}`, background: "#fff", color: BLUE, fontSize: 24, cursor: "pointer" }}>←</button>
+    <button onClick={onBack} style={{ flex: "none", width: 52, height: 52, borderRadius: 14, border: `2px solid ${BLUE}`, background: SURFACE, color: BLUE, fontSize: 24, cursor: "pointer" }}>←</button>
     <h1 style={{ fontFamily: DISPLAY, fontSize: 40, color: INK, margin: 0, letterSpacing: "0.5px" }}>{title}</h1>
   </div>
 );
@@ -649,6 +703,6 @@ function bigBtnStyle(bg: string, color: string): React.CSSProperties {
   return { width: "100%", border: "none", borderRadius: 16, padding: "22px", fontFamily: DISPLAY, fontSize: 28, letterSpacing: "1px", textTransform: "uppercase", cursor: "pointer", background: bg, color, touchAction: "manipulation" };
 }
 const BigBtn = ({ children, bg, onClick }: { children: React.ReactNode; bg: string; onClick: () => void }) => <button onClick={onClick} style={{ ...bigBtnStyle(bg, "#fff"), maxWidth: 420 }}>{children}</button>;
-const chip = (on: boolean, accent: string): React.CSSProperties => ({ fontFamily: BODY, fontWeight: 700, borderRadius: 14, cursor: "pointer", border: `3px solid ${on ? accent : LINE}`, background: on ? "#fff" : "transparent", color: on ? accent : INK, touchAction: "manipulation" });
-const qtyBtn: React.CSSProperties = { flex: "none", width: 48, height: 48, borderRadius: 999, border: `3px solid ${BLUE}`, background: "#fff", color: BLUE, fontSize: 28, fontWeight: 800, cursor: "pointer", lineHeight: 1, touchAction: "manipulation" };
-const fieldStyle: React.CSSProperties = { flex: "none", width: "100%", borderRadius: 14, border: `2px solid ${LINE}`, background: "#fff", color: INK, fontFamily: BODY, boxSizing: "border-box", outline: "none" };
+const chip = (on: boolean, accent: string): React.CSSProperties => ({ fontFamily: BODY, fontWeight: 700, borderRadius: 14, cursor: "pointer", border: `3px solid ${on ? accent : LINE}`, background: on ? SURFACE : "transparent", color: on ? accent : INK, touchAction: "manipulation" });
+const qtyBtn: React.CSSProperties = { flex: "none", width: 48, height: 48, borderRadius: 999, border: `3px solid ${BLUE}`, background: SURFACE, color: BLUE, fontSize: 28, fontWeight: 800, cursor: "pointer", lineHeight: 1, touchAction: "manipulation" };
+const fieldStyle: React.CSSProperties = { flex: "none", width: "100%", borderRadius: 14, border: `2px solid ${LINE}`, background: SURFACE, color: INK, fontFamily: BODY, boxSizing: "border-box", outline: "none" };

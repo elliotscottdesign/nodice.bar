@@ -55,6 +55,38 @@ const SUPABASE_URL = Deno.env.get("SUPABASE_URL") ?? "";
 const SUPABASE_SERVICE_ROLE_KEY = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY") ?? "";
 // Admin gate for the one-off pairing call (same shared secret the food-order fn uses).
 const SEND_SECRET = Deno.env.get("SEND_SECRET") ?? "";
+// Twilio — same secrets the food-order fn uses, for the kiosk "order received" text.
+const TW_SID = Deno.env.get("TWILIO_ACCOUNT_SID") ?? "";
+const TW_TOKEN = Deno.env.get("TWILIO_AUTH_TOKEN") ?? "";
+const TW_SMS_FROM = Deno.env.get("TWILIO_SMS_FROM") || "NoDice";
+
+const gbp = (p: number) => "£" + ((Number(p) || 0) / 100).toFixed(2);
+async function sendSMS(to: string, body: string): Promise<boolean> {
+  if (!TW_SID || !TW_TOKEN || !to) return false;
+  try {
+    const r = await fetch(`https://api.twilio.com/2010-04-01/Accounts/${TW_SID}/Messages.json`, {
+      method: "POST",
+      headers: { "Authorization": "Basic " + btoa(`${TW_SID}:${TW_TOKEN}`), "Content-Type": "application/x-www-form-urlencoded" },
+      body: new URLSearchParams({ From: TW_SMS_FROM, To: to, Body: body }),
+    });
+    return r.ok;
+  } catch { return false; }
+}
+// "Order received" text sent the moment a kiosk order is paid: confirms it went
+// through, reminds them to watch their phone, and carries the itemised receipt.
+function receiptSms(o: any): string {
+  const lines = (Array.isArray(o.items) ? o.items : []).map((li: any) => {
+    const opt = (li.options || []).reduce((s: number, x: any) => s + (Number(x.price_pence) || 0), 0);
+    return `${Number(li.qty) || 1}x ${li.name}  ${gbp(((Number(li.price_pence) || 0) + opt) * (Number(li.qty) || 1))}`;
+  });
+  const tip = Number(o.tip_pence) || 0;
+  const body = [
+    `On A Roll 🍔 Order #${o.order_no} received ✓ — paid.`,
+    `We'll text you the moment it's ready to collect — keep your phone handy 📲`,
+    ...(lines.length ? ["", "Receipt:", ...lines, ...(tip > 0 ? [`Tip  ${gbp(tip)}`] : []), `TOTAL  ${gbp(o.total_pence)}`] : []),
+  ].join("\n");
+  return body;
+}
 
 // ── SumUp Cloud API config (PENDING the keys below — see the go-live checklist) ──
 // Set SUMUP_LIVE=true only once every one of these is in place. Until then the
@@ -275,7 +307,7 @@ async function confirmSumupPaid(clientTxId: string): Promise<{ state: "successfu
 // the "ready"-SMS flow. Shared by the stub and the real webhook path. Draws stock
 // down the same way createCodedOrder/the Stripe webhook do.
 async function markOrderPaid(order_id: string, extra: Record<string, unknown> = {}): Promise<{ ok: boolean; order_no?: number; error?: string }> {
-  const { data: row } = await db.from("food_orders").select("id, order_no, items, paid, status").eq("id", order_id).maybeSingle();
+  const { data: row } = await db.from("food_orders").select("id, order_no, items, paid, status, customer_phone, total_pence, tip_pence").eq("id", order_id).maybeSingle();
   if (!row) return { ok: false, error: "order not found" };
   if (row.paid) return { ok: true, order_no: row.order_no };   // idempotent — webhook may fire twice
   // Draw down limiting ingredients (best-effort; mirrors createCodedOrder).
@@ -287,6 +319,10 @@ async function markOrderPaid(order_id: string, extra: Record<string, unknown> = 
   }
   const { error } = await db.from("food_orders").update({ paid: true, status: "new", ...extra }).eq("id", order_id);
   if (error) return { ok: false, error: error.message };
+  // Order-received text (founder, 29 Oct): confirm it went through + carry the
+  // receipt + remind them to watch their phone. Fire-and-forget — never fail the
+  // order if the SMS doesn't send.
+  if (row.customer_phone) { try { await sendSMS(row.customer_phone, receiptSms(row)); } catch { /* ignore */ } }
   return { ok: true, order_no: row.order_no };
 }
 

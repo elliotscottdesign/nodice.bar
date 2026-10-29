@@ -9,6 +9,17 @@ export const metadata = {
   title: "On A Roll — Order here",
   description: "Self-serve ordering kiosk.",
   robots: { index: false, follow: false },
+  // "Add to Home Screen" launches this standalone (no Safari bar) — a true kiosk.
+  appleWebApp: { capable: true, statusBarStyle: "black-translucent" as const, title: "On A Roll" },
+};
+
+export const viewport = {
+  themeColor: "#fdf2e0",
+  width: "device-width",
+  initialScale: 1,
+  maximumScale: 1,
+  userScalable: false,
+  viewportFit: "cover" as const,
 };
 
 export default function Page() {

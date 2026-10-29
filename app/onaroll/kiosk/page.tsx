@@ -11,6 +11,18 @@ export const metadata = {
   title: "On A Roll — Order here",
   description: "Self-serve ordering kiosk.",
   robots: { index: false, follow: false },   // never indexed — it's a physical till
+  // "Add to Home Screen" on the iPad launches this STANDALONE (no Safari address
+  // bar / tabs) — i.e. a true fullscreen kiosk. statusBarStyle hides the top chrome.
+  appleWebApp: { capable: true, statusBarStyle: "black-translucent" as const, title: "On A Roll" },
+};
+
+export const viewport = {
+  themeColor: "#fdf2e0",
+  width: "device-width",
+  initialScale: 1,
+  maximumScale: 1,
+  userScalable: false,   // kiosk: no pinch-zoom
+  viewportFit: "cover" as const,
 };
 
 export default function Page() {
