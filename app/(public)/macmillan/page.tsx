@@ -275,7 +275,6 @@ export default function MacmillanPage() {
             <div className="mx-auto mt-8 grid max-w-4xl gap-4 sm:grid-cols-3">
               {tiers.map((tier) => {
                 const isSelected = tier.id === selectedTierId;
-                const left = tier.spotsLeft;
                 const full = tier.full;
                 return (
                   <button
@@ -300,30 +299,8 @@ export default function MacmillanPage() {
                     </div>
                     <div className="mt-3 text-xs uppercase tracking-widest text-cream/55">£10 entry</div>
 
-                    {/* Spots-left bar */}
-                    {tier.max_attendees != null && (
-                      <div className="mt-3">
-                        <div className="h-1 w-full overflow-hidden rounded-full bg-cream/10">
-                          <div
-                            className={`h-full transition-all ${
-                              full ? "bg-cream/20" : (left ?? 0) <= 3 ? "bg-plonkPink" : "bg-plonkTeal"
-                            }`}
-                            style={{
-                              width: `${
-                                ((tier.max_attendees - (left ?? 0)) / tier.max_attendees) * 100
-                              }%`,
-                            }}
-                          />
-                        </div>
-                        <div className="mt-1.5 text-[10px] uppercase tracking-widest text-cream/45">
-                          {full
-                            ? `${tier.max_attendees} / ${tier.max_attendees} taken`
-                            : left === 1
-                              ? "Last spot"
-                              : `${left} of ${tier.max_attendees} left`}
-                        </div>
-                      </div>
-                    )}
+                    {/* No remaining count shown publicly (founder 1 Nov
+                        2026); "Sold out" below still says when a tier's gone. */}
 
                     <div
                       className={`mt-4 inline-block rounded-full px-4 py-2 text-[11px] font-bold uppercase tracking-widest ${

@@ -345,29 +345,9 @@ export default function PingPongPage() {
                           ? "Free entry"
                           : `${formatFee(t.entry_fee_pence)} a team`}
                       </div>
-                      <div className="mt-4">
-                        <div className="h-1 w-full overflow-hidden rounded-full bg-cream/10">
-                          <div
-                            className={`h-full transition-all ${
-                              isSoldOut
-                                ? "bg-cream/20"
-                                : spotsLeft <= 2
-                                  ? "bg-plonkPink"
-                                  : "bg-pong"
-                            }`}
-                            style={{
-                              width: `${((t.max_teams - spotsLeft) / t.max_teams) * 100}%`,
-                            }}
-                          />
-                        </div>
-                        <div className="mt-1.5 text-[10px] uppercase tracking-widest text-cream/45">
-                          {isSoldOut
-                            ? `${t.max_teams} / ${t.max_teams} teams in`
-                            : spotsLeft === 1
-                              ? "Last team spot"
-                              : `${spotsLeft} of ${t.max_teams} team spots left`}
-                        </div>
-                      </div>
+                      {/* Status only — no remaining count shown publicly
+                          (founder 1 Nov 2026); "Sold out" below still says
+                          when a night's gone. */}
                       <div
                         className={`mt-5 inline-block rounded-full px-4 py-2 text-[11px] font-bold uppercase tracking-widest ${
                           isSoldOut

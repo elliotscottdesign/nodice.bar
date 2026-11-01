@@ -408,12 +408,10 @@ export default function InlineTournamentBooking({
                           {time}{till ? `–${till}` : ""}
                         </div>
                       )}
+                      {/* Status only — "Full" when it's gone, never a count
+                          (founder 1 Nov 2026). */}
                       <div className={`mt-1 text-[11px] font-bold ${t.full ? "text-cream/50" : "text-plonkPink"}`}>
-                        {t.full
-                          ? "Full"
-                          : t.spotsLeft == null
-                            ? "Places available"
-                            : `${t.spotsLeft} of ${t.max_attendees} left`}
+                        {t.full ? "Full" : "Places available"}
                       </div>
                     </button>
                   );

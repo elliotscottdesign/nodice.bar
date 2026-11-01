@@ -473,34 +473,10 @@ export default function TournamentSchedule() {
                             : formatFee(t.entry_fee_pence)}
                         </div>
 
-                        {/* Spots-left bar */}
-                        <div className="mt-3">
-                          <div className="h-1 w-full overflow-hidden rounded-full bg-cream/10">
-                            <div
-                              className={`h-full transition-all ${
-                                blocked
-                                  ? "bg-cream/20"
-                                  : spotsLeft <= 2
-                                    ? "bg-plonkPink"
-                                    : "bg-plonkTeal"
-                              }`}
-                              style={{
-                                width: `${
-                                  ((t.max_teams - spotsLeft) / t.max_teams) * 100
-                                }%`,
-                              }}
-                            />
-                          </div>
-                          <div className="mt-1.5 text-[10px] uppercase tracking-widest text-cream/45">
-                            {isSoldOut
-                              ? `${t.max_teams} / ${t.max_teams} taken`
-                              : closed
-                                ? "Entries closed"
-                                : spotsLeft === 1
-                                  ? "Last spot"
-                                  : `${spotsLeft} of ${t.max_teams} left`}
-                          </div>
-                        </div>
+                        {/* Availability is shown as status only — never a
+                            remaining count (founder 1 Nov 2026). "Sold out" /
+                            "Closed for bookings" below say when you can't book;
+                            otherwise nothing is implied about how full it is. */}
 
                         {/* CTA pill */}
                         <div
