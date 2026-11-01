@@ -307,7 +307,7 @@ export default function OnARollClient() {
         <Back onClick={() => setPhase("details")} />
         <Head>Order on a code</Head>
         <p style={{ fontSize: 14, lineHeight: 1.5, color: INK, margin: "0 0 14px" }}>
-          Enter your <b>party or staff code</b> — no card needed. The <b>{gbp(total)}</b> goes on the tab to settle at the bar.
+          Enter your code — no card needed. <b>Staff:</b> your first name + 66 (e.g. EDEN66). <b>DJs:</b> DJ66. <b>Parties:</b> your party code — the <b>{gbp(total)}</b> goes on the tab to settle at the bar.
         </p>
         <input value={codeInput} onChange={(e) => { setCodeInput(e.target.value.toUpperCase().replace(/\s+/g, "")); setCodeErr(""); }}
           placeholder="ENTER CODE" autoCapitalize="characters"
