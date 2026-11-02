@@ -35,6 +35,7 @@ import {
   EVENT_PALETTE,
   canvasToBlob,
   coverRect,
+  edgeExtendFrame,
   ensureFont,
   fontReady,
   frameCellAspect,
@@ -503,6 +504,13 @@ export default function EventPosterStudio({
     ctx.clearRect(0, 0, c.width, c.height);
     const img = sel?.img;
     if (!img) return;
+    if (sel.zoom < 1) {
+      // Zoomed out — show the whole picture with the edge-extended fill, so the
+      // well matches the finished poster.
+      const framed = edgeExtendFrame(img, c.width, c.height, sel.zoom, sel.ox, sel.oy);
+      ctx.drawImage(framed, 0, 0);
+      return;
+    }
     const r = coverRect(
       img.width,
       img.height,
@@ -899,7 +907,7 @@ export default function EventPosterStudio({
                     </span>
                     <input
                       type="range"
-                      min="1"
+                      min="0.3"
                       max="3"
                       step="0.05"
                       value={sel.zoom}

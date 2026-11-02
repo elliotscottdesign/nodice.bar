@@ -347,7 +347,7 @@ function fitDisplayBlock(
 // bodies are (skin tone + detail) and slides the crop window to keep them centred,
 // instead of a fixed centre crop. No ML model — works on any device, synchronously.
 function smartCrop(
-  img: HTMLImageElement,
+  img: ImgLike,
   tar: number,
 ): { sx: number; sy: number; sw: number; sh: number } {
   const iw = img.width,
@@ -466,6 +466,75 @@ export function coverRect(
   };
 }
 
+// A drawable source: a real image OR an offscreen canvas. edgeExtendFrame
+// returns a canvas, which then flows through the same treatments as a photo.
+type ImgLike = HTMLImageElement | HTMLCanvasElement;
+
+// Zoom-OUT fill. When the founder pulls Zoom below 1 the photo no longer fills
+// the frame — the whole picture comes into view with space around it. Rather
+// than leave a flat band, that space is filled by STRETCHING the image's own
+// edge pixels outward (a 1px edge strip smeared to the frame edge, corners from
+// the corner pixels), so the fill always matches the colour at the edge of the
+// picture and the frame still reads full. Returns an fw×fh canvas holding the
+// placed photo + its edge-extended surround, ready to feed to any treatment.
+//
+// zoom ≥ 1 never calls this (the photo covers the frame; coverRect crops it).
+// At zoom z<1 the drawn size is cover×z, positioned by ox/oy so the reposition
+// drag still works, with margins extended on whichever sides have room.
+export function edgeExtendFrame(
+  im: ImgLike,
+  fw: number,
+  fh: number,
+  zoom: number,
+  ox = 0.5,
+  oy = 0.5,
+): HTMLCanvasElement {
+  const cv = document.createElement("canvas");
+  cv.width = Math.max(1, Math.round(fw));
+  cv.height = Math.max(1, Math.round(fh));
+  const ctx = cv.getContext("2d")!;
+  ctx.imageSmoothingEnabled = true;
+  ctx.imageSmoothingQuality = "high";
+  const iw = im.width,
+    ih = im.height;
+  const coverScale = Math.max(cv.width / iw, cv.height / ih);
+  const scale = coverScale * Math.max(0.05, zoom || 1);
+  const dw = iw * scale,
+    dh = ih * scale;
+  const left = (cv.width - dw) * clamp01(ox),
+    top = (cv.height - dh) * clamp01(oy);
+  const right = left + dw,
+    bottom = top + dh;
+  // Corners (stretch the single corner pixel into the corner rectangle).
+  if (left > 0 && top > 0) ctx.drawImage(im, 0, 0, 1, 1, 0, 0, left, top);
+  if (right < cv.width && top > 0)
+    ctx.drawImage(im, iw - 1, 0, 1, 1, right, 0, cv.width - right, top);
+  if (left > 0 && bottom < cv.height)
+    ctx.drawImage(im, 0, ih - 1, 1, 1, 0, bottom, left, cv.height - bottom);
+  if (right < cv.width && bottom < cv.height)
+    ctx.drawImage(
+      im,
+      iw - 1,
+      ih - 1,
+      1,
+      1,
+      right,
+      bottom,
+      cv.width - right,
+      cv.height - bottom,
+    );
+  // Edges (stretch the edge row / column out to the frame edge).
+  if (top > 0) ctx.drawImage(im, 0, 0, iw, 1, left, 0, dw, top);
+  if (bottom < cv.height)
+    ctx.drawImage(im, 0, ih - 1, iw, 1, left, bottom, dw, cv.height - bottom);
+  if (left > 0) ctx.drawImage(im, 0, 0, 1, ih, 0, top, left, dh);
+  if (right < cv.width)
+    ctx.drawImage(im, iw - 1, 0, 1, ih, right, top, cv.width - right, dh);
+  // The picture itself, on top.
+  ctx.drawImage(im, left, top, dw, dh);
+  return cv;
+}
+
 // Smart crop position as {ox, oy} ∈ [0,1] — the default reposition.
 export function smartOffset(
   img: HTMLImageElement,
@@ -487,7 +556,7 @@ type SrcRect = { sx: number; sy: number; sw: number; sh: number };
 // fills the frame edge-to-edge. Falls back to smartCrop if src is omitted.
 function drawHalftone(
   ctx: CanvasRenderingContext2D,
-  img: HTMLImageElement,
+  img: ImgLike,
   dx: number,
   dy: number,
   dw: number,
@@ -586,7 +655,7 @@ function drawHalftone(
 // look and the hub's version doesn't do it either.
 function drawWhitesToColour(
   ctx: CanvasRenderingContext2D,
-  img: HTMLImageElement,
+  img: ImgLike,
   dx: number,
   dy: number,
   dw: number,
@@ -632,7 +701,7 @@ function drawWhitesToColour(
 // the frame, with exposure applied as brightness.
 function drawNatural(
   ctx: CanvasRenderingContext2D,
-  img: HTMLImageElement,
+  img: ImgLike,
   dx: number,
   dy: number,
   dw: number,
@@ -1040,15 +1109,24 @@ export async function renderEventPoster({
       iY = rTop + BORDER,
       iW = cw - 2 * BORDER,
       iH = rH - 2 * BORDER;
-    const src =
-      typeof ox === "number"
+    // Zoom-OUT (zoom < 1): pre-compose a frame-sized source where the whole
+    // picture sits smaller with its edges extended to fill the frame, then run
+    // the normal treatment over that so the halftone / colour look is applied to
+    // the fill too. Zoom ≥ 1 keeps the fast cover-crop path.
+    const zoomOut = typeof zoom === "number" && zoom < 1;
+    const source: ImgLike = zoomOut
+      ? edgeExtendFrame(im, iW, iH, zoom as number, ox ?? 0.5, oy ?? 0.5)
+      : im;
+    const src = zoomOut
+      ? { sx: 0, sy: 0, sw: source.width, sh: source.height }
+      : typeof ox === "number"
         ? coverRect(im.width, im.height, iW, iH, ox, oy, zoom)
         : null;
     if (treatment === "natural")
-      drawNatural(ctx, im, iX, iY, iW, iH, exp, src);
+      drawNatural(ctx, source, iX, iY, iW, iH, exp, src);
     else if (treatment === "whites")
-      drawWhitesToColour(ctx, im, iX, iY, iW, iH, C, exp, mode, src);
-    else drawHalftone(ctx, im, iX, iY, iW, iH, dark, light, exp, src);
+      drawWhitesToColour(ctx, source, iX, iY, iW, iH, C, exp, mode, src);
+    else drawHalftone(ctx, source, iX, iY, iW, iH, dark, light, exp, src);
   };
   const list: PosterImage[] = (
     Array.isArray(imgs) && imgs.length
