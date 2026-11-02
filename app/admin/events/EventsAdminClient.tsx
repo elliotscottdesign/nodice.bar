@@ -1421,6 +1421,7 @@ function EditEventModal({
   // ---- Event fields ----
   const [name, setName] = useState(event.name);
   const [description, setDescription] = useState(event.description ?? "");
+  const [externalLink, setExternalLink] = useState(event.external_link ?? "");
   const [eventDate, setEventDate] = useState(event.event_date);
   const [startTime, setStartTime] = useState(
     event.start_time ? event.start_time.slice(0, 5) : "",
@@ -1572,6 +1573,7 @@ function EditEventModal({
         name: name.trim(),
         category,
         description: description.trim() || null,
+        external_link: externalLink.trim() || null,
         event_date: eventDate,
         start_time: startTime || null,
         end_time: endTime || null,
@@ -1641,7 +1643,7 @@ function EditEventModal({
           const child = await createEvent({
             name: name.trim(),
             description: description.trim() || null,
-            external_link: event.external_link ?? null,
+            external_link: externalLink.trim() || null,
             poster_url: posterUrl || null,
             // Each instance of a recurring deal carries the same poster data.
             flyer_poster_url: flyerPosterUrl || null,
@@ -1855,6 +1857,20 @@ function EditEventModal({
               value={description}
               onChange={(ev) => setDescription(ev.target.value)}
               rows={3}
+              className={modalInputCls}
+            />
+          </ModalField>
+
+          {/* Optional link out — Eventbrite, Resident Advisor, Ticket
+              Tailor, an organiser's own page, anything. When set, the
+              /events card's button sends people here instead of the
+              inline booking form. */}
+          <ModalField label="Ticket / external link (optional)">
+            <input
+              type="url"
+              value={externalLink}
+              placeholder="https://… Eventbrite, Ticket Tailor, RA, organiser page"
+              onChange={(ev) => setExternalLink(ev.target.value)}
               className={modalInputCls}
             />
           </ModalField>
