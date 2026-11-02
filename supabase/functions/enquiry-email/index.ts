@@ -76,6 +76,38 @@ function formatDate(iso: string | null, flex: string): string {
     year: "numeric",
   });
 }
+// "14:00:00" → "2pm", "18:30" → "6:30pm".
+function formatTime(t: string | null | undefined): string {
+  const m = (t || "").match(/^(\d{2}):(\d{2})/);
+  if (!m) return "";
+  let h = parseInt(m[1], 10);
+  const min = m[2];
+  const ap = h >= 12 ? "pm" : "am";
+  h = h % 12;
+  if (h === 0) h = 12;
+  return min === "00" ? `${h}${ap}` : `${h}:${min}${ap}`;
+}
+// What they've booked, as a customer-facing label.
+const KIND_LABEL: Record<string, string> = {
+  table: "Table booking",
+  pool: "Pool",
+  golf: "Crazy golf",
+  private_hire: "Private hire",
+};
+const ENQUIRY_TYPE_LABEL: Record<string, string> = {
+  party: "Party", pool: "Pool", golf: "Crazy golf", ping_pong: "Ping pong",
+  table: "Table booking", private_hire: "Private hire", corporate: "Corporate",
+  kids: "Kids party", dj: "DJ", tournament: "Tournament", fundraiser: "Fundraiser",
+};
+// "Golf — Christmas party", "Pool", or the free-text event name.
+function activityLine(e: Enq): string {
+  const typeLabel = e.booking_kind
+    ? (KIND_LABEL[e.booking_kind] || "")
+    : (e.enquiry_type && e.enquiry_type !== "other" ? (ENQUIRY_TYPE_LABEL[e.enquiry_type] || "") : "");
+  const evt = (e.event_type || "").trim();
+  if (typeLabel && evt && evt.toLowerCase() !== typeLabel.toLowerCase()) return `${typeLabel} — ${evt}`;
+  return typeLabel || evt || "Your event";
+}
 
 type Enq = {
   contact_name: string;
@@ -88,14 +120,47 @@ type Enq = {
   share_token: string;
   payment_url: string;
   amount_pence: number | null;
+  enquiry_type: string | null;
+  paid_at: string | null;
+  linked_kind: string | null;
+  linked_id: string | null;
+  // Filled from the linked bar_reservations booking (if any):
+  booking_kind?: string;
+  start_time?: string;
 };
+
+// Decide the kicker / status line / intro from the pipeline + payment state.
+// Key fix: an unpaid booking must NOT read as fully "Confirmed" — it's held and
+// needs payment to lock in.
+function statusInfo(e: Enq): { kicker: string; status: string; intro: string; needsPayment: boolean } {
+  const needsPayment = !!e.payment_url && !!e.amount_pence && !e.paid_at;
+  const paid = !!e.paid_at;
+  const confirmed = e.status === "confirmed";
+  if (needsPayment) {
+    return {
+      kicker: "Please confirm your booking",
+      status: "Reserved — payment needed to confirm",
+      intro: "We've reserved this for you. To lock it in, please pay below — your booking is only confirmed once payment is received.",
+      needsPayment: true,
+    };
+  }
+  if (confirmed && paid) {
+    return { kicker: "You're booked in", status: "Confirmed & paid", intro: "You're all set — here are the details.", needsPayment: false };
+  }
+  if (confirmed) {
+    return { kicker: "You're booked in", status: "Confirmed", intro: "You're all set — here are the details.", needsPayment: false };
+  }
+  return { kicker: "We're holding this for you", status: "Pencilled in", intro: "We've got your date held. Here's where things stand.", needsPayment: false };
+}
 
 function renderHtml(e: Enq): string {
   const first = (e.contact_name || "").split(" ")[0] || "there";
-  const confirmed = e.status === "confirmed";
-  const kicker = confirmed ? "You're booked in" : "We're holding this for you";
+  const si = statusInfo(e);
+  const kicker = si.kicker;
   const summaryUrl = `${SITE}/my-event?t=${encodeURIComponent(e.share_token)}`;
+  const timeStr = formatTime(e.start_time);
   const dateStr = formatDate(e.requested_date, e.date_flex);
+  const dateTimeStr = timeStr ? `${dateStr}, ${timeStr}` : dateStr;
   const row = (k: string, v: string) =>
     `<tr>
       <td style="padding:14px 0;border-top:1px solid rgba(245,239,227,0.12);font-size:11px;font-weight:700;letter-spacing:0.22em;text-transform:uppercase;color:rgba(245,239,227,0.55);width:130px;vertical-align:top;">${k}</td>
@@ -126,13 +191,13 @@ function renderHtml(e: Enq): string {
         <div style="font-size:10px;font-weight:700;letter-spacing:0.3em;text-transform:uppercase;color:#DA1B33;margin-bottom:12px;">${esc(kicker)}</div>
         <h1 style="margin:0 0 16px;font-size:28px;line-height:1.1;letter-spacing:0.02em;font-weight:900;color:#f5efe3;">${esc(first)}, here's your event with us.</h1>
         <p style="margin:0 0 8px;font-size:15px;line-height:1.55;color:rgba(245,239,227,0.85);">
-          ${confirmed ? "You're all set — here are the details." : "We've got your date held. Here's where things stand."}
+          ${esc(si.intro)}
         </p>
         <table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0" style="margin:16px 0;">
-          ${row("Event", esc(e.event_type || "Your event"))}
-          ${row("Date", esc(dateStr))}
+          ${row("Event", esc(activityLine(e)))}
+          ${row("Date &amp; time", esc(dateTimeStr))}
           ${e.party_size ? row("Party", `${e.party_size} guests`) : ""}
-          ${row("Status", confirmed ? "Confirmed" : "Pencilled in")}
+          ${row("Status", esc(si.status))}
         </table>
         ${payBlock}
         <div style="margin-top:24px;">
@@ -155,22 +220,26 @@ function renderHtml(e: Enq): string {
 
 function renderText(e: Enq): string {
   const first = (e.contact_name || "").split(" ")[0] || "there";
-  const confirmed = e.status === "confirmed";
+  const si = statusInfo(e);
   const summaryUrl = `${SITE}/my-event?t=${encodeURIComponent(e.share_token)}`;
+  const timeStr = formatTime(e.start_time);
+  const dateStr = formatDate(e.requested_date, e.date_flex);
   return [
     `NO DICE — LONDON FIELDS, HACKNEY`,
     ``,
-    confirmed ? "YOU'RE BOOKED IN" : "WE'RE HOLDING THIS FOR YOU",
+    si.kicker.toUpperCase(),
     ``,
     `${first}, here's your event with us.`,
     ``,
-    `Event:  ${e.event_type || "Your event"}`,
-    `Date:   ${formatDate(e.requested_date, e.date_flex)}`,
-    e.party_size ? `Party:  ${e.party_size} guests` : "",
-    `Status: ${confirmed ? "Confirmed" : "Pencilled in"}`,
+    si.intro,
+    ``,
+    `Event:        ${activityLine(e)}`,
+    `Date & time:  ${timeStr ? `${dateStr}, ${timeStr}` : dateStr}`,
+    e.party_size ? `Party:        ${e.party_size} guests` : "",
+    `Status:       ${si.status}`,
     ``,
     e.payment_url && e.amount_pence
-      ? `Amount due: ${formatPounds(e.amount_pence)}\nPay now: ${e.payment_url}\n`
+      ? `${si.needsPayment ? "Pay to confirm your booking" : "Amount due"}: ${formatPounds(e.amount_pence)}\nPay now: ${e.payment_url}\n`
       : "",
     `Your event page: ${summaryUrl}`,
     ``,
@@ -210,7 +279,7 @@ Deno.serve(async (req) => {
   const { data: e, error } = await db
     .from("enquiries")
     .select(
-      "contact_name, contact_email, event_type, status, requested_date, date_flex, party_size, share_token, payment_url, amount_pence",
+      "contact_name, contact_email, event_type, status, requested_date, date_flex, party_size, share_token, payment_url, amount_pence, enquiry_type, paid_at, linked_kind, linked_id",
     )
     .eq("id", enquiryId)
     .maybeSingle();
@@ -221,6 +290,20 @@ Deno.serve(async (req) => {
     return jsonResponse({ error: "Enquiry not found" }, { status: 404 });
   }
   const enq = e as Enq;
+
+  // If this enquiry became a real booking, pull its time + activity kind so the
+  // email can show "Date & time" and what they booked (Golf, Pool, …).
+  if (enq.linked_kind === "booking" && enq.linked_id) {
+    const { data: bk } = await db
+      .from("bar_reservations")
+      .select("kind, start_time")
+      .eq("id", enq.linked_id)
+      .maybeSingle();
+    if (bk) {
+      enq.booking_kind = (bk as { kind?: string }).kind;
+      enq.start_time = (bk as { start_time?: string }).start_time;
+    }
+  }
   if (!enq.contact_email || !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(enq.contact_email)) {
     return jsonResponse(
       { error: "This enquiry has no valid email address to send to." },
@@ -228,8 +311,9 @@ Deno.serve(async (req) => {
     );
   }
 
-  const subject =
-    enq.status === "confirmed"
+  const subject = statusInfo(enq).needsPayment
+    ? `Your No Dice booking — payment needed to confirm`
+    : enq.status === "confirmed"
       ? `Your No Dice event — confirmed`
       : `Your No Dice event — we're holding your date`;
 

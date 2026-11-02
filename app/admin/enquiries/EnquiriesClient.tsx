@@ -125,6 +125,12 @@ function flagsFor(e: Enquiry, act: EnquiryActivity | undefined, now: number): Fl
   return { arrival, responded, owed, overdue, today };
 }
 
+// A requested date that's already gone (strictly before today).
+function isPastDate(dateIso: string | null): boolean {
+  if (!dateIso) return false;
+  return new Date(dateIso + "T23:59:59").getTime() < Date.now();
+}
+
 function sameDay(a: number, b: number): boolean {
   const x = new Date(a);
   const y = new Date(b);
@@ -390,6 +396,18 @@ export default function EnquiriesClient() {
     return n;
   }, [enquiries, bucket, activity, nowMs]);
 
+  // Pencilled enquiries whose date has already passed — stale holds to tidy away.
+  const pastPencilled = useMemo(
+    () =>
+      enquiries.filter(
+        (e) =>
+          (e.lead_bucket || "venue") === bucket &&
+          e.status === "pencilled" &&
+          isPastDate(e.requested_date),
+      ),
+    [enquiries, bucket],
+  );
+
   async function archiveOne(e: Enquiry) {
     setEnquiries((prev) => prev.filter((x) => x.id !== e.id)); // optimistic
     setUndo({ id: e.id, name: e.contact_name || e.event_type || "enquiry" });
@@ -401,6 +419,29 @@ export default function EnquiriesClient() {
       setErr(describe(err, "Couldn't archive."));
       await reload();
     }
+  }
+
+  // Bulk-archive every pencilled enquiry whose date has passed.
+  async function archivePastPencilled() {
+    const list = pastPencilled;
+    if (!list.length) return;
+    if (
+      !(await confirmDialog(
+        `Archive ${list.length} pencilled enquir${list.length === 1 ? "y" : "ies"} whose date has already passed? You can restore them from the Archived view.`,
+      ))
+    )
+      return;
+    const ids = new Set(list.map((e) => e.id));
+    setEnquiries((prev) => prev.filter((x) => !ids.has(x.id))); // optimistic
+    try {
+      for (const e of list) {
+        await archiveEnquiry(e.id);
+        tidyEnquiryGmail(e.id).catch(() => {});
+      }
+    } catch (err) {
+      setErr(describe(err, "Couldn't archive some of them."));
+    }
+    await reload();
   }
   async function restoreOne(id: string) {
     try {
@@ -647,6 +688,18 @@ export default function EnquiriesClient() {
             Ignored / not-relevant — ↩ on a card to restore it
           </span>
         )}
+
+        {!showArchived && pastPencilled.length > 0 && (
+          <button
+            type="button"
+            onClick={archivePastPencilled}
+            className="rounded-full border border-plonkYellow/50 px-3 py-1.5 text-[11px] font-bold uppercase tracking-wider text-plonkYellow transition hover:bg-plonkYellow/10"
+            title="Archive pencilled enquiries whose date has already passed"
+          >
+            Tidy past-dated pencilled
+            <span className="ml-1 opacity-70">{pastPencilled.length}</span>
+          </button>
+        )}
       </div>
 
       {undo && !showArchived && (
@@ -881,7 +934,20 @@ export default function EnquiriesClient() {
                             {ENQUIRY_TYPE_LABEL[e.enquiry_type]}
                           </span>
                         )}
-                        {e.requested_date && <span>{e.requested_date}</span>}
+                        {e.requested_date && (
+                          <span
+                            className={
+                              e.status === "pencilled" && isPastDate(e.requested_date)
+                                ? "font-bold text-plonkYellow"
+                                : ""
+                            }
+                          >
+                            {e.requested_date}
+                            {e.status === "pencilled" && isPastDate(e.requested_date)
+                              ? " · past"
+                              : ""}
+                          </span>
+                        )}
                         {e.party_size ? <span>· {e.party_size}p</span> : null}
                         {e.budget ? <span>· {e.budget}</span> : null}
                         <span>· {SOURCE_LABEL[e.source]}</span>
