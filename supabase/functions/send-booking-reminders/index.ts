@@ -144,6 +144,54 @@ function reminderText(o: {
     .join("\n");
 }
 
+// Payment chase — a booking is held but not paid. Warm, with a clear CTA.
+function payNudgeHtml(o: {
+  firstName: string; date: string; time: string; activity: string; amount: string; payUrl: string;
+}): string {
+  return `<!DOCTYPE html><html><head><meta charset="utf-8"><title>Secure your booking</title></head>
+<body style="margin:0;padding:0;background:#000;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Helvetica,Arial,sans-serif;color:#f5efe3;">
+<table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0" style="background:#000;"><tr><td align="center" style="padding:32px 16px;">
+<table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0" style="max-width:520px;background:#000;">
+<tr><td align="center" style="padding:24px 0 8px;"><img src="https://nodice.bar/nodice-wordmark.png" alt="No Dice" style="display:block;width:220px;max-width:80%;height:auto;border:0;"></td></tr>
+<tr><td align="center" style="padding:0 0 32px;"><div style="font-size:11px;font-weight:700;letter-spacing:0.32em;text-transform:uppercase;color:#DA1B33;">London Fields · Hackney</div></td></tr>
+<tr><td style="background:#0c0c0c;border:1px solid rgba(245,239,227,0.1);border-radius:16px;padding:32px;">
+<div style="font-size:10px;font-weight:700;letter-spacing:0.3em;text-transform:uppercase;color:#DA1B33;margin-bottom:12px;">Secure your booking</div>
+<h1 style="margin:0 0 16px;font-size:26px;line-height:1.15;letter-spacing:0.02em;font-weight:900;color:#f5efe3;">${o.firstName}, your spot is held — just needs payment.</h1>
+<p style="margin:0 0 8px;font-size:15px;line-height:1.55;color:rgba(245,239,227,0.85);">We've reserved your ${o.activity} for <strong>${o.date}${o.time ? ", " + o.time : ""}</strong>. To lock it in, pop your payment through below — your booking is confirmed as soon as it's paid.</p>
+<div style="margin-top:20px;padding:20px;border:1px solid rgba(218,27,51,0.35);border-radius:12px;background:rgba(218,27,51,0.06);">
+<div style="font-size:15px;color:#f5efe3;">Amount due: <strong>${o.amount}</strong></div>
+<div style="margin-top:16px;"><a href="${o.payUrl}" style="display:inline-block;background:#DA1B33;color:#fff;text-decoration:none;font-weight:800;font-size:15px;letter-spacing:0.02em;padding:14px 28px;border-radius:999px;">Pay now →</a></div>
+</div>
+<div style="margin-top:24px;padding-top:20px;border-top:1px solid rgba(245,239,227,0.12);font-size:13px;color:rgba(245,239,227,0.65);">Already paid, or want to change something? Just reply to this email — it comes straight to us.</div>
+</td></tr>
+<tr><td align="center" style="padding:32px 0 16px;"><div style="font-size:11px;color:rgba(245,239,227,0.4);line-height:1.6;">${VENUE_NAME} · ${VENUE_ADDRESS}<br><a href="https://nodice.bar" style="color:rgba(245,239,227,0.6);text-decoration:underline;">nodice.bar</a></div></td></tr>
+</table></td></tr></table></body></html>`;
+}
+function payNudgeText(o: {
+  firstName: string; date: string; time: string; activity: string; amount: string; payUrl: string;
+}): string {
+  return [
+    `NO DICE — LONDON FIELDS, HACKNEY`,
+    ``,
+    `SECURE YOUR BOOKING`,
+    ``,
+    `${o.firstName}, your spot is held — it just needs payment.`,
+    ``,
+    `We've reserved your ${o.activity} for ${o.date}${o.time ? ", " + o.time : ""}.`,
+    `Your booking is confirmed as soon as it's paid.`,
+    ``,
+    `Amount due: ${o.amount}`,
+    `Pay now: ${o.payUrl}`,
+    ``,
+    `Already paid, or want to change something? Just reply to this email.`,
+    ``,
+    `${VENUE_NAME}`,
+    `${VENUE_ADDRESS}`,
+    ``,
+    `https://nodice.bar`,
+  ].join("\n");
+}
+
 async function sendEmail(to: string, subject: string, html: string, text: string) {
   const res = await fetch("https://api.resend.com/emails", {
     method: "POST",
@@ -163,61 +211,81 @@ async function sendEmail(to: string, subject: string, html: string, text: string
 // Per-table processing
 // =============================================================
 
-async function remindBarReservations(
-  windowStartDate: string,
-  windowEndDate: string,
-): Promise<{ sent: number; failed: number }> {
-  // Bookings in window. Date column makes the SQL simple — the
-  // SELECT range is widened slightly to cover the time-of-day too.
+const KIND_LABEL: Record<string, string> = {
+  table: "table booking",
+  pool: "pool tables",
+  golf: "crazy golf",
+  private_hire: "private hire",
+};
+
+// "See you soon" nudge for paid bar bookings. Casual self-serve bookings
+// (walk-in pool/table) get it ~24h before; the bigger office-made CRM bookings
+// (parties / private hire — anything linked from an enquiry) get it ~48h before,
+// so the organiser has proper notice.
+async function remindBarReservations(): Promise<{ sent: number; failed: number }> {
+  const now = Date.now();
+  // One wide candidate window covering both 24h and 48h passes.
+  const winStart = new Date(now + 22 * 3600 * 1000).toISOString().slice(0, 10);
+  const winEnd = new Date(now + 50 * 3600 * 1000).toISOString().slice(0, 10);
   const { data, error } = await db
     .from("bar_reservations")
     .select("id, kind, name, email, reservation_date, start_time")
     .eq("status", "paid")
     .is("reminder_sent_at", null)
-    .gte("reservation_date", windowStartDate)
-    .lte("reservation_date", windowEndDate);
+    .gte("reservation_date", winStart)
+    .lte("reservation_date", winEnd);
   if (error) {
     console.error("bar_reservations select:", error.message);
     return { sent: 0, failed: 0 };
   }
+  const rows = data ?? [];
+
+  // Which of these are CRM-origin (a party/private booking the office made from
+  // an enquiry)? Those get the 48h notice instead of 24h.
+  const ids = rows.map((r) => r.id);
+  const crm = new Set<string>();
+  if (ids.length) {
+    const { data: links } = await db
+      .from("enquiries")
+      .select("linked_id")
+      .eq("linked_kind", "booking")
+      .in("linked_id", ids);
+    for (const l of links ?? []) if (l.linked_id) crm.add(l.linked_id as string);
+  }
+
   let sent = 0,
     failed = 0;
-  for (const r of data ?? []) {
+  for (const r of rows) {
+    const startMs = new Date(
+      `${r.reservation_date}T${(r.start_time || "00:00:00")}`,
+    ).getTime();
+    const hrs = (startMs - now) / 3_600_000;
+    const isCrm = crm.has(r.id);
+    // 48h window for CRM party bookings, 24h for everything else.
+    const due = isCrm ? hrs >= 46 && hrs < 50 : hrs >= 22 && hrs < 26;
+    if (!due) continue;
     try {
       const firstName = (r.name ?? "").split(" ")[0] || r.name || "there";
-      const isPool = r.kind === "pool";
-      const subject = isPool
-        ? `Pool table tomorrow — ${formatTime(r.start_time)}`
-        : `Your table tomorrow — ${formatTime(r.start_time)}`;
-      const html = reminderHtml({
+      const when = isCrm ? "in 2 days" : "tomorrow";
+      const place = KIND_LABEL[r.kind] || "No Dice";
+      const subject = `${isCrm ? "Your No Dice booking" : (r.kind === "pool" ? "Pool table" : "Your table")} ${when} — ${formatTime(r.start_time)}`;
+      const payload = {
         firstName,
-        bigLine: isPool
-          ? "see you tomorrow at the pool tables."
-          : "see you tomorrow.",
+        bigLine: `see you ${when}${r.kind === "pool" ? " at the pool tables" : r.kind === "golf" ? " for crazy golf" : ""}.`,
         detailLines: [
           ["Date", formatDate(r.reservation_date)],
           ["Time", formatTime(r.start_time)],
           ["Where", `${VENUE_NAME}, ${VENUE_ADDRESS}`],
-        ],
-        closingLine: isPool
-          ? "We hold the table for 15 minutes past your slot — try not to be late, the room's set up for you."
-          : "We hold the table for 15 minutes past your slot.",
-      });
-      const text = reminderText({
-        firstName,
-        bigLine: isPool
-          ? "see you tomorrow at the pool tables."
-          : "see you tomorrow.",
-        detailLines: [
-          ["Date", formatDate(r.reservation_date)],
-          ["Time", formatTime(r.start_time)],
-          ["Where", `${VENUE_NAME}, ${VENUE_ADDRESS}`],
-        ],
-        closingLine: isPool
-          ? "We hold the table for 15 minutes past your slot — try not to be late, the room's set up for you."
-          : "We hold the table for 15 minutes past your slot.",
-      });
-      await sendEmail(r.email, subject, html, text);
+        ] as [string, string][],
+        closingLine: isCrm
+          ? "Anything you need to run through before the day? Just reply — we're happy to help."
+          : (r.kind === "pool"
+            ? "We hold the table for 15 minutes past your slot — try not to be late, the room's set up for you."
+            : "We hold the table for 15 minutes past your slot."),
+      };
+      // place is referenced to keep the label handy for future copy tweaks.
+      void place;
+      await sendEmail(r.email, subject, reminderHtml(payload), reminderText(payload));
       await db
         .from("bar_reservations")
         .update({ reminder_sent_at: new Date().toISOString() })
@@ -225,6 +293,66 @@ async function remindBarReservations(
       sent++;
     } catch (e) {
       console.error(`bar_reservation ${r.id}:`, e instanceof Error ? e.message : e);
+      failed++;
+    }
+  }
+  return { sent, failed };
+}
+
+// One-time "please pay to confirm" chase for bookings that have a payment link
+// but haven't been paid, created at least a day ago and still in the future.
+async function remindUnpaidBookings(): Promise<{ sent: number; failed: number }> {
+  const now = Date.now();
+  const todayIso = new Date(now).toISOString().slice(0, 10);
+  const dayAgoIso = new Date(now - 24 * 3600 * 1000).toISOString();
+  const { data, error } = await db
+    .from("bar_reservations")
+    .select("id, kind, name, email, reservation_date, start_time, pool_pay_url, amount_pence")
+    .in("status", ["confirmed", "pending"])
+    .not("pool_pay_url", "is", null)
+    .is("pay_reminder_sent_at", null)
+    .gte("reservation_date", todayIso)
+    .lte("created_at", dayAgoIso);
+  if (error) {
+    console.error("unpaid bookings select:", error.message);
+    return { sent: 0, failed: 0 };
+  }
+  let sent = 0,
+    failed = 0;
+  for (const r of (data ?? []) as Array<{
+    id: string; kind: string; name: string; email: string;
+    reservation_date: string; start_time: string | null;
+    pool_pay_url: string | null; amount_pence: number | null;
+  }>) {
+    if (!r.pool_pay_url || !r.amount_pence) continue;
+    try {
+      const firstName = (r.name ?? "").split(" ")[0] || r.name || "there";
+      const amount = r.amount_pence % 100 === 0 ? `£${r.amount_pence / 100}` : `£${(r.amount_pence / 100).toFixed(2)}`;
+      const subject = `Secure your No Dice booking — payment needed`;
+      const html = payNudgeHtml({
+        firstName,
+        date: formatDate(r.reservation_date),
+        time: formatTime(r.start_time),
+        activity: KIND_LABEL[r.kind] || "your booking",
+        amount,
+        payUrl: r.pool_pay_url,
+      });
+      const text = payNudgeText({
+        firstName,
+        date: formatDate(r.reservation_date),
+        time: formatTime(r.start_time),
+        activity: KIND_LABEL[r.kind] || "your booking",
+        amount,
+        payUrl: r.pool_pay_url,
+      });
+      await sendEmail(r.email, subject, html, text);
+      await db
+        .from("bar_reservations")
+        .update({ pay_reminder_sent_at: new Date().toISOString() })
+        .eq("id", r.id);
+      sent++;
+    } catch (e) {
+      console.error(`unpaid booking ${r.id}:`, e instanceof Error ? e.message : e);
       failed++;
     }
   }
@@ -390,7 +518,9 @@ Deno.serve(async (req) => {
 
   const { startIso, endIso } = reminderWindow();
 
-  const bar = await remindBarReservations(startIso, endIso);
+  // bar_reservations now self-windows (24h casual / 48h CRM party) internally.
+  const bar = await remindBarReservations();
+  const unpaid = await remindUnpaidBookings();
   const ev = await remindEventEntries(startIso, endIso);
   const t = await remindTournamentEntries(startIso, endIso);
 
@@ -398,6 +528,7 @@ Deno.serve(async (req) => {
     ok: true,
     window: { from: startIso, to: endIso },
     bar_reservations: bar,
+    unpaid_chase: unpaid,
     event_entries: ev,
     tournament_entries: t,
   });
