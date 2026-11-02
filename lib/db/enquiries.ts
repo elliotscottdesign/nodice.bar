@@ -91,6 +91,7 @@ export type Enquiry = {
   lead_bucket: LeadBucket;
   enquiry_type: EnquiryType | null;
   archived_at: string | null;
+  saved_at: string | null;
   created_at: string;
   updated_at: string;
 };
@@ -130,7 +131,7 @@ export type EnquiryMessage = {
 };
 
 const SELECT =
-  "id, source, status, contact_name, contact_email, contact_phone, event_type, party_size, requested_date, date_flex, budget, notes, assigned_to, linked_kind, linked_id, share_token, amount_pence, payment_url, paid_at, last_emailed_at, lead_bucket, enquiry_type, archived_at, created_at, updated_at";
+  "id, source, status, contact_name, contact_email, contact_phone, event_type, party_size, requested_date, date_flex, budget, notes, assigned_to, linked_kind, linked_id, share_token, amount_pence, payment_url, paid_at, last_emailed_at, lead_bucket, enquiry_type, archived_at, saved_at, created_at, updated_at";
 
 export const SOURCE_LABEL: Record<EnquirySource, string> = {
   party_form: "Party form",
@@ -209,25 +210,31 @@ export async function checkDateAvailability(
   return { date: iso, tableCount, tableCovers, poolCount, events, busy };
 }
 
+export type Shelf = "active" | "archived" | "saved";
+
 export async function loadEnquiries(
-  opts: { archived?: boolean } = {},
+  opts: { shelf?: Shelf } = {},
 ): Promise<Enquiry[]> {
-  // Default: live enquiries only (archived ones are hidden). Pass
-  // {archived:true} to load the archived/ignored ones for the Archived view.
+  // active (default) = on the board (not archived, not saved).
+  // archived = hidden as not-relevant (+ tidied out of Gmail).
+  // saved    = set aside for later (email left in Gmail untouched).
+  const shelf = opts.shelf ?? "active";
   let q = supabase().from("enquiries").select(SELECT);
-  q = opts.archived ? q.not("archived_at", "is", null) : q.is("archived_at", null);
-  const { data, error } = await q
-    .order("created_at", { ascending: false });
+  if (shelf === "archived") q = q.not("archived_at", "is", null);
+  else if (shelf === "saved") q = q.not("saved_at", "is", null);
+  else q = q.is("archived_at", null).is("saved_at", null);
+  const { data, error } = await q.order("created_at", { ascending: false });
   if (error) throw error;
   return (data ?? []) as Enquiry[];
 }
 
 // Archive = "not relevant, get it off the board" (spam, duplicate, wrong
 // place). Reversible — different from "Lost" (a real deal we didn't win).
+// The caller also tidies it out of the Gmail inbox.
 export async function archiveEnquiry(id: string): Promise<void> {
   const { error } = await supabase()
     .from("enquiries")
-    .update({ archived_at: new Date().toISOString() })
+    .update({ archived_at: new Date().toISOString(), saved_at: null })
     .eq("id", id);
   if (error) throw error;
 }
@@ -235,6 +242,23 @@ export async function unarchiveEnquiry(id: string): Promise<void> {
   const { error } = await supabase()
     .from("enquiries")
     .update({ archived_at: null })
+    .eq("id", id);
+  if (error) throw error;
+}
+
+// Save for later = clear it from the active CRM list but KEEP the email in
+// Gmail (no inbox tidy). Reversible. For "deal with it later", not "irrelevant".
+export async function saveEnquiryForLater(id: string): Promise<void> {
+  const { error } = await supabase()
+    .from("enquiries")
+    .update({ saved_at: new Date().toISOString(), archived_at: null })
+    .eq("id", id);
+  if (error) throw error;
+}
+export async function unsaveEnquiry(id: string): Promise<void> {
+  const { error } = await supabase()
+    .from("enquiries")
+    .update({ saved_at: null })
     .eq("id", id);
   if (error) throw error;
 }

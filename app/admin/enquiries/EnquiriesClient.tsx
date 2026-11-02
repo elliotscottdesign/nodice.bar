@@ -54,6 +54,9 @@ import {
   loadEnquiryActivity,
   archiveEnquiry,
   unarchiveEnquiry,
+  saveEnquiryForLater,
+  unsaveEnquiry,
+  type Shelf,
   tidyEnquiryGmail,
   type EnquiryActivity,
   createEnquiry,
@@ -239,6 +242,26 @@ function CheckIcon({ className = "" }: { className?: string }) {
     </svg>
   );
 }
+function BookmarkIcon({ className = "" }: { className?: string }) {
+  return (
+    <svg viewBox="0 0 24 24" width="13" height="13" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className={className} aria-hidden>
+      <path d="M19 21l-7-5-7 5V5a2 2 0 0 1 2-2h10a2 2 0 0 1 2 2z" />
+    </svg>
+  );
+}
+function ArchiveIcon({ className = "" }: { className?: string }) {
+  return (
+    <svg viewBox="0 0 24 24" width="13" height="13" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className={className} aria-hidden>
+      <rect x="3" y="4" width="18" height="4" rx="1" />
+      <path d="M5 8v11a1 1 0 0 0 1 1h12a1 1 0 0 0 1-1V8" />
+      <path d="M10 12h4" />
+    </svg>
+  );
+}
+// Short arrival date, e.g. "2 Nov".
+function shortDate(d: Date): string {
+  return d.toLocaleDateString("en-GB", { day: "numeric", month: "short" });
+}
 
 // A kitchen + bar pre-event brief, generated from what we know about the
 // enquiry. Pure text so the office can read it, copy it to a staff WhatsApp,
@@ -326,8 +349,9 @@ export default function EnquiriesClient() {
   const [activity, setActivity] = useState<Record<string, EnquiryActivity>>({});
   const [sortBy, setSortBy] = useState<SortKey>("newest");
   const [onlyOwed, setOnlyOwed] = useState(false);
-  const [showArchived, setShowArchived] = useState(false);
-  const [undo, setUndo] = useState<{ id: string; name: string } | null>(null);
+  const [shelf, setShelf] = useState<Shelf>("active");
+  const showArchived = shelf !== "active"; // in a side view (archived/saved)
+  const [undo, setUndo] = useState<{ id: string; name: string; kind: "archived" | "saved" } | null>(null);
   // Re-evaluate "today / overdue" against a clock that ticks each minute.
   const [nowMs, setNowMs] = useState(() => Date.now());
   useEffect(() => {
@@ -340,7 +364,7 @@ export default function EnquiriesClient() {
     setErr("");
     try {
       const [list, act] = await Promise.all([
-        loadEnquiries({ archived: showArchived }),
+        loadEnquiries({ shelf }),
         loadEnquiryActivity().catch(() => ({})),
       ]);
       setEnquiries(list);
@@ -350,11 +374,16 @@ export default function EnquiriesClient() {
     } finally {
       setLoading(false);
     }
-  }, [showArchived]);
+  }, [shelf]);
 
   useEffect(() => {
     reload();
   }, [reload]);
+
+  // Reload when switching between active / archived / saved views.
+  useEffect(() => {
+    reload();
+  }, [shelf, reload]);
 
   const bucketCounts = useMemo(() => {
     let venue = 0;
@@ -408,15 +437,27 @@ export default function EnquiriesClient() {
     [enquiries, bucket],
   );
 
+  const nameOf = (e: Enquiry) => e.contact_name || e.event_type || "enquiry";
+  // Archive = not relevant → hide + tidy out of the Gmail inbox.
   async function archiveOne(e: Enquiry) {
     setEnquiries((prev) => prev.filter((x) => x.id !== e.id)); // optimistic
-    setUndo({ id: e.id, name: e.contact_name || e.event_type || "enquiry" });
+    setUndo({ id: e.id, name: nameOf(e), kind: "archived" });
     try {
       await archiveEnquiry(e.id);
-      // Also clear it out of the Gmail inbox (best-effort, never blocks).
-      tidyEnquiryGmail(e.id).catch(() => {});
+      tidyEnquiryGmail(e.id).catch(() => {}); // clear from Gmail inbox too
     } catch (err) {
       setErr(describe(err, "Couldn't archive."));
+      await reload();
+    }
+  }
+  // Save for later = clear from the list but LEAVE the email in Gmail.
+  async function saveOne(e: Enquiry) {
+    setEnquiries((prev) => prev.filter((x) => x.id !== e.id)); // optimistic
+    setUndo({ id: e.id, name: nameOf(e), kind: "saved" });
+    try {
+      await saveEnquiryForLater(e.id);
+    } catch (err) {
+      setErr(describe(err, "Couldn't save."));
       await reload();
     }
   }
@@ -443,9 +484,10 @@ export default function EnquiriesClient() {
     }
     await reload();
   }
-  async function restoreOne(id: string) {
+  async function restoreOne(id: string, from: "archived" | "saved") {
     try {
-      await unarchiveEnquiry(id);
+      if (from === "saved") await unsaveEnquiry(id);
+      else await unarchiveEnquiry(id);
       setUndo(null);
       await reload();
     } catch (err) {
@@ -631,13 +673,13 @@ export default function EnquiriesClient() {
           ))}
       </div>
 
-      {/* Controls: must-respond, sort, archived view */}
+      {/* Controls: must-respond, sort, and Active / Saved / Archived views */}
       <div className="flex flex-wrap items-center gap-2">
         <button
           type="button"
           onClick={() => {
             setOnlyOwed((v) => !v);
-            setShowArchived(false);
+            setShelf("active");
           }}
           className={`inline-flex items-center gap-1.5 rounded-full border px-3 py-1.5 text-[11px] font-bold uppercase tracking-wider transition ${
             onlyOwed
@@ -668,28 +710,45 @@ export default function EnquiriesClient() {
           </select>
         </label>
 
-        <button
-          type="button"
-          onClick={() => {
-            setShowArchived((v) => !v);
-            setOnlyOwed(false);
-          }}
-          className={`rounded-full border px-3 py-1.5 text-[11px] font-bold uppercase tracking-wider transition ${
-            showArchived
-              ? "border-plonkYellow bg-plonkYellow/15 text-plonkYellow"
-              : "border-cream/15 text-cream/55 hover:border-cream/40"
-          }`}
-        >
-          {showArchived ? "← Back to live" : "Archived"}
-        </button>
+        {/* view switch */}
+        <div className="inline-flex overflow-hidden rounded-full border border-cream/15">
+          {(
+            [
+              ["active", "Active"],
+              ["saved", "Saved"],
+              ["archived", "Archived"],
+            ] as [Shelf, string][]
+          ).map(([s, lbl]) => (
+            <button
+              key={s}
+              type="button"
+              onClick={() => {
+                setShelf(s);
+                setOnlyOwed(false);
+              }}
+              className={`px-3 py-1.5 text-[11px] font-bold uppercase tracking-wider transition ${
+                shelf === s
+                  ? "bg-plonkTeal/20 text-plonkTeal"
+                  : "text-cream/55 hover:bg-cream/5"
+              }`}
+            >
+              {lbl}
+            </button>
+          ))}
+        </div>
 
-        {showArchived && (
+        {shelf === "saved" && (
           <span className="text-[10px] uppercase tracking-wider text-cream/40">
-            Ignored / not-relevant — ↩ on a card to restore it
+            Set aside for later — still in Gmail · ↩ on a card to bring back
+          </span>
+        )}
+        {shelf === "archived" && (
+          <span className="text-[10px] uppercase tracking-wider text-cream/40">
+            Not-relevant / tidied from Gmail · ↩ on a card to restore
           </span>
         )}
 
-        {!showArchived && pastPencilled.length > 0 && (
+        {shelf === "active" && pastPencilled.length > 0 && (
           <button
             type="button"
             onClick={archivePastPencilled}
@@ -702,12 +761,12 @@ export default function EnquiriesClient() {
         )}
       </div>
 
-      {undo && !showArchived && (
+      {undo && shelf === "active" && (
         <div className="flex items-center justify-between rounded-lg border border-cream/15 bg-ink/50 px-3 py-2 text-xs text-cream/70">
-          <span>Archived “{undo.name}”.</span>
+          <span>{undo.kind === "saved" ? "Saved" : "Archived"} “{undo.name}”.</span>
           <button
             type="button"
-            onClick={() => restoreOne(undo.id)}
+            onClick={() => restoreOne(undo.id, undo.kind)}
             className="font-bold uppercase tracking-wider text-plonkTeal hover:underline"
           >
             Undo
@@ -888,15 +947,6 @@ export default function EnquiriesClient() {
                           )}
                         </div>
                         <div className="flex shrink-0 items-center gap-1">
-                          {/* came in today */}
-                          {f.today && !showArchived && (
-                            <span
-                              title="Came in today"
-                              className="inline-flex items-center gap-0.5 rounded bg-plonkTeal/20 px-1 py-0.5 text-[8px] font-bold uppercase tracking-wider text-plonkTeal"
-                            >
-                              <MailIcon /> Today
-                            </span>
-                          )}
                           {/* >24h with no reply from us */}
                           {f.overdue && (
                             <span title="Waiting over 24h — needs a reply" className="text-red-500">
@@ -909,26 +959,55 @@ export default function EnquiriesClient() {
                               <CheckIcon />
                             </span>
                           )}
-                          {/* archive / restore */}
-                          <button
-                            type="button"
-                            title={showArchived ? "Restore to the board" : "Ignore / archive"}
-                            onClick={(ev) => {
-                              ev.stopPropagation();
-                              if (showArchived) restoreOne(e.id);
-                              else archiveOne(e);
-                            }}
-                            className="rounded p-0.5 text-cream/30 opacity-0 transition hover:bg-cream/10 hover:text-cream/80 focus:opacity-100 group-hover:opacity-100"
-                          >
-                            {showArchived ? (
-                              <span className="text-xs leading-none">↩</span>
-                            ) : (
-                              <span className="text-xs leading-none">✕</span>
-                            )}
-                          </button>
+                          {/* save / archive (active) or restore (side views) */}
+                          {shelf !== "active" ? (
+                            <button
+                              type="button"
+                              title="Bring back to the board"
+                              onClick={(ev) => {
+                                ev.stopPropagation();
+                                restoreOne(e.id, shelf === "saved" ? "saved" : "archived");
+                              }}
+                              className="rounded border border-cream/20 px-1.5 py-0.5 text-[10px] font-bold text-cream/70 transition hover:bg-cream/10"
+                            >
+                              ↩ Restore
+                            </button>
+                          ) : (
+                            <>
+                              <button
+                                type="button"
+                                title="Save for later — keeps the email in Gmail, clears it from this list"
+                                onClick={(ev) => {
+                                  ev.stopPropagation();
+                                  saveOne(e);
+                                }}
+                                className="rounded border border-cream/20 p-1 text-cream/50 transition hover:border-plonkTeal/60 hover:text-plonkTeal"
+                              >
+                                <BookmarkIcon />
+                              </button>
+                              <button
+                                type="button"
+                                title="Archive — hide as not relevant and clear it out of the Gmail inbox"
+                                onClick={(ev) => {
+                                  ev.stopPropagation();
+                                  archiveOne(e);
+                                }}
+                                className="rounded border border-cream/20 p-1 text-cream/50 transition hover:border-red-500/60 hover:text-red-400"
+                              >
+                                <ArchiveIcon />
+                              </button>
+                            </>
+                          )}
                         </div>
                       </div>
                       <div className="mt-1 flex flex-wrap items-center gap-x-2 gap-y-1 text-[10px] uppercase tracking-wider text-cream/45">
+                        {/* when it came in — on every card */}
+                        <span
+                          className={f.today ? "font-bold text-plonkTeal" : "text-cream/55"}
+                          title={`Came in ${f.arrival.toLocaleString("en-GB")}`}
+                        >
+                          {f.today ? "Today" : shortDate(f.arrival)}
+                        </span>
                         {e.enquiry_type && e.enquiry_type !== "other" && (
                           <span className="rounded border border-cream/20 px-1.5 py-0.5 font-bold text-cream/70">
                             {ENQUIRY_TYPE_LABEL[e.enquiry_type]}
@@ -942,7 +1021,7 @@ export default function EnquiriesClient() {
                                 : ""
                             }
                           >
-                            {e.requested_date}
+                            for {e.requested_date}
                             {e.status === "pencilled" && isPastDate(e.requested_date)
                               ? " · past"
                               : ""}
@@ -1007,6 +1086,14 @@ export default function EnquiriesClient() {
             } catch (e) {
               setErr(describe(e, "Couldn't delete."));
             }
+          }}
+          onArchive={() => {
+            archiveOne(open);
+            setOpenId(null);
+          }}
+          onSave={() => {
+            saveOne(open);
+            setOpenId(null);
           }}
         />
       )}
@@ -1686,6 +1773,8 @@ function EnquiryDrawer({
   onReload,
   onSavedField,
   onDelete,
+  onArchive,
+  onSave,
 }: {
   enquiry: Enquiry;
   onClose: () => void;
@@ -1693,6 +1782,8 @@ function EnquiryDrawer({
   onReload: () => Promise<void>;
   onSavedField: (patch: Record<string, unknown>) => Promise<void>;
   onDelete: () => void;
+  onArchive: () => void;
+  onSave: () => void;
 }) {
   const [messages, setMessages] = useState<EnquiryMessage[]>([]);
   const [note, setNote] = useState("");
@@ -2005,10 +2096,29 @@ function EnquiryDrawer({
           </div>
         </div>
 
+        <div className="mt-6 flex flex-wrap items-center gap-2">
+          <button
+            type="button"
+            onClick={onSave}
+            className="inline-flex items-center gap-1.5 rounded-full border border-cream/25 px-3 py-1.5 text-[11px] font-bold uppercase tracking-wider text-cream/70 transition hover:border-plonkTeal/60 hover:text-plonkTeal"
+            title="Save for later — keeps the email in Gmail, clears it from the list"
+          >
+            <BookmarkIcon /> Save for later
+          </button>
+          <button
+            type="button"
+            onClick={onArchive}
+            className="inline-flex items-center gap-1.5 rounded-full border border-cream/25 px-3 py-1.5 text-[11px] font-bold uppercase tracking-wider text-cream/70 transition hover:border-red-500/60 hover:text-red-400"
+            title="Archive — hide as not relevant and clear it out of the Gmail inbox"
+          >
+            <ArchiveIcon /> Archive
+          </button>
+        </div>
+
         <button
           type="button"
           onClick={onDelete}
-          className="mt-6 text-[11px] font-bold uppercase tracking-wider text-red-400/70 hover:underline"
+          className="mt-4 text-[11px] font-bold uppercase tracking-wider text-red-400/70 hover:underline"
         >
           Delete enquiry
         </button>
