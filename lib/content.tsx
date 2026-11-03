@@ -246,6 +246,9 @@ export function useImageDisplay(key: string, fallback: string): ImageDisplay {
 export type GalleryItem = {
   src: string;
   alt?: string | null;
+  /** Optional visible name/label shown under the image (e.g. a
+   *  comedian's name on the /comedybingo line-up). Null = no label. */
+  caption?: string | null;
   position_x: number;
   position_y: number;
   position_zoom: number;
@@ -269,7 +272,7 @@ export function useGallery<T extends { src: string; alt?: string | null }>(
         const { data, error } = await supabase()
           .from("gallery_images")
           .select(
-            "src, alt, sort_order, active, position_x, position_y, position_zoom, position_fit",
+            "src, alt, caption, sort_order, active, position_x, position_y, position_zoom, position_fit",
           )
           .eq("site", SITE)
           .eq("gallery_key", galleryKey)
@@ -279,6 +282,7 @@ export function useGallery<T extends { src: string; alt?: string | null }>(
         const raw = (data ?? []) as Array<{
           src: string;
           alt: string | null;
+          caption: string | null;
           position_x: number | null;
           position_y: number | null;
           position_zoom: number | null;
@@ -288,6 +292,7 @@ export function useGallery<T extends { src: string; alt?: string | null }>(
           raw.map((r) => ({
             src: mediaUrl(r.src),
             alt: r.alt,
+            caption: r.caption ?? null,
             position_x: r.position_x ?? 50,
             position_y: r.position_y ?? 50,
             position_zoom: r.position_zoom ?? 1,
@@ -308,6 +313,7 @@ export function useGallery<T extends { src: string; alt?: string | null }>(
   return fallback.map((f) => ({
     src: mediaUrl(f.src),
     alt: f.alt ?? null,
+    caption: (f as { caption?: string | null }).caption ?? null,
     position_x: 50,
     position_y: 50,
     position_zoom: 1,

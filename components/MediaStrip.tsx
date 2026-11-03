@@ -104,29 +104,43 @@ export default function MediaStrip({
                   ? (tile as (typeof images)[number])
                   : null;
                 return (
+                  // Outer wrapper owns the tile width + scroll snap; the
+                  // image box and the optional name label stack inside it,
+                  // so the caption is locked to the image's width.
                   <div
                     key={img?.src || `blank-${i}`}
-                    className="relative shrink-0 snap-start overflow-hidden rounded-2xl border border-cream/10 bg-white/[0.03] w-[82vw] sm:w-[52vw] lg:w-[34vw]"
-                    style={{ aspectRatio: aspect }}
+                    className="shrink-0 snap-start w-[82vw] sm:w-[52vw] lg:w-[34vw]"
                   >
-                    {img?.src ? (
-                      <Image
-                        src={img.src}
-                        alt={img.alt || ""}
-                        fill
-                        sizes="(min-width:1024px) 34vw, (min-width:640px) 52vw, 82vw"
-                        style={{
-                          objectFit:
-                            img.position_fit === "contain"
-                              ? "contain"
-                              : "cover",
-                          objectPosition: `${img.position_x ?? 50}% ${img.position_y ?? 50}%`,
-                        }}
-                        className="transition duration-500 hover:scale-105"
-                      />
-                    ) : (
-                      <BlankTile label={blankLabel} />
-                    )}
+                    <div
+                      className="relative overflow-hidden rounded-2xl border border-cream/10 bg-white/[0.03]"
+                      style={{ aspectRatio: aspect }}
+                    >
+                      {img?.src ? (
+                        <Image
+                          src={img.src}
+                          alt={img.alt || ""}
+                          fill
+                          sizes="(min-width:1024px) 34vw, (min-width:640px) 52vw, 82vw"
+                          style={{
+                            objectFit:
+                              img.position_fit === "contain"
+                                ? "contain"
+                                : "cover",
+                            objectPosition: `${img.position_x ?? 50}% ${img.position_y ?? 50}%`,
+                          }}
+                          className="transition duration-500 hover:scale-105"
+                        />
+                      ) : (
+                        <BlankTile label={blankLabel} />
+                      )}
+                    </div>
+                    {/* Optional name under the photo — only when set, so
+                        caption-less galleries (parties pages) are unchanged. */}
+                    {img?.caption ? (
+                      <p className="mt-2 px-1 text-center text-sm font-semibold uppercase tracking-wide text-cream break-words">
+                        {img.caption}
+                      </p>
+                    ) : null}
                   </div>
                 );
               },

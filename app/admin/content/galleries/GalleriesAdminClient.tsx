@@ -504,6 +504,21 @@ export default function GalleriesAdminClient() {
     }
   }
 
+  // The caption is the visible NAME under the photo on the public page
+  // (e.g. a comedian's name on /comedybingo). Blank saves as null so the
+  // page shows no label (galleries that don't use names stay clean).
+  async function handleSaveCaption(g: DbGalleryImage, caption: string) {
+    setBusy(true);
+    try {
+      await updateGalleryImage(g.id, { caption: caption.trim() || null });
+      await reload();
+    } catch (e) {
+      setErr(describe(e, "Save failed"));
+    } finally {
+      setBusy(false);
+    }
+  }
+
   async function handleDelete(g: DbGalleryImage) {
     if (!(await confirmDialog(`Remove this image from the gallery? (The original file in Storage isn't deleted.)`))) return;
     setBusy(true);
@@ -721,6 +736,18 @@ export default function GalleriesAdminClient() {
                             }}
                           />
                         </div>
+                        {/* Visible NAME under the photo on the public
+                            page (comedian / host). Leave blank for no label. */}
+                        <input
+                          type="text"
+                          defaultValue={g.caption ?? ""}
+                          onBlur={(e) =>
+                            e.target.value !== (g.caption ?? "") &&
+                            handleSaveCaption(g, e.target.value)
+                          }
+                          placeholder="Name under photo (e.g. comedian)"
+                          className="mt-2 w-full rounded-md border border-cream/15 bg-ink/40 px-2 py-1 text-xs text-cream placeholder:text-cream/30 focus:border-plonkPink focus:outline-none"
+                        />
                         <input
                           type="text"
                           defaultValue={g.alt ?? ""}
@@ -728,7 +755,7 @@ export default function GalleriesAdminClient() {
                             e.target.value !== (g.alt ?? "") &&
                             handleSaveAlt(g, e.target.value)
                           }
-                          placeholder="Alt text"
+                          placeholder="Alt text (for screen readers)"
                           className="mt-2 w-full rounded-md border border-cream/15 bg-ink/40 px-2 py-1 text-xs text-cream placeholder:text-cream/30 focus:border-plonkTeal focus:outline-none"
                         />
                         <div className="mt-2 flex items-center justify-between text-xs">
