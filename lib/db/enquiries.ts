@@ -509,6 +509,79 @@ export async function saveEmailSignature(value: string): Promise<void> {
   if (error) throw new Error(error.message);
 }
 
+// Per-staff signature. The sign-off NAME changes with who's logged in (Leonie,
+// Elliot, Reese…); the title is the same for everyone (Bookings Manager); the
+// footer (address, Events & Deals links, logo) is shared. All editable.
+export type SignatureConfig = {
+  footer: string; // shared HTML block below the name/title
+  title: string; // e.g. "Bookings Manager"
+  names: Record<string, string>; // lowercased login email → full name
+};
+
+export async function loadSignatureConfig(): Promise<SignatureConfig> {
+  const db = supabase();
+  const { data } = await db
+    .from("crm_settings")
+    .select("key, value")
+    .in("key", ["signature_footer", "signature_title", "signature_names"]);
+  const by: Record<string, string> = {};
+  for (const r of (data ?? []) as { key: string; value: string }[]) by[r.key] = r.value;
+  let names: Record<string, string> = {};
+  try {
+    const parsed = JSON.parse(by.signature_names || "{}");
+    if (parsed && typeof parsed === "object") {
+      for (const k of Object.keys(parsed)) {
+        if (typeof parsed[k] === "string") names[k.toLowerCase()] = parsed[k];
+      }
+    }
+  } catch { names = {}; }
+  return {
+    footer: by.signature_footer ?? "",
+    title: by.signature_title || "Bookings Manager",
+    names,
+  };
+}
+
+export async function saveSignatureConfig(cfg: SignatureConfig): Promise<void> {
+  const db = supabase();
+  const rows = [
+    { key: "signature_footer", value: cfg.footer },
+    { key: "signature_title", value: cfg.title },
+    { key: "signature_names", value: JSON.stringify(cfg.names) },
+  ].map((r) => ({ ...r, updated_at: new Date().toISOString() }));
+  const { error } = await db.from("crm_settings").upsert(rows, { onConflict: "key" });
+  if (error) throw new Error(error.message);
+}
+
+// The email of the currently signed-in admin user (from Supabase Auth), lowercased.
+export async function currentUserEmail(): Promise<string> {
+  try {
+    const { data } = await supabase().auth.getUser();
+    return (data.user?.email ?? "").toLowerCase();
+  } catch {
+    return "";
+  }
+}
+
+function esc(s: string): string {
+  return (s || "").replace(/[&<>]/g, (c) =>
+    c === "&" ? "&amp;" : c === "<" ? "&lt;" : "&gt;",
+  );
+}
+
+// Build the signature HTML for a given login email from the config.
+export function buildSignature(email: string, cfg: SignatureConfig): string {
+  const name = cfg.names[(email || "").toLowerCase()] || "The No Dice Team";
+  const titleLine = cfg.title ? `<br>${esc(cfg.title)}` : "";
+  return `<p>--</p><p><strong>${esc(name)}</strong>${titleLine}</p>${cfg.footer || ""}`;
+}
+
+// Convenience: the signature for whoever is logged in right now.
+export async function loadMySignature(): Promise<string> {
+  const [email, cfg] = await Promise.all([currentUserEmail(), loadSignatureConfig()]);
+  return buildSignature(email, cfg);
+}
+
 // Quick links = one-tap hyperlink buttons in the compose window (Book a table,
 // Menu, Events…). Stored as a JSON array in crm_settings.quick_links; the
 // office edits the list (label + url) in the CRM.
