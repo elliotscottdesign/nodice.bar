@@ -92,8 +92,12 @@ export default function BingoBooking({
   const [name, setName] = useState("");
   const [email, setEmail] = useState("");
   const [phone, setPhone] = useState("");
+  const [quantity, setQuantity] = useState(1);
   const [marketingOptIn, setMarketingOptIn] = useState(false);
   const [submitting, setSubmitting] = useState(false);
+
+  const MAX_TICKETS = 50;
+  const totalPence = night.entry_fee_pence * quantity;
 
   const elementsOptions = useMemo<StripeElementsOptions | null>(
     () => (clientSecret ? { clientSecret, appearance: buildAppearance(), loader: "auto" } : null),
@@ -130,6 +134,7 @@ export default function BingoBooking({
             name: name.trim(),
             email: email.trim(),
             phone: mob,
+            quantity,
             marketing_opt_in: marketingOptIn,
           }),
         });
@@ -148,7 +153,7 @@ export default function BingoBooking({
         setSubmitting(false);
       }
     },
-    [night.id, name, email, phone, marketingOptIn],
+    [night.id, name, email, phone, quantity, marketingOptIn],
   );
 
   if (phase === "paid") {
@@ -157,7 +162,7 @@ export default function BingoBooking({
         <div className="text-xs font-bold uppercase tracking-[0.3em] text-plonkTeal">Payment received</div>
         <h3 className="mt-3 font-display text-2xl uppercase tracking-wider text-cream">You&apos;re in</h3>
         <p className="mt-3 text-sm text-cream/75">
-          Confirmation is on its way to <strong>{email}</strong>. See you on the night — eyes down!
+          {quantity === 1 ? "Your ticket is booked" : `All ${quantity} tickets are booked`} — confirmation is on its way to <strong>{email}</strong>. See you on the night — eyes down!
         </p>
         <button
           type="button"
@@ -216,6 +221,57 @@ export default function BingoBooking({
             />
           </div>
 
+          <div>
+            <label className="mb-2 block text-[10px] font-bold uppercase tracking-[0.28em] text-[#D65139]">
+              How many tickets?
+            </label>
+            <div className="flex flex-wrap items-center gap-3">
+              <div className="flex items-center gap-2">
+                <button
+                  type="button"
+                  onClick={() => setQuantity((q) => Math.max(1, q - 1))}
+                  disabled={quantity <= 1}
+                  aria-label="One fewer ticket"
+                  className="flex h-11 w-11 shrink-0 items-center justify-center rounded-lg border border-cream/15 bg-ink/40 text-2xl leading-none text-cream transition hover:border-[#D65139] disabled:opacity-40"
+                >
+                  −
+                </button>
+                <input
+                  type="number"
+                  inputMode="numeric"
+                  min={1}
+                  max={MAX_TICKETS}
+                  value={quantity}
+                  onChange={(e) => {
+                    const n = parseInt(e.target.value, 10);
+                    setQuantity(
+                      Number.isFinite(n)
+                        ? Math.min(MAX_TICKETS, Math.max(1, n))
+                        : 1,
+                    );
+                  }}
+                  className="h-11 w-16 rounded-lg border border-cream/15 bg-ink/40 text-center text-base text-cream focus:border-[#D65139] focus:outline-none"
+                />
+                <button
+                  type="button"
+                  onClick={() => setQuantity((q) => Math.min(MAX_TICKETS, q + 1))}
+                  disabled={quantity >= MAX_TICKETS}
+                  aria-label="One more ticket"
+                  className="flex h-11 w-11 shrink-0 items-center justify-center rounded-lg border border-cream/15 bg-ink/40 text-2xl leading-none text-cream transition hover:border-[#D65139] disabled:opacity-40"
+                >
+                  +
+                </button>
+              </div>
+              <span className="text-sm text-cream/70">
+                {quantity} × {formatPounds(night.entry_fee_pence)} ={" "}
+                <strong className="text-cream">{formatPounds(totalPence)}</strong>
+              </span>
+            </div>
+            <p className="mt-2 text-xs text-cream/50">
+              One person per ticket — book up to {MAX_TICKETS} in one go.
+            </p>
+          </div>
+
           <label className="flex cursor-pointer items-start gap-3 rounded-lg border border-cream/10 bg-ink/20 px-4 py-3 text-sm text-cream/85 transition hover:border-cream/25">
             <input
               type="checkbox"
@@ -248,7 +304,7 @@ export default function BingoBooking({
               disabled={submitting}
               className="rounded-full bg-[#D65139] px-7 py-3 text-sm font-bold uppercase tracking-widest text-ink shadow-lg shadow-[#D65139]/30 transition hover:bg-[#D65139]/90 disabled:opacity-50"
             >
-              {submitting ? "One sec…" : `Continue to payment · ${formatPounds(night.entry_fee_pence)}`}
+              {submitting ? "One sec…" : `Continue to payment · ${formatPounds(totalPence)}`}
             </button>
           </div>
         </form>
@@ -259,15 +315,16 @@ export default function BingoBooking({
           <div className="mb-5 text-center">
             <div className="text-[10px] font-bold uppercase tracking-[0.3em] text-[#D65139]">Payment</div>
             <h3 className="mt-2 font-display text-2xl uppercase tracking-wider text-cream">
-              Pay {formatPounds(night.entry_fee_pence)} to confirm
+              Pay {formatPounds(totalPence)} to confirm
             </h3>
             <p className="mt-1 text-xs text-cream/55">
-              Ticket for <strong>{name}</strong>
+              {quantity} {quantity === 1 ? "ticket" : "tickets"} for{" "}
+              <strong>{name}</strong>
             </p>
           </div>
           <Elements stripe={getStripePromise()} options={elementsOptions}>
             <PaymentForm
-              feeLabel={formatPounds(night.entry_fee_pence)}
+              feeLabel={formatPounds(totalPence)}
               onSuccess={() => setPhase("paid")}
               onError={(msg) => {
                 setError(msg);

@@ -239,6 +239,71 @@ function renderEmailText(opts: {
     .join("\n");
 }
 
+// --- Comedy & Bingo confirmation (bingo nights ride tournament_entries) ---
+// Copy drawn from the /comedybingo listing: £10 a ticket, includes 5 bingo
+// cards + comedy, free-to-play with bar-sponsored prizes, doors 7pm /
+// show 7:30pm. Accent red #D65139 to match the page.
+const BINGO_RED = "#D65139";
+type BingoEmailOpts = {
+  name: string;
+  eventName: string;
+  eventDate: string;
+  quantity: number;
+  totalLabel: string;
+};
+function renderBingoHtml(o: BingoEmailOpts): string {
+  const ticketWord = o.quantity === 1 ? "ticket" : "tickets";
+  const row = (label: string, value: string) =>
+    `<tr><td style="padding:14px 0;border-top:1px solid rgba(245,239,227,0.12);font-size:11px;font-weight:700;letter-spacing:0.22em;text-transform:uppercase;color:rgba(245,239,227,0.55);width:140px;vertical-align:top;">${label}</td><td style="padding:14px 0;border-top:1px solid rgba(245,239,227,0.12);font-size:15px;color:#f5efe3;">${value}</td></tr>`;
+  return `<!DOCTYPE html>
+<html><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>Comedy &amp; Bingo — you're in</title></head>
+<body style="margin:0;background:#0c0c0c;">
+<table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="background:#0c0c0c;padding:32px 0;"><tr><td align="center">
+<table role="presentation" width="560" cellpadding="0" cellspacing="0" style="max-width:560px;width:100%;background:#141414;border-radius:16px;overflow:hidden;">
+  <tr><td style="padding:28px 32px 8px;text-align:center;">
+    <img src="https://nodice.bar/nodice-wordmark.png" alt="No Dice" style="display:block;margin:0 auto;width:200px;max-width:70%;height:auto;border:0;">
+    <div style="font-size:11px;font-weight:700;letter-spacing:0.32em;text-transform:uppercase;color:${BINGO_RED};margin-top:12px;">Comedy &amp; Bingo · London Fields</div>
+  </td></tr>
+  <tr><td style="padding:16px 32px 4px;">
+    <div style="font-size:10px;font-weight:700;letter-spacing:0.3em;text-transform:uppercase;color:${BINGO_RED};margin-bottom:12px;">You're in — eyes down!</div>
+    <p style="margin:0;font-size:15px;line-height:1.6;color:#f5efe3;">${o.name}, payment landed — your ${o.quantity} ${ticketWord} for <strong>${o.eventName}</strong> ${o.quantity === 1 ? "is" : "are"} booked. Save this email.</p>
+  </td></tr>
+  <tr><td style="padding:12px 32px 4px;"><table role="presentation" width="100%" cellpadding="0" cellspacing="0">
+    ${row("Date", o.eventDate)}
+    ${row("Doors / show", "Doors 7pm · Show 7:30pm")}
+    ${row("Tickets", `${o.quantity} × £10`)}
+    ${row("Paid", o.totalLabel)}
+    ${row("What's included", "Entry + a drink, 5 bingo cards &amp; the comedy. Bingo's free to play — the bar puts up the prizes.")}
+  </table></td></tr>
+  <tr><td style="padding:16px 32px 4px;">
+    <div style="font-size:10px;font-weight:700;letter-spacing:0.3em;text-transform:uppercase;color:${BINGO_RED};margin-bottom:8px;">Where</div>
+    <p style="margin:0;font-size:14px;line-height:1.6;color:rgba(245,239,227,0.85);">${VENUE_ADDRESS}</p>
+  </td></tr>
+  <tr><td style="padding:14px 32px 28px;">
+    <p style="margin:0;font-size:13px;line-height:1.6;color:rgba(245,239,227,0.6);">We'll text you any updates before the night, so keep an eye on your phone. Questions? Just reply to this email. See you there — <a href="${VENUE_URL}" style="color:rgba(245,239,227,0.6);text-decoration:underline;">nodice.bar</a></p>
+  </td></tr>
+</table></td></tr></table></body></html>`;
+}
+function renderBingoText(o: BingoEmailOpts): string {
+  const ticketWord = o.quantity === 1 ? "ticket" : "tickets";
+  return [
+    `COMEDY & BINGO — YOU'RE IN`,
+    ``,
+    `${o.name}, payment landed — your ${o.quantity} ${ticketWord} for ${o.eventName} ${o.quantity === 1 ? "is" : "are"} booked. Save this email.`,
+    ``,
+    `Date:         ${o.eventDate}`,
+    `Doors / show: Doors 7pm · Show 7:30pm`,
+    `Tickets:      ${o.quantity} x £10`,
+    `Paid:         ${o.totalLabel}`,
+    `Included:     Entry + a drink, 5 bingo cards & the comedy. Bingo's free to play — the bar puts up the prizes.`,
+    ``,
+    `Where: ${VENUE_ADDRESS}`,
+    ``,
+    `We'll text you any updates before the night. Questions? Just reply to this email.`,
+    `${VENUE_URL}`,
+  ].join("\n");
+}
+
 Deno.serve(async (req) => {
   const preflight = handlePreflight(req);
   if (preflight) return preflight;
@@ -268,7 +333,7 @@ Deno.serve(async (req) => {
   const { data: entry, error: entryErr } = await db
     .from("tournament_entries")
     .select(
-      "id, team_name, captain_name, captain_email, notes, tournament_id, status",
+      "id, team_name, captain_name, captain_email, notes, tournament_id, status, player_count",
     )
     .eq("id", entry_id)
     .maybeSingle();
@@ -299,18 +364,47 @@ Deno.serve(async (req) => {
     );
   }
 
-  // Build email content.
-  const opts = {
-    teamName: entry.team_name,
-    captainName: entry.captain_name,
-    tournamentName: tournament.name,
-    tournamentDate: formatDate(tournament.event_date),
-    tournamentTime: formatTime(tournament.start_time),
-    entryFeeLabel: formatPounds(tournament.entry_fee_pence),
-    notes: entry.notes,
-  };
-  const html = renderEmailHtml(opts);
-  const text = renderEmailText(opts);
+  // Is this a BINGO night? Bingo entries ride the same tournament_entries
+  // table (kind='tournament_entry'), so they land here — but they must get
+  // bingo copy, NOT the pool/ping-pong tournament email. Detect via the
+  // events row's category (same id as the tournament mirror).
+  const { data: ev } = await db
+    .from("events")
+    .select("category, name, event_date, start_time")
+    .eq("id", entry.tournament_id)
+    .maybeSingle();
+  const isBingo = ev?.category === "bingo";
+
+  // Build email content — bingo or tournament.
+  let subject: string;
+  let html: string;
+  let text: string;
+  if (isBingo) {
+    const qty = Math.max(1, Number(entry.player_count) || 1);
+    const bopts = {
+      name: entry.captain_name,
+      eventName: ev?.name || tournament.name,
+      eventDate: formatDate(ev?.event_date || tournament.event_date),
+      quantity: qty,
+      totalLabel: formatPounds(tournament.entry_fee_pence * qty),
+    };
+    subject = `Comedy & Bingo — you're in${qty > 1 ? ` (${qty} tickets)` : ""}`;
+    html = renderBingoHtml(bopts);
+    text = renderBingoText(bopts);
+  } else {
+    const opts = {
+      teamName: entry.team_name,
+      captainName: entry.captain_name,
+      tournamentName: tournament.name,
+      tournamentDate: formatDate(tournament.event_date),
+      tournamentTime: formatTime(tournament.start_time),
+      entryFeeLabel: formatPounds(tournament.entry_fee_pence),
+      notes: entry.notes,
+    };
+    subject = `${tournament.name} — your team's in`;
+    html = renderEmailHtml(opts);
+    text = renderEmailText(opts);
+  }
 
   // Send via Resend.
   const resendRes = await fetch("https://api.resend.com/emails", {
@@ -323,7 +417,7 @@ Deno.serve(async (req) => {
       from: SENDER,
       to: [entry.captain_email],
       reply_to: REPLY_TO,
-      subject: `${tournament.name} — your team's in`,
+      subject,
       html,
       text,
     }),

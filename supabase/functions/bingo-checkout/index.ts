@@ -69,11 +69,16 @@ const EMAIL_RE = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
 const UUID_RE =
   /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 
+// Max tickets in a single purchase (founder, Nov 2026). One-person tickets:
+// the buyer books up to this many admissions in one go on their own details.
+const MAX_TICKETS = 50;
+
 type BingoInput = {
   event_id: string;
   name: string;
   email: string;
   phone: string;
+  quantity: number;
   heard_from?: string | null;
   marketing_opt_in?: boolean;
 };
@@ -89,6 +94,10 @@ function validate(body: Partial<BingoInput>):
     return { ok: false, error: "a valid email is required" };
   if (!body.phone || typeof body.phone !== "string" || !normUkMobile(body.phone))
     return { ok: false, error: "A UK mobile number is required (starting 07 or +44 7)." };
+  // Quantity: default 1, whole number, 1..MAX_TICKETS.
+  const qtyRaw = body.quantity == null ? 1 : Number(body.quantity);
+  if (!Number.isFinite(qtyRaw) || !Number.isInteger(qtyRaw) || qtyRaw < 1 || qtyRaw > MAX_TICKETS)
+    return { ok: false, error: `Pick between 1 and ${MAX_TICKETS} tickets.` };
   return {
     ok: true,
     input: {
@@ -96,6 +105,7 @@ function validate(body: Partial<BingoInput>):
       name: body.name.trim(),
       email: body.email.trim(),
       phone: normUkMobile(body.phone)!,
+      quantity: qtyRaw,
       heard_from: typeof body.heard_from === "string" ? body.heard_from.trim() || null : null,
       marketing_opt_in: !!body.marketing_opt_in,
     },
@@ -167,30 +177,50 @@ Deno.serve(async (req) => {
   }
 
   // Capacity — paid + recent (15-min) pending count vs the room cap.
+  // Count TICKETS (sum of player_count), not rows — one booking can hold
+  // many tickets now. Room cap is in tickets.
   const FIFTEEN_MIN_AGO = new Date(Date.now() - 15 * 60 * 1000).toISOString();
-  const { count: activeCount, error: countErr } = await db
+  const { data: activeRows, error: countErr } = await db
     .from("tournament_entries")
-    .select("id", { count: "exact", head: true })
+    .select("player_count")
     .eq("tournament_id", input.event_id)
     .or(`status.eq.paid,and(status.eq.pending_payment,created_at.gte.${FIFTEEN_MIN_AGO})`);
   if (countErr) return jsonResponse({ error: `Capacity check failed: ${countErr.message}` }, { status: 500 });
+  const soldTickets = (activeRows || []).reduce((n, r) => n + (Number(r.player_count) || 1), 0);
   const cap = ev.max_attendees ?? 60;
-  if ((activeCount ?? 0) >= cap) {
-    return jsonResponse({ error: `Sorry — this bingo night just sold out (${cap} tickets). Try another date.` }, { status: 409 });
+  if (soldTickets + input.quantity > cap) {
+    const left = Math.max(0, cap - soldTickets);
+    return jsonResponse(
+      {
+        error:
+          left <= 0
+            ? `Sorry — this bingo night is sold out (${cap} tickets). Try another date.`
+            : `Only ${left} ticket${left === 1 ? "" : "s"} left for this night — reduce your quantity.`,
+      },
+      { status: 409 },
+    );
   }
 
   // Stripe FIRST — never leave an orphan entry if the intent fails.
   let intent: Stripe.PaymentIntent;
   try {
     intent = await stripe.paymentIntents.create({
-      amount: feePence,
+      amount: feePence * input.quantity,
       currency: "gbp",
       receipt_email: input.email,
-      description: `${ev.name} — bingo ticket for ${input.name}`,
+      description:
+        input.quantity === 1
+          ? `${ev.name} — bingo ticket for ${input.name}`
+          : `${ev.name} — ${input.quantity} bingo tickets for ${input.name}`,
       automatic_payment_methods: { enabled: true },
       // kind='tournament_entry' so the EXISTING stripe-webhook flips the row to
       // 'paid' with no webhook change.
-      metadata: { kind: "tournament_entry", tournament_id: ev.id, team_name: input.name },
+      metadata: {
+        kind: "tournament_entry",
+        tournament_id: ev.id,
+        team_name: input.name,
+        quantity: String(input.quantity),
+      },
     });
   } catch (e) {
     return jsonResponse({ error: `Stripe create-intent failed: ${e instanceof Error ? e.message : String(e)}` }, { status: 502 });
@@ -207,6 +237,7 @@ Deno.serve(async (req) => {
       captain_name: input.name,
       captain_email: input.email,
       captain_phone: input.phone,
+      player_count: input.quantity,
       heard_from: input.heard_from,
       marketing_opt_in: input.marketing_opt_in,
       stripe_payment_intent_id: intent.id,
