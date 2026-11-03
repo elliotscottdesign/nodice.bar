@@ -65,7 +65,6 @@ function FillName({
         fill={color || "currentColor"}
         style={{
           fontFamily: fontFamily || "inherit",
-          fontWeight: 700,
           letterSpacing: "0.01em",
         }}
       >
@@ -111,6 +110,8 @@ export default function MediaStrip({
   nameFontFamily,
   nameScale = 1,
   centerTiles = false,
+  tileWidthClass = "w-[82vw] sm:w-[52vw] lg:w-[34vw]",
+  centerRow = false,
 }: {
   galleryKey: string;
   heading?: string;
@@ -150,6 +151,12 @@ export default function MediaStrip({
   /** Centre each tile in the viewport on phone (snap-centre + spacers), so
    *  the active image + its name sit dead-centre, not left-aligned. */
   centerTiles?: boolean;
+  /** Override the per-tile width classes (default 82/52/34vw). Smaller
+   *  tiles let a short line-up FIT and centre on desktop. */
+  tileWidthClass?: string;
+  /** Centre the whole row when the tiles fit the width (desktop), falling
+   *  back to a scroll when they don't. */
+  centerRow?: boolean;
 }) {
   const images = useGallery(galleryKey, []);
   const hasImages = images.length > 0;
@@ -194,6 +201,7 @@ export default function MediaStrip({
             ariaLabel={heading || "Photo gallery"}
             fade={fade}
             centerMode={centerTiles}
+            center={centerRow}
           >
             {/* Leading spacer (phone only) gives the first tile room to
                 snap-centre instead of sitting against the left edge. */}
@@ -219,7 +227,7 @@ export default function MediaStrip({
                   // so the caption is locked to the image's width.
                   <div
                     key={img?.src || `blank-${i}`}
-                    className={`shrink-0 w-[82vw] sm:w-[52vw] lg:w-[34vw] ${
+                    className={`shrink-0 ${tileWidthClass} ${
                       centerTiles ? "snap-center sm:snap-start" : "snap-start"
                     }`}
                   >
