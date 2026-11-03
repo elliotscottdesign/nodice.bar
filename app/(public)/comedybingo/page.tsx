@@ -259,8 +259,7 @@ export default function BingoPage() {
           the same way the booking form is re-skinned below. */}
       <style
         dangerouslySetInnerHTML={{
-          __html: `@font-face{font-family:'AmsiProCondUltra';src:url('/fonts/AmsiProCondUltra.ttf') format('truetype');font-weight:400 900;font-display:swap;}
-.bingo-page [class~="text-plonkYellow"]{color:#D65139 !important}`,
+          __html: `.bingo-page [class~="text-plonkYellow"]{color:#D65139 !important}`,
         }}
       />
       {/* Hero — image removed for now (founder, Nov 2026 — "remove banner
@@ -295,10 +294,12 @@ export default function BingoPage() {
           blankLabel="Host / machine photo"
           showNames
           nameColor="#D65139"
-          nameFontFamily="AmsiProCondUltra"
+          nameFontFamily='"Bebas Neue", Impact, sans-serif'
           nameScale={0.75}
           headingSize="text-4xl sm:text-5xl md:text-6xl"
           centerTiles
+          centerRow
+          tileWidthClass="w-[82vw] sm:w-[46vw] lg:w-[18vw]"
         />
       </section>
 
