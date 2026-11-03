@@ -187,6 +187,7 @@ Deno.serve(async (req) => {
     enquiry_id: enquiryId,
     direction: "out",
     channel: "email",
+    via: "crm",
     subject,
     body: bodyText,
   }).then(() => {}, () => {});

@@ -10,6 +10,8 @@
  * It is deliberately careful:
  *  - It ALSO checks the Spam folder, and rescues a genuine enquiry back into
  *    the inbox (Google sometimes mis-files real ones there).
+ *  - It reads the SENT folder too, so a reply typed straight into Gmail shows
+ *    up on the enquiry's thread in the CRM (not just replies sent from the CRM).
  *  - It IGNORES your own replies (anything sent from your own addresses).
  *  - It handles FORWARDED enquiries (Fwd: ...) by pulling the real
  *    enquirer's name/email out of the forwarded text.
@@ -28,6 +30,8 @@
 
 // ---- CONFIG ----------------------------------------------------------
 var ENDPOINT = "https://rntcujcpsozvuxvmlejv.supabase.co/functions/v1/email-enquiry";
+// Where Sent-folder replies are logged back onto the CRM thread.
+var SENT_ENDPOINT = "https://rntcujcpsozvuxvmlejv.supabase.co/functions/v1/enquiry-sent-sync";
 // Public anon key (safe to embed — same key the website uses).
 var ANON_KEY = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InJudGN1amNwc296dnV4dm1sZWp2Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODA0Nzk0MDIsImV4cCI6MjA5NjA1NTQwMn0.cUMy2GWme7quwDKns_sXq8OY-9SqWaIuZqhYSz3ZwrY";
 // Fixed tag the CRM expects. Baked in — nothing to fill in or change.
@@ -105,6 +109,52 @@ function scanInbox() {
 
   Logger.log("Scan done for " + inbox + " — " + logged + " logged, " + skipped +
     " skipped (inbox + spam).");
+
+  scanSent();
+}
+
+// ---- SENT SCAN -------------------------------------------------------
+// Reads the Sent folder so a reply typed straight into Gmail shows up in the
+// CRM too (not just replies sent from the CRM). The server matches each one to
+// an enquiry by the recipient's email and dedupes, so this can run every time.
+function scanSent() {
+  try {
+    var threads = GmailApp.search('in:sent newer_than:7d', 0, MAX_THREADS);
+    var items = [];
+    for (var t = 0; t < threads.length; t++) {
+      var msgs = threads[t].getMessages();
+      for (var m = 0; m < msgs.length; m++) {
+        var msg = msgs[m];
+        var from = parseEmail_(msg.getFrom());
+        if (!isSelfAddress_((from.email || "").toLowerCase())) continue; // only our sends
+        var when = msg.getDate();
+        if (!when || (Date.now() - when.getTime()) > 7 * 24 * 3600 * 1000) continue;
+        var recips = ("" + (msg.getTo() || "")).split(",");
+        for (var r = 0; r < recips.length; r++) {
+          var to = parseEmail_(recips[r]).email;
+          if (!to || isSelfAddress_(to.toLowerCase()) || shouldSkipSender_(to)) continue;
+          items.push({
+            to_email: to,
+            gmail_message_id: msg.getId(),
+            sent_at: when.toISOString(),
+            subject: msg.getSubject() || "",
+            body: (msg.getPlainBody() || "").slice(0, 4000)
+          });
+        }
+      }
+    }
+    if (!items.length) { Logger.log("Sent scan — nothing to sync."); return; }
+    var res = UrlFetchApp.fetch(SENT_ENDPOINT, {
+      method: "post",
+      contentType: "application/json",
+      headers: { "apikey": ANON_KEY, "Authorization": "Bearer " + ANON_KEY },
+      payload: JSON.stringify({ app: APP_TAG, items: items }),
+      muteHttpExceptions: true
+    });
+    Logger.log("Sent scan — posted " + items.length + " → " + res.getResponseCode() + " " + res.getContentText());
+  } catch (e) {
+    Logger.log("Sent scan error: " + e);
+  }
 }
 
 // Process one thread. fromSpam=true means it came from the Spam folder — a
