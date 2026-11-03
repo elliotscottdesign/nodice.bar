@@ -75,8 +75,12 @@ import {
   draftEnquiryReply,
   loadAiKnowledge,
   saveAiKnowledge,
-  loadEmailSignature,
-  saveEmailSignature,
+  loadMySignature,
+  loadSignatureConfig,
+  saveSignatureConfig,
+  buildSignature,
+  currentUserEmail,
+  type SignatureConfig,
   loadQuickLinks,
   saveQuickLinks,
   type QuickLink,
@@ -1222,7 +1226,7 @@ function ComposeModal({
   // lands on the blank line, ready to type.
   useEffect(() => {
     let on = true;
-    loadEmailSignature()
+    loadMySignature()
       .then((s) => {
         if (!on) return;
         setSig(s);
@@ -1405,15 +1409,22 @@ function ComposeModal({
     </button>
   );
 
+  // Never close on an accidental click-off — only via the cross/Discard, and
+  // then only after confirming (so a half-written reply is never lost).
+  async function requestClose() {
+    const hasText = !!(editorRef.current?.innerText || "").trim();
+    if (hasText && !busy) {
+      const ok = await confirmDialog(
+        "Close this message? Your reply will be lost unless you've sent it.",
+      );
+      if (!ok) return;
+    }
+    onClose();
+  }
+
   return (
-    <div
-      className="fixed inset-0 z-[60] flex items-center justify-center bg-black/80 p-2 sm:p-6"
-      onClick={onClose}
-    >
-      <div
-        className="flex h-full max-h-[92vh] w-full max-w-5xl flex-col overflow-hidden rounded-2xl border border-cream/15 bg-ink shadow-2xl"
-        onClick={(e) => e.stopPropagation()}
-      >
+    <div className="fixed inset-0 z-[60] flex items-center justify-center bg-black/80 p-2 sm:p-6">
+      <div className="flex h-full max-h-[92vh] w-full max-w-5xl flex-col overflow-hidden rounded-2xl border border-cream/15 bg-ink shadow-2xl">
         {/* header */}
         <div className="flex items-center justify-between border-b border-cream/10 px-4 py-3">
           <div className="min-w-0">
@@ -1427,7 +1438,7 @@ function ComposeModal({
           </div>
           <button
             type="button"
-            onClick={onClose}
+            onClick={requestClose}
             className="shrink-0 rounded-full border border-cream/20 px-3 py-1 text-xs font-bold uppercase tracking-widest text-cream/70 hover:border-cream/40"
           >
             Close
@@ -1538,7 +1549,7 @@ function ComposeModal({
               </button>
               <button
                 type="button"
-                onClick={onClose}
+                onClick={requestClose}
                 className="rounded-full border border-cream/20 px-4 py-2 text-xs font-bold uppercase tracking-wider text-cream/60 hover:border-cream/40"
               >
                 Discard
@@ -1596,24 +1607,41 @@ function ComposeModal({
 
 // Edit the email signature (HTML) used by the compose window.
 function SignatureEditor() {
-  const [text, setText] = useState("");
-  const [loaded, setLoaded] = useState(false);
+  const [cfg, setCfg] = useState<SignatureConfig | null>(null);
+  const [rows, setRows] = useState<{ email: string; name: string }[]>([]);
   const [busy, setBusy] = useState(false);
   const [msg, setMsg] = useState("");
+  const [myEmail, setMyEmail] = useState("");
 
   useEffect(() => {
-    loadEmailSignature()
-      .then((v) => setText(v))
-      .catch(() => setText(""))
-      .finally(() => setLoaded(true));
+    Promise.all([loadSignatureConfig(), currentUserEmail()])
+      .then(([c, email]) => {
+        setCfg(c);
+        setMyEmail(email);
+        setRows(Object.entries(c.names).map(([email, name]) => ({ email, name })));
+      })
+      .catch(() => setCfg({ footer: "", title: "Bookings Manager", names: {} }));
   }, []);
 
+  function setRow(i: number, patch: Partial<{ email: string; name: string }>) {
+    setRows((prev) => prev.map((r, j) => (j === i ? { ...r, ...patch } : r)));
+  }
+
   async function save() {
+    if (!cfg) return;
     setBusy(true);
     setMsg("");
     try {
-      await saveEmailSignature(text);
-      setMsg("Saved — used on every reply.");
+      const names: Record<string, string> = {};
+      for (const r of rows) {
+        const e = r.email.trim().toLowerCase();
+        const n = r.name.trim();
+        if (e && n) names[e] = n;
+      }
+      const next = { ...cfg, names };
+      await saveSignatureConfig(next);
+      setCfg(next);
+      setMsg("Saved — each person signs with their own name now.");
     } catch (e) {
       setMsg(describe(e, "Couldn't save."));
     } finally {
@@ -1621,41 +1649,104 @@ function SignatureEditor() {
     }
   }
 
+  if (!cfg) return <div className="rounded-xl border border-cream/15 bg-ink/40 p-4 text-xs text-cream/50">Loading…</div>;
+
+  const previewName =
+    cfg.names[myEmail] ||
+    rows.find((r) => r.email.trim().toLowerCase() === myEmail)?.name ||
+    rows[0]?.name ||
+    "The No Dice Team";
+
   return (
     <div className="rounded-xl border border-cream/15 bg-ink/40 p-4">
       <p className="text-[11px] font-bold uppercase tracking-widest text-cream/70">
         Email signature
       </p>
       <p className="mt-1 max-w-2xl text-xs text-cream/55">
-        Added to the bottom of replies from the compose window (Gmail’s send API
-        doesn’t attach your Gmail signature, so this is the one that goes out).
-        Basic HTML is fine — links like{" "}
-        <code className="text-cream/70">&lt;a href="…"&gt;</code> work.
+        Replies sign off with <b className="text-cream/75">whoever is logged in</b> —
+        the name below for their login, the shared title, then the footer. Add a
+        row for each staff member (their login email → full name).
       </p>
-      <div className="mt-3 grid gap-3 lg:grid-cols-2">
-        <textarea
-          value={text}
-          onChange={(e) => setText(e.target.value)}
-          rows={8}
-          disabled={!loaded}
-          placeholder={loaded ? "" : "Loading…"}
-          className={`${inputCls} font-mono text-xs leading-relaxed`}
-        />
+
+      {/* who signs — per login */}
+      <div className="mt-3">
+        <p className="mb-1 text-[10px] font-bold uppercase tracking-widest text-cream/45">
+          Who signs ({myEmail ? `you're ${myEmail}` : "not signed in"})
+        </p>
+        <div className="space-y-2">
+          {rows.map((r, i) => (
+            <div key={i} className="flex items-center gap-2">
+              <input
+                value={r.email}
+                onChange={(e) => setRow(i, { email: e.target.value })}
+                placeholder="login email (e.g. leoniesands5@gmail.com)"
+                className="w-64 shrink-0 rounded-md border border-cream/20 bg-ink px-2 py-1 text-xs text-cream outline-none"
+              />
+              <input
+                value={r.name}
+                onChange={(e) => setRow(i, { name: e.target.value })}
+                placeholder="Full name (e.g. Leonie Sands)"
+                className="flex-1 rounded-md border border-cream/20 bg-ink px-2 py-1 text-xs text-cream outline-none"
+              />
+              <button
+                type="button"
+                onClick={() => setRows((prev) => prev.filter((_, j) => j !== i))}
+                className="shrink-0 rounded px-2 py-1 text-xs text-red-400/70 hover:bg-red-500/10"
+                title="Remove"
+              >
+                ✕
+              </button>
+            </div>
+          ))}
+          <button
+            type="button"
+            onClick={() => setRows((prev) => [...prev, { email: "", name: "" }])}
+            className="rounded-full border border-cream/25 px-3 py-1 text-[11px] font-bold uppercase tracking-wider text-cream/70 hover:border-cream/50"
+          >
+            + Add person
+          </button>
+        </div>
+      </div>
+
+      {/* shared title + footer + live preview */}
+      <div className="mt-4 grid gap-3 lg:grid-cols-2">
+        <div className="space-y-2">
+          <label className="block text-[10px] font-bold uppercase tracking-widest text-cream/45">
+            Title (same for everyone)
+            <input
+              value={cfg.title}
+              onChange={(e) => setCfg({ ...cfg, title: e.target.value })}
+              className={`${inputCls} mt-1`}
+            />
+          </label>
+          <label className="block text-[10px] font-bold uppercase tracking-widest text-cream/45">
+            Shared footer (address, links, logo — basic HTML)
+            <textarea
+              value={cfg.footer}
+              onChange={(e) => setCfg({ ...cfg, footer: e.target.value })}
+              rows={6}
+              className={`${inputCls} mt-1 font-mono text-xs leading-relaxed`}
+            />
+          </label>
+        </div>
         <div className="rounded-lg border border-cream/10 bg-ink/60 p-3">
           <p className="mb-1 text-[9px] uppercase tracking-widest text-cream/35">
-            Preview
+            Preview (as {previewName})
           </p>
           <div
             className="text-sm text-cream/85 [&_a]:text-plonkTeal [&_a]:underline [&_p]:mb-2"
-            dangerouslySetInnerHTML={{ __html: text }}
+            dangerouslySetInnerHTML={{
+              __html: buildSignature(myEmail, { ...cfg, names: Object.fromEntries(rows.map((r) => [r.email.trim().toLowerCase(), r.name.trim()])) }),
+            }}
           />
         </div>
       </div>
-      <div className="mt-2 flex items-center gap-2">
+
+      <div className="mt-3 flex items-center gap-2">
         <button
           type="button"
           onClick={save}
-          disabled={busy || !loaded}
+          disabled={busy}
           className="rounded-full bg-plonkTeal px-5 py-2 text-xs font-bold uppercase tracking-wider text-ink transition hover:brightness-110 disabled:opacity-40"
         >
           {busy ? "Saving…" : "Save signature"}
@@ -1864,14 +1955,8 @@ function EnquiryDrawer({
   }
 
   return (
-    <div
-      className="fixed inset-0 z-50 flex justify-end bg-black/70"
-      onClick={onClose}
-    >
-      <div
-        className="h-full w-full max-w-md overflow-y-auto border-l border-cream/15 bg-ink p-5"
-        onClick={(e) => e.stopPropagation()}
-      >
+    <div className="fixed inset-0 z-50 flex justify-end bg-black/70">
+      <div className="h-full w-full max-w-md overflow-y-auto border-l border-cream/15 bg-ink p-5">
         <div className="mb-3 flex items-start justify-between gap-2">
           <h2 className="font-display text-2xl">
             {enquiry.contact_name || enquiry.event_type || "Enquiry"}
