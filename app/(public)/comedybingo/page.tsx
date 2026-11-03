@@ -166,7 +166,13 @@ export default function BingoPage() {
     const el = headerCtaRef.current;
     if (!el || typeof IntersectionObserver === "undefined") return;
     const obs = new IntersectionObserver(
-      ([entry]) => setShowStickyCta(!entry.isIntersecting),
+      // Only show the top sticky CTA once the in-page book button has
+      // scrolled ABOVE the viewport — not while it's still below the fold
+      // (that popped the pill up over the hero eyebrow/title at the top).
+      ([entry]) =>
+        setShowStickyCta(
+          !entry.isIntersecting && entry.boundingClientRect.top < 0,
+        ),
       { rootMargin: "-80px 0px 0px 0px" },
     );
     obs.observe(el);
