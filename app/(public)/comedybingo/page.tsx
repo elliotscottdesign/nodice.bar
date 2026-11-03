@@ -27,8 +27,8 @@ import type { DbTournament } from "@/lib/db/tournaments";
 // InlineTournamentBooking already understand (see lib/db/bingo.ts) — no
 // bespoke booking code, no edge-function change.
 //
-// Accent: bright pink #e878f0, sampled from the founder's magenta halftone
-// hero artwork (11 Oct 2026 — "style all red to pink"), used for CTAs,
+// Accent: warm poster-red #D65139, sampled from the Comedy Bingo poster
+// (Nov 2026 — founder "suit this colourway in red not pink"), used for CTAs,
 // headings and the bar-sponsored prizes. Checked at 375px + 1280px.
 // =============================================================
 
@@ -221,11 +221,11 @@ export default function BingoPage() {
   return (
     <main className="bingo-page">
       {/* The hero eyebrow is rendered by the SHARED PageHero in the brand
-          red (text-plonkYellow). Re-skin it to bingo pink page-wide here,
+          red (text-plonkYellow). Re-skin it to the bingo poster-red page-wide here,
           the same way the booking form is re-skinned below. */}
       <style
         dangerouslySetInnerHTML={{
-          __html: `.bingo-page [class~="text-plonkYellow"]{color:#e878f0 !important}`,
+          __html: `.bingo-page [class~="text-plonkYellow"]{color:#D65139 !important}`,
         }}
       />
       {/* Hero — image removed for now (founder, Nov 2026 — "remove banner
@@ -266,8 +266,8 @@ export default function BingoPage() {
           Both lines are on-page editable so the founder can roll it to the
           next date each month. */}
       <section className="px-6 pb-8 pt-12 text-center">
-        <div className="mx-auto max-w-2xl rounded-3xl border border-[#e878f0]/30 bg-[#e878f0]/5 px-6 py-8">
-          <div className="text-xs font-bold uppercase tracking-[0.3em] text-[#e878f0]">
+        <div className="mx-auto max-w-2xl rounded-3xl border border-[#D65139]/30 bg-[#D65139]/5 px-6 py-8">
+          <div className="text-xs font-bold uppercase tracking-[0.3em] text-[#D65139]">
             <Editable k="bingo.event_header">{eventHeader}</Editable>
           </div>
           <div className="mt-3 font-display text-4xl uppercase leading-tight tracking-wider text-cream sm:text-5xl">
@@ -281,7 +281,7 @@ export default function BingoPage() {
             type="button"
             onClick={openBooking}
             disabled={!loading && upcoming.length === 0}
-            className="mt-6 inline-block rounded-full bg-[#e878f0] px-10 py-4 text-sm font-bold uppercase tracking-widest text-ink shadow-lg shadow-[#e878f0]/30 transition hover:bg-[#e878f0]/90 disabled:cursor-not-allowed disabled:opacity-50"
+            className="mt-6 inline-block rounded-full bg-[#D65139] px-10 py-4 text-sm font-bold uppercase tracking-widest text-ink shadow-lg shadow-[#D65139]/30 transition hover:bg-[#D65139]/90 disabled:cursor-not-allowed disabled:opacity-50"
           >
             <Editable k="bingo.cta_label">{ctaLabel}</Editable>
           </button>
@@ -290,7 +290,7 @@ export default function BingoPage() {
               Tickets aren&apos;t on sale just yet — check back soon.
             </p>
           )}
-          {err && <p className="mt-4 text-sm text-[#e878f0]">{err}</p>}
+          {err && <p className="mt-4 text-sm text-[#D65139]">{err}</p>}
         </div>
       </section>
 
@@ -309,7 +309,7 @@ export default function BingoPage() {
       {/* ── Running order ── */}
       <section className="px-6 pb-8 pt-16">
         <div className="mx-auto max-w-2xl">
-          <div className="mb-3 text-center text-xs font-bold uppercase tracking-[0.3em] text-[#e878f0]">
+          <div className="mb-3 text-center text-xs font-bold uppercase tracking-[0.3em] text-[#D65139]">
             The shape of the evening
           </div>
           <h2 className="text-center font-display text-4xl uppercase tracking-wider text-cream">
@@ -334,7 +334,7 @@ export default function BingoPage() {
                   {i < runTexts.length - 1 && (
                     <span
                       aria-hidden
-                      className="absolute left-[17px] top-9 h-full w-px bg-[#e878f0]/25"
+                      className="absolute left-[17px] top-9 h-full w-px bg-[#D65139]/25"
                     />
                   )}
                   <span
@@ -342,7 +342,7 @@ export default function BingoPage() {
                       isBreak
                         ? "border-cream/15 bg-ink"
                         : r.kind === "bingo"
-                          ? "border-[#e878f0]/50 bg-[#e878f0]/15 text-[#e878f0]"
+                          ? "border-[#D65139]/50 bg-[#D65139]/15 text-[#D65139]"
                           : "border-cream/20 bg-white/5 text-cream/70"
                     }`}
                   >
@@ -363,7 +363,7 @@ export default function BingoPage() {
                     </div>
                     <div
                       className={`shrink-0 text-xs font-bold uppercase tracking-widest ${
-                        isBreak ? "text-cream/40" : "text-[#e878f0]"
+                        isBreak ? "text-cream/40" : "text-[#D65139]"
                       }`}
                     >
                       <Editable k={r.timeKey}>{r.time}</Editable>
@@ -379,7 +379,7 @@ export default function BingoPage() {
       {/* ── Prizes ── */}
       <section className="bg-white/[0.02] px-6 py-16">
         <div className="mx-auto max-w-3xl">
-          <div className="mb-3 text-center text-xs font-bold uppercase tracking-[0.3em] text-[#e878f0]">
+          <div className="mb-3 text-center text-xs font-bold uppercase tracking-[0.3em] text-[#D65139]">
             Bar-sponsored · free to play
           </div>
           <h2 className="text-center font-display text-5xl uppercase tracking-wider text-cream">
@@ -392,12 +392,12 @@ export default function BingoPage() {
             {prizeTexts.map((p) => (
               <div
                 key={p.labelKey}
-                className="flex items-center justify-between gap-4 rounded-2xl border border-[#e878f0]/25 bg-[#e878f0]/5 px-6 py-5"
+                className="flex items-center justify-between gap-4 rounded-2xl border border-[#D65139]/25 bg-[#D65139]/5 px-6 py-5"
               >
                 <span className="text-sm font-semibold uppercase tracking-wider text-cream/85">
                   <Editable k={p.labelKey}>{p.label}</Editable>
                 </span>
-                <span className="font-display text-2xl text-[#e878f0]">
+                <span className="font-display text-2xl text-[#D65139]">
                   <Editable k={p.amountKey}>{p.amount}</Editable>
                 </span>
               </div>
@@ -421,7 +421,7 @@ export default function BingoPage() {
           <button
             type="button"
             onClick={openBooking}
-            className="pointer-events-auto rounded-full bg-[#e878f0] px-8 py-4 text-sm font-bold uppercase tracking-widest text-ink shadow-xl shadow-black/40 ring-1 ring-black/10 transition hover:bg-[#e878f0]/90"
+            className="pointer-events-auto rounded-full bg-[#D65139] px-8 py-4 text-sm font-bold uppercase tracking-widest text-ink shadow-xl shadow-black/40 ring-1 ring-black/10 transition hover:bg-[#D65139]/90"
           >
             {ctaLabel}
           </button>
