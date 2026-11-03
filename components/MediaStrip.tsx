@@ -110,6 +110,7 @@ export default function MediaStrip({
   nameColor,
   nameFontFamily,
   nameScale = 1,
+  centerTiles = false,
 }: {
   galleryKey: string;
   heading?: string;
@@ -146,6 +147,9 @@ export default function MediaStrip({
   /** Width the name fills, as a fraction of the tile (centred). 1 = full
    *  width; 0.75 = 75%, i.e. reduced 25% from the centre. */
   nameScale?: number;
+  /** Centre each tile in the viewport on phone (snap-centre + spacers), so
+   *  the active image + its name sit dead-centre, not left-aligned. */
+  centerTiles?: boolean;
 }) {
   const images = useGallery(galleryKey, []);
   const hasImages = images.length > 0;
@@ -186,7 +190,19 @@ export default function MediaStrip({
             mobile bleed reach the screen edge; on sm+ it keeps a small
             inset so the scroll arrows sit in the gutter, not over a tile. */}
         <div className="relative px-6">
-          <RollerDeck ariaLabel={heading || "Photo gallery"} fade={fade}>
+          <RollerDeck
+            ariaLabel={heading || "Photo gallery"}
+            fade={fade}
+            centerMode={centerTiles}
+          >
+            {/* Leading spacer (phone only) gives the first tile room to
+                snap-centre instead of sitting against the left edge. */}
+            {centerTiles && (
+              <div
+                aria-hidden
+                className="shrink-0 w-[calc(9vw-12px)] sm:hidden"
+              />
+            )}
             {(hasImages ? images : Array.from({ length: blankCount })).map(
               (tile, i) => {
                 const img = hasImages
@@ -203,7 +219,9 @@ export default function MediaStrip({
                   // so the caption is locked to the image's width.
                   <div
                     key={img?.src || `blank-${i}`}
-                    className="shrink-0 snap-start w-[82vw] sm:w-[52vw] lg:w-[34vw]"
+                    className={`shrink-0 w-[82vw] sm:w-[52vw] lg:w-[34vw] ${
+                      centerTiles ? "snap-center sm:snap-start" : "snap-start"
+                    }`}
                   >
                     <div
                       className="relative overflow-hidden rounded-2xl border border-cream/10 bg-white/[0.03]"
@@ -246,6 +264,14 @@ export default function MediaStrip({
                   </div>
                 );
               },
+            )}
+            {/* Trailing spacer (phone only) so the last tile can also
+                snap-centre rather than sticking to the right edge. */}
+            {centerTiles && (
+              <div
+                aria-hidden
+                className="shrink-0 w-[calc(9vw-12px)] sm:hidden"
+              />
             )}
           </RollerDeck>
           <ManageGalleryLink galleryKey={galleryKey} label="Add / manage photos" />

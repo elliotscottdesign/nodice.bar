@@ -6,6 +6,7 @@ import RollerDeck from "@/components/RollerDeck";
 import MediaStrip from "@/components/MediaStrip";
 import BingoBooking from "@/components/BingoBooking";
 import { useContent } from "@/lib/content";
+import { useEditMode } from "@/lib/editMode";
 import { Editable } from "@/components/Editable";
 import { loadBingoNights } from "@/lib/db/bingo";
 import type { DbTournament } from "@/lib/db/tournaments";
@@ -71,6 +72,21 @@ const RUN_ORDER: Array<{
   { label: "Headline set", kind: "comedy", time: "9:30 – 10:00pm" },
 ];
 
+// Split the single event-date field into a big DATE line and a smaller
+// TIMES line (doors / show) on its own line below, so the two read as
+// self-contained sections and never flap onto one another. Splits on a
+// newline the founder added (Return in Edit mode), else on the first
+// "doors" word; falls back to the whole string as the date line.
+function splitEventDate(s: string): { date: string; times: string } {
+  const nl = s.indexOf("\n");
+  if (nl >= 0)
+    return { date: s.slice(0, nl).trim(), times: s.slice(nl + 1).trim() };
+  const m = s.match(/\s+(doors\b[\s\S]*)$/i);
+  if (m && m.index != null)
+    return { date: s.slice(0, m.index).trim(), times: m[1].trim() };
+  return { date: s.trim(), times: "" };
+}
+
 export default function BingoPage() {
   // CMS copy — editable in /admin or on-page in Edit mode. The KEY
   // header the founder uses for the next event + its date lives in
@@ -85,6 +101,8 @@ export default function BingoPage() {
   // The headline the founder points at the next event + its date(s).
   const eventHeader = useContent("bingo.event_header", "Our first-ever Bingo Night");
   const eventDate = useContent("bingo.event_date", "Wednesday 25 November 2026 · 7pm");
+  const editing = useEditMode();
+  const eventParts = splitEventDate(eventDate);
 
   const bookLine = useContent(
     "bingo.book_line",
@@ -280,6 +298,7 @@ export default function BingoPage() {
           nameFontFamily="AmsiProCondUltra"
           nameScale={0.75}
           headingSize="text-4xl sm:text-5xl md:text-6xl"
+          centerTiles
         />
       </section>
 
@@ -291,9 +310,35 @@ export default function BingoPage() {
           <div className="text-xs font-bold uppercase tracking-[0.3em] text-[#D65139]">
             <Editable k="bingo.event_header">{eventHeader}</Editable>
           </div>
-          <div className="mt-3 font-display text-4xl uppercase leading-tight tracking-wider text-cream sm:text-5xl">
-            <Editable k="bingo.event_date">{eventDate}</Editable>
-          </div>
+          {/* Date + times. In Edit mode it's a single editable field (the
+              founder can press Return to split the two lines); on the live
+              page it renders as a big DATE line and a smaller TIMES line
+              directly below, each self-contained so they never overlap. */}
+          {editing ? (
+            <div
+              className="mt-3 font-display text-3xl uppercase leading-tight tracking-wider text-cream sm:text-5xl"
+              style={{ textWrap: "balance" }}
+            >
+              <Editable k="bingo.event_date">{eventDate}</Editable>
+            </div>
+          ) : (
+            <>
+              <div
+                className="mt-3 font-display text-3xl uppercase leading-tight tracking-wider text-cream sm:text-5xl"
+                style={{ textWrap: "balance" }}
+              >
+                {eventParts.date}
+              </div>
+              {eventParts.times && (
+                <div
+                  className="mt-2 font-display text-lg uppercase leading-snug tracking-wider text-cream/85 sm:text-2xl"
+                  style={{ textWrap: "balance" }}
+                >
+                  {eventParts.times}
+                </div>
+              )}
+            </>
+          )}
           <p className="mx-auto mt-4 max-w-md text-sm text-cream/80">
             <Editable k="bingo.book_line">{bookLine}</Editable>
           </p>

@@ -43,6 +43,7 @@ export default function RollerDeck({
   ariaLabel,
   className,
   center,
+  centerMode,
   fade = true,
 }: {
   children: React.ReactNode;
@@ -54,6 +55,10 @@ export default function RollerDeck({
   /** Centre the cards when they fit (e.g. a single date), falling back to
    *  start alignment — no clipping — once they overflow and scroll. */
   center?: boolean;
+  /** Snap-centre mode: drops the rail's left gutter + scroll-padding so
+   *  callers that add leading/trailing spacers can centre each card in the
+   *  viewport (used by the bingo line-up). */
+  centerMode?: boolean;
   /** Edge-fade gradients fade cards into a BLACK page. Set false on a
    *  coloured/gradient background where the black fade would show as a band. */
   fade?: boolean;
@@ -149,10 +154,12 @@ export default function RollerDeck({
           ref={railRef}
           onScroll={refreshArrows}
           aria-label={ariaLabel}
-          className="hide-scrollbar flex snap-x snap-mandatory gap-3 overflow-x-auto px-6 py-2 sm:px-0"
+          className={`hide-scrollbar flex snap-x snap-mandatory gap-3 overflow-x-auto py-2 sm:px-0 ${
+            centerMode ? "" : "px-6"
+          }`}
           style={{
-            scrollPaddingLeft: "12px",
-            scrollPaddingRight: "12px",
+            scrollPaddingLeft: centerMode ? "0px" : "12px",
+            scrollPaddingRight: centerMode ? "0px" : "12px",
             ...(center ? { justifyContent: "safe center" } : null),
           }}
         >
