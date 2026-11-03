@@ -223,6 +223,21 @@ export default function MediaStrip({
                       centerTiles ? "snap-center sm:snap-start" : "snap-start"
                     }`}
                   >
+                    {/* Optional name ABOVE the photo — only when showNames
+                        is set AND there's a name, so photo-only strips
+                        (parties pages) are unchanged. Rendered as a
+                        fill-to-width poster headline. */}
+                    {nameLabel ? (
+                      <div className="mb-2 flex justify-center px-1">
+                        <div style={{ width: `${(nameScale ?? 1) * 100}%` }}>
+                          <FillName
+                            text={nameLabel}
+                            color={nameColor}
+                            fontFamily={nameFontFamily}
+                          />
+                        </div>
+                      </div>
+                    ) : null}
                     <div
                       className="relative overflow-hidden rounded-2xl border border-cream/10 bg-white/[0.03]"
                       style={{ aspectRatio: aspect }}
@@ -246,21 +261,6 @@ export default function MediaStrip({
                         <BlankTile label={blankLabel} />
                       )}
                     </div>
-                    {/* Optional name under the photo — only when showNames
-                        is set AND there's a name, so photo-only strips
-                        (parties pages) are unchanged. Rendered as a
-                        fill-to-width poster headline. */}
-                    {nameLabel ? (
-                      <div className="mt-2 flex justify-center px-1">
-                        <div style={{ width: `${(nameScale ?? 1) * 100}%` }}>
-                          <FillName
-                            text={nameLabel}
-                            color={nameColor}
-                            fontFamily={nameFontFamily}
-                          />
-                        </div>
-                      </div>
-                    ) : null}
                   </div>
                 );
               },
