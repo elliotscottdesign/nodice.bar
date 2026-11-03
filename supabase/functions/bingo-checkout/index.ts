@@ -156,25 +156,9 @@ Deno.serve(async (req) => {
     return jsonResponse({ error: "Bingo night has no ticket price configured" }, { status: 500 });
   }
 
-  // One ticket per person per night — block a repeat PAID booking on the same
-  // email or phone (a retry after a failed payment is never refused).
-  {
-    const email = input.email.toLowerCase();
-    const { data: dupes } = await db
-      .from("tournament_entries")
-      .select("id, captain_email, captain_phone")
-      .eq("tournament_id", input.event_id)
-      .eq("status", "paid");
-    const clash = (dupes || []).some(
-      (d) => (d.captain_email || "").toLowerCase() === email || d.captain_phone === input.phone,
-    );
-    if (clash) {
-      return jsonResponse(
-        { error: "You've already got a ticket for this night on these details. Booking for someone else? Use THEIR name, email and mobile." },
-        { status: 409 },
-      );
-    }
-  }
+  // No per-person limit (founder, Nov 2026): a customer can book as many
+  // times as they like — same name, email and phone, across sessions —
+  // each purchase is its own booking. Only the room capacity below caps it.
 
   // Capacity — paid + recent (15-min) pending count vs the room cap.
   // Count TICKETS (sum of player_count), not rows — one booking can hold
