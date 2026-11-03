@@ -262,6 +262,29 @@ function ArchiveIcon({ className = "" }: { className?: string }) {
 function shortDate(d: Date): string {
   return d.toLocaleDateString("en-GB", { day: "numeric", month: "short" });
 }
+// How an outbound reply was sent: green "CRM" pill, or a green envelope for a
+// reply typed straight into Gmail.
+function ReplyVia({ via }: { via?: "crm" | "email" | null }) {
+  if (via === "crm")
+    return (
+      <span
+        title="Replied from the CRM"
+        className="rounded bg-plonkTeal/20 px-1 py-0.5 text-[8px] font-bold text-plonkTeal"
+      >
+        CRM
+      </span>
+    );
+  if (via === "email")
+    return (
+      <span
+        title="Replied directly in Gmail"
+        className="inline-flex items-center gap-0.5 rounded bg-plonkTeal/20 px-1 py-0.5 text-[8px] font-bold text-plonkTeal"
+      >
+        <MailIcon /> Email
+      </span>
+    );
+  return null;
+}
 
 // A kitchen + bar pre-event brief, generated from what we know about the
 // enquiry. Pure text so the office can read it, copy it to a staff WhatsApp,
@@ -1538,7 +1561,7 @@ function ComposeModal({
                   key={m.id}
                   className="rounded-lg border border-cream/10 bg-ink/50 p-2 text-[11px]"
                 >
-                  <div className="mb-0.5 text-[9px] uppercase tracking-wider">
+                  <div className="mb-0.5 flex flex-wrap items-center gap-1 text-[9px] uppercase tracking-wider">
                     <span
                       className={
                         m.direction === "out"
@@ -1549,8 +1572,9 @@ function ComposeModal({
                       }
                     >
                       {m.direction === "out" ? "No Dice" : m.direction === "in" ? "Customer" : "Note"}
-                    </span>{" "}
-                    · {new Date(m.created_at).toLocaleDateString("en-GB")}
+                    </span>
+                    {m.direction === "out" && <ReplyVia via={m.via} />}
+                    <span>· {new Date(m.created_at).toLocaleDateString("en-GB")}</span>
                   </div>
                   <div className="whitespace-pre-wrap text-cream/80">{m.body}</div>
                 </div>
@@ -2035,7 +2059,7 @@ function EnquiryDrawer({
                 key={m.id}
                 className="rounded-lg border border-cream/10 bg-ink/40 p-2 text-xs"
               >
-                <div className="mb-0.5 text-[10px] uppercase tracking-wider text-cream/40">
+                <div className="mb-0.5 flex flex-wrap items-center gap-1.5 text-[10px] uppercase tracking-wider text-cream/40">
                   <span
                     className={
                       m.direction === "out"
@@ -2050,8 +2074,9 @@ function EnquiryDrawer({
                       : m.direction === "in"
                         ? "Customer"
                         : "Note"}
-                  </span>{" "}
-                  · {new Date(m.created_at).toLocaleString("en-GB")}
+                  </span>
+                  {m.direction === "out" && <ReplyVia via={m.via} />}
+                  <span>· {new Date(m.created_at).toLocaleString("en-GB")}</span>
                 </div>
                 <div className="whitespace-pre-wrap text-cream/85">{m.body}</div>
               </div>

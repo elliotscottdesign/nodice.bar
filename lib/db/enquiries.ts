@@ -125,6 +125,7 @@ export type EnquiryMessage = {
   enquiry_id: string;
   direction: "in" | "out" | "note";
   channel: "email" | "sms" | "note" | "phone";
+  via?: "crm" | "email" | null; // how an outbound reply was sent
   subject: string;
   body: string;
   created_at: string;
@@ -355,7 +356,7 @@ export async function loadEnquiryMessages(
 ): Promise<EnquiryMessage[]> {
   const { data, error } = await supabase()
     .from("enquiry_messages")
-    .select("id, enquiry_id, direction, channel, subject, body, created_at")
+    .select("id, enquiry_id, direction, channel, via, subject, body, created_at")
     .eq("enquiry_id", enquiryId)
     .order("created_at", { ascending: true });
   if (error) throw error;
