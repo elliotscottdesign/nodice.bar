@@ -228,8 +228,10 @@ export default function BingoPage() {
           __html: `.bingo-page [class~="text-plonkYellow"]{color:#e878f0 !important}`,
         }}
       />
-      {/* Hero banner — swap the image from admin Galleries → "hero.bingo",
-          falls back to the shipped placeholder until the founder uploads. */}
+      {/* Hero — image removed for now (founder, Nov 2026 — "remove banner
+          image for now, add later"). The hero renders its plain background
+          + title band. To bring a banner back, re-add sliderKey="hero.bingo"
+          (and upload an image to that gallery in admin). */}
       <PageHero
         eyebrow={eyebrow}
         title={title}
@@ -238,7 +240,6 @@ export default function BingoPage() {
         eyebrowKey="bingo.eyebrow"
         titleKey="bingo.title"
         introKey="bingo.intro"
-        sliderKey="hero.bingo"
       />
 
       {/* ── Photo slider: hosts + the bingo machine ──
@@ -257,6 +258,7 @@ export default function BingoPage() {
           aspect="4 / 5"
           blankCount={4}
           blankLabel="Host / machine photo"
+          showNames
         />
       </section>
 

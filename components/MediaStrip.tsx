@@ -36,6 +36,7 @@ export default function MediaStrip({
   tint,
   headingClassName,
   fade = true,
+  showNames = false,
 }: {
   galleryKey: string;
   heading?: string;
@@ -57,6 +58,11 @@ export default function MediaStrip({
   /** Edge-fade blends cards into a BLACK page; set false on a coloured/
    *  gradient background (e.g. the kids-party page) where it shows as a band. */
   fade?: boolean;
+  /** Show a NAME under each photo (for line-ups like the /comedybingo
+   *  comedians). Uses the image's caption, falling back to its alt text
+   *  (so names typed in either admin field still appear). Off by default,
+   *  so photo-only strips (parties / venue) render exactly as before. */
+  showNames?: boolean;
 }) {
   const images = useGallery(galleryKey, []);
   const hasImages = images.length > 0;
@@ -103,6 +109,11 @@ export default function MediaStrip({
                 const img = hasImages
                   ? (tile as (typeof images)[number])
                   : null;
+                // The visible name: prefer the caption, fall back to alt
+                // (the founder may type the name into either field).
+                const nameLabel = showNames
+                  ? (img?.caption?.trim() || img?.alt?.trim() || "")
+                  : "";
                 return (
                   // Outer wrapper owns the tile width + scroll snap; the
                   // image box and the optional name label stack inside it,
@@ -134,11 +145,12 @@ export default function MediaStrip({
                         <BlankTile label={blankLabel} />
                       )}
                     </div>
-                    {/* Optional name under the photo — only when set, so
-                        caption-less galleries (parties pages) are unchanged. */}
-                    {img?.caption ? (
+                    {/* Optional name under the photo — only when showNames
+                        is set AND there's a name, so photo-only strips
+                        (parties pages) are unchanged. */}
+                    {nameLabel ? (
                       <p className="mt-2 px-1 text-center text-sm font-semibold uppercase tracking-wide text-cream break-words">
-                        {img.caption}
+                        {nameLabel}
                       </p>
                     ) : null}
                   </div>
