@@ -225,7 +225,8 @@ export default function BingoPage() {
           the same way the booking form is re-skinned below. */}
       <style
         dangerouslySetInnerHTML={{
-          __html: `.bingo-page [class~="text-plonkYellow"]{color:#D65139 !important}`,
+          __html: `@font-face{font-family:'AmsiProCondUltra';src:url('/fonts/AmsiProCondUltra.ttf') format('truetype');font-weight:400 900;font-display:swap;}
+.bingo-page [class~="text-plonkYellow"]{color:#D65139 !important}`,
         }}
       />
       {/* Hero — image removed for now (founder, Nov 2026 — "remove banner
@@ -259,6 +260,9 @@ export default function BingoPage() {
           blankCount={4}
           blankLabel="Host / machine photo"
           showNames
+          nameColor="#D65139"
+          nameFontFamily="AmsiProCondUltra"
+          headingSize="text-4xl sm:text-5xl md:text-6xl"
         />
       </section>
 
@@ -413,11 +417,13 @@ export default function BingoPage() {
         </p>
       </section>
 
-      {/* Sticky "Book your ticket" CTA — follows the reader down the page on
-          phone + desktop, once the header CTA has scrolled away. Hidden while
-          the booking form is open, or when there's no night on sale. */}
+      {/* Sticky "Book your ticket" CTA — pinned just under the nav at the TOP
+          of the viewport (founder, Nov 2026 — "stay at top so users can read
+          the info and book quickly"), once the header CTA has scrolled away.
+          Hidden while the booking form is open, or when there's no night on
+          sale. z-40 sits under the sticky nav (z-50). */}
       {showStickyCta && !selected && upcoming.length > 0 && (
-        <div className="pointer-events-none fixed inset-x-0 bottom-0 z-40 flex justify-center px-4 pb-[max(1rem,env(safe-area-inset-bottom))]">
+        <div className="pointer-events-none fixed inset-x-0 top-[60px] z-40 flex justify-center px-4 pt-2 sm:top-[68px]">
           <button
             type="button"
             onClick={openBooking}

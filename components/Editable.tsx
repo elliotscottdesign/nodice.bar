@@ -18,7 +18,7 @@
 //   </EditableImage>
 // =============================================================
 
-import { useEffect, useRef, useState } from "react";
+import { Fragment, useEffect, useRef, useState } from "react";
 import { createPortal } from "react-dom";
 import { useEditMode } from "@/lib/editMode";
 import {
@@ -65,7 +65,9 @@ export function Editable({
   }, [children]);
 
   if (!editing) {
-    return <>{children}</>;
+    // Render stored newlines as real line breaks so copy the founder
+    // paragraphed in Edit mode shows the same way on the live page.
+    return <>{withLineBreaks(children)}</>;
   }
 
   async function commit() {
@@ -121,17 +123,15 @@ export function Editable({
         initialRef.current = ref.current?.innerText ?? "";
       }}
       onBlur={commit}
-      onKeyDown={(e) => {
-        if (!multiline && e.key === "Enter") {
-          e.preventDefault();
-          (e.target as HTMLElement).blur();
-        }
-        // No Escape-to-revert. Escape used to wipe what had just been
-        // typed and blur the field, which is the same lost-work trap as
-        // clicking off a modal. Typing is kept and committed on blur, so
-        // nothing can be thrown away by a stray key.
+      onKeyDown={() => {
+        // Enter now inserts a newline in EVERY field (founder, Nov 2026 —
+        // "let me press return to drop copy to a new line / paragraph in
+        // all edit-on-page sections"). Typing is committed on blur, so
+        // nothing is lost; stored newlines render as line breaks on the
+        // live page (see withLineBreaks). No Escape-to-revert either —
+        // it was the same lost-work trap as clicking off a modal.
       }}
-      className={`relative cursor-text rounded outline outline-1 outline-dashed outline-transparent transition hover:outline-plonkTeal/60 focus:outline-plonkTeal focus:bg-plonkTeal/5 ${
+      className={`relative cursor-text whitespace-pre-wrap rounded outline outline-1 outline-dashed outline-transparent transition hover:outline-plonkTeal/60 focus:outline-plonkTeal focus:bg-plonkTeal/5 ${
         saved ? "outline-plonkTeal" : ""
       } ${saving ? "opacity-70" : ""}`}
       title={`Edit ${k}`}
@@ -139,6 +139,19 @@ export function Editable({
       {children}
     </span>
   );
+}
+
+// Turn a plain-string child containing "\n" into text + <br/> so stored
+// line breaks render on the live page. Non-string children pass through
+// unchanged (they handle their own layout).
+function withLineBreaks(children: React.ReactNode): React.ReactNode {
+  if (typeof children !== "string" || !children.includes("\n")) return children;
+  return children.split("\n").map((line, i) => (
+    <Fragment key={i}>
+      {i > 0 && <br />}
+      {line}
+    </Fragment>
+  ));
 }
 
 // Stringify a children prop made of text + simple nodes so we can

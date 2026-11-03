@@ -1,10 +1,79 @@
 "use client";
 
+import { useEffect, useRef, useState } from "react";
 import Image from "next/image";
 import RollerDeck from "./RollerDeck";
 import ManageGalleryLink from "./ManageGalleryLink";
 import { Editable } from "./Editable";
 import { useGallery, useContent } from "@/lib/content";
+
+// A name rendered as an SVG whose viewBox is the text's own bounding box,
+// so at width:100% it scales to FILL the tile's width — reading like a
+// poster headline and auto-sizing on phone / tablet with no breakpoints.
+// Measures after mount, and again once the custom font loads (its glyph
+// widths differ from the fallback, so the first measurement would be off).
+function FillName({
+  text,
+  color,
+  fontFamily,
+}: {
+  text: string;
+  color?: string;
+  fontFamily?: string;
+}) {
+  const ref = useRef<SVGTextElement>(null);
+  const [box, setBox] = useState<{
+    x: number;
+    y: number;
+    w: number;
+    h: number;
+  } | null>(null);
+  const up = text.toUpperCase();
+  useEffect(() => {
+    const el = ref.current;
+    if (!el) return;
+    let cancelled = false;
+    const measure = () => {
+      if (cancelled || !el) return;
+      try {
+        const b = el.getBBox();
+        if (b.width > 0) setBox({ x: b.x, y: b.y, w: b.width, h: b.height });
+      } catch {
+        /* getBBox throws if not yet rendered — ignore, re-run fires again */
+      }
+    };
+    measure();
+    const f = (document as unknown as { fonts?: FontFaceSet }).fonts;
+    if (f?.ready) f.ready.then(measure).catch(() => {});
+    return () => {
+      cancelled = true;
+    };
+  }, [up, fontFamily]);
+  return (
+    <svg
+      width="100%"
+      viewBox={box ? `${box.x} ${box.y} ${box.w} ${box.h}` : undefined}
+      preserveAspectRatio="xMidYMid meet"
+      role="img"
+      aria-label={text}
+      style={{ display: "block", overflow: "visible" }}
+    >
+      <text
+        ref={ref}
+        x="0"
+        y="0"
+        fill={color || "currentColor"}
+        style={{
+          fontFamily: fontFamily || "inherit",
+          fontWeight: 700,
+          letterSpacing: "0.01em",
+        }}
+      >
+        {up}
+      </text>
+    </svg>
+  );
+}
 
 // =============================================================
 // MediaStrip — full-width, swipe-able image scroller
@@ -35,8 +104,11 @@ export default function MediaStrip({
   aspect = "16 / 10",
   tint,
   headingClassName,
+  headingSize,
   fade = true,
   showNames = false,
+  nameColor,
+  nameFontFamily,
 }: {
   galleryKey: string;
   heading?: string;
@@ -55,6 +127,9 @@ export default function MediaStrip({
   tint?: string;
   /** Optional override for the heading's font classes (Xmas pages use Shrikhand). */
   headingClassName?: string;
+  /** Optional override for the heading's SIZE classes (default
+   *  "text-2xl sm:text-3xl"). Bingo passes the big h1-matching sizes. */
+  headingSize?: string;
   /** Edge-fade blends cards into a BLACK page; set false on a coloured/
    *  gradient background (e.g. the kids-party page) where it shows as a band. */
   fade?: boolean;
@@ -63,6 +138,10 @@ export default function MediaStrip({
    *  (so names typed in either admin field still appear). Off by default,
    *  so photo-only strips (parties / venue) render exactly as before. */
   showNames?: boolean;
+  /** Fill colour for the names (e.g. the bingo red). Defaults to cream. */
+  nameColor?: string;
+  /** Font family for the names (e.g. the poster headline font). */
+  nameFontFamily?: string;
 }) {
   const images = useGallery(galleryKey, []);
   const hasImages = images.length > 0;
@@ -80,7 +159,7 @@ export default function MediaStrip({
       <div className="py-6 sm:py-8">
         {(headingText || headingKey) && (
           <div className="mx-auto mb-6 max-w-6xl px-6 text-center">
-            <h2 className={`${headingClassName ?? "font-display uppercase tracking-wider"} text-2xl text-cream sm:text-3xl`}>
+            <h2 className={`${headingClassName ?? "font-display uppercase tracking-wider"} ${headingSize ?? "text-2xl sm:text-3xl"} text-cream`}>
               {headingKey ? (
                 <Editable k={headingKey}>{headingText}</Editable>
               ) : (
@@ -147,11 +226,16 @@ export default function MediaStrip({
                     </div>
                     {/* Optional name under the photo — only when showNames
                         is set AND there's a name, so photo-only strips
-                        (parties pages) are unchanged. */}
+                        (parties pages) are unchanged. Rendered as a
+                        fill-to-width poster headline. */}
                     {nameLabel ? (
-                      <p className="mt-2 px-1 text-center text-sm font-semibold uppercase tracking-wide text-cream break-words">
-                        {nameLabel}
-                      </p>
+                      <div className="mt-2 px-1">
+                        <FillName
+                          text={nameLabel}
+                          color={nameColor}
+                          fontFamily={nameFontFamily}
+                        />
+                      </div>
                     ) : null}
                   </div>
                 );
