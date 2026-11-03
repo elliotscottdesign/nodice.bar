@@ -7,6 +7,7 @@ import {
   type DbTournament,
 } from "@/lib/db/tournaments";
 import { useContent } from "@/lib/content";
+import { mediaUrl } from "@/lib/media";
 import { Editable } from "./Editable";
 import InlineTournamentBooking from "./InlineTournamentBooking";
 import { POOL_HOUSE_RULES } from "@/lib/poolHouseRules";
@@ -353,7 +354,7 @@ export default function TournamentSchedule() {
                         {t.poster_url ? (
                           // eslint-disable-next-line @next/next/no-img-element
                           <img
-                            src={t.poster_url}
+                            src={mediaUrl(t.poster_url, { w: 800 })}
                             alt={t.name}
                             className="aspect-[4/5] w-full object-cover transition group-hover:opacity-90"
                           />
@@ -410,7 +411,9 @@ export default function TournamentSchedule() {
                   // card is still the expand-to-book button. `poster` falls
                   // back to the next night's image if a future night is
                   // left without one.
-                  const poster = t.poster_url || placeholderPoster;
+                  const poster = mediaUrl(t.poster_url || placeholderPoster, {
+                    w: 800,
+                  });
                   return (
                     <button
                       id={`tourn-card-${t.id}`}

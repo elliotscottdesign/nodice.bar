@@ -10,9 +10,28 @@
 const BASE_PATH = process.env.GITHUB_PAGES === "true" ? "/nodice.bar" : "";
 const BUILD_HASH = process.env.NEXT_PUBLIC_BUILD_ID || "";
 
-export default function imageLoader({ src }) {
-  // Don't touch absolute URLs
-  if (/^https?:\/\//.test(src)) return src;
+// Edge-caching image CDN. Remote images (Supabase Storage etc.) are routed
+// through wsrv.nl so they're fetched ONCE then served as cached, resized WebP
+// — this is what keeps Supabase egress flat no matter how many customers load
+// the page. This mirrors lib/media.ts's mediaUrl() (the canonical version used
+// by plain <img> tags); kept inline here so the loader stays dependency-free.
+// next/image hands us the exact responsive `width` for each srcset entry, so we
+// get correctly-sized variants for free.
+function cdnImage(src, width, quality) {
+  // Idempotent — never wrap a URL that's already on the CDN.
+  if (/^https?:\/\/(www\.)?(wsrv\.nl|images\.weserv\.nl)\b/i.test(src)) return src;
+  const params = new URLSearchParams();
+  params.set("url", src);
+  if (width) params.set("w", String(width));
+  params.set("q", String(quality || 75));
+  params.set("output", "webp");
+  params.set("we", "1"); // never upscale past the source resolution
+  return `https://wsrv.nl/?${params.toString()}`;
+}
+
+export default function imageLoader({ src, width, quality }) {
+  // Remote URLs → route through the edge CDN (cached, resized WebP).
+  if (/^https?:\/\//.test(src)) return cdnImage(src, width, quality);
   const prefix = src.startsWith("/") ? "" : "/";
   const url = `${BASE_PATH}${prefix}${src}`;
   if (!BUILD_HASH) return url;

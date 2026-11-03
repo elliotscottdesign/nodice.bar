@@ -2,6 +2,7 @@
 
 import Link from "next/link";
 import { useGallery } from "@/lib/content";
+import { mediaUrl } from "@/lib/media";
 import LeagueTable from "@/components/LeagueTable";
 
 // /league — the live No Dice pool league table, hosted for customers. The pool
@@ -13,7 +14,9 @@ const FALLBACK_HERO =
 
 export default function LeaguePage() {
   const imgs = useGallery("hero.pool", [{ src: FALLBACK_HERO, alt: null }]);
-  const bg = imgs?.[0]?.src || FALLBACK_HERO;
+  // Full-bleed CSS background — route through the edge CDN (idempotent, so a
+  // src already CDN'd by useGallery passes through unchanged).
+  const bg = mediaUrl(imgs?.[0]?.src || FALLBACK_HERO, { w: 1280 });
 
   return (
     <main

@@ -14,6 +14,66 @@ export type DbMediaRow = {
   uploaded_at: string;
 };
 
+// Longest-edge cap for uploads. Posters, hero shots and phone photos rarely
+// need more than this on a web page, and anything bigger only inflates the
+// bucket (and our egress). The public CDN resizes further per use.
+const MAX_EDGE = 2000;
+const WEBP_QUALITY = 0.8;
+
+// Downscale + re-encode an image to WebP in the browser BEFORE it ever reaches
+// the bucket, so we never store a multi-megabyte original again (the root cause
+// of the Nov 2026 egress blow-out). Returns the original file untouched for
+// anything we can't safely rasterise (animated GIFs, SVGs, HEICs the browser
+// can't decode) or when compression wouldn't actually make it smaller.
+async function compressToWebp(file: File): Promise<File> {
+  // SSR / non-browser guard — canvas only exists in the browser.
+  if (typeof document === "undefined" || typeof createImageBitmap === "undefined") {
+    return file;
+  }
+  // Only touch raster formats we can redraw. GIF (would lose animation) and
+  // SVG (vector) are left exactly as-is.
+  const type = file.type.toLowerCase();
+  const compressible = ["image/jpeg", "image/png", "image/webp", "image/bmp"];
+  if (!compressible.includes(type)) return file;
+
+  try {
+    const bitmap = await createImageBitmap(file);
+    const { width, height } = bitmap;
+    const longest = Math.max(width, height);
+    const scale = longest > MAX_EDGE ? MAX_EDGE / longest : 1;
+    const outW = Math.max(1, Math.round(width * scale));
+    const outH = Math.max(1, Math.round(height * scale));
+
+    const canvas = document.createElement("canvas");
+    canvas.width = outW;
+    canvas.height = outH;
+    const ctx = canvas.getContext("2d");
+    if (!ctx) {
+      bitmap.close();
+      return file;
+    }
+    ctx.drawImage(bitmap, 0, 0, outW, outH);
+    bitmap.close();
+
+    const blob = await new Promise<Blob | null>((resolve) =>
+      canvas.toBlob(resolve, "image/webp", WEBP_QUALITY),
+    );
+    // Encoding failed, or the WebP came out BIGGER than the original (can
+    // happen for tiny or already-optimised files) — keep the original.
+    if (!blob || blob.size >= file.size) return file;
+
+    const webpName = file.name.replace(/\.[^./\\]+$/, "") + ".webp";
+    return new File([blob], webpName, {
+      type: "image/webp",
+      lastModified: Date.now(),
+    });
+  } catch {
+    // Any decode/encode failure → fall back to the original upload so the
+    // admin's action never silently breaks.
+    return file;
+  }
+}
+
 function safeFilename(name: string): string {
   // Strip anything that could break a URL path; keep extension intact.
   const cleaned = name
@@ -34,20 +94,23 @@ export async function uploadImage(
   pathPrefix = "page",
 ): Promise<{ public_url: string; storage_path: string; filename: string }> {
   const client = supabase();
+  // Shrink + convert to WebP in the browser first. Falls back to the original
+  // file for anything it can't compress (see compressToWebp).
+  const toUpload = await compressToWebp(file);
   const stamp = Date.now();
   // Random suffix so a batch of same-named files (or two uploads in the same
   // millisecond) can never collide on the storage path — which, with
   // upsert:false, would throw and abort a bulk upload after the first file.
   const rand = Math.random().toString(36).slice(2, 8);
-  const base = safeFilename(file.name);
+  const base = safeFilename(toUpload.name);
   const storagePath = `${pathPrefix}/${stamp}-${rand}-${base}`;
 
   const { error: uploadErr } = await client.storage
     .from(BUCKET)
-    .upload(storagePath, file, {
+    .upload(storagePath, toUpload, {
       cacheControl: "31536000",
       upsert: false,
-      contentType: file.type || undefined,
+      contentType: toUpload.type || undefined,
     });
   if (uploadErr) throw uploadErr;
 
@@ -61,7 +124,7 @@ export async function uploadImage(
     filename: file.name,
     storage_path: storagePath,
     public_url: publicUrl,
-    bytes: file.size,
+    bytes: toUpload.size,
   });
   if (insertErr) {
     console.warn("Media uploaded but library insert failed:", insertErr.message);

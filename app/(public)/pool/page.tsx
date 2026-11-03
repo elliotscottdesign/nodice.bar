@@ -4,6 +4,7 @@ import Link from "next/link";
 import PageHero from "@/components/PageHero";
 import TournamentSchedule from "@/components/TournamentSchedule";
 import { useContent, useGallery } from "@/lib/content";
+import { mediaUrl } from "@/lib/media";
 
 const POOL_BG =
   "https://rntcujcpsozvuxvmlejv.supabase.co/storage/v1/object/public/media/gallery/hero.pool/1780752253680-pool-bitmap.png";
@@ -30,7 +31,9 @@ export default function PoolPage() {
   const ctaLabel = useContent("pool.cta_label", "Book a pool table");
   const ctaHref = useContent("pool.cta_href", "/book/pool");
   const heroImgs = useGallery("hero.pool", [{ src: POOL_BG, alt: null }]);
-  const bg = heroImgs?.[0]?.src || POOL_BG;
+  // Full-bleed CSS background — route through the edge CDN (idempotent, so a
+  // src already CDN'd by useGallery passes through unchanged).
+  const bg = mediaUrl(heroImgs?.[0]?.src || POOL_BG, { w: 1280 });
 
   return (
     <main className="relative isolate">

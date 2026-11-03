@@ -15,6 +15,7 @@ import {
   type LeadBucket,
 } from "@/lib/db/leadPriority";
 import { useContent, useImage } from "@/lib/content";
+import { mediaUrl } from "@/lib/media";
 import { Editable } from "@/components/Editable";
 import PageHero from "@/components/PageHero";
 import { useEditMode } from "@/lib/editMode";
@@ -901,7 +902,10 @@ function DayEventCard({
   // its single colour swatch, default poster and grid badge.
   const primary = chipForEvent(ev);
   const raw = ev.image_url || defaultPosterFor(primary);
-  const src = raw && raw.startsWith("/") ? `${base}${raw}` : raw;
+  const src = mediaUrl(
+    raw && raw.startsWith("/") ? `${base}${raw}` : raw,
+    { w: 800 },
+  );
   // DJ nights are auto-fed from the team hub — shown everywhere but never
   // editable from this site's admin (the DJ system owns them).
   const dj = isDjEvent(ev);
@@ -1105,10 +1109,12 @@ function MultiEventStack({
   const base = process.env.NEXT_PUBLIC_BASE_PATH || "";
   const first = events[0];
   const headlineRaw = first.image_url || defaultPosterFor(chipForEvent(first));
-  const headlineSrc =
+  const headlineSrc = mediaUrl(
     headlineRaw && headlineRaw.startsWith("/")
       ? `${base}${headlineRaw}`
-      : headlineRaw;
+      : headlineRaw,
+    { w: 1200 },
+  );
   // Founder 2026-07-02: on mobile, show every event's thumbnail side-
   // by-side so DJs / food residencies / promos get visible artwork
   // instead of being buried under a single headline. Cap at 4 so a
@@ -1120,7 +1126,7 @@ function MultiEventStack({
   function thumbSrc(ev: DbCalendarEvent): string {
     const raw = ev.image_url || defaultPosterFor(chipForEvent(ev));
     if (!raw) return "";
-    return raw.startsWith("/") ? `${base}${raw}` : raw;
+    return mediaUrl(raw.startsWith("/") ? `${base}${raw}` : raw, { w: 400 });
   }
 
   return (

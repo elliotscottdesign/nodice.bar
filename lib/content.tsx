@@ -3,6 +3,7 @@
 import { createContext, useCallback, useContext, useEffect, useState } from "react";
 import { supabase } from "@/lib/supabase";
 import { SITE } from "@/lib/site";
+import { mediaUrl } from "@/lib/media";
 
 // Map of editable-slot key → saved value (only slots the admin has
 // actually edited will be in here; everything else falls back to the
@@ -221,14 +222,20 @@ function round2(n: number) {
 // callers keep working. Strips off any crop/position JSON wrapper.
 export function useImage(key: string, fallback: string): string {
   const raw = useContent(key, fallback);
-  return parseImageValue(raw, fallback).src;
+  // Route the resolved URL through the edge-caching CDN (display only —
+  // the saved value in the DB is always the raw Supabase URL, set by
+  // the MediaPicker on upload/pick, never this wrapped output).
+  return mediaUrl(parseImageValue(raw, fallback).src);
 }
 
 // Returns the full image record (url + crop/position) so the
 // renderer can apply object-fit, object-position and scale.
 export function useImageDisplay(key: string, fallback: string): ImageDisplay {
   const raw = useContent(key, fallback);
-  return parseImageValue(raw, fallback);
+  const parsed = parseImageValue(raw, fallback);
+  // CDN-route the URL for rendering. The crop/zoom fields are
+  // percentage-based so they still line up on the resized image.
+  return { ...parsed, src: mediaUrl(parsed.src) };
 }
 
 // Per-image positioning info returned alongside src/alt. Every
@@ -279,7 +286,7 @@ export function useGallery<T extends { src: string; alt?: string | null }>(
         }>;
         setRows(
           raw.map((r) => ({
-            src: r.src,
+            src: mediaUrl(r.src),
             alt: r.alt,
             position_x: r.position_x ?? 50,
             position_y: r.position_y ?? 50,
@@ -299,7 +306,7 @@ export function useGallery<T extends { src: string; alt?: string | null }>(
   }, [galleryKey]);
   if (rows && rows.length > 0) return rows;
   return fallback.map((f) => ({
-    src: f.src,
+    src: mediaUrl(f.src),
     alt: f.alt ?? null,
     position_x: 50,
     position_y: 50,
