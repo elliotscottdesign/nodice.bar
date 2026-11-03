@@ -297,6 +297,29 @@ export default function EventPosterStudio({
   // the event name bigger (photo shrinks) or smaller (photo grows).
   const [titleScale, setTitleScale] = useState(saved.titleSize ?? 1);
 
+  // When this event already has a finished poster but was built before the maker
+  // recorded its recipe (poster_recipe is null), there's nothing to rebuild the
+  // exact artwork from. Seeding from the single source photo would regenerate a
+  // DIFFERENT-looking poster and feel like it threw the saved work away. So open
+  // showing the REAL saved poster, and make editing a deliberate choice: nothing
+  // is regenerated over it until the founder starts editing. Posters built from
+  // the recipe onward still restore fully, so this only affects the older ones.
+  const [showSaved, setShowSaved] = useState(
+    () => !saved.photos?.length && !!currentPosterUrl,
+  );
+  // Drop out of "showing the saved poster" the moment the founder changes
+  // anything real — a photo added/removed, the colour, or the treatment. Skips
+  // the first run so mounting isn't counted as an edit, and watches the photo
+  // COUNT (not the array) so an image finishing loading doesn't trip it.
+  const touchedOnce = useRef(false);
+  useEffect(() => {
+    if (!touchedOnce.current) {
+      touchedOnce.current = true;
+      return;
+    }
+    setShowSaved(false);
+  }, [colour, treatment, photos.length]);
+
   // ---- Copy that goes on the poster ----
   // Both lines are SUGGESTED from the event above and keep following it as the
   // founder types — until he edits the line himself, after which his wording
@@ -819,7 +842,32 @@ export default function EventPosterStudio({
               </button>
             ))}
           </div>
-          {canRender ? (
+          {showSaved && currentPosterUrl ? (
+            <div className="w-full max-w-[236px]">
+              <div className="relative">
+                {/* eslint-disable-next-line @next/next/no-img-element */}
+                <img
+                  src={currentPosterUrl}
+                  alt="The poster saved on this event"
+                  className="block w-full rounded-md border border-cream/15 bg-black object-contain"
+                  style={{ aspectRatio: PREVIEW_AR[previewSize] }}
+                />
+                <button
+                  type="button"
+                  onClick={() => setShowSaved(false)}
+                  className="absolute inset-x-0 bottom-0 rounded-b-md bg-ink/80 py-2 text-[11px] font-bold uppercase tracking-wider text-cream backdrop-blur transition hover:bg-ink"
+                >
+                  ✎ Edit / replace
+                </button>
+              </div>
+              <p className="mt-2 text-[10px] leading-relaxed text-cream/45">
+                This is the poster already saved on this event. It was made
+                before the maker could remember its settings, so the controls
+                start fresh — your saved poster stays exactly as it is until you
+                build a new one and save over it.
+              </p>
+            </div>
+          ) : canRender ? (
             <div className="relative w-full max-w-[236px]">
               <canvas
                 ref={previewRef}
@@ -1418,7 +1466,7 @@ export default function EventPosterStudio({
             )}
             {onSave && (
               <>
-                {currentPosterUrl && (
+                {currentPosterUrl && !showSaved && (
                   <div className="mb-2 flex items-center gap-2 rounded-lg border border-cream/12 bg-ink/50 p-2">
                     {/* eslint-disable-next-line @next/next/no-img-element */}
                     <img
@@ -1432,14 +1480,23 @@ export default function EventPosterStudio({
                     </p>
                   </div>
                 )}
-                <button
-                  type="button"
-                  disabled={disabled}
-                  onClick={saveToEvent}
-                  className="w-full rounded-full bg-plonkTeal px-4 py-2.5 text-xs font-bold uppercase tracking-wider text-ink transition hover:brightness-110 disabled:opacity-40"
-                >
-                  {busy === "save" ? "Saving…" : `✓ ${saveLabel}`}
-                </button>
+                {showSaved ? (
+                  <p className="rounded-lg border border-cream/12 bg-ink/40 px-3 py-2 text-[10px] leading-relaxed text-cream/55">
+                    Showing the poster already saved on this event. Press{" "}
+                    <span className="font-bold text-cream">✎ Edit / replace</span>{" "}
+                    on the poster above to change it — nothing is saved over until
+                    you do.
+                  </p>
+                ) : (
+                  <button
+                    type="button"
+                    disabled={disabled}
+                    onClick={saveToEvent}
+                    className="w-full rounded-full bg-plonkTeal px-4 py-2.5 text-xs font-bold uppercase tracking-wider text-ink transition hover:brightness-110 disabled:opacity-40"
+                  >
+                    {busy === "save" ? "Saving…" : `✓ ${saveLabel}`}
+                  </button>
+                )}
                 {saveHint && (
                   <p className="text-[10px] leading-relaxed text-cream/45">
                     {saveHint}
