@@ -298,8 +298,7 @@ export default function BingoPage() {
           nameScale={0.75}
           headingSize="text-4xl sm:text-5xl md:text-6xl"
           centerTiles
-          centerRow
-          tileWidthClass="w-[82vw] sm:w-[46vw] lg:w-[18vw]"
+          tileWidthClass="w-[82vw] sm:w-[40vw] lg:w-[28vw]"
         />
       </section>
 

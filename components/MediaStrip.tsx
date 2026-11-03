@@ -208,7 +208,7 @@ export default function MediaStrip({
             {centerTiles && (
               <div
                 aria-hidden
-                className="shrink-0 w-[calc(9vw-12px)] sm:hidden"
+                className="shrink-0 w-[calc(9vw-12px)] sm:w-[calc(30vw-92px)] lg:w-[calc(36vw-92px)]"
               />
             )}
             {(hasImages ? images : Array.from({ length: blankCount })).map(
@@ -228,7 +228,7 @@ export default function MediaStrip({
                   <div
                     key={img?.src || `blank-${i}`}
                     className={`shrink-0 ${tileWidthClass} ${
-                      centerTiles ? "snap-center sm:snap-start" : "snap-start"
+                      centerTiles ? "snap-center" : "snap-start"
                     }`}
                   >
                     {/* Optional name ABOVE the photo — only when showNames
@@ -278,7 +278,7 @@ export default function MediaStrip({
             {centerTiles && (
               <div
                 aria-hidden
-                className="shrink-0 w-[calc(9vw-12px)] sm:hidden"
+                className="shrink-0 w-[calc(9vw-12px)] sm:w-[calc(30vw-92px)] lg:w-[calc(36vw-92px)]"
               />
             )}
           </RollerDeck>
