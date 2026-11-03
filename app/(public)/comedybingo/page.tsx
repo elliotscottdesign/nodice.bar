@@ -262,6 +262,7 @@ export default function BingoPage() {
           showNames
           nameColor="#D65139"
           nameFontFamily="AmsiProCondUltra"
+          nameScale={0.75}
           headingSize="text-4xl sm:text-5xl md:text-6xl"
         />
       </section>

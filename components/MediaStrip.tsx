@@ -109,6 +109,7 @@ export default function MediaStrip({
   showNames = false,
   nameColor,
   nameFontFamily,
+  nameScale = 1,
 }: {
   galleryKey: string;
   heading?: string;
@@ -142,6 +143,9 @@ export default function MediaStrip({
   nameColor?: string;
   /** Font family for the names (e.g. the poster headline font). */
   nameFontFamily?: string;
+  /** Width the name fills, as a fraction of the tile (centred). 1 = full
+   *  width; 0.75 = 75%, i.e. reduced 25% from the centre. */
+  nameScale?: number;
 }) {
   const images = useGallery(galleryKey, []);
   const hasImages = images.length > 0;
@@ -229,12 +233,14 @@ export default function MediaStrip({
                         (parties pages) are unchanged. Rendered as a
                         fill-to-width poster headline. */}
                     {nameLabel ? (
-                      <div className="mt-2 px-1">
-                        <FillName
-                          text={nameLabel}
-                          color={nameColor}
-                          fontFamily={nameFontFamily}
-                        />
+                      <div className="mt-2 flex justify-center px-1">
+                        <div style={{ width: `${(nameScale ?? 1) * 100}%` }}>
+                          <FillName
+                            text={nameLabel}
+                            color={nameColor}
+                            fontFamily={nameFontFamily}
+                          />
+                        </div>
                       </div>
                     ) : null}
                   </div>
