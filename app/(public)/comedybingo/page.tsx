@@ -162,21 +162,31 @@ export default function BingoPage() {
     return () => cancelAnimationFrame(id);
   }, [expandedId]);
 
+  // Show the top sticky CTA only once the in-page book button has scrolled
+  // UP out of view (its bottom is above the nav). A plain scroll listener,
+  // not an IntersectionObserver — the observer skipped the "in view" state
+  // on fast/jump scrolls, so the pill either never showed or popped over
+  // the hero. Hidden at the top and while the button is on screen, so it
+  // never covers the eyebrow/title.
   useEffect(() => {
     const el = headerCtaRef.current;
-    if (!el || typeof IntersectionObserver === "undefined") return;
-    const obs = new IntersectionObserver(
-      // Only show the top sticky CTA once the in-page book button has
-      // scrolled ABOVE the viewport — not while it's still below the fold
-      // (that popped the pill up over the hero eyebrow/title at the top).
-      ([entry]) =>
-        setShowStickyCta(
-          !entry.isIntersecting && entry.boundingClientRect.top < 0,
-        ),
-      { rootMargin: "-80px 0px 0px 0px" },
-    );
-    obs.observe(el);
-    return () => obs.disconnect();
+    if (!el) return;
+    let raf = 0;
+    const update = () => {
+      raf = 0;
+      setShowStickyCta(el.getBoundingClientRect().bottom < 72);
+    };
+    const onScroll = () => {
+      if (!raf) raf = requestAnimationFrame(update);
+    };
+    update();
+    window.addEventListener("scroll", onScroll, { passive: true });
+    window.addEventListener("resize", onScroll);
+    return () => {
+      window.removeEventListener("scroll", onScroll);
+      window.removeEventListener("resize", onScroll);
+      if (raf) cancelAnimationFrame(raf);
+    };
   }, []);
 
   // Hidden pre-launch: bounce to home so the page isn't publicly viewable.
