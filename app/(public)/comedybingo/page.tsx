@@ -96,7 +96,7 @@ export default function BingoPage() {
   const title = useContent("bingo.title", "Bingo Night");
   const intro = useContent(
     "bingo.intro",
-    "Comedy and bingo under one roof at No Dice. £10 a ticket gets you in and gets you a drink — the bingo's free to play, with prizes put up by the bar. Eyes down, London Fields.",
+    "Comedy and bingo under one roof at No Dice. £10 a ticket gets you the comedy and 5 bingo cards to play across the 2 games — bingo's free to play, with prizes put up by the bar. Eyes down, London Fields.",
   );
   // The headline the founder points at the next event + its date(s).
   const eventHeader = useContent("bingo.event_header", "Our first-ever Bingo Night");
@@ -106,7 +106,7 @@ export default function BingoPage() {
 
   const bookLine = useContent(
     "bingo.book_line",
-    "£10 a ticket — one per person, drink included. Grab yours below.",
+    "£10 a ticket — one per person. Comedy + 5 bingo cards across the 2 games. Grab yours below.",
   );
   const ctaLabel = useContent("bingo.cta_label", "Book your ticket · £10");
 

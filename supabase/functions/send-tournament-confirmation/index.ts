@@ -273,7 +273,7 @@ function renderBingoHtml(o: BingoEmailOpts): string {
     ${row("Doors / show", "Doors 7pm · Show 7:30pm")}
     ${row("Tickets", `${o.quantity} × £10`)}
     ${row("Paid", o.totalLabel)}
-    ${row("What's included", "Entry + a drink, 5 bingo cards &amp; the comedy. Bingo's free to play — the bar puts up the prizes.")}
+    ${row("What's included", "The comedy + 5 bingo cards to play across the 2 games. Bingo's free to play — the bar puts up the prizes.")}
   </table></td></tr>
   <tr><td style="padding:16px 32px 4px;">
     <div style="font-size:10px;font-weight:700;letter-spacing:0.3em;text-transform:uppercase;color:${BINGO_RED};margin-bottom:8px;">Where</div>
@@ -295,7 +295,7 @@ function renderBingoText(o: BingoEmailOpts): string {
     `Doors / show: Doors 7pm · Show 7:30pm`,
     `Tickets:      ${o.quantity} x £10`,
     `Paid:         ${o.totalLabel}`,
-    `Included:     Entry + a drink, 5 bingo cards & the comedy. Bingo's free to play — the bar puts up the prizes.`,
+    `Included:     The comedy + 5 bingo cards to play across the 2 games. Bingo's free to play — the bar puts up the prizes.`,
     ``,
     `Where: ${VENUE_ADDRESS}`,
     ``,
