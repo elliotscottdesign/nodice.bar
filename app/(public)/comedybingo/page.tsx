@@ -3,7 +3,7 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 import PageHero from "@/components/PageHero";
 import RollerDeck from "@/components/RollerDeck";
-import MediaStrip from "@/components/MediaStrip";
+import BingoLineup from "@/components/BingoLineup";
 import BingoBooking from "@/components/BingoBooking";
 import { useContent } from "@/lib/content";
 import { useEditMode } from "@/lib/editMode";
@@ -158,10 +158,6 @@ export default function BingoPage() {
   // Photo slider — comedian/host headshots + the bingo machine. Founder
   // uploads to the "bingo.gallery" gallery in /admin/content/galleries.
   const galleryTitle = useContent("bingo.gallery_title", "The line-up");
-  const galleryIntro = useContent(
-    "bingo.gallery_intro",
-    "Your hosts for the night, and the machine that calls the shots.",
-  );
   const [nights, setNights] = useState<DbTournament[]>([]);
   const [loading, setLoading] = useState(true);
   const [err, setErr] = useState("");
@@ -276,29 +272,19 @@ export default function BingoPage() {
         introKey="bingo.intro"
       />
 
-      {/* ── Photo slider: hosts + the bingo machine ──
-          Moved ABOVE the ticket booking (founder, 18 Oct 2026) so the acts /
-          machine are seen before the CTA. Same component, uploader and
-          behaviour as the parties-page strips (MediaStrip → the "Add / manage
-          photos" pill in Edit mode → /admin/content/galleries). Shows
-          placeholder tiles until the founder uploads to "bingo.gallery". */}
+      {/* ── Line-up: comedian / host photos ──
+          Above the booking (founder, 18 Oct 2026) so the acts are seen
+          before the CTA. DESKTOP shows every face across the full page
+          width; PHONE is a centred carousel. Names (red, Bebas Neue) sit
+          above each photo. Founder uploads to "bingo.gallery" in admin. */}
       <section className="bg-white/[0.02] py-8">
-        <MediaStrip
+        <BingoLineup
           galleryKey="bingo.gallery"
           heading={galleryTitle}
-          intro={galleryIntro}
           headingKey="bingo.gallery_title"
-          introKey="bingo.gallery_intro"
-          aspect="4 / 5"
-          blankCount={4}
           blankLabel="Host / machine photo"
-          showNames
           nameColor="#D65139"
           nameFontFamily='"Bebas Neue", Impact, sans-serif'
-          nameScale={0.75}
-          headingSize="text-4xl sm:text-5xl md:text-6xl"
-          centerTiles
-          tileWidthClass="w-[82vw] sm:w-[40vw] lg:w-[28vw]"
         />
       </section>
 
