@@ -1,6 +1,5 @@
 "use client";
 
-import { useEffect, useRef, useState } from "react";
 import Image from "next/image";
 import { useGallery, useContent } from "@/lib/content";
 import { Editable } from "./Editable";
@@ -19,68 +18,6 @@ import ManageGalleryLink from "./ManageGalleryLink";
 // in the site display font (Bebas Neue) so they scale with the cell.
 // Backed by the CMS gallery (`galleryKey`), same as MediaStrip.
 // =============================================================
-
-// A name rendered as an SVG whose viewBox is the text's bounding box, so
-// at width:100% it scales to fill its cell — on desktop AND phone — with
-// no per-breakpoint font sizes.
-function FillName({
-  text,
-  color,
-  fontFamily,
-}: {
-  text: string;
-  color?: string;
-  fontFamily?: string;
-}) {
-  const ref = useRef<SVGTextElement>(null);
-  const [box, setBox] = useState<{
-    x: number;
-    y: number;
-    w: number;
-    h: number;
-  } | null>(null);
-  const up = text.toUpperCase();
-  useEffect(() => {
-    const el = ref.current;
-    if (!el) return;
-    let cancelled = false;
-    const measure = () => {
-      if (cancelled || !el) return;
-      try {
-        const b = el.getBBox();
-        if (b.width > 0) setBox({ x: b.x, y: b.y, w: b.width, h: b.height });
-      } catch {
-        /* not yet rendered */
-      }
-    };
-    measure();
-    const f = (document as unknown as { fonts?: FontFaceSet }).fonts;
-    if (f?.ready) f.ready.then(measure).catch(() => {});
-    return () => {
-      cancelled = true;
-    };
-  }, [up, fontFamily]);
-  return (
-    <svg
-      width="100%"
-      viewBox={box ? `${box.x} ${box.y} ${box.w} ${box.h}` : undefined}
-      preserveAspectRatio="xMidYMid meet"
-      role="img"
-      aria-label={text}
-      style={{ display: "block", overflow: "visible" }}
-    >
-      <text
-        ref={ref}
-        x="0"
-        y="0"
-        fill={color || "currentColor"}
-        style={{ fontFamily: fontFamily || "inherit", letterSpacing: "0.01em" }}
-      >
-        {up}
-      </text>
-    </svg>
-  );
-}
 
 function BlankTile({ label }: { label: string }) {
   return (
@@ -168,18 +105,22 @@ export default function BingoLineup({
                   key={img?.src || `blank-${i}`}
                   className="w-[82vw] shrink-0 snap-center sm:w-[48vw] lg:w-auto lg:min-w-0 lg:shrink lg:grow lg:basis-0"
                 >
-                  {/* Name above the photo */}
-                  {name ? (
-                    <div className="mb-2 flex justify-center px-1">
-                      <div style={{ width: "90%" }}>
-                        <FillName
-                          text={name}
-                          color={nameColor}
-                          fontFamily={nameFontFamily}
-                        />
-                      </div>
-                    </div>
-                  ) : null}
+                  {/* Name above the photo — a UNIFORM size in a fixed-height
+                      row (always rendered, even when empty) so every image
+                      below lines up at the exact same top edge. Same font
+                      size for every name = same height; centred; single line. */}
+                  <div className="mb-3 flex h-[7vw] items-end justify-center overflow-hidden px-1 sm:h-[4vw] lg:h-[2.4vw]">
+                    <span
+                      className="whitespace-nowrap text-[6vw] uppercase leading-none sm:text-[3.4vw] lg:text-[1.9vw]"
+                      style={{
+                        color: nameColor,
+                        fontFamily: nameFontFamily,
+                        letterSpacing: "0.02em",
+                      }}
+                    >
+                      {name}
+                    </span>
+                  </div>
                   <div
                     className="relative overflow-hidden rounded-2xl border border-cream/10 bg-white/[0.03]"
                     style={{ aspectRatio: "4 / 5" }}
