@@ -3,7 +3,7 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 import PageHero from "@/components/PageHero";
 import RollerDeck from "@/components/RollerDeck";
-import BingoLineup from "@/components/BingoLineup";
+import PhotoLineup from "@/components/PhotoLineup";
 import BingoBooking from "@/components/BingoBooking";
 import { useContent } from "@/lib/content";
 import { useEditMode } from "@/lib/editMode";
@@ -278,13 +278,12 @@ export default function BingoPage() {
           width; PHONE is a centred carousel. Names (red, Bebas Neue) sit
           above each photo. Founder uploads to "bingo.gallery" in admin. */}
       <section className="bg-white/[0.02] py-8">
-        <BingoLineup
+        <PhotoLineup
           galleryKey="bingo.gallery"
           heading={galleryTitle}
           headingKey="bingo.gallery_title"
           blankLabel="Host / machine photo"
           nameColor="#D65139"
-          nameFontFamily='"Bebas Neue", Impact, sans-serif'
         />
       </section>
 
