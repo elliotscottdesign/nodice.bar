@@ -96,6 +96,7 @@ import {
   type EnquiryType,
   ENQUIRY_TYPE_LABEL,
 } from "@/lib/db/enquiries";
+import { setBarReservationStatus } from "@/lib/db/barReservations";
 
 function describe(e: unknown, fallback: string): string {
   return e instanceof Error ? e.message : fallback;
@@ -1097,13 +1098,22 @@ export default function EnquiriesClient() {
             }
           }}
           onDelete={async () => {
+            const hasBooking =
+              open.linked_kind === "booking" && !!open.linked_id;
             if (
               !(await confirmDialog(
-                "Delete this enquiry? It's removed from the CRM and its email is archived out of the Gmail inbox (not binned). This can't be undone.",
+                `Delete this enquiry? It's removed from the CRM and its email is archived out of the Gmail inbox (not binned).${hasBooking ? " Its linked booking is also cancelled (removed from reservations)." : ""} This can't be undone.`,
               ))
             )
               return;
             try {
+              // If it became a real booking, cancel that too so it drops off
+              // the reservations / arrivals view.
+              if (hasBooking) {
+                await setBarReservationStatus(open.linked_id, "cancelled").catch(
+                  () => {},
+                );
+              }
               // Clear it out of the Gmail inbox first (while we still have its
               // id), then remove the enquiry from the CRM.
               await tidyEnquiryGmail(open.id).catch(() => {});
