@@ -60,11 +60,12 @@ Deno.serve(async (req) => {
   const code = (b.code ?? "").trim().toUpperCase();
   const amount = Math.round(Number(b.amount_pence) || 0);
   if (!code) return json({ error: "No voucher code given." }, 400);
-  if (!(amount > 0)) return json({ error: "Enter an amount to redeem." }, 400);
 
   const { data: v, error } = await db
     .from("vouchers")
-    .select("id, code, value_pence, balance_pence, status, expires_at, first_redeemed_on")
+    .select(
+      "id, code, value_pence, balance_pence, status, expires_at, first_redeemed_on, prize_description",
+    )
     .eq("code", code)
     .maybeSingle();
   if (error) return json({ error: "Lookup failed." }, 500);
@@ -84,6 +85,41 @@ Deno.serve(async (req) => {
       await db.from("vouchers").update({ status: "expired" }).eq("id", v.id);
     return json({ found: true, error: "This voucher has expired." }, 409);
   }
+
+  // Auction / activity prize: no cash balance — it's redeemed once, for the
+  // experience. (status 'active'→'redeemed' in one go; amount is ignored.)
+  const isPrize = !!v.prize_description || (v.value_pence ?? 0) <= 0;
+  if (isPrize) {
+    await db
+      .from("vouchers")
+      .update({
+        status: "redeemed",
+        first_redeemed_on: today,
+        redeemed_at: new Date().toISOString(),
+        balance_pence: 0,
+      })
+      .eq("id", v.id);
+    await db.from("voucher_redemptions").insert({
+      voucher_id: v.id,
+      amount_pence: 0,
+      balance_after_pence: 0,
+      staff: (b.staff ?? "").slice(0, 120) || null,
+      note: v.prize_description ?? "Activity prize",
+    });
+    return json({
+      ok: true,
+      code: v.code,
+      prize: v.prize_description,
+      redeemed_pence: 0,
+      balance_pence: 0,
+      status: "redeemed",
+      must_spend_today: false,
+      message: `Prize redeemed: ${v.prize_description ?? "activity"}.`,
+    });
+  }
+
+  // From here it's a cash voucher — an amount is required.
+  if (!(amount > 0)) return json({ error: "Enter an amount to redeem." }, 400);
 
   // Used on an earlier day → the first-use day has passed, balance is void.
   if (v.first_redeemed_on && String(v.first_redeemed_on).slice(0, 10) !== today) {

@@ -62,7 +62,9 @@ function emailHtml(v: {
   expires_at: string;
   poster_url: string | null;
   issued_to_name: string | null;
+  prize_description?: string | null;
 }): string {
+  const prize = (v.prize_description || "").trim();
   const expiry = new Date(v.expires_at).toLocaleDateString("en-GB", {
     day: "numeric",
     month: "long",
@@ -82,8 +84,8 @@ function emailHtml(v: {
      <tr><td style="padding:4px 0">
        <table role="presentation" width="100%" style="background:#faf7f0;border:1px solid #e5e0d5;border-radius:12px">
         <tr><td style="padding:16px">
-          <div style="font-size:12px;text-transform:uppercase;letter-spacing:.08em;color:#8a8275">Value</div>
-          <div style="font-size:30px;font-weight:800">${money(v.value_pence)}</div>
+          <div style="font-size:12px;text-transform:uppercase;letter-spacing:.08em;color:#8a8275">${prize ? "Prize" : "Value"}</div>
+          <div style="font-size:${prize ? "20" : "30"}px;font-weight:800">${prize ? esc(prize) : money(v.value_pence)}</div>
           <div style="margin-top:12px;font-size:12px;text-transform:uppercase;letter-spacing:.08em;color:#8a8275">Voucher code</div>
           <div style="font-size:20px;font-weight:700;letter-spacing:.06em;font-family:'Courier New',monospace">${esc(v.code)}</div>
         </td></tr>
@@ -92,7 +94,7 @@ function emailHtml(v: {
      <tr><td style="padding:16px 0 4px;font-size:13px;line-height:1.6;color:#5a554c">
        <strong>How to use it:</strong> show this email (or the attached picture) at the bar — we'll scan the code.<br/>
        Valid until <strong>${expiry}</strong>. To be used in store, in person — not for future bookings.<br/>
-       On the day you first use it the whole value must be spent — no change is carried to another day.
+       ${prize ? "Redeemable once for the experience above." : "On the day you first use it the whole value must be spent — no change is carried to another day."}
      </td></tr>
      <tr><td style="padding-top:18px;font-size:13px;color:#8a8275">No Dice · London Fields · 407 Mentmore Terrace · E8 3PH</td></tr>
     </table>
@@ -115,7 +117,9 @@ Deno.serve(async (req) => {
 
   const { data: v, error } = await db
     .from("vouchers")
-    .select("id, code, value_pence, expires_at, poster_url, issued_to_name, issued_to_email")
+    .select(
+      "id, code, value_pence, expires_at, poster_url, issued_to_name, issued_to_email, prize_description",
+    )
     .eq("id", b.voucher_id)
     .maybeSingle();
   if (error || !v) return json({ error: "Voucher not found." }, 404);
@@ -139,7 +143,9 @@ Deno.serve(async (req) => {
       from: SENDER,
       to,
       reply_to: REPLY_TO,
-      subject: `Your No Dice voucher — ${money(v.value_pence)}`,
+      subject: v.prize_description
+        ? "Your No Dice voucher"
+        : `Your No Dice voucher — ${money(v.value_pence)}`,
       html: emailHtml(v),
       attachments: attachments.length ? attachments : undefined,
     }),

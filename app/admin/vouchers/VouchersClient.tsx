@@ -47,6 +47,11 @@ const KINDS: { key: VoucherKind; label: string; hint: string }[] = [
   { key: "gift", label: "Gift", hint: "Someone bought this for a friend." },
   { key: "comp", label: "Complimentary", hint: "A freebie — influencer, apology, thank-you." },
   { key: "raffle", label: "Raffle / prize", hint: "A prize to give away." },
+  {
+    key: "auction",
+    label: "Auction / activity",
+    hint: "An experience, not a cash value — e.g. mini golf + drinks for 6.",
+  },
 ];
 
 export default function VouchersClient() {
@@ -157,6 +162,8 @@ function MakeVoucher({
   const [code] = useState(() => generateVoucherCode());
   const [kind, setKind] = useState<VoucherKind>("gift");
   const [valueStr, setValueStr] = useState("50");
+  const [prize, setPrize] = useState("");
+  const isAuction = kind === "auction";
   const [name, setName] = useState("");
   const [email, setEmail] = useState("");
   const [phone, setPhone] = useState("");
@@ -168,9 +175,9 @@ function MakeVoucher({
   const [sending, setSending] = useState(false);
   const exportRef = useRef<(() => Promise<VoucherExport>) | null>(null);
 
-  const valuePence = Math.round((parseFloat(valueStr) || 0) * 100);
+  const valuePence = isAuction ? 0 : Math.round((parseFloat(valueStr) || 0) * 100);
   const dirty =
-    valueStr !== "50" || !!name || !!email || !!phone || !!note || !!created;
+    valueStr !== "50" || !!prize || !!name || !!email || !!phone || !!note || !!created;
 
   async function requestClose() {
     if (dirty && !created) {
@@ -186,7 +193,12 @@ function MakeVoucher({
 
   async function generate() {
     setLocalErr("");
-    if (!(valuePence > 0)) {
+    if (isAuction) {
+      if (!prize.trim()) {
+        setLocalErr("Describe the auction prize (e.g. mini golf + drinks for 6).");
+        return;
+      }
+    } else if (!(valuePence > 0)) {
       setLocalErr("Enter a voucher value greater than £0.");
       return;
     }
@@ -204,6 +216,7 @@ function MakeVoucher({
       const row = await createVoucher({
         code,
         value_pence: valuePence,
+        prize_description: isAuction ? prize.trim() : null,
         expires_at: new Date(expires + "T23:59:59").toISOString(),
         kind,
         issued_to_name: name.trim() || null,
@@ -289,33 +302,52 @@ function MakeVoucher({
             </p>
           </div>
 
-          {/* Value */}
-          <label className="block">
-            <span className="text-xs font-bold uppercase tracking-widest text-cream/55">
-              Value (£)
-            </span>
-            <input
-              type="text"
-              inputMode="decimal"
-              value={valueStr}
-              onChange={(e) => setValueStr(e.target.value)}
-              disabled={!!created}
-              className="mt-1.5 w-full rounded-lg border border-cream/15 bg-ink/40 px-3 py-2 text-base text-cream focus:border-plonkPink focus:outline-none disabled:opacity-50"
-            />
-            <div className="mt-2 flex gap-2">
-              {[25, 50, 100, 150].map((v) => (
-                <button
-                  key={v}
-                  type="button"
-                  disabled={!!created}
-                  onClick={() => setValueStr(String(v))}
-                  className="rounded-full border border-cream/20 px-3 py-1 text-[11px] font-bold text-cream/70 hover:bg-cream/5 disabled:opacity-40"
-                >
-                  £{v}
-                </button>
-              ))}
-            </div>
-          </label>
+          {/* Value (cash vouchers) OR prize description (auction) */}
+          {isAuction ? (
+            <label className="block">
+              <span className="text-xs font-bold uppercase tracking-widest text-cream/55">
+                What's the prize?
+              </span>
+              <textarea
+                value={prize}
+                onChange={(e) => setPrize(e.target.value)}
+                disabled={!!created}
+                rows={3}
+                placeholder="e.g. A round of mini golf and a round of drinks for 6 people"
+                className="mt-1.5 w-full rounded-lg border border-cream/15 bg-ink/40 px-3 py-2 text-sm text-cream focus:border-plonkPink focus:outline-none disabled:opacity-50"
+              />
+              <p className="mt-1 text-[11px] text-cream/45">
+                No cash value — this voucher is redeemed for the experience, in one visit.
+              </p>
+            </label>
+          ) : (
+            <label className="block">
+              <span className="text-xs font-bold uppercase tracking-widest text-cream/55">
+                Value (£)
+              </span>
+              <input
+                type="text"
+                inputMode="decimal"
+                value={valueStr}
+                onChange={(e) => setValueStr(e.target.value)}
+                disabled={!!created}
+                className="mt-1.5 w-full rounded-lg border border-cream/15 bg-ink/40 px-3 py-2 text-base text-cream focus:border-plonkPink focus:outline-none disabled:opacity-50"
+              />
+              <div className="mt-2 flex gap-2">
+                {[25, 50, 100, 150].map((v) => (
+                  <button
+                    key={v}
+                    type="button"
+                    disabled={!!created}
+                    onClick={() => setValueStr(String(v))}
+                    className="rounded-full border border-cream/20 px-3 py-1 text-[11px] font-bold text-cream/70 hover:bg-cream/5 disabled:opacity-40"
+                  >
+                    £{v}
+                  </button>
+                ))}
+              </div>
+            </label>
+          )}
 
           {/* Code (locked) */}
           <div>
@@ -433,6 +465,7 @@ function MakeVoucher({
           <VoucherPosterStudio
             valuePence={valuePence}
             code={code}
+            prizeDescription={isAuction ? prize : undefined}
             defaults={defaults}
             onDefaultsChange={onDefaultsChange}
             registerExport={(fn) => (exportRef.current = fn)}
@@ -566,8 +599,20 @@ function RowGroup({
           )}
           {v.sent_at && <p className="text-[11px] text-plonkTeal">✓ emailed</p>}
         </td>
-        <td className="px-4 py-3 font-medium">{fmtMoney(v.value_pence)}</td>
-        <td className="px-4 py-3">{fmtMoney(v.balance_pence)}</td>
+        <td className="px-4 py-3 font-medium">
+          {v.prize_description ? (
+            <span className="text-plonkTeal">Prize</span>
+          ) : (
+            fmtMoney(v.value_pence)
+          )}
+        </td>
+        <td className="px-4 py-3">
+          {v.prize_description ? (
+            <span className="text-xs text-cream/60">{v.prize_description}</span>
+          ) : (
+            fmtMoney(v.balance_pence)
+          )}
+        </td>
         <td className="px-4 py-3 text-cream/65">
           {new Date(v.expires_at).toLocaleDateString("en-GB", {
             day: "numeric",

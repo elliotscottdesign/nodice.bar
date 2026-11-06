@@ -46,12 +46,14 @@ export type VoucherExport = {
 export default function VoucherPosterStudio({
   valuePence,
   code,
+  prizeDescription,
   defaults,
   onDefaultsChange,
   registerExport,
 }: {
   valuePence: number;
   code: string;
+  prizeDescription?: string;
   defaults: VoucherDefaults;
   onDefaultsChange: (d: VoucherDefaults) => void;
   registerExport: (fn: (() => Promise<VoucherExport>) | null) => void;
@@ -103,12 +105,13 @@ export default function VoucherPosterStudio({
     return renderVoucherPoster({
       valuePence,
       code,
+      prizeDescription,
       img,
       exposure,
       colour,
       treatment: treatment as "whites" | "natural" | "scatter",
     });
-  }, [valuePence, code, img, exposure, colour, treatment]);
+  }, [valuePence, code, prizeDescription, img, exposure, colour, treatment]);
 
   // Live preview (scaled down into the on-screen canvas), debounced.
   useEffect(() => {

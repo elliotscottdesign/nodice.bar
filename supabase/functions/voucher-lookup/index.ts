@@ -53,7 +53,9 @@ Deno.serve(async (req) => {
 
   const { data: v } = await db
     .from("vouchers")
-    .select("code, value_pence, balance_pence, status, expires_at, first_redeemed_on")
+    .select(
+      "code, value_pence, balance_pence, status, expires_at, first_redeemed_on, prize_description",
+    )
     .eq("code", code)
     .maybeSingle();
   if (!v) return json({ found: false });
@@ -79,6 +81,7 @@ Deno.serve(async (req) => {
     value_pence: v.value_pence,
     balance_pence: v.balance_pence,
     spendable_today_pence: spendable,
+    prize_description: v.prize_description,
     status,
     expires_at: v.expires_at,
     first_redeemed_on: v.first_redeemed_on,

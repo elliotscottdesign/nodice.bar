@@ -4,13 +4,16 @@ import { supabase } from "@/lib/supabase";
 import { SUPABASE_URL, SUPABASE_ANON_KEY } from "@/lib/stripe";
 
 export type VoucherStatus = "active" | "redeemed" | "expired" | "cancelled";
-export type VoucherKind = "gift" | "comp" | "raffle";
+// "auction" = an activity/experience prize (no cash value) — e.g. a round of
+// mini golf + drinks for 6. It carries prize_description instead of a value.
+export type VoucherKind = "gift" | "comp" | "raffle" | "auction";
 
 export type DbVoucher = {
   id: string;
   code: string;
   value_pence: number;
   balance_pence: number;
+  prize_description: string | null;
   issued_to_name: string | null;
   issued_to_email: string | null;
   issued_to_phone: string | null;
@@ -39,7 +42,7 @@ export type VoucherRedemption = {
 };
 
 const SELECT =
-  "id, code, value_pence, balance_pence, issued_to_name, issued_to_email, issued_to_phone, kind, note, poster_url, image_url, image_locked, expires_at, status, first_redeemed_on, redeemed_at, sent_at, created_by, created_at";
+  "id, code, value_pence, balance_pence, prize_description, issued_to_name, issued_to_email, issued_to_phone, kind, note, poster_url, image_url, image_locked, expires_at, status, first_redeemed_on, redeemed_at, sent_at, created_by, created_at";
 
 export async function loadVouchers(): Promise<DbVoucher[]> {
   const { data, error } = await supabase()
@@ -71,6 +74,7 @@ export type NewVoucher = {
   value_pence: number;
   expires_at: string; // ISO
   kind?: VoucherKind;
+  prize_description?: string | null; // auction/activity prize instead of a cash value
   issued_to_name?: string | null;
   issued_to_email?: string | null;
   issued_to_phone?: string | null;
@@ -89,6 +93,7 @@ export async function createVoucher(row: NewVoucher): Promise<DbVoucher> {
       code,
       value_pence: row.value_pence,
       balance_pence: row.value_pence,
+      prize_description: row.prize_description ?? null,
       kind: row.kind ?? "gift",
       issued_to_name: row.issued_to_name ?? null,
       issued_to_email: row.issued_to_email ?? null,
@@ -225,6 +230,7 @@ export type VoucherLookup = {
   value_pence?: number;
   balance_pence?: number;
   spendable_today_pence?: number;
+  prize_description?: string | null;
   status?: VoucherStatus;
   expires_at?: string;
   first_redeemed_on?: string | null;

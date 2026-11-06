@@ -85,20 +85,31 @@ export default function VoucherVerifyPage() {
             <div className="mt-4 font-mono text-lg tracking-wider text-cream/90">
               {state.v.code}
             </div>
-            <div className="mt-5 grid grid-cols-2 gap-4">
-              <div>
+            {state.v.prize_description ? (
+              <div className="mt-5">
                 <div className="text-[11px] uppercase tracking-widest text-cream/45">
-                  Original value
+                  Auction prize
                 </div>
-                <div className="text-2xl font-bold">{money(state.v.value_pence)}</div>
-              </div>
-              <div>
-                <div className="text-[11px] uppercase tracking-widest text-cream/45">
-                  Balance left
+                <div className="mt-1 text-xl font-bold">
+                  {state.v.prize_description}
                 </div>
-                <div className="text-2xl font-bold">{money(state.v.balance_pence)}</div>
               </div>
-            </div>
+            ) : (
+              <div className="mt-5 grid grid-cols-2 gap-4">
+                <div>
+                  <div className="text-[11px] uppercase tracking-widest text-cream/45">
+                    Original value
+                  </div>
+                  <div className="text-2xl font-bold">{money(state.v.value_pence)}</div>
+                </div>
+                <div>
+                  <div className="text-[11px] uppercase tracking-widest text-cream/45">
+                    Balance left
+                  </div>
+                  <div className="text-2xl font-bold">{money(state.v.balance_pence)}</div>
+                </div>
+              </div>
+            )}
             {state.v.expires_at && (
               <p className="mt-5 text-xs text-cream/50">
                 Valid until{" "}
