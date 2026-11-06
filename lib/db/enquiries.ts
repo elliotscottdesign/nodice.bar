@@ -92,6 +92,7 @@ export type Enquiry = {
   enquiry_type: EnquiryType | null;
   archived_at: string | null;
   saved_at: string | null;
+  followup_at: string | null;
   created_at: string;
   updated_at: string;
 };
@@ -132,7 +133,7 @@ export type EnquiryMessage = {
 };
 
 const SELECT =
-  "id, source, status, contact_name, contact_email, contact_phone, event_type, party_size, requested_date, date_flex, budget, notes, assigned_to, linked_kind, linked_id, share_token, amount_pence, payment_url, paid_at, last_emailed_at, lead_bucket, enquiry_type, archived_at, saved_at, created_at, updated_at";
+  "id, source, status, contact_name, contact_email, contact_phone, event_type, party_size, requested_date, date_flex, budget, notes, assigned_to, linked_kind, linked_id, share_token, amount_pence, payment_url, paid_at, last_emailed_at, lead_bucket, enquiry_type, archived_at, saved_at, followup_at, created_at, updated_at";
 
 export const SOURCE_LABEL: Record<EnquirySource, string> = {
   party_form: "Party form",
@@ -211,22 +212,53 @@ export async function checkDateAvailability(
   return { date: iso, tableCount, tableCovers, poolCount, events, busy };
 }
 
-export type Shelf = "active" | "archived" | "saved";
+export type Shelf = "active" | "followup" | "archived" | "saved";
 
 export async function loadEnquiries(
   opts: { shelf?: Shelf } = {},
 ): Promise<Enquiry[]> {
-  // active (default) = on the board (not archived, not saved).
+  // active (default) = on the board (not archived, not saved, not a follow-up).
+  // followup = being chased on a date (followup_at set). Soonest/overdue first.
   // archived = hidden as not-relevant (+ tidied out of Gmail).
   // saved    = set aside for later (email left in Gmail untouched).
   const shelf = opts.shelf ?? "active";
   let q = supabase().from("enquiries").select(SELECT);
   if (shelf === "archived") q = q.not("archived_at", "is", null);
   else if (shelf === "saved") q = q.not("saved_at", "is", null);
-  else q = q.is("archived_at", null).is("saved_at", null);
-  const { data, error } = await q.order("created_at", { ascending: false });
+  else if (shelf === "followup") q = q.not("followup_at", "is", null);
+  else q = q.is("archived_at", null).is("saved_at", null).is("followup_at", null);
+  // Follow-ups sort by their chase date (overdue at the top); everything else
+  // newest-first.
+  q =
+    shelf === "followup"
+      ? q.order("followup_at", { ascending: true })
+      : q.order("created_at", { ascending: false });
+  const { data, error } = await q;
   if (error) throw error;
   return (data ?? []) as Enquiry[];
+}
+
+// Follow up = chase this customer on a date. Defaults to 7 days out when no
+// date is given. Clears the other shelves so it lands in the Follow up section.
+export async function setEnquiryFollowup(
+  id: string,
+  dateIso?: string | null,
+): Promise<void> {
+  const when = dateIso
+    ? new Date(dateIso.length <= 10 ? `${dateIso}T09:00:00` : dateIso).toISOString()
+    : new Date(Date.now() + 7 * 86400_000).toISOString();
+  const { error } = await supabase()
+    .from("enquiries")
+    .update({ followup_at: when, archived_at: null, saved_at: null })
+    .eq("id", id);
+  if (error) throw error;
+}
+export async function clearEnquiryFollowup(id: string): Promise<void> {
+  const { error } = await supabase()
+    .from("enquiries")
+    .update({ followup_at: null })
+    .eq("id", id);
+  if (error) throw error;
 }
 
 // Archive = "not relevant, get it off the board" (spam, duplicate, wrong

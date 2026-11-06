@@ -56,6 +56,8 @@ import {
   unarchiveEnquiry,
   saveEnquiryForLater,
   unsaveEnquiry,
+  setEnquiryFollowup,
+  clearEnquiryFollowup,
   type Shelf,
   tidyEnquiryGmail,
   type EnquiryActivity,
@@ -439,9 +441,20 @@ export default function EnquiriesClient() {
     }
     // Newest-first by default; "Must respond" surfaces the longest-waiting first.
     const key: SortKey = onlyOwed ? "oldest" : sortBy;
-    for (const st of STATUS_ORDER) m[st] = sortEnquiries(m[st], key, activity);
+    for (const st of STATUS_ORDER) {
+      m[st] = sortEnquiries(m[st], key, activity);
+      // In the Follow up view, order by the chase date so overdue chases sit
+      // at the top of each column.
+      if (shelf === "followup") {
+        m[st].sort(
+          (a, b) =>
+            (a.followup_at ? new Date(a.followup_at).getTime() : Infinity) -
+            (b.followup_at ? new Date(b.followup_at).getTime() : Infinity),
+        );
+      }
+    }
     return m;
-  }, [enquiries, bucket, typeFilter, onlyOwed, sortBy, activity, nowMs]);
+  }, [enquiries, bucket, typeFilter, onlyOwed, sortBy, activity, nowMs, shelf]);
 
   // How many open enquiries we owe a reply on, in this bucket (the badge count).
   const owedCount = useMemo(() => {
@@ -487,6 +500,26 @@ export default function EnquiriesClient() {
     } catch (err) {
       setErr(describe(err, "Couldn't save."));
       await reload();
+    }
+  }
+
+  // Follow up = chase on a date. Default 7 days out; moves it to the Follow up
+  // section. Passing a date changes it.
+  async function followupOne(e: Enquiry, dateIso?: string) {
+    try {
+      await setEnquiryFollowup(e.id, dateIso);
+      await reload();
+    } catch (err) {
+      setErr(describe(err, "Couldn't set a follow-up."));
+    }
+  }
+  // Done with the follow-up → back onto the active board.
+  async function clearFollowupOne(id: string) {
+    try {
+      await clearEnquiryFollowup(id);
+      await reload();
+    } catch (err) {
+      setErr(describe(err, "Couldn't clear the follow-up."));
     }
   }
 
@@ -743,6 +776,7 @@ export default function EnquiriesClient() {
           {(
             [
               ["active", "Active"],
+              ["followup", "Follow up"],
               ["saved", "Saved"],
               ["archived", "Archived"],
             ] as [Shelf, string][]
@@ -765,6 +799,11 @@ export default function EnquiriesClient() {
           ))}
         </div>
 
+        {shelf === "followup" && (
+          <span className="text-[10px] uppercase tracking-wider text-cream/40">
+            Chasing on a date · due ones turn amber and rise to the top · ✓ on a card when done
+          </span>
+        )}
         {shelf === "saved" && (
           <span className="text-[10px] uppercase tracking-wider text-cream/40">
             Set aside for later — still in Gmail · ↩ on a card to bring back
@@ -947,6 +986,9 @@ export default function EnquiriesClient() {
               <div className="space-y-2">
                 {byStatus[st].map((e) => {
                   const f = flagsFor(e, activity[e.id], nowMs);
+                  const followupDue =
+                    !!e.followup_at &&
+                    new Date(e.followup_at).getTime() <= nowMs;
                   return (
                     <div
                       key={e.id}
@@ -960,7 +1002,11 @@ export default function EnquiriesClient() {
                         }
                       }}
                       className={`group relative block w-full cursor-pointer rounded-lg border bg-ink/50 p-2.5 text-left transition hover:border-cream/40 ${
-                        f.overdue ? "border-red-500/60" : STATUS_STYLE[e.status]
+                        f.overdue
+                          ? "border-red-500/60"
+                          : followupDue
+                            ? "border-amber-400/70 bg-amber-400/5"
+                            : STATUS_STYLE[e.status]
                       }`}
                     >
                       <div className="flex items-start justify-between gap-1.5">
@@ -987,8 +1033,20 @@ export default function EnquiriesClient() {
                               <CheckIcon />
                             </span>
                           )}
-                          {/* save / archive (active) or restore (side views) */}
-                          {shelf !== "active" ? (
+                          {/* follow up done (followup view) · restore (saved/archived) · save+archive+followup (active) */}
+                          {shelf === "followup" ? (
+                            <button
+                              type="button"
+                              title="Done — move back to the active board"
+                              onClick={(ev) => {
+                                ev.stopPropagation();
+                                clearFollowupOne(e.id);
+                              }}
+                              className="rounded border border-cream/20 px-1.5 py-0.5 text-[10px] font-bold text-plonkTeal transition hover:bg-plonkTeal/10"
+                            >
+                              ✓ Done
+                            </button>
+                          ) : shelf !== "active" ? (
                             <button
                               type="button"
                               title="Bring back to the board"
@@ -1002,6 +1060,17 @@ export default function EnquiriesClient() {
                             </button>
                           ) : (
                             <>
+                              <button
+                                type="button"
+                                title="Follow up — chase in 7 days (change the date in the enquiry)"
+                                onClick={(ev) => {
+                                  ev.stopPropagation();
+                                  followupOne(e);
+                                }}
+                                className="rounded border border-cream/20 p-1 text-cream/50 transition hover:border-amber-400/60 hover:text-amber-300"
+                              >
+                                <ClockIcon />
+                              </button>
                               <button
                                 type="button"
                                 title="Save for later — keeps the email in Gmail, clears it from this list"
@@ -1036,6 +1105,19 @@ export default function EnquiriesClient() {
                         >
                           {f.today ? "Today" : shortDate(f.arrival)}
                         </span>
+                        {e.followup_at && (
+                          <span
+                            className={
+                              followupDue
+                                ? "font-bold text-amber-300"
+                                : "text-amber-300/70"
+                            }
+                            title={`Follow up ${new Date(e.followup_at).toLocaleString("en-GB")}`}
+                          >
+                            ⏰ {followupDue ? "due " : ""}
+                            {shortDate(new Date(e.followup_at))}
+                          </span>
+                        )}
                         {e.enquiry_type && e.enquiry_type !== "other" && (
                           <span className="rounded border border-cream/20 px-1.5 py-0.5 font-bold text-cream/70">
                             {ENQUIRY_TYPE_LABEL[e.enquiry_type]}
@@ -1431,6 +1513,22 @@ function ComposeModal({
     }
     onClose();
   }
+
+  // Esc closes the compose window (same guard as the ✕) — Leonie's request.
+  // A ref keeps the listener pointed at the latest requestClose closure.
+  const requestCloseRef = useRef(requestClose);
+  requestCloseRef.current = requestClose;
+  useEffect(() => {
+    const onKey = (ev: KeyboardEvent) => {
+      if (ev.key === "Escape") {
+        ev.preventDefault();
+        ev.stopPropagation();
+        void requestCloseRef.current();
+      }
+    };
+    window.addEventListener("keydown", onKey);
+    return () => window.removeEventListener("keydown", onKey);
+  }, []);
 
   return (
     <div className="fixed inset-0 z-[60] flex items-center justify-center bg-black/80 p-2 sm:p-6">
@@ -1917,6 +2015,25 @@ function EnquiryDrawer({
   const [sending, setSending] = useState(false);
   const [composeOpen, setComposeOpen] = useState(false);
   const [avail, setAvail] = useState<DayAvailability | null>(null);
+  const [fuDate, setFuDate] = useState(
+    enquiry.followup_at ? enquiry.followup_at.slice(0, 10) : "",
+  );
+  useEffect(() => {
+    setFuDate(enquiry.followup_at ? enquiry.followup_at.slice(0, 10) : "");
+  }, [enquiry.id, enquiry.followup_at]);
+
+  // Esc closes the drawer (same as the Close button) — but not while the
+  // compose window is on top, which handles its own Esc.
+  useEffect(() => {
+    const onKey = (ev: KeyboardEvent) => {
+      if (ev.key === "Escape" && !composeOpen) {
+        ev.preventDefault();
+        onClose();
+      }
+    };
+    window.addEventListener("keydown", onKey);
+    return () => window.removeEventListener("keydown", onKey);
+  }, [composeOpen, onClose]);
 
   useEffect(() => {
     setAvail(null);
@@ -1996,6 +2113,59 @@ function EnquiryDrawer({
               {STATUS_LABEL[st]}
             </button>
           ))}
+        </div>
+
+        {/* Follow up — chase this customer on a date (default 7 days). Moves it
+            to the Follow up section; when the date passes it turns amber and
+            rises to the top. */}
+        <div className="mb-4 rounded-lg border border-cream/10 bg-ink/40 p-3">
+          <div className="flex items-center justify-between">
+            <span className="text-[10px] font-bold uppercase tracking-widest text-cream/45">
+              Follow up
+            </span>
+            {enquiry.followup_at && (
+              <span className="text-[10px] font-bold uppercase tracking-wider text-amber-300">
+                set · {new Date(enquiry.followup_at).toLocaleDateString("en-GB")}
+              </span>
+            )}
+          </div>
+          <div className="mt-2 flex flex-wrap items-center gap-2">
+            <div className="min-w-[150px]">
+              <DatePickerInput
+                value={fuDate}
+                onChange={async (iso: string) => {
+                  setFuDate(iso);
+                  if (iso) {
+                    await setEnquiryFollowup(enquiry.id, iso);
+                    await onReload();
+                  }
+                }}
+                className="w-full rounded-lg border border-cream/15 bg-ink/40 px-3 py-2 text-sm text-cream focus:border-plonkTeal focus:outline-none"
+              />
+            </div>
+            <button
+              type="button"
+              onClick={async () => {
+                await setEnquiryFollowup(enquiry.id); // default +7 days
+                await onReload();
+              }}
+              className="rounded-full border border-amber-400/40 px-3 py-1.5 text-[11px] font-bold uppercase tracking-wider text-amber-300 transition hover:bg-amber-400/10"
+            >
+              In 7 days
+            </button>
+            {enquiry.followup_at && (
+              <button
+                type="button"
+                onClick={async () => {
+                  await clearEnquiryFollowup(enquiry.id);
+                  await onReload();
+                }}
+                className="rounded-full border border-cream/20 px-3 py-1.5 text-[11px] font-bold uppercase tracking-wider text-cream/60 transition hover:bg-cream/5"
+              >
+                ✓ Done
+              </button>
+            )}
+          </div>
         </div>
 
         {/* Pipeline bucket — venue vs Wacky Works course-build. Lets staff

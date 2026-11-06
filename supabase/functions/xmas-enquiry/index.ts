@@ -21,8 +21,18 @@ function json(body: unknown, status = 200) {
   });
 }
 
+import { createClient } from "https://esm.sh/@supabase/supabase-js@2.45.4";
+
 const RESEND_API_KEY = Deno.env.get("RESEND_API_KEY") ?? "";
 const RECIPIENT = "info@nodice.bar";
+// Service-role client so the builder enquiry also lands in the CRM (the team
+// asked for these to show in "new enquiries", not just the inbox).
+const SUPABASE_URL = Deno.env.get("SUPABASE_URL") ?? "";
+const SERVICE_KEY = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY") ?? "";
+const db =
+  SUPABASE_URL && SERVICE_KEY
+    ? createClient(SUPABASE_URL, SERVICE_KEY, { auth: { persistSession: false } })
+    : null;
 // One function serves every party builder; `party_type` decides the wording.
 const isKids = (e: Enquiry) => e.party_type === "kids";
 const senderFor = (e: Enquiry) =>
@@ -157,6 +167,52 @@ Deno.serve(async (req) => {
   if (!teamRes.ok) {
     const txt = await teamRes.text().catch(() => "");
     return json({ error: `Email send failed: ${txt.slice(0, 200)}` }, 502);
+  }
+
+  // Also drop it into the CRM so it shows in "new enquiries" (best-effort —
+  // a DB hiccup must never fail the enquiry the team already has by email).
+  if (db) {
+    const money = (n: unknown) => `£${Number(n ?? 0).toLocaleString()}`;
+    const summary = [
+      `From the ${kids ? "kids party" : "Christmas party"} builder.`,
+      e.company ? `Company: ${e.company}` : "",
+      `Headcount: ${e.headcount ?? "—"}`,
+      e.dates && e.dates.length ? `Preferred dates: ${e.dates.map(prettyDate).join(", ")}` : "",
+      kids && e.child_name
+        ? `Birthday child: ${e.child_name}${e.child_age ? ` (turning ${e.child_age})` : ""}`
+        : "",
+      kids && e.time ? `Time: ${e.time}` : "",
+      !kids && e.private_hire ? `Private hire: ${e.slot || "Yes"} (min spend ${money(e.min_spend)})` : "",
+      e.items && e.items.length
+        ? `Packages: ${e.items.map((i) => `${i.name} (£${i.price_per_head}/head)`).join("; ")}`
+        : "",
+      e.package_total != null
+        ? `Package total: ${money(e.package_total)} (£${e.package_per_head ?? 0}/head)`
+        : "",
+      e.budget ? `Budget: ${money(e.budget)}` : "",
+      e.notes ? `Notes: ${e.notes}` : "",
+    ]
+      .filter(Boolean)
+      .join("\n");
+    await db
+      .from("enquiries")
+      .insert({
+        source: "party_form",
+        status: "new",
+        contact_name: e.name!,
+        contact_email: e.email!,
+        contact_phone: e.phone ?? "",
+        event_type: kids ? "Kids party" : "Christmas party",
+        party_size: e.headcount ?? null,
+        requested_date: e.dates && e.dates[0] ? e.dates[0] : null,
+        budget: e.budget != null ? String(e.budget) : "",
+        enquiry_type: "party",
+        notes: summary,
+      })
+      .then(
+        () => {},
+        () => {},
+      );
   }
 
   // 2) The customer's copy of their package — best-effort; a failure here
