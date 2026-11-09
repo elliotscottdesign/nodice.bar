@@ -25,6 +25,10 @@ import EventPosterStudio from "@/components/admin/EventPosterStudio";
 import PosterDownloads from "@/components/admin/PosterDownloads";
 import DatePickerInput from "@/components/admin/DatePickerInput";
 import Notice from "@/components/Notice";
+import {
+  rebuildPosterFromRecipe,
+  recipeIsRebuildable,
+} from "@/lib/poster/rebuild";
 
 const inputCls =
   "w-full rounded-md border border-cream/20 bg-ink px-3 py-2 text-sm text-cream placeholder:text-cream/35";
@@ -364,6 +368,9 @@ function DealForm({
 
   const [busy, setBusy] = useState(false);
   const [err, setErr] = useState("");
+  // Non-blocking note: the poster couldn't be kept in step (rebuild threw, or
+  // no recipe to rebuild from so the baked picture may be out of date).
+  const [posterWarn, setPosterWarn] = useState("");
 
   // The dated rows this deal spans (so an edit updates every instance).
   const seriesIds = deal
@@ -414,8 +421,61 @@ function DealForm({
     }
     setBusy(true);
     setErr("");
+    setPosterWarn("");
     try {
       const base = baseFields();
+      // Keep the saved poster in step with the deal. The deal's poster is a
+      // baked picture (name / sub-copy / price / day are drawn into it), so an
+      // edit that changes any of those would leave the old artwork on every
+      // dated row. If we have the recipe it was built from, re-render it from
+      // the recipe + the deal's NEW wording and swap the picture across the run.
+      // The deal's date isn't on the poster (it shows the day label), so ONE
+      // render serves every instance. A failed rebuild never blocks the save.
+      if (editing && deal && base.poster_url) {
+        const posterVisibleChanged =
+          name.trim() !== (deal.name ?? "").trim() ||
+          (subcopy.trim() || "") !== (deal.poster_subcopy ?? "") ||
+          (footer.trim() || "") !== (deal.poster_footer ?? "") ||
+          (dayLabel.trim() || "") !== (deal.poster_day_label ?? "") ||
+          String(price || "") !==
+            (deal.ticket_price != null ? String(deal.ticket_price) : "") ||
+          (startTime || "") !== (deal.start_time ? deal.start_time.slice(0, 5) : "") ||
+          (endTime || "") !== (deal.end_time ? deal.end_time.slice(0, 5) : "");
+        if (posterVisibleChanged) {
+          if (recipeIsRebuildable(posterRecipe, true)) {
+            try {
+              const rebuilt = await rebuildPosterFromRecipe(
+                {
+                  name: name.trim(),
+                  date: eventDate,
+                  start: startTime || null,
+                  end: endTime || null,
+                  isDeal: true,
+                  exportFlyer: true,
+                  detail: subcopy.trim(),
+                  footer: footer.trim(),
+                  dayLabel: dayLabel.trim(),
+                  price: price ? `£${price}` : "",
+                },
+                posterRecipe,
+              );
+              if (rebuilt) {
+                base.poster_url = rebuilt.poster_url;
+                if (rebuilt.flyer_poster_url !== undefined)
+                  base.flyer_poster_url = rebuilt.flyer_poster_url;
+              }
+            } catch (rebuildErr) {
+              setPosterWarn(
+                `The deal was saved, but its poster couldn't be refreshed automatically (${rebuildErr instanceof Error ? rebuildErr.message : "render failed"}). Open the Poster Maker and save to redraw it.`,
+              );
+            }
+          } else {
+            setPosterWarn(
+              "⚠️ This deal's poster was uploaded (not built in the Poster Maker), so it can't be refreshed automatically — the picture may now be out of date. Open the Poster Maker to regenerate it.",
+            );
+          }
+        }
+      }
       if (editing) {
         // Update every dated instance so the whole run shows the new deal.
         for (const id of seriesIds) await updateEvent(id, base);
@@ -505,6 +565,16 @@ function DealForm({
       </div>
 
       {err && <Notice variant="error">{err}</Notice>}
+      {posterWarn && <Notice variant="warning">{posterWarn}</Notice>}
+      {editing &&
+        posterUrl &&
+        !recipeIsRebuildable(posterRecipe, true) && (
+          <p className="text-[11px] leading-snug text-plonkYellow/90">
+            ⚠️ This deal&apos;s poster was uploaded (not built in the Poster Maker
+            below), so editing the wording won&apos;t update the picture — it may
+            be out of date. Open the Poster Maker and save to regenerate it.
+          </p>
+        )}
 
       <div className="grid gap-4 rounded-xl border border-cream/12 bg-ink/30 p-4 sm:grid-cols-2">
         <div className="sm:col-span-2">
