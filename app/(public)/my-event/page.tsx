@@ -82,12 +82,14 @@ export default function MyEventPage() {
                   : "border-plonkYellow/40 bg-plonkYellow/10"
               }`}
             >
-              <span className="text-[11px] font-bold uppercase tracking-widest text-cream/60">
+              <span className="text-[11px] font-medium lowercase tracking-wide text-cream/55">
                 {state.s.status === "confirmed"
-                  ? "You're booked in"
-                  : "We're holding this for you"}
+                  ? "you're booked in"
+                  : "we're holding this for you"}
               </span>
-              <h2 className="mt-1 font-display text-3xl text-cream">
+              {/* Body font (Inter) in a light weight + lower case — the display
+                  font (Bebas Neue) is caps-only and read too shouty here. */}
+              <h2 className="mt-1 text-2xl font-normal lowercase text-cream">
                 {state.s.event_type || "Your event"}
               </h2>
               {state.s.contact_name && (
