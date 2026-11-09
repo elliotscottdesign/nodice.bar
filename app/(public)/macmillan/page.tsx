@@ -55,16 +55,6 @@ const WHATSON_DEFAULTS = [
   "Side quests between games: Carrom boards (pool's ancient ancestor) and a mini table for Beat the Bar",
 ];
 
-function formatEventDate(iso: string): string {
-  const d = new Date(`${iso}T00:00:00`);
-  return d.toLocaleDateString("en-GB", {
-    weekday: "long",
-    day: "numeric",
-    month: "long",
-    year: "numeric",
-  });
-}
-
 // "12:00:00" → "12pm", "16:00:00" → "4pm", "00:00:00" → "12am".
 function formatHour(hhmmss: string | null): string {
   if (!hhmmss) return "";
@@ -105,12 +95,6 @@ export default function MacmillanPage() {
   const heroIntro = useContent(
     "macmillan.intro",
     "No Dice takes on a 12-hour pool marathon for Macmillan Cancer Support. £10 a player, all proceeds to the fundraiser — the long-awaited return of our singles comp.",
-  );
-  const bandTime = useContent("macmillan.band_time", "12pm – 12am");
-  const bandHeadline = useContent("macmillan.band_headline", "12 Hour Marathon");
-  const bandPromise = useContent(
-    "macmillan.band_promise",
-    "£10 — 100% goes to the Macmillan 12 Hour Pool Marathon Fundraiser; we donate the cash once tickets are sold.",
   );
   const ctaLabel = useContent("macmillan.cta_label", "Pick your session · £10");
   const soldOutNote = useContent(
@@ -214,46 +198,32 @@ export default function MacmillanPage() {
         sliderKey={HERO_SLIDER_KEY}
       />
 
-      {/* Fundraiser headline band — the date + the £10/100% promise + the
-          primary "pick your session" action. */}
-      <section className="px-6 pb-6 pt-10 text-center">
-        <div className="mx-auto max-w-2xl rounded-3xl border border-plonkPink/30 bg-plonkPink/5 px-6 py-8">
-          <div className="text-xs font-bold uppercase tracking-[0.3em] text-plonkPink">
-            {event ? formatEventDate(event.event_date) : "Sunday 15 November 2026"} ·{" "}
-            <Editable k="macmillan.band_time">{bandTime}</Editable>
-          </div>
-          <div className="mt-3 font-display text-4xl uppercase leading-tight tracking-wider text-cream sm:text-5xl">
-            <Editable k="macmillan.band_headline">{bandHeadline}</Editable>
-          </div>
-          <p className="mx-auto mt-4 max-w-md text-sm text-cream/85">
-            <Editable k="macmillan.band_promise" multiline>
-              {bandPromise}
-            </Editable>
+      {/* Primary action — the "pick your session" pill sits right under the
+          intro (the old fundraiser headline band was removed, founder Nov 2026). */}
+      <section className="px-6 pb-2 pt-8 text-center">
+        <button
+          type="button"
+          onClick={scrollToSelector}
+          disabled={!loading && tiers.length === 0}
+          className="inline-block rounded-full bg-plonkPink px-10 py-4 text-sm font-bold uppercase tracking-widest text-white shadow-lg shadow-plonkPink/30 transition hover:bg-plonkPink/90 disabled:cursor-not-allowed disabled:opacity-50"
+        >
+          <Editable k="macmillan.cta_label">{ctaLabel}</Editable>
+        </button>
+        {!loading && !err && tiers.length === 0 && (
+          <p className="mx-auto mt-4 max-w-md text-sm text-cream/60">
+            <Editable k="macmillan.soldout_note">{soldOutNote}</Editable>{" "}
+            <a
+              href={donateUrl}
+              target="_blank"
+              rel="noopener noreferrer"
+              className="text-plonkPink underline hover:text-plonkPink/80"
+            >
+              Donate on our Macmillan page
+            </a>
+            .
           </p>
-          <button
-            type="button"
-            onClick={scrollToSelector}
-            disabled={!loading && tiers.length === 0}
-            className="mt-6 inline-block rounded-full bg-plonkPink px-10 py-4 text-sm font-bold uppercase tracking-widest text-white shadow-lg shadow-plonkPink/30 transition hover:bg-plonkPink/90 disabled:cursor-not-allowed disabled:opacity-50"
-          >
-            <Editable k="macmillan.cta_label">{ctaLabel}</Editable>
-          </button>
-          {!loading && !err && tiers.length === 0 && (
-            <p className="mt-4 text-sm text-cream/60">
-              <Editable k="macmillan.soldout_note">{soldOutNote}</Editable>{" "}
-              <a
-                href={donateUrl}
-                target="_blank"
-                rel="noopener noreferrer"
-                className="text-plonkPink underline hover:text-plonkPink/80"
-              >
-                Donate on our Macmillan page
-              </a>
-              .
-            </p>
-          )}
-          {err && <p className="mt-4 text-sm text-plonkPink">{err}</p>}
-        </div>
+        )}
+        {err && <p className="mt-4 text-sm text-plonkPink">{err}</p>}
       </section>
 
       {/* ── Skill-tier selector ── */}
