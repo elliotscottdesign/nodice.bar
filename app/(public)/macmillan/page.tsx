@@ -28,8 +28,6 @@ import type { EventTier } from "@/lib/db/tournaments";
 // admin Galleries → "hero.macmillan". Checked at phone (375px) + desktop (1280px).
 // =============================================================
 
-const HERO_SLIDER_KEY = "hero.macmillan";
-
 // Default copy — overridden per-field from the backend. The three "how it works"
 // steps and the "what else is on" bullets are editable by key too (see below).
 const HOW_DEFAULTS = [
@@ -191,11 +189,10 @@ export default function MacmillanPage() {
         eyebrow={heroEyebrow}
         title={heroTitle}
         intro={heroIntro}
-        image={event?.poster_url || ""}
+        image=""
         eyebrowKey="macmillan.eyebrow"
         titleKey="macmillan.title"
         introKey="macmillan.intro"
-        sliderKey={HERO_SLIDER_KEY}
       />
 
       {/* Primary action — the "pick your session" pill sits right under the
