@@ -93,6 +93,11 @@ export type Enquiry = {
   archived_at: string | null;
   saved_at: string | null;
   followup_at: string | null;
+  // The poster built for this booking (party / wedding / leaving drinks…) with
+  // the same maker special events use. poster_url is the rendered artwork;
+  // poster_recipe is how it was built, so reopening restores the exact poster.
+  poster_url: string | null;
+  poster_recipe: Record<string, unknown> | null;
   created_at: string;
   updated_at: string;
 };
@@ -133,7 +138,7 @@ export type EnquiryMessage = {
 };
 
 const SELECT =
-  "id, source, status, contact_name, contact_email, contact_phone, event_type, party_size, requested_date, date_flex, budget, notes, assigned_to, linked_kind, linked_id, share_token, amount_pence, payment_url, paid_at, last_emailed_at, lead_bucket, enquiry_type, archived_at, saved_at, followup_at, created_at, updated_at";
+  "id, source, status, contact_name, contact_email, contact_phone, event_type, party_size, requested_date, date_flex, budget, notes, assigned_to, linked_kind, linked_id, share_token, amount_pence, payment_url, paid_at, last_emailed_at, lead_bucket, enquiry_type, archived_at, saved_at, followup_at, poster_url, poster_recipe, created_at, updated_at";
 
 export const SOURCE_LABEL: Record<EnquirySource, string> = {
   party_form: "Party form",
@@ -257,6 +262,33 @@ export async function clearEnquiryFollowup(id: string): Promise<void> {
   const { error } = await supabase()
     .from("enquiries")
     .update({ followup_at: null })
+    .eq("id", id);
+  if (error) throw error;
+}
+
+// Save the poster the office built for this booking onto the enquiry. Stores
+// the rendered artwork AND the recipe (how it was built, incl. the poster
+// title/date/time) so reopening the maker rebuilds the exact same poster.
+// Minimal update, no select-back — the caller reloads the board.
+export async function setEnquiryPoster(
+  id: string,
+  poster: { poster_url: string; poster_recipe: Record<string, unknown> | null },
+): Promise<void> {
+  const { error } = await supabase()
+    .from("enquiries")
+    .update({
+      poster_url: poster.poster_url,
+      poster_recipe: poster.poster_recipe,
+    })
+    .eq("id", id);
+  if (error) throw error;
+}
+
+// Take the poster back off the enquiry (the artwork stays in the media library).
+export async function clearEnquiryPoster(id: string): Promise<void> {
+  const { error } = await supabase()
+    .from("enquiries")
+    .update({ poster_url: null, poster_recipe: null })
     .eq("id", id);
   if (error) throw error;
 }

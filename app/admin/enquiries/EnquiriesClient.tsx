@@ -58,6 +58,8 @@ import {
   unsaveEnquiry,
   setEnquiryFollowup,
   clearEnquiryFollowup,
+  setEnquiryPoster,
+  clearEnquiryPoster,
   type Shelf,
   tidyEnquiryGmail,
   type EnquiryActivity,
@@ -99,6 +101,8 @@ import {
   ENQUIRY_TYPE_LABEL,
 } from "@/lib/db/enquiries";
 import { setBarReservationStatus } from "@/lib/db/barReservations";
+import EventPosterStudio from "@/components/admin/EventPosterStudio";
+import PosterDownloads from "@/components/admin/PosterDownloads";
 
 function describe(e: unknown, fallback: string): string {
   return e instanceof Error ? e.message : fallback;
@@ -2228,6 +2232,8 @@ function EnquiryDrawer({
 
         <FulfilmentSection enquiry={enquiry} onReload={onReload} />
 
+        <PosterSection enquiry={enquiry} onReload={onReload} />
+
         <dl className="space-y-1.5 text-sm">
           <Row k="Email" v={enquiry.contact_email} />
           <Row k="Phone" v={enquiry.contact_phone} />
@@ -2421,6 +2427,213 @@ function EnquiryDrawer({
           onClose={() => setComposeOpen(false)}
           onSent={refreshThread}
         />
+      )}
+    </div>
+  );
+}
+
+// Poster — build a branded No Dice poster for this booking (birthday, wedding,
+// engagement, leaving drinks…) with the SAME maker special events / bingo use
+// (EventPosterStudio). The poster is kept ON the enquiry — artwork + the recipe
+// it was built from — so reopening the drawer shows the last poster instead of a
+// blank maker, and it can be rebuilt/downloaded at any size. The office types a
+// headline (e.g. the birthday person's name), a date and an optional time; the
+// rest (photo, colour, treatment, title size, wording) is the full poster maker.
+function PosterSection({
+  enquiry,
+  onReload,
+}: {
+  enquiry: Enquiry;
+  onReload: () => Promise<void>;
+}) {
+  // Reopen holds the last poster — so if one's already saved, show it.
+  const [open, setOpen] = useState(!!enquiry.poster_url);
+  const recipe = (enquiry.poster_recipe || null) as Record<string, unknown> | null;
+  const recStr = (k: string): string => {
+    const v = recipe?.[k];
+    return typeof v === "string" ? v : "";
+  };
+
+  // The poster headline / date / time. Seeded from the last saved poster if
+  // there is one, otherwise from the enquiry itself. The office can make the
+  // headline the birthday person's name (it needn't match the booking title).
+  const [title, setTitle] = useState(
+    () => recStr("_title") || enquiry.event_type || enquiry.contact_name || "",
+  );
+  const [date, setDate] = useState(
+    () => recStr("_date") || enquiry.requested_date || "",
+  );
+  const [time, setTime] = useState(() => recStr("_time"));
+  const [saved, setSaved] = useState("");
+  const [busy, setBusy] = useState(false);
+
+  // Reset the fields when switching to a different enquiry.
+  useEffect(() => {
+    setTitle(recStr("_title") || enquiry.event_type || enquiry.contact_name || "");
+    setDate(recStr("_date") || enquiry.requested_date || "");
+    setTime(recStr("_time"));
+    setOpen(!!enquiry.poster_url);
+    setSaved("");
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [enquiry.id]);
+
+  async function removePoster() {
+    if (
+      !(await confirmDialog(
+        "Take the poster off this booking? The artwork stays in the media library — this just clears it from the enquiry.",
+        { title: "Remove poster?", confirmLabel: "Remove", danger: false },
+      ))
+    )
+      return;
+    setBusy(true);
+    try {
+      await clearEnquiryPoster(enquiry.id);
+      setSaved("");
+      await onReload();
+    } catch {
+      /* no-op */
+    } finally {
+      setBusy(false);
+    }
+  }
+
+  return (
+    <div className="mb-4 rounded-lg border border-cream/15 bg-ink/40">
+      <button
+        type="button"
+        onClick={() => setOpen((v) => !v)}
+        className="flex w-full items-center justify-between px-3 py-2 text-[11px] font-bold uppercase tracking-widest text-cream/70"
+      >
+        <span className="flex items-center gap-2">
+          <span>🎉 Booking poster</span>
+          {enquiry.poster_url && !open && (
+            // eslint-disable-next-line @next/next/no-img-element
+            <img
+              src={enquiry.poster_url}
+              alt=""
+              className="h-6 w-5 rounded border border-cream/20 object-cover"
+            />
+          )}
+        </span>
+        <span className="text-cream/40">{open ? "–" : "+"}</span>
+      </button>
+      {open && (
+        <div className="space-y-3 px-3 pb-3">
+          <p className="text-[10px] leading-relaxed text-cream/45">
+            The same poster maker the events use. Fill in the name, date and a
+            picture — the poster is kept on this booking, so it&apos;s still here
+            when you come back, and you can download it below to send to the
+            customer or print.
+          </p>
+
+          {/* The three things that drive the poster — the rest (photo, colour,
+              treatment, wording) is in the maker. */}
+          <div className="grid gap-2 sm:grid-cols-2">
+            <label className="block sm:col-span-2">
+              <span className="mb-1 block text-[10px] font-bold uppercase tracking-widest text-cream/50">
+                Name on the poster
+              </span>
+              <input
+                value={title}
+                onChange={(e) => setTitle(e.target.value)}
+                maxLength={60}
+                placeholder="e.g. NAI'S BIRTHDAY"
+                className="w-full rounded-md border border-cream/20 bg-ink px-3 py-2.5 text-base text-cream placeholder:text-cream/35"
+              />
+              <span className="mt-1 block text-[9px] leading-relaxed text-cream/35">
+                The big headline. For a birthday this is usually the birthday
+                person&apos;s name — it needn&apos;t match the booking title.
+              </span>
+            </label>
+            <label className="block">
+              <span className="mb-1 block text-[10px] font-bold uppercase tracking-widest text-cream/50">
+                Date
+              </span>
+              <DatePickerInput
+                value={date}
+                onChange={(iso: string) => setDate(iso)}
+                className="w-full rounded-lg border border-cream/15 bg-ink/40 px-3 py-2 text-sm text-cream focus:border-plonkTeal focus:outline-none"
+              />
+            </label>
+            <label className="block">
+              <span className="mb-1 block text-[10px] font-bold uppercase tracking-widest text-cream/50">
+                Time (optional)
+              </span>
+              <input
+                value={time}
+                onChange={(e) => setTime(e.target.value)}
+                maxLength={5}
+                placeholder="e.g. 19:00"
+                className="w-full rounded-md border border-cream/20 bg-ink px-3 py-2.5 text-base text-cream placeholder:text-cream/35"
+              />
+            </label>
+          </div>
+
+          {saved && <Notice variant="success">{saved}</Notice>}
+
+          {date && title.trim() ? (
+            <EventPosterStudio
+              key={enquiry.id}
+              name={title.trim()}
+              date={date}
+              start={time.trim() || null}
+              description={enquiry.notes || null}
+              currentPosterUrl={enquiry.poster_url || null}
+              defaultRecipe={recipe}
+              saveLabel="Save this poster to the booking"
+              saveHint="Kept on the booking — reopen this drawer and it's still here. Download it below to send or print."
+              onSave={async (r) => {
+                setBusy(true);
+                try {
+                  await setEnquiryPoster(enquiry.id, {
+                    poster_url: r.poster_url,
+                    // Stash the headline/date/time alongside the maker's own
+                    // recipe so reopening rebuilds the exact same poster.
+                    poster_recipe: {
+                      ...((r.poster_recipe as Record<string, unknown>) || {}),
+                      _title: title.trim(),
+                      _date: date,
+                      _time: time.trim(),
+                    },
+                  });
+                  setSaved("Saved — this poster is kept on the booking.");
+                  await onReload();
+                } finally {
+                  setBusy(false);
+                }
+              }}
+            />
+          ) : (
+            <p className="rounded-lg border border-dashed border-cream/20 px-3 py-4 text-center text-[11px] text-cream/50">
+              Enter a name and a date above to start the poster.
+            </p>
+          )}
+
+          {/* Downloads live outside the maker (founder rule) — they work on the
+              poster that's already saved on the booking. */}
+          {enquiry.poster_url && (
+            <div className="rounded-xl border border-cream/10 bg-ink/30 p-4">
+              <p className="mb-2 text-[10px] font-bold uppercase tracking-widest text-cream/55">
+                Download this poster
+              </p>
+              <PosterDownloads
+                name={title.trim() || enquiry.event_type || "Poster"}
+                date={date || enquiry.requested_date || ""}
+                start={time.trim() || null}
+                posterUrl={enquiry.poster_url}
+                recipe={recipe}
+              />
+              <button
+                type="button"
+                disabled={busy}
+                onClick={removePoster}
+                className="mt-3 w-full rounded-full border border-cream/15 px-4 py-2 text-[11px] font-bold uppercase tracking-wider text-cream/60 transition hover:bg-cream/5 disabled:opacity-40"
+              >
+                Remove poster from booking
+              </button>
+            </div>
+          )}
+        </div>
       )}
     </div>
   );
