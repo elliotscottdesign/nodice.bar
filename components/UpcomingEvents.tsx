@@ -177,8 +177,13 @@ export default function UpcomingEvents({
     return events
       .map((e) => ({ e, group: groupOf(e) }))
       .filter((x): x is { e: DbCalendarEvent; group: Group } => x.group !== null)
-      // Split: the DJ rail shows only DJs; the events rail shows everything else.
-      .filter(({ group }) => (kind === "djs" ? group === "DJ" : group !== "DJ"))
+      // Split: the DJ rail shows only DJs; the events rail shows the genuine
+      // events (specials, pool, food) but NOT standing drink deals / Happy
+      // Hour (founder 10 Nov — "only special events, one-off or repeating").
+      // CUE stays: it's a pool event (group POOL), not a deal.
+      .filter(({ group }) =>
+        kind === "djs" ? group === "DJ" : group !== "DJ" && group !== "DEAL",
+      )
       // DJ rail: pure order of play (date, then start time). Events rail:
       // by the founder's lead-priority buckets first (specials → one-offs →
       // regulars → deals, Happy Hour dead last — same as /events), then by
