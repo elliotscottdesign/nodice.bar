@@ -395,6 +395,15 @@ export default function CalendarEventsAdminClient() {
                 )}
               </div>
             </div>
+            {editingRow &&
+              draft.image_url &&
+              norm(draft.title) !== norm(editingRow.title) && (
+                <p className="mt-2 text-[11px] leading-snug text-plonkYellow/90">
+                  ⚠️ You&apos;ve renamed this event, but the poster is a baked
+                  picture — the old title is still on it. Open the Poster Maker
+                  below and press save to redraw it with the new name.
+                </p>
+              )}
           </Field>
 
           {/* Poster maker — build the artwork here instead of uploading one.

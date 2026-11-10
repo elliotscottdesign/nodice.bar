@@ -9,6 +9,10 @@ import PosterDownloads from "@/components/admin/PosterDownloads";
 import DatePickerInput from "@/components/admin/DatePickerInput";
 import Notice from "@/components/Notice";
 import { isDealEvent } from "@/lib/db/calendarEvents";
+import {
+  rebuildPosterFromRecipe,
+  recipeIsRebuildable,
+} from "@/lib/poster/rebuild";
 
 // Category colour swatches — used by the dropdown and list-row
 // left-stripe so the palette in the calendar view is discoverable
@@ -1529,6 +1533,11 @@ function EditEventModal({
 
   const [busy, setBusy] = useState(false);
   const [err, setErr] = useState("");
+  // Non-blocking note shown after a save when the poster couldn't be kept in
+  // step — either the rebuild threw, or there's no recipe to rebuild from so
+  // the baked picture may now be out of date (a rename / date move won't have
+  // reached it).
+  const [posterWarn, setPosterWarn] = useState("");
 
   // Price wording suggested to the poster maker — cheapest live ticket tier,
   // "£8+" when they differ. Blank means the poster carries no price line.
@@ -1567,7 +1576,65 @@ function EditEventModal({
   async function save() {
     setErr("");
     setBusy(true);
+    setPosterWarn("");
     try {
+      // 0) Keep the saved poster in step with the event. The poster is a baked
+      //    picture — the headline (the name), date/time and wording are drawn
+      //    INTO it — so an edit that changes any of those would otherwise leave
+      //    the old artwork on the event. If we have the recipe it was built
+      //    from, re-render it from the recipe + the event's NEW fields and swap
+      //    poster_url. If there's no recipe we can't rebuild it, so flag it so
+      //    the founder knows to reopen the Poster Maker. Either way the save
+      //    goes ahead — a failed rebuild must never block the edit or blank a
+      //    live poster.
+      const isDealEvt = category === "drink_special";
+      const normTime = (t: string | null | undefined) =>
+        t ? t.slice(0, 5) : "";
+      const posterVisibleChanged =
+        name.trim() !== (event.name ?? "").trim() ||
+        eventDate !== event.event_date ||
+        (startTime || "") !== normTime(event.start_time) ||
+        (endTime || "") !== normTime(event.end_time) ||
+        (posterSubcopy || "") !== (event.poster_subcopy ?? "") ||
+        (posterFooter || "") !== (event.poster_footer ?? "") ||
+        (posterDayLabel || "") !== (event.poster_day_label ?? "") ||
+        String(ticketPrice || "") !==
+          (event.ticket_price != null ? String(event.ticket_price) : "");
+      let nextPosterUrl = posterUrl;
+      let nextFlyerUrl = flyerPosterUrl;
+      if (posterUrl && posterVisibleChanged) {
+        if (recipeIsRebuildable(posterRecipe, isDealEvt)) {
+          try {
+            const rebuilt = await rebuildPosterFromRecipe(
+              {
+                name: name.trim(),
+                date: eventDate,
+                start: startTime || null,
+                end: endTime || null,
+                isDeal: isDealEvt,
+                exportFlyer: !!flyerPosterUrl || isDealEvt,
+                detail: posterSubcopy || "",
+                footer: posterFooter || "",
+                dayLabel: posterDayLabel || "",
+              },
+              posterRecipe,
+            );
+            if (rebuilt) {
+              nextPosterUrl = rebuilt.poster_url;
+              if (rebuilt.flyer_poster_url) nextFlyerUrl = rebuilt.flyer_poster_url;
+            }
+          } catch (rebuildErr) {
+            setPosterWarn(
+              `The event was saved, but its poster couldn't be refreshed automatically (${describe(rebuildErr, "render failed")}). Open the Poster Maker and press save to redraw it with the new wording.`,
+            );
+          }
+        } else {
+          setPosterWarn(
+            "⚠️ This event's poster was uploaded (not built in the Poster Maker), so it can't be refreshed automatically — the picture may now be out of date. Open the Poster Maker to regenerate it.",
+          );
+        }
+      }
+
       // 1) Update the event row itself.
       const patch: Partial<NewEvent> = {
         name: name.trim(),
@@ -1582,13 +1649,13 @@ function EditEventModal({
         show_on_bar_page: showOnBar,
         registration_open: registrationOpen,
         blocks_table_bookings: blocksTableBookings,
-        poster_url: posterUrl || null,
+        poster_url: nextPosterUrl || null,
         // Persist the print-ready flyer render + its structured fields on
         // EDIT too (the create path already did; this path dropped them, so
         // re-saving a poster never populated flyer_poster_url — bug found via
         // the print lane 22 Oct 2026). All six are CASCADE_FIELDS, so saving
         // a series ROOT flows the flyer to every date.
-        flyer_poster_url: flyerPosterUrl || null,
+        flyer_poster_url: nextFlyerUrl || null,
         poster_subcopy: posterSubcopy || null,
         poster_footer: posterFooter || null,
         poster_image_url: posterImageUrl || null,
@@ -1644,9 +1711,9 @@ function EditEventModal({
             name: name.trim(),
             description: description.trim() || null,
             external_link: externalLink.trim() || null,
-            poster_url: posterUrl || null,
+            poster_url: nextPosterUrl || null,
             // Each instance of a recurring deal carries the same poster data.
-            flyer_poster_url: flyerPosterUrl || null,
+            flyer_poster_url: nextFlyerUrl || null,
             poster_subcopy: posterSubcopy || null,
             poster_footer: posterFooter || null,
             poster_image_url: posterImageUrl || null,
@@ -1736,6 +1803,11 @@ function EditEventModal({
           });
         }
       }
+
+      // Reflect the rebuilt poster in the modal's own preview state, so the
+      // artwork shown matches what was just written.
+      if (nextPosterUrl !== posterUrl) setPosterUrl(nextPosterUrl);
+      if (nextFlyerUrl !== flyerPosterUrl) setFlyerPosterUrl(nextFlyerUrl);
 
       await onSaved();
     } catch (e) {
@@ -1913,6 +1985,18 @@ function EditEventModal({
                 )}
               </div>
             </div>
+            {posterUrl &&
+              !recipeIsRebuildable(
+                posterRecipe,
+                category === "drink_special",
+              ) && (
+                <p className="mt-2 text-[11px] leading-snug text-plonkYellow/90">
+                  ⚠️ This poster was uploaded (not built in the Poster Maker
+                  below), so renaming or re-dating the event won&apos;t update the
+                  picture — it may be out of date. Open the Poster Maker and save
+                  to regenerate it.
+                </p>
+              )}
           </ModalField>
 
           {/* Poster maker — fed by the fields above. Saving writes the poster
@@ -2256,6 +2340,12 @@ function EditEventModal({
         {err && (
           <Notice variant="error" className="mx-6 mb-4">
             {err}
+          </Notice>
+        )}
+
+        {posterWarn && (
+          <Notice variant="warning" className="mx-6 mb-4">
+            {posterWarn}
           </Notice>
         )}
 
