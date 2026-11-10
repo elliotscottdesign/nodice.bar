@@ -23,10 +23,10 @@ import type { EventTier } from "@/lib/db/tournaments";
 // `tournament-checkout` Edge Function (which already accepts pool_special
 // events), gets a Stripe PaymentIntent client_secret, and the EXISTING
 // stripe-webhook flips the entry to 'paid' (kind='tournament_entry') with no
-// backend change. Styled in the No Dice red (plonkPink #DA1B33).
+// backend change. Styled in the No Dice red ([#00A94F] #DA1B33).
 // =============================================================
 
-const RED = "#DA1B33"; // plonkPink / No Dice wordmark red
+const RED = "#DA1B33"; // [#00A94F] / No Dice wordmark red
 const TEAL = "#1ec8b8";
 const PUBLISHABLE_KEY = process.env.NEXT_PUBLIC_STRIPE_PUBLISHABLE_KEY ?? "";
 const SUPABASE_URL =
@@ -191,9 +191,9 @@ export default function MacmillanBooking({
   }
 
   return (
-    <div className="mt-3 rounded-xl border border-plonkPink/30 bg-plonkPink/5 p-6">
+    <div className="mt-3 rounded-xl border border-[#00A94F]/30 bg-[#00A94F]/5 p-6">
       <div className="mb-5 border-b border-cream/10 pb-4">
-        <div className="text-[10px] font-bold uppercase tracking-[0.28em] text-plonkPink">
+        <div className="text-[10px] font-bold uppercase tracking-[0.28em] text-[#00A94F]">
           Your session
         </div>
         <div className="mt-1 font-display text-xl uppercase tracking-wider text-cream">
@@ -208,7 +208,7 @@ export default function MacmillanBooking({
         <form onSubmit={handleSubmit} className="space-y-5">
           <div className="grid gap-4 sm:grid-cols-2">
             <div>
-              <label className="mb-2 block text-[10px] font-bold uppercase tracking-[0.28em] text-plonkPink">
+              <label className="mb-2 block text-[10px] font-bold uppercase tracking-[0.28em] text-[#00A94F]">
                 Your name
               </label>
               <input
@@ -216,11 +216,11 @@ export default function MacmillanBooking({
                 required
                 value={name}
                 onChange={(e) => setName(e.target.value)}
-                className="w-full rounded-lg border border-cream/15 bg-ink/40 px-4 py-3 text-base text-cream focus:border-plonkPink focus:outline-none"
+                className="w-full rounded-lg border border-cream/15 bg-ink/40 px-4 py-3 text-base text-cream focus:border-[#00A94F] focus:outline-none"
               />
             </div>
             <div>
-              <label className="mb-2 block text-[10px] font-bold uppercase tracking-[0.28em] text-plonkPink">
+              <label className="mb-2 block text-[10px] font-bold uppercase tracking-[0.28em] text-[#00A94F]">
                 Email
               </label>
               <input
@@ -228,13 +228,13 @@ export default function MacmillanBooking({
                 required
                 value={email}
                 onChange={(e) => setEmail(e.target.value)}
-                className="w-full rounded-lg border border-cream/15 bg-ink/40 px-4 py-3 text-base text-cream focus:border-plonkPink focus:outline-none"
+                className="w-full rounded-lg border border-cream/15 bg-ink/40 px-4 py-3 text-base text-cream focus:border-[#00A94F] focus:outline-none"
               />
             </div>
           </div>
 
           <div>
-            <label className="mb-2 block text-[10px] font-bold uppercase tracking-[0.28em] text-plonkPink">
+            <label className="mb-2 block text-[10px] font-bold uppercase tracking-[0.28em] text-[#00A94F]">
               Phone
             </label>
             <input
@@ -244,7 +244,7 @@ export default function MacmillanBooking({
               value={phone}
               onChange={(e) => setPhone(e.target.value.replace(/[^0-9+ ]/g, ""))}
               placeholder="UK mobile (07… or +44 7…) — we text you the details"
-              className="w-full rounded-lg border border-cream/15 bg-ink/40 px-4 py-3 text-base text-cream focus:border-plonkPink focus:outline-none"
+              className="w-full rounded-lg border border-cream/15 bg-ink/40 px-4 py-3 text-base text-cream focus:border-[#00A94F] focus:outline-none"
             />
           </div>
 
@@ -262,7 +262,7 @@ export default function MacmillanBooking({
           </label>
 
           {error && phase === "form" && (
-            <div className="rounded-lg border border-plonkPink/40 bg-plonkPink/10 px-4 py-3 text-sm text-plonkPink">
+            <div className="rounded-lg border border-[#00A94F]/40 bg-[#00A94F]/10 px-4 py-3 text-sm text-[#00A94F]">
               {error}
             </div>
           )}
@@ -278,7 +278,7 @@ export default function MacmillanBooking({
             <button
               type="submit"
               disabled={submitting}
-              className="rounded-full bg-plonkPink px-7 py-3 text-sm font-bold uppercase tracking-widest text-white shadow-lg shadow-plonkPink/30 transition hover:bg-plonkPink/90 disabled:opacity-50"
+              className="rounded-full bg-[#00A94F] px-7 py-3 text-sm font-bold uppercase tracking-widest text-white shadow-lg shadow-[#00A94F]/30 transition hover:bg-[#00A94F]/90 disabled:opacity-50"
             >
               {submitting ? "One sec…" : `Continue to payment · ${formatPounds(feePence)}`}
             </button>
@@ -289,7 +289,7 @@ export default function MacmillanBooking({
       {phase === "paying" && elementsOptions && (
         <div>
           <div className="mb-5 text-center">
-            <div className="text-[10px] font-bold uppercase tracking-[0.3em] text-plonkPink">Payment</div>
+            <div className="text-[10px] font-bold uppercase tracking-[0.3em] text-[#00A94F]">Payment</div>
             <h3 className="mt-2 font-display text-2xl uppercase tracking-wider text-cream">
               Pay {formatPounds(feePence)} to confirm
             </h3>
@@ -313,7 +313,7 @@ export default function MacmillanBooking({
 
       {phase === "error" && (
         <div className="space-y-4 text-center">
-          <div className="rounded-lg border border-plonkPink/40 bg-plonkPink/10 px-4 py-3 text-sm text-plonkPink">
+          <div className="rounded-lg border border-[#00A94F]/40 bg-[#00A94F]/10 px-4 py-3 text-sm text-[#00A94F]">
             {error || "Something went wrong."}
           </div>
           <button
@@ -322,7 +322,7 @@ export default function MacmillanBooking({
               setError("");
               setPhase("form");
             }}
-            className="rounded-full bg-plonkPink px-6 py-2.5 text-xs font-bold uppercase tracking-widest text-white hover:bg-plonkPink/90"
+            className="rounded-full bg-[#00A94F] px-6 py-2.5 text-xs font-bold uppercase tracking-widest text-white hover:bg-[#00A94F]/90"
           >
             Try again
           </button>
@@ -381,7 +381,7 @@ function PaymentForm({
         <PaymentElement options={{ layout: "tabs", wallets: { applePay: "auto", googlePay: "auto" } }} />
       </div>
       {inlineErr && (
-        <div className="rounded-lg border border-plonkPink/40 bg-plonkPink/10 px-4 py-3 text-sm text-plonkPink">
+        <div className="rounded-lg border border-[#00A94F]/40 bg-[#00A94F]/10 px-4 py-3 text-sm text-[#00A94F]">
           {inlineErr}
         </div>
       )}
@@ -397,7 +397,7 @@ function PaymentForm({
           type="button"
           onClick={handlePay}
           disabled={submitting || !stripe || !elements}
-          className="rounded-full bg-plonkPink px-7 py-3 text-sm font-bold uppercase tracking-widest text-white shadow-lg shadow-plonkPink/30 transition hover:bg-plonkPink/90 disabled:opacity-50"
+          className="rounded-full bg-[#00A94F] px-7 py-3 text-sm font-bold uppercase tracking-widest text-white shadow-lg shadow-[#00A94F]/30 transition hover:bg-[#00A94F]/90 disabled:opacity-50"
         >
           {submitting ? "Processing…" : `Pay ${feeLabel}`}
         </button>

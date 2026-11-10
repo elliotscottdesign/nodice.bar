@@ -1,7 +1,6 @@
 "use client";
 
 import { useEffect, useMemo, useRef, useState } from "react";
-import PageHero from "@/components/PageHero";
 import MacmillanBooking from "@/components/MacmillanBooking";
 import EventsScroller from "@/components/EventsScroller";
 import { Editable } from "@/components/Editable";
@@ -185,15 +184,21 @@ export default function MacmillanPage() {
 
   return (
     <main>
-      <PageHero
-        eyebrow={heroEyebrow}
-        title={heroTitle}
-        intro={heroIntro}
-        image=""
-        eyebrowKey="macmillan.eyebrow"
-        titleKey="macmillan.title"
-        introKey="macmillan.intro"
-      />
+      {/* Text-only hero — no header image (founder Nov 2026), and the
+          kicker is Macmillan green rather than the house red so the page
+          reads as a Macmillan fundraiser. Mirrors PageHero's copy band so
+          the typography (Bebas Neue display) and layout are unchanged. */}
+      <section className="flex flex-col items-center justify-center bg-forest px-6 py-10 text-center md:py-14">
+        <p className="text-xs font-bold uppercase tracking-eyebrow text-[#00A94F]">
+          <Editable k="macmillan.eyebrow">{heroEyebrow}</Editable>
+        </p>
+        <h1 className="mt-4 font-display text-4xl leading-tight sm:text-5xl md:text-6xl">
+          <Editable k="macmillan.title">{heroTitle}</Editable>
+        </h1>
+        <p className="mx-auto mt-4 max-w-2xl text-base leading-relaxed text-cream/85 sm:text-lg">
+          <Editable k="macmillan.intro" multiline>{heroIntro}</Editable>
+        </p>
+      </section>
 
       {/* Primary action — the "pick your session" pill sits right under the
           intro (the old fundraiser headline band was removed, founder Nov 2026). */}
@@ -202,7 +207,7 @@ export default function MacmillanPage() {
           type="button"
           onClick={scrollToSelector}
           disabled={!loading && tiers.length === 0}
-          className="inline-block rounded-full bg-plonkPink px-10 py-4 text-sm font-bold uppercase tracking-widest text-white shadow-lg shadow-plonkPink/30 transition hover:bg-plonkPink/90 disabled:cursor-not-allowed disabled:opacity-50"
+          className="inline-block rounded-full bg-[#00A94F] px-10 py-4 text-sm font-bold uppercase tracking-widest text-white shadow-lg shadow-[#00A94F]/30 transition hover:bg-[#00A94F]/90 disabled:cursor-not-allowed disabled:opacity-50"
         >
           <Editable k="macmillan.cta_label">{ctaLabel}</Editable>
         </button>
@@ -213,21 +218,21 @@ export default function MacmillanPage() {
               href={donateUrl}
               target="_blank"
               rel="noopener noreferrer"
-              className="text-plonkPink underline hover:text-plonkPink/80"
+              className="text-[#00A94F] underline hover:text-[#00A94F]/80"
             >
               Donate on our Macmillan page
             </a>
             .
           </p>
         )}
-        {err && <p className="mt-4 text-sm text-plonkPink">{err}</p>}
+        {err && <p className="mt-4 text-sm text-[#00A94F]">{err}</p>}
       </section>
 
       {/* ── Skill-tier selector ── */}
       {tiers.length > 0 && (
         <section ref={selectorRef} className="px-6 pb-8 pt-8 scroll-mt-24">
           <div className="mx-auto max-w-4xl">
-            <div className="mb-3 text-center text-xs font-bold uppercase tracking-[0.3em] text-plonkPink">
+            <div className="mb-3 text-center text-xs font-bold uppercase tracking-[0.3em] text-[#00A94F]">
               <Editable k="macmillan.selector_eyebrow">{selectorEyebrow}</Editable>
             </div>
             <h2 className="text-center font-display text-4xl uppercase tracking-wider text-cream">
@@ -254,11 +259,11 @@ export default function MacmillanPage() {
                       full
                         ? "cursor-not-allowed border-cream/10 bg-ink/20 opacity-60"
                         : isSelected
-                          ? "border-plonkPink bg-plonkPink/15 ring-1 ring-plonkPink/40"
-                          : "border-cream/15 bg-white/5 hover:border-plonkPink/60 hover:bg-plonkPink/10"
+                          ? "border-[#00A94F] bg-[#00A94F]/15 ring-1 ring-[#00A94F]/40"
+                          : "border-cream/15 bg-white/5 hover:border-[#00A94F]/60 hover:bg-[#00A94F]/10"
                     }`}
                   >
-                    <div className="text-[10px] font-bold uppercase tracking-[0.28em] text-plonkPink">
+                    <div className="text-[10px] font-bold uppercase tracking-[0.28em] text-[#00A94F]">
                       {tierWindow(tier)}
                     </div>
                     <div className="mt-2 font-display text-2xl uppercase leading-tight tracking-wider text-cream">
@@ -275,7 +280,7 @@ export default function MacmillanPage() {
                           ? "border border-cream/15 text-cream/50"
                           : isSelected
                             ? "bg-cream/10 text-cream"
-                            : "bg-plonkPink text-white"
+                            : "bg-[#00A94F] text-white"
                       }`}
                     >
                       {full ? "Sold out" : isSelected ? "Selected" : "Enter →"}
@@ -300,7 +305,7 @@ export default function MacmillanPage() {
       {/* ── How the day works ── */}
       <section className="px-6 pb-8 pt-12">
         <div className="mx-auto max-w-2xl">
-          <div className="mb-3 text-center text-xs font-bold uppercase tracking-[0.3em] text-plonkPink">
+          <div className="mb-3 text-center text-xs font-bold uppercase tracking-[0.3em] text-[#00A94F]">
             <Editable k="macmillan.how_eyebrow">{howEyebrow}</Editable>
           </div>
           <h2 className="text-center font-display text-4xl uppercase tracking-wider text-cream">
@@ -309,7 +314,7 @@ export default function MacmillanPage() {
           <ol className="mx-auto mt-8 max-w-md space-y-6">
             {howSteps.map((step, i) => (
               <li key={step.titleKey} className="flex items-start gap-4">
-                <span className="mt-0.5 flex h-9 w-9 shrink-0 items-center justify-center rounded-full border border-plonkPink/50 bg-plonkPink/15 text-base font-bold text-plonkPink">
+                <span className="mt-0.5 flex h-9 w-9 shrink-0 items-center justify-center rounded-full border border-[#00A94F]/50 bg-[#00A94F]/15 text-base font-bold text-[#00A94F]">
                   {i + 1}
                 </span>
                 <div>
@@ -350,7 +355,7 @@ export default function MacmillanPage() {
       {/* ── The cause ── */}
       <section className="px-6 py-16">
         <div className="mx-auto max-w-2xl text-center">
-          <div className="mb-3 text-xs font-bold uppercase tracking-[0.3em] text-plonkPink">
+          <div className="mb-3 text-xs font-bold uppercase tracking-[0.3em] text-[#00A94F]">
             <Editable k="macmillan.cause_eyebrow">{causeEyebrow}</Editable>
           </div>
           <h2 className="font-display text-3xl uppercase tracking-wider text-cream sm:text-4xl">
@@ -365,7 +370,7 @@ export default function MacmillanPage() {
             href={donateUrl}
             target="_blank"
             rel="noopener noreferrer"
-            className="mt-6 inline-block rounded-full border border-plonkPink/50 px-8 py-3 text-sm font-bold uppercase tracking-widest text-plonkPink transition hover:bg-plonkPink/10"
+            className="mt-6 inline-block rounded-full border border-[#00A94F]/50 px-8 py-3 text-sm font-bold uppercase tracking-widest text-[#00A94F] transition hover:bg-[#00A94F]/10"
           >
             <Editable k="macmillan.donate_label">{donateLabel}</Editable>
           </a>
