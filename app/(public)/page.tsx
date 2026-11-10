@@ -6,10 +6,11 @@ import Link from "next/link";
 import Script from "next/script";
 import Reveal from "@/components/Reveal";
 import HeroBookingWidget from "@/components/HeroBookingWidget";
-import { useContent, useImage, useGallery } from "@/lib/content";
+import { useContent, useGallery } from "@/lib/content";
 import { Editable, DisplayImage } from "@/components/Editable";
 import ManageGalleryLink from "@/components/ManageGalleryLink";
 import InstagramFeed from "@/components/InstagramFeed";
+import UpcomingEvents from "@/components/UpcomingEvents";
 
 const PRESS = [
   { name: "Evening Standard", src: "/images/London-Evening-Standard-logo.jpg" },
@@ -41,19 +42,24 @@ const FEATURES = [
     title: "Arcade",
     body: "Pinball machines, retro multi-game cabinets, shoot-'em-ups, foosball and skee-ball. Buy tokens at the bar.",
   },
+  {
+    // Crazy Golf card — header image + intro reused from the /minigolf page
+    // (minigolf.title / minigolf.intro). Placeholder copy the founder can
+    // edit from admin → home.feature5.*.
+    image:
+      "https://rntcujcpsozvuxvmlejv.supabase.co/storage/v1/object/public/media/page/1781610983789-golf-rsaterized-300x-colour.png",
+    title: "Crazy Golf",
+    body: "Our Polynesian-themed 9-hole crazy golf course, right next door to the bar. Drinks in hand, tacos on the side.",
+  },
 ];
 
 export default function HomePage() {
-  // Every useContent / useImage call passes the current hardcoded value as
-  // its fallback, so the page renders identically when nothing's been edited
+  // Every useContent call passes the current hardcoded value as its
+  // fallback, so the page renders identically when nothing's been edited
   // in the admin. Saved values override the fallback on hydration.
-  // No hardcoded fallback — the Plonk Golf "shark + volcano course"
-  // photo used to live here and kept resurrecting itself whenever the
-  // CMS row was empty. Empty fallback + conditional render below means
-  // the hero is solid black until the founder uploads a real photo via
-  // admin → Site Content → Home page → "Hero image" (or the click-to-
-  // edit overlay on the live page in admin Edit mode).
-  const heroImage = useImage("home.hero.image", "");
+  // The homepage is copy-led (founder, 9 Nov 2026): no big hero photo —
+  // the title + intro lead, then the "what's coming up" scroller. The
+  // `home.hero.image` CMS key is retired from this page as a result.
   const heroEyebrow = useContent("home.hero.eyebrow", "London Fields · Hackney");
   const heroLine1 = useContent("home.hero.headline_1", "No Dice");
   const heroLine2 = useContent("home.hero.headline_2", "Hackney");
@@ -73,72 +79,78 @@ export default function HomePage() {
   const f3Body = useContent("home.feature3.body", FEATURES[2].body);
   const f4Title = useContent("home.feature4.title", FEATURES[3].title);
   const f4Body = useContent("home.feature4.body", FEATURES[3].body);
+  const f5Title = useContent("home.feature5.title", FEATURES[4].title);
+  const f5Body = useContent("home.feature5.body", FEATURES[4].body);
   const editableFeatures = [
     { ...FEATURES[0], title: f1Title, body: f1Body },
     { ...FEATURES[1], title: f2Title, body: f2Body },
     { ...FEATURES[2], title: f3Title, body: f3Body },
     { ...FEATURES[3], title: f4Title, body: f4Body },
+    { ...FEATURES[4], title: f5Title, body: f5Body },
   ];
 
   return (
     <main>
-      {/* ───────────── HERO (forest) ───────────── */}
-      <section className="relative isolate flex flex-col">
-        {/* Image — always fills the full width; aspect-[3/2] matches our venue
-            photo ratio so the shot fits cleanly without top/bottom crop.
-            The desktop booking widget floats over this image, near the top
-            just below the sticky header. */}
-        <div className="relative w-full bg-forest aspect-[3/2] max-h-[80vh] min-h-[360px] overflow-hidden">
-          {/* Only render the Image when an actual src exists — empty
-              string would error next/image. With no image, the parent
-              div's bg-forest (now black) shows through, which is
-              exactly what we want until an upload exists. */}
-          {heroImage && (
-            <Image
-              src={heroImage}
-              alt=""
-              fill
-              priority
-              className="object-cover"
-              sizes="100vw"
-              unoptimized={heroImage.startsWith("http")}
-            />
-          )}
-          <div className="pointer-events-none absolute inset-x-0 top-0 h-24 bg-gradient-to-b from-forestDeep/55 to-transparent" />
+      {/* ───────────── HERO (forest) — copy-led, no photo ─────────────
+          Founder, 9 Nov 2026: lead the page with the words and WHAT'S ON,
+          not a big photo. Centered title + intro, booking kept right here
+          as the front door, then the "what's coming up" scroller directly
+          below so upcoming events are front-and-centre. */}
+      <section className="relative isolate bg-forest px-6 pb-12 pt-14 text-center sm:pt-16">
+        <Reveal>
+          <p className="text-xs font-bold uppercase tracking-eyebrow text-plonkYellow">
+            <Editable k="home.hero.eyebrow">{heroEyebrow}</Editable>
+          </p>
+        </Reveal>
+        <Reveal delay={120}>
+          <h1 className="mt-5 font-display text-5xl leading-[1.05] sm:text-6xl md:text-7xl lg:text-[80px]">
+            <Editable k="home.hero.headline_1">{heroLine1}</Editable>
+            <br />
+            <span className="italic text-plonkYellow">
+              <Editable k="home.hero.headline_2">{heroLine2}</Editable>
+            </span>
+          </h1>
+        </Reveal>
+        <Reveal delay={240}>
+          <p className="mx-auto mt-6 max-w-xl text-base leading-relaxed text-cream/85 sm:text-lg">
+            <Editable k="home.hero.subcopy" multiline>{heroSubcopy}</Editable>
+          </p>
+        </Reveal>
 
-          {/* Booking widget — desktop only, floats over the image just below
-              the sticky header. Hidden on mobile (the pink CTA below the
-              image takes its place there). */}
-          <div className="pointer-events-none absolute inset-x-0 top-6 z-30 hidden px-6 md:block">
-            <div className="pointer-events-auto mx-auto w-full max-w-3xl">
-              <HeroBookingWidget />
-            </div>
+        {/* Booking stays the front door — right under the intro. The
+            HeroBookingWidget search bar is desktop-only (it renders nothing
+            below md), so on phones we show a plain booking button in its
+            place rather than a dead gap. */}
+        <Reveal delay={360}>
+          <div className="mx-auto mt-8 w-full max-w-3xl">
+            <HeroBookingWidget />
+            <Link
+              href="/book"
+              className="flex items-center justify-center rounded-full bg-plonkPink px-6 py-3.5 text-sm font-bold uppercase tracking-wider text-white transition hover:bg-plonkPink/90 md:hidden"
+            >
+              Book a table or pool
+            </Link>
           </div>
-        </div>
-
-        {/* Copy below the image — sits on forest */}
-        <div className="bg-forest px-6 pb-20 pt-10 text-center">
-          <Reveal>
-            <p className="text-xs font-bold uppercase tracking-eyebrow text-plonkYellow">
-              <Editable k="home.hero.eyebrow">{heroEyebrow}</Editable>
-            </p>
-          </Reveal>
-          <Reveal delay={120}>
-            <h1 className="mt-5 font-display text-5xl leading-[1.05] sm:text-6xl md:text-7xl lg:text-[80px]">
-              <Editable k="home.hero.headline_1">{heroLine1}</Editable>
-              <br />
-              <span className="italic text-plonkYellow">
-                <Editable k="home.hero.headline_2">{heroLine2}</Editable>
-              </span>
-            </h1>
-          </Reveal>
-          <Reveal delay={240}>
-            <p className="mx-auto mt-6 max-w-xl text-base leading-relaxed text-cream/85 sm:text-lg">
-              <Editable k="home.hero.subcopy" multiline>{heroSubcopy}</Editable>
-            </p>
-          </Reveal>
-        </div>
+        </Reveal>
       </section>
+
+      {/* ───────────── WHAT'S ON — two rails, next 30 days ─────────────
+          Up top on purpose. First the special events / pool / food / drink
+          nights, then a separate rail just for the DJs (in order of play,
+          Open Decks included). Each renders nothing when its 30-day window
+          is empty, so neither leaves a bare band. */}
+      <UpcomingEvents
+        kind="events"
+        eyebrow="Next 30 days"
+        heading="Special events"
+        intro="One-off nights, pool, food and drink coming up at No Dice — tap one to find out more."
+      />
+      <UpcomingEvents
+        kind="djs"
+        eyebrow="On the decks"
+        heading="Music sessions"
+        intro="Our residents and guests across the next few weeks, in order of play — free Open Decks sessions included."
+      />
 
       {/* ───────────── VENUES (plum) ───────────── */}
       <section id="venues" className="tint-plum relative overflow-hidden">
@@ -185,7 +197,7 @@ export default function HomePage() {
             </h2>
           </Reveal>
 
-          <div className="mt-14 grid gap-6 sm:grid-cols-2 lg:grid-cols-4">
+          <div className="mt-14 grid gap-6 sm:grid-cols-2 lg:grid-cols-5">
             {editableFeatures.map((f, i) => (
               <Reveal key={i} delay={i * 80}>
                 <FeatureCard
