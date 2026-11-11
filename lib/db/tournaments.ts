@@ -371,16 +371,38 @@ export async function loadEventTiers(parentId: string): Promise<EventTier[]> {
     .order("start_time", { ascending: true });
   // A tier lookup must never block a booking — fall back to "no tiers".
   if (error) return [];
-  return (data ?? []).map((e) => {
+  const rows = data ?? [];
+
+  // The LIVE paid count lives on the MIRROR tournaments row (same id as the
+  // tier event), kept current by a DB trigger as tournament_entries are paid.
+  // events.paid_entries_count only syncs from event_entries (unused by this
+  // ticketing path), so it stays 0 and would wrongly show every tier as empty
+  // ("20 of 20 left" on a booked-up session). Read the mirror by the same id
+  // and prefer it; fall back to the events counter if a mirror is missing.
+  // (tournaments is anon-readable; 3 ids here, well under any URL limit.)
+  const ids = rows.map((e) => e.id as string);
+  const paidByMirror = new Map<string, number>();
+  if (ids.length) {
+    const { data: mirrors } = await supabase()
+      .from("tournaments")
+      .select("id, paid_entries_count")
+      .in("id", ids);
+    for (const m of mirrors ?? []) {
+      paidByMirror.set(m.id as string, (m.paid_entries_count ?? 0) as number);
+    }
+  }
+
+  return rows.map((e) => {
     const cap = e.max_attendees ?? null;
-    const left = cap == null ? null : Math.max(0, cap - (e.paid_entries_count ?? 0));
+    const paid = paidByMirror.get(e.id as string) ?? (e.paid_entries_count ?? 0);
+    const left = cap == null ? null : Math.max(0, cap - paid);
     return {
       id: e.id as string,
       name: e.name as string,
       start_time: e.start_time as string | null,
       end_time: e.end_time as string | null,
       max_attendees: cap,
-      paid_entries_count: (e.paid_entries_count ?? 0) as number,
+      paid_entries_count: paid as number,
       registration_open: Boolean(e.registration_open),
       spotsLeft: left,
       full: left === 0 || !e.registration_open,
