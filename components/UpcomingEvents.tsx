@@ -111,6 +111,44 @@ const GROUP_LABEL: Record<Group, string> = {
   DJ: "DJ Night",
 };
 
+// An event can belong to MORE THAN ONE rail (founder 10 Nov): a DJ night that
+// is also a special — a ticketed one especially — should show on BOTH the
+// Music sessions rail AND the Special events rail. groupOf() only ever returns
+// one bucket, so rail membership is decided separately below, drawing on the
+// event's tags[] (the multi-group taxonomy) and its ticketed flag as well as
+// its single category group.
+function tagsOf(e: DbCalendarEvent): string[] {
+  return Array.isArray(e.tags)
+    ? e.tags.map((t) => String(t).trim().toUpperCase()).filter(Boolean)
+    : [];
+}
+function taggedDj(e: DbCalendarEvent): boolean {
+  return tagsOf(e).some((t) => t === "DJ" || t.startsWith("DJ"));
+}
+function taggedSpecial(e: DbCalendarEvent): boolean {
+  return tagsOf(e).some((t) => t.startsWith("SPECIAL"));
+}
+// Is this a "special event" for the Special events rail? A genuine event
+// category (specials / pool / food), OR a ticketed night (tickets = a special,
+// incl. a ticketed DJ night like Batuke), OR one tagged SPECIALS. NOT a plain
+// drink deal, unless it's been explicitly ticketed/tagged.
+function inSpecialRail(e: DbCalendarEvent): boolean {
+  const g = groupOf(e);
+  if (g === "SPECIALS" || g === "POOL" || g === "FOOD") return true;
+  return e.requires_ticket === true || taggedSpecial(e);
+}
+function inDjRail(e: DbCalendarEvent): boolean {
+  return groupOf(e) === "DJ" || taggedDj(e);
+}
+// The group used for a card's pill + fallback poster on a given rail. On the
+// Special events rail a DJ-category event that got in via ticket/tag reads as
+// a Special Event, not a DJ Night; POOL/FOOD keep their own label.
+function cardGroup(e: DbCalendarEvent, kind: "events" | "djs"): Group {
+  if (kind === "djs") return "DJ";
+  const g = groupOf(e);
+  return g === "POOL" || g === "FOOD" || g === "SPECIALS" ? g : "SPECIALS";
+}
+
 
 export default function UpcomingEvents({
   kind,
@@ -173,42 +211,53 @@ export default function UpcomingEvents({
   }, [days]);
 
   const cards = useMemo(() => {
-    const seen = new Set<string>();
-    return events
-      .map((e) => ({ e, group: groupOf(e) }))
-      .filter((x): x is { e: DbCalendarEvent; group: Group } => x.group !== null)
-      // Split: the DJ rail shows only DJs; the events rail shows the genuine
-      // events (specials, pool, food) but NOT standing drink deals / Happy
-      // Hour (founder 10 Nov — "only special events, one-off or repeating").
-      // CUE stays: it's a pool event (group POOL), not a deal.
-      .filter(({ group }) =>
-        kind === "djs" ? group === "DJ" : group !== "DJ" && group !== "DEAL",
-      )
+    // Which rail each event belongs to — an event can be in BOTH (a ticketed
+    // DJ night shows on Music sessions AND Special events). The events rail
+    // keeps out plain drink deals (they're not ticketed/tagged special); CUE
+    // stays (group POOL). See inSpecialRail / inDjRail.
+    let list = events.filter((e) => (kind === "djs" ? inDjRail(e) : inSpecialRail(e)));
+
+    if (kind === "djs") {
+      // A DJ night can arrive from BOTH the events table and the team-hub DJ
+      // feed (a booking the founder also made a ticketed event). Collapse by
+      // date + start time to one card, preferring the events-table row — it's
+      // richer (ticketing, poster, tags) and sources merge calendar-first.
+      // Two-session Saturdays survive (different start times).
+      const hhmm = (t: string | null) => (t ? t.slice(0, 5) : "");
+      const slot = new Map<string, DbCalendarEvent>();
+      for (const e of list) {
+        const t = hhmm(e.start_time);
+        const key = `${e.event_date}|${t || e.title.trim().toLowerCase()}`;
+        if (!slot.has(key)) slot.set(key, e);
+      }
+      list = [...slot.values()];
+    }
+
+    const seenTitle = new Set<string>();
+    return list
       // DJ rail: pure order of play (date, then start time). Events rail:
       // by the founder's lead-priority buckets first (specials → one-offs →
-      // regulars → deals, Happy Hour dead last — same as /events), then by
-      // date, so the genuine specials headline the "Special events" rail
-      // rather than a wall of daily Happy Hour cards.
+      // regulars → deals, Happy Hour dead last — same as /events), then date.
       .sort((a, b) => {
         if (kind === "events") {
-          const ra = leadRankFromOrder(a.e, leadOrder);
-          const rb = leadRankFromOrder(b.e, leadOrder);
+          const ra = leadRankFromOrder(a, leadOrder);
+          const rb = leadRankFromOrder(b, leadOrder);
           if (ra !== rb) return ra - rb;
         }
-        const d = a.e.event_date.localeCompare(b.e.event_date);
+        const d = a.event_date.localeCompare(b.event_date);
         if (d !== 0) return d;
-        return (a.e.start_time ?? "").localeCompare(b.e.start_time ?? "");
+        return (a.start_time ?? "").localeCompare(b.start_time ?? "");
       })
-      // On the events rail, collapse a recurring title to its soonest card
-      // (a weekly deal shouldn't fill the rail). On the DJ rail, keep every
-      // night so the line-up reads in full order of play.
-      .filter(({ e }) => {
+      // Events rail: collapse a recurring title (e.g. weekly CUE) to its
+      // soonest card. DJ rail: keep every night so the line-up reads in full.
+      .filter((e) => {
         if (kind === "djs") return true;
         const k = e.title.trim().toLowerCase();
-        if (seen.has(k)) return false;
-        seen.add(k);
+        if (seenTitle.has(k)) return false;
+        seenTitle.add(k);
         return true;
       })
+      .map((e) => ({ e, group: cardGroup(e, kind) }))
       .slice(0, max);
   }, [events, kind, max, leadOrder]);
 
