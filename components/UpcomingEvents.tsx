@@ -154,7 +154,6 @@ export default function UpcomingEvents({
   kind,
   eyebrow,
   heading,
-  intro,
   days = 30,
   max = 14,
 }: {
@@ -162,7 +161,6 @@ export default function UpcomingEvents({
   kind: "events" | "djs";
   eyebrow: string;
   heading: string;
-  intro: string;
   /** How far ahead to look, in days. Founder scope: 30. */
   days?: number;
   /** Cap on cards so the rail stays swipeable. */
@@ -273,11 +271,17 @@ export default function UpcomingEvents({
         <h2 className="text-center font-display text-4xl uppercase tracking-wider text-cream sm:text-5xl">
           {heading}
         </h2>
-        <p className="mx-auto mt-4 max-w-xl text-center text-base text-cream/75">
-          {intro}
-        </p>
+        {/* CTA sits directly under the title (founder 11 Nov) — no blurb. */}
+        <div className="mt-5 text-center">
+          <a
+            href="/events/"
+            className="inline-block rounded-full border border-plonkPink/50 px-8 py-3 text-sm font-bold uppercase tracking-widest text-plonkPink transition hover:bg-plonkPink/10"
+          >
+            See the full calendar →
+          </a>
+        </div>
 
-        <div className="mt-10">
+        <div className="mt-8">
           <RollerDeck ariaLabel={typeof heading === "string" ? heading : "Upcoming"} center>
             {cards.map(({ e, group }) => {
               const poster = e.image_url || defaultPosterFor(group);
@@ -325,15 +329,6 @@ export default function UpcomingEvents({
               );
             })}
           </RollerDeck>
-        </div>
-
-        <div className="mt-8 text-center">
-          <a
-            href="/events/"
-            className="inline-block rounded-full border border-plonkPink/50 px-8 py-3 text-sm font-bold uppercase tracking-widest text-plonkPink transition hover:bg-plonkPink/10"
-          >
-            See the full calendar →
-          </a>
         </div>
       </div>
     </section>

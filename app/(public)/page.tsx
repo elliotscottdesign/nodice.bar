@@ -143,13 +143,11 @@ export default function HomePage() {
         kind="events"
         eyebrow="Next 30 days"
         heading="Special events"
-        intro="One-off nights, pool, food and drink coming up at No Dice — tap one to find out more."
       />
       <UpcomingEvents
         kind="djs"
         eyebrow="On the decks"
         heading="Music sessions"
-        intro="Our residents and guests across the next few weeks, in order of play — free Open Decks sessions included."
       />
 
       {/* ───────────── VENUES (plum) ───────────── */}
