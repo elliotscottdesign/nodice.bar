@@ -282,18 +282,30 @@ export default function UpcomingEvents({
         </div>
 
         <div className="mt-8">
-          <RollerDeck ariaLabel={typeof heading === "string" ? heading : "Upcoming"} center>
+          <RollerDeck
+            ariaLabel={typeof heading === "string" ? heading : "Upcoming"}
+            center
+            arrowAccent
+            // Sit the arrows on the poster, not the whole card. The Music rail
+            // cards are shorter (no pill/blurb) so their poster centre is a
+            // little lower in the card than the taller Special Events cards.
+            arrowTop={kind === "djs" ? "40%" : "36%"}
+          >
             {cards.map(({ e, group }) => {
               const poster = e.image_url || defaultPosterFor(group);
               const when = [fmtDay(e.event_date), fmtTime(e.start_time)]
                 .filter(Boolean)
                 .join(" · ");
               // The event's own link first (DJ → Instagram, special → organiser).
-              // Else a ticketed night → its shareable ticket page (/event?o=<id>,
-              // static-export-safe query param). Else the full calendar.
+              // Otherwise the event's own shareable page (/event?o=<id>, a
+              // static-export-safe query param that renders every category —
+              // ticketed or not, deals included). DJ-feed / open-decks cards
+              // carry synthetic ids ("dj-…" / "od-…") that aren't real event
+              // rows, so those fall back to the full calendar rather than a
+              // dead /event link.
+              const syntheticId = /^(dj|od)-/.test(e.id);
               const href =
-                e.link_url ||
-                (e.requires_ticket === true ? `/event?o=${e.id}` : "/events/");
+                e.link_url || (syntheticId ? "/events/" : `/event?o=${e.id}`);
               return (
                 <a
                   key={e.id}
@@ -319,13 +331,20 @@ export default function UpcomingEvents({
                       <div className="mt-2 font-display text-2xl uppercase leading-tight tracking-wider text-cream">
                         {e.title}
                       </div>
-                      <div className="mt-2 inline-block rounded-full border border-cream/15 px-3 py-1 text-[10px] font-bold uppercase tracking-widest text-cream/55">
-                        {GROUP_LABEL[group]}
-                      </div>
-                      {e.body && (
-                        <p className="mt-3 line-clamp-2 text-sm text-cream/70">
-                          {e.body}
-                        </p>
+                      {/* Music Sessions cards stop at date·time → name (founder,
+                          12 Nov 2026): no genre tag, no blurb under a DJ card.
+                          The Special Events rail keeps its pill + blurb. */}
+                      {kind !== "djs" && (
+                        <>
+                          <div className="mt-2 inline-block rounded-full border border-cream/15 px-3 py-1 text-[10px] font-bold uppercase tracking-widest text-cream/55">
+                            {GROUP_LABEL[group]}
+                          </div>
+                          {e.body && (
+                            <p className="mt-3 line-clamp-2 text-sm text-cream/70">
+                              {e.body}
+                            </p>
+                          )}
+                        </>
                       )}
                     </div>
                   </article>

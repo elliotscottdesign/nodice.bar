@@ -45,6 +45,8 @@ export default function RollerDeck({
   center,
   centerMode,
   fade = true,
+  arrowAccent = false,
+  arrowTop,
 }: {
   children: React.ReactNode;
   /** Optional aria-label for the scroll region (e.g. "Upcoming matches"). */
@@ -62,6 +64,14 @@ export default function RollerDeck({
   /** Edge-fade gradients fade cards into a BLACK page. Set false on a
    *  coloured/gradient background where the black fade would show as a band. */
   fade?: boolean;
+  /** Bigger, brand-red arrow buttons (founder, 12 Nov 2026 — used on the
+   *  homepage rails). Default keeps the subtle cream pill every other rail
+   *  uses, so this is opt-in and never changes /pool, /worldcup, /events… */
+  arrowAccent?: boolean;
+  /** Vertical anchor for the arrows as a CSS top value (e.g. "40%"), applied
+   *  inline so it survives this project's Tailwind purge. Used to sit the
+   *  arrows on the poster rather than the whole card. Defaults to centre. */
+  arrowTop?: string;
 }) {
   const railRef = useRef<HTMLDivElement | null>(null);
   const [canLeft, setCanLeft] = useState(false);
@@ -127,21 +137,31 @@ export default function RollerDeck({
         type="button"
         aria-label={`Scroll ${ariaLabel || "list"} left`}
         onClick={() => scrollByCard(-1)}
-        className={`absolute left-1 top-1/2 z-20 hidden -translate-y-1/2 rounded-full border border-cream/20 bg-ink/80 p-3 text-cream shadow-xl backdrop-blur transition hover:bg-plonkPink hover:text-white sm:flex ${
-          canLeft ? "opacity-100" : "pointer-events-none opacity-0"
-        }`}
+        style={arrowTop ? { top: arrowTop } : undefined}
+        className={`absolute left-1 z-20 hidden -translate-y-1/2 rounded-full shadow-xl backdrop-blur transition sm:flex ${
+          arrowTop ? "" : "top-1/2"
+        } ${
+          arrowAccent
+            ? "border-2 border-plonkPink bg-ink/85 p-3.5 text-plonkPink hover:bg-plonkPink hover:text-white"
+            : "border border-cream/20 bg-ink/80 p-3 text-cream hover:bg-plonkPink hover:text-white"
+        } ${canLeft ? "opacity-100" : "pointer-events-none opacity-0"}`}
       >
-        <ChevronIcon dir="left" />
+        <ChevronIcon dir="left" size={arrowAccent ? 26 : 18} />
       </button>
       <button
         type="button"
         aria-label={`Scroll ${ariaLabel || "list"} right`}
         onClick={() => scrollByCard(1)}
-        className={`absolute right-1 top-1/2 z-20 hidden -translate-y-1/2 rounded-full border border-cream/20 bg-ink/80 p-3 text-cream shadow-xl backdrop-blur transition hover:bg-plonkPink hover:text-white sm:flex ${
-          canRight ? "opacity-100" : "pointer-events-none opacity-0"
-        }`}
+        style={arrowTop ? { top: arrowTop } : undefined}
+        className={`absolute right-1 z-20 hidden -translate-y-1/2 rounded-full shadow-xl backdrop-blur transition sm:flex ${
+          arrowTop ? "" : "top-1/2"
+        } ${
+          arrowAccent
+            ? "border-2 border-plonkPink bg-ink/85 p-3.5 text-plonkPink hover:bg-plonkPink hover:text-white"
+            : "border border-cream/20 bg-ink/80 p-3 text-cream hover:bg-plonkPink hover:text-white"
+        } ${canRight ? "opacity-100" : "pointer-events-none opacity-0"}`}
       >
-        <ChevronIcon dir="right" />
+        <ChevronIcon dir="right" size={arrowAccent ? 26 : 18} />
       </button>
 
       {/* Gutter wrapper — reserves room for the arrows on sm+ as PADDING
@@ -170,11 +190,11 @@ export default function RollerDeck({
   );
 }
 
-function ChevronIcon({ dir }: { dir: "left" | "right" }) {
+function ChevronIcon({ dir, size = 18 }: { dir: "left" | "right"; size?: number }) {
   return (
     <svg
-      width="18"
-      height="18"
+      width={size}
+      height={size}
       viewBox="0 0 24 24"
       fill="none"
       stroke="currentColor"
