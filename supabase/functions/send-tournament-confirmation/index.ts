@@ -304,6 +304,82 @@ function renderBingoText(o: BingoEmailOpts): string {
   ].join("\n");
 }
 
+// --- Special-event ticket confirmation ---------------------------------------
+// Any ticketed event that ISN'T a genuine pool/ping-pong/bingo/Macmillan
+// competition — a DJ night, a party, a one-off special — rides the same
+// tournament_entries table (so it shows in the admin tracker + the webhook
+// flips it to paid), but must get a plain EVENT-TICKET confirmation, never the
+// "you're playing in a tournament" wording. Generated from the event's own
+// data. Accent red #DA1B33 to match the No Dice wordmark.
+const EVENT_RED = "#DA1B33";
+type EventTicketOpts = {
+  name: string;
+  eventName: string;
+  eventDate: string;
+  timeLabel: string; // "8pm – 12am" or "8pm"
+  quantity: number;
+  unitLabel: string; // "£5"
+  totalLabel: string; // "£5" / "£10"
+  reference: string; // short door reference
+  doorInfo: string | null; // optional per-event "what to know" line
+};
+function renderEventTicketHtml(o: EventTicketOpts): string {
+  const ticketWord = o.quantity === 1 ? "ticket" : "tickets";
+  const row = (label: string, value: string) =>
+    `<tr><td style="padding:14px 0;border-top:1px solid rgba(245,239,227,0.12);font-size:11px;font-weight:700;letter-spacing:0.22em;text-transform:uppercase;color:rgba(245,239,227,0.55);width:140px;vertical-align:top;">${label}</td><td style="padding:14px 0;border-top:1px solid rgba(245,239,227,0.12);font-size:15px;color:#f5efe3;">${value}</td></tr>`;
+  return `<!DOCTYPE html>
+<html><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>Your ticket for ${o.eventName}</title></head>
+<body style="margin:0;background:#0c0c0c;">
+<table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="background:#0c0c0c;padding:32px 0;"><tr><td align="center">
+<table role="presentation" width="560" cellpadding="0" cellspacing="0" style="max-width:560px;width:100%;background:#141414;border-radius:16px;overflow:hidden;">
+  <tr><td style="padding:28px 32px 8px;text-align:center;">
+    <img src="https://nodice.bar/nodice-wordmark.png" alt="No Dice" style="display:block;margin:0 auto;width:200px;max-width:70%;height:auto;border:0;">
+    <div style="font-size:11px;font-weight:700;letter-spacing:0.32em;text-transform:uppercase;color:${EVENT_RED};margin-top:12px;">No Dice · London Fields</div>
+  </td></tr>
+  <tr><td style="padding:16px 32px 4px;">
+    <div style="font-size:10px;font-weight:700;letter-spacing:0.3em;text-transform:uppercase;color:${EVENT_RED};margin-bottom:12px;">You're in!</div>
+    <p style="margin:0;font-size:15px;line-height:1.6;color:#f5efe3;">${o.name}, payment landed — your ${o.quantity} ${ticketWord} for <strong>${o.eventName}</strong> ${o.quantity === 1 ? "is" : "are"} booked. Save this email and show it on the door.</p>
+  </td></tr>
+  <tr><td style="padding:12px 32px 4px;"><table role="presentation" width="100%" cellpadding="0" cellspacing="0">
+    ${row("Event", o.eventName)}
+    ${row("Date", o.eventDate)}
+    ${row("Time", o.timeLabel)}
+    ${row("Tickets", `${o.quantity} × ${o.unitLabel}`)}
+    ${row("Paid", o.totalLabel)}
+    ${row("Door reference", o.reference)}
+    ${o.doorInfo ? row("Good to know", o.doorInfo) : ""}
+  </table></td></tr>
+  <tr><td style="padding:16px 32px 4px;">
+    <div style="font-size:10px;font-weight:700;letter-spacing:0.3em;text-transform:uppercase;color:${EVENT_RED};margin-bottom:8px;">Where</div>
+    <p style="margin:0;font-size:14px;line-height:1.6;color:rgba(245,239,227,0.85);">${VENUE_ADDRESS}</p>
+  </td></tr>
+  <tr><td style="padding:14px 32px 28px;">
+    <p style="margin:0;font-size:13px;line-height:1.6;color:rgba(245,239,227,0.6);">We'll text you any updates before the night, so keep an eye on your phone. Questions? Just reply to this email. See you on the night — <a href="${VENUE_URL}" style="color:rgba(245,239,227,0.6);text-decoration:underline;">nodice.bar</a></p>
+  </td></tr>
+</table></td></tr></table></body></html>`;
+}
+function renderEventTicketText(o: EventTicketOpts): string {
+  const ticketWord = o.quantity === 1 ? "ticket" : "tickets";
+  return [
+    `YOU'RE IN — YOUR TICKET FOR ${o.eventName.toUpperCase()}`,
+    ``,
+    `${o.name}, payment landed — your ${o.quantity} ${ticketWord} for ${o.eventName} ${o.quantity === 1 ? "is" : "are"} booked. Save this email and show it on the door.`,
+    ``,
+    `Event:          ${o.eventName}`,
+    `Date:           ${o.eventDate}`,
+    `Time:           ${o.timeLabel}`,
+    `Tickets:        ${o.quantity} x ${o.unitLabel}`,
+    `Paid:           ${o.totalLabel}`,
+    `Door reference: ${o.reference}`,
+    ...(o.doorInfo ? [`Good to know:   ${o.doorInfo}`] : []),
+    ``,
+    `Where: ${VENUE_ADDRESS}`,
+    ``,
+    `We'll text you any updates before the night. Questions? Just reply to this email.`,
+    `See you on the night — ${VENUE_URL}`,
+  ].join("\n");
+}
+
 Deno.serve(async (req) => {
   const preflight = handlePreflight(req);
   if (preflight) return preflight;
@@ -370,16 +446,56 @@ Deno.serve(async (req) => {
   // events row's category (same id as the tournament mirror).
   const { data: ev } = await db
     .from("events")
-    .select("category, name, event_date, start_time")
+    .select("category, name, event_date, start_time, end_time")
     .eq("id", entry.tournament_id)
     .maybeSingle();
   const isBingo = ev?.category === "bingo";
 
-  // Build email content — bingo or tournament.
+  // A ticketed SPECIAL EVENT (DJ night, party, one-off) also rides
+  // tournament_entries but is NOT a competition — it must get a plain
+  // event-ticket email, never the tournament wording. Detect it as: an
+  // events-platform row whose category is neither bingo nor one of the real
+  // competition categories below. A teams-only tournament (no events row,
+  // category undefined) falls through to the unchanged tournament email, so
+  // this is purely additive — the pool/ping-pong/bingo/Macmillan paths are
+  // left exactly as they were.
+  const REAL_TOURNAMENT_CATEGORIES = new Set([
+    "pool_tournament_singles",
+    "pool_tournament_doubles",
+    "pingpong_tournament_teams",
+    "pool_special", // Macmillan 12hr marathon — a genuine pool comp
+  ]);
+  const isSpecialEvent =
+    !!ev?.category && !isBingo && !REAL_TOURNAMENT_CATEGORIES.has(ev.category);
+
+  // Build email content — special event, bingo, or tournament.
   let subject: string;
   let html: string;
   let text: string;
-  if (isBingo) {
+  if (isSpecialEvent) {
+    const qty = Math.max(1, Number(entry.player_count) || 1);
+    const startRaw = ev?.start_time ?? tournament.start_time ?? null;
+    const endRaw = ev?.end_time ?? null;
+    const timeLabel = startRaw
+      ? endRaw
+        ? `${formatTime(startRaw)} – ${formatTime(endRaw)}`
+        : formatTime(startRaw)
+      : "On the night";
+    const eopts = {
+      name: entry.captain_name,
+      eventName: ev?.name || tournament.name,
+      eventDate: formatDate(ev?.event_date || tournament.event_date),
+      timeLabel,
+      quantity: qty,
+      unitLabel: formatPounds(tournament.entry_fee_pence),
+      totalLabel: formatPounds(tournament.entry_fee_pence * qty),
+      reference: String(entry.id).replace(/-/g, "").slice(0, 8).toUpperCase(),
+      doorInfo: null as string | null,
+    };
+    subject = `Your ticket for ${eopts.eventName} — ${eopts.eventDate}`;
+    html = renderEventTicketHtml(eopts);
+    text = renderEventTicketText(eopts);
+  } else if (isBingo) {
     const qty = Math.max(1, Number(entry.player_count) || 1);
     const bopts = {
       name: entry.captain_name,
