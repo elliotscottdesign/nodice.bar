@@ -168,6 +168,10 @@ export default function PingPongPage() {
   const [loading, setLoading] = useState(true);
   const [err, setErr] = useState("");
   const [expandedId, setExpandedId] = useState<string | null>(null);
+  // Which "Good to know" FAQ is open (click a question to reveal its
+  // answer). Null = all collapsed, so the section reads as a tidy list
+  // of questions until you tap one.
+  const [openFaq, setOpenFaq] = useState<string | null>(null);
   const [league, setLeague] = useState<LeagueRow[] | null>(null);
   const [leagueNights, setLeagueNights] = useState(0);
   const bookingRef = useRef<HTMLDivElement | null>(null);
@@ -453,19 +457,53 @@ export default function PingPongPage() {
             <Editable k="pingpong.faq_title">{faqTitle}</Editable>
           </h2>
           <div className="mt-8 space-y-4">
-            {faqTexts.map((f) => (
-              <div
-                key={f.qKey}
-                className="rounded-2xl border border-pong/20 bg-white/[0.03] p-5"
-              >
-                <div className="font-bold text-pongLight">
-                  <Editable k={f.qKey}>{f.q}</Editable>
+            {faqTexts.map((f) => {
+              const open = openFaq === f.qKey;
+              return (
+                <div
+                  key={f.qKey}
+                  className="overflow-hidden rounded-2xl border border-pong/20 bg-white/[0.03]"
+                >
+                  <button
+                    type="button"
+                    aria-expanded={open}
+                    onClick={() => setOpenFaq(open ? null : f.qKey)}
+                    className="flex w-full items-center justify-between gap-4 px-5 py-5 text-left transition hover:bg-white/[0.03]"
+                  >
+                    <span className="font-bold text-pongLight">
+                      <Editable k={f.qKey}>{f.q}</Editable>
+                    </span>
+                    <svg
+                      width="20"
+                      height="20"
+                      viewBox="0 0 24 24"
+                      fill="none"
+                      stroke="currentColor"
+                      strokeWidth="2.5"
+                      strokeLinecap="round"
+                      strokeLinejoin="round"
+                      aria-hidden
+                      className={`shrink-0 text-pong transition-transform duration-300 ${
+                        open ? "rotate-180" : ""
+                      }`}
+                    >
+                      <polyline points="6 9 12 15 18 9" />
+                    </svg>
+                  </button>
+                  <div
+                    className={`grid transition-all duration-300 ease-out ${
+                      open ? "grid-rows-[1fr] opacity-100" : "grid-rows-[0fr] opacity-0"
+                    }`}
+                  >
+                    <div className="overflow-hidden">
+                      <p className="px-5 pb-5 text-sm leading-relaxed text-cream/75">
+                        <Editable k={f.aKey}>{f.a}</Editable>
+                      </p>
+                    </div>
+                  </div>
                 </div>
-                <p className="mt-2 text-sm leading-relaxed text-cream/75">
-                  <Editable k={f.aKey}>{f.a}</Editable>
-                </p>
-              </div>
-            ))}
+              );
+            })}
           </div>
           <p className="mt-10 text-center text-xs uppercase tracking-widest text-cream/45">
             No Dice · 407 Mentmore Terrace, London Fields, E8 3PH
