@@ -5,9 +5,14 @@ Supabase project (rntcujcpsozvuxvmlejv). Clear your claim when done.
 
 ## Active claims
 
-- **events.page_style column (DDL)** + `app/admin/events/EventsAdminClient.tsx`
-  (ticketing/builder fields only) + `app/(public)/event/page.tsx`,
-  `lib/db/shareEvent.ts`, `components/EventTicketBooking.tsx` — _event-share-page
-  session_, 12 Nov 2026. Adding a PAGE / POP UP selector per event
-  (page_style text default 'popup'); additive, default preserves current
-  behaviour. Keeping edits to EventsAdminClient minimal (one selector block).
+- **`app/(public)/events/page.tsx` + `app/(public)/deals/page.tsx`** (card link
+  routing only) — _event-share-page session_, 12 Nov 2026. Back-fill: point
+  every event/deal card at its `/event?o=<id>` page (additive link fallback;
+  link_url still wins). No other logic touched. Clear when shipped.
+
+## Done (claim cleared)
+
+- **events.page_style column (DDL)** + `EventsAdminClient.tsx` (ticketing
+  fields) + `app/(public)/event/page.tsx`, `lib/db/shareEvent.ts`,
+  `components/EventTicketBooking.tsx` — PAGE / POP UP per-event selector.
+  SHIPPED 12 Nov (origin/main 7cb56c1).

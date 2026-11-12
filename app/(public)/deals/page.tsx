@@ -70,9 +70,13 @@ export default function DealsPage() {
             // 4 across on tablet+ (→ 4×2 for 8 deals), 2 across on mobile.
             <div className="grid grid-cols-2 gap-3 sm:grid-cols-4 sm:gap-4">
               {deals.map((d) => (
-                <div
+                // Each deal poster links to its own shareable page
+                // (/event?o=<id> — a static route + query param, so it never
+                // 404s on the static export). Added 12 Nov 2026.
+                <a
                   key={d.id}
-                  className="relative aspect-[5/7] overflow-hidden rounded-xl bg-ink"
+                  href={`/event?o=${d.id}`}
+                  className="relative block aspect-[5/7] overflow-hidden rounded-xl bg-ink transition hover:opacity-90"
                 >
                   <Image
                     src={d.posterUrl}
@@ -81,7 +85,7 @@ export default function DealsPage() {
                     sizes="(min-width: 640px) 25vw, 50vw"
                     className="object-cover"
                   />
-                </div>
+                </a>
               ))}
             </div>
           )}

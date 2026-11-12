@@ -134,18 +134,13 @@ function chipForEvent(ev: DbCalendarEvent): string | null {
 
 // Where a card goes when you click it.
 //
-// Founder 2026-10-15, on whether events without a link should fall back to
-// their category page (/pool, /deals, …): "if there isn't a link in event
-// info then it's fine — this is only when there is a URL, like for special
-// events." So: NO invented destinations. A card is a link when, and only
-// when, the event carries its own link, and an event with no link stays a
-// plain, honestly non-clickable card with no ↗ glyph.
-//
-// Add a link to an event in /admin/events and it becomes clickable on its
-// own. Never build a per-event URL here either — the site is a static
-// export, so a dynamic route that wasn't pre-rendered 404s.
-function eventDestination(ev: DbCalendarEvent): string | null {
-  return ev.link_url || null;
+// Every event now opens its own shareable page at /event?o=<id> (founder,
+// 12 Nov 2026 — supersedes the earlier "no invented destinations" rule). That
+// is a STATIC route reading the id as a query param, so it never 404s on the
+// static export — unlike a dynamic [id] path, which the old rule rightly
+// warned against. An external organiser link (link_url), when set, still wins.
+function eventDestination(ev: DbCalendarEvent): string {
+  return ev.link_url || `/event?o=${ev.id}`;
 }
 
 // When a single day has MULTIPLE events, pick which one leads the calendar
