@@ -490,15 +490,11 @@ export default function PingPongPage() {
                       <polyline points="6 9 12 15 18 9" />
                     </svg>
                   </button>
-                  <div
-                    className={`overflow-hidden transition-all duration-300 ease-out ${
-                      open ? "max-h-96 opacity-100" : "max-h-0 opacity-0"
-                    }`}
-                  >
+                  {open && (
                     <p className="px-5 pb-5 text-sm leading-relaxed text-cream/75">
                       <Editable k={f.aKey}>{f.a}</Editable>
                     </p>
-                  </div>
+                  )}
                 </div>
               );
             })}
