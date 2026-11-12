@@ -288,8 +288,12 @@ export default function UpcomingEvents({
               const when = [fmtDay(e.event_date), fmtTime(e.start_time)]
                 .filter(Boolean)
                 .join(" · ");
-              // The event's own link, else the full calendar (a real route).
-              const href = e.link_url || "/events/";
+              // The event's own link first (DJ → Instagram, special → organiser).
+              // Else a ticketed night → its shareable ticket page (/event?o=<id>,
+              // static-export-safe query param). Else the full calendar.
+              const href =
+                e.link_url ||
+                (e.requires_ticket === true ? `/event?o=${e.id}` : "/events/");
               return (
                 <a
                   key={e.id}
