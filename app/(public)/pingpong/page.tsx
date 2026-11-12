@@ -491,15 +491,13 @@ export default function PingPongPage() {
                     </svg>
                   </button>
                   <div
-                    className={`grid transition-all duration-300 ease-out ${
-                      open ? "grid-rows-[1fr] opacity-100" : "grid-rows-[0fr] opacity-0"
+                    className={`overflow-hidden transition-all duration-300 ease-out ${
+                      open ? "max-h-96 opacity-100" : "max-h-0 opacity-0"
                     }`}
                   >
-                    <div className="overflow-hidden">
-                      <p className="px-5 pb-5 text-sm leading-relaxed text-cream/75">
-                        <Editable k={f.aKey}>{f.a}</Editable>
-                      </p>
-                    </div>
+                    <p className="px-5 pb-5 text-sm leading-relaxed text-cream/75">
+                      <Editable k={f.aKey}>{f.a}</Editable>
+                    </p>
                   </div>
                 </div>
               );
