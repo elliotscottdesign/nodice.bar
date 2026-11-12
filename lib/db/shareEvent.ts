@@ -30,6 +30,10 @@ export type ShareEvent = {
   external_link: string | null;
   category: string | null;
   subcategory: string | null;
+  /** 'popup' (default) = the compact share card; 'page' = the full long-form
+   *  layout. Chosen per event in the builder. Deals are always treated as
+   *  'popup' regardless of the stored value. */
+  page_style: "popup" | "page";
   requires_ticket: boolean;
   /** Headline ticket price in pence, resolved from ticket_types (first active)
    *  then events.ticket_price (stored in pounds). null = no price configured. */
@@ -48,7 +52,7 @@ export async function loadShareEvent(id: string): Promise<ShareEvent | null> {
   const { data: ev, error } = await sb
     .from("events")
     .select(
-      "id, name, description, event_date, start_time, end_time, poster_url, external_link, category, subcategory, requires_ticket, ticket_price, registration_open, bookable, max_attendees, paid_entries_count",
+      "id, name, description, event_date, start_time, end_time, poster_url, external_link, category, subcategory, page_style, requires_ticket, ticket_price, registration_open, bookable, max_attendees, paid_entries_count",
     )
     .eq("id", id)
     .maybeSingle();
@@ -96,6 +100,7 @@ export async function loadShareEvent(id: string): Promise<ShareEvent | null> {
     external_link: (ev.external_link as string | null) ?? null,
     category: (ev.category as string | null) ?? null,
     subcategory: (ev.subcategory as string | null) ?? null,
+    page_style: (ev.page_style as string) === "page" ? "page" : "popup",
     requires_ticket: Boolean(ev.requires_ticket),
     pricePence,
     registration_open: Boolean(ev.registration_open),

@@ -43,6 +43,9 @@ function formatPounds(pence: number): string {
   return pence % 100 === 0 ? `£${pence / 100}` : `£${(pence / 100).toFixed(2)}`;
 }
 
+const VENUE_ADDRESS =
+  "No Dice, Arch 407, Mentmore Terrace, London Fields, Hackney, E8 3PH";
+
 const CATEGORY_EYEBROW: Record<string, string> = {
   dj_night: "DJ · Live music",
   pool_special: "Pool · Special event",
@@ -132,10 +135,142 @@ export default function EventSharePage() {
         : `${formatPounds(ev.pricePence)} a ticket`
       : null;
 
+  // DEALS are always a compact pop-up, whatever's stored. Otherwise honour the
+  // builder choice (default 'popup').
+  const effectiveStyle: "popup" | "page" =
+    ev.category === "drink_special" ? "popup" : ev.page_style;
+
+  // Shared ticket / CTA block — identical rule in both layouts: an external
+  // organiser link wins, else an on-site purchase, else sold-out / info.
+  const ctaBlock = ev.external_link ? (
+    <a
+      href={ev.external_link}
+      target={/^https?:\/\//.test(ev.external_link) ? "_blank" : undefined}
+      rel={/^https?:\/\//.test(ev.external_link) ? "noopener noreferrer" : undefined}
+      className="inline-flex w-full items-center justify-center rounded-full bg-plonkPink px-8 py-4 text-sm font-bold uppercase tracking-widest text-white transition hover:bg-plonkPink/90"
+    >
+      Get tickets{priceLine && ev.pricePence ? ` · ${formatPounds(ev.pricePence)}` : ""} →
+    </a>
+  ) : soldOut ? (
+    <div className="rounded-2xl border border-cream/15 bg-ink/40 px-6 py-10 text-center">
+      <div className="font-display text-3xl uppercase tracking-wider text-cream">
+        Sold out
+      </div>
+      <p className="mx-auto mt-3 max-w-sm text-sm text-cream/60">
+        Tickets for this one have gone. See what else is on.
+      </p>
+      <a
+        href="/events"
+        className="mt-6 inline-block rounded-full border border-plonkPink/50 px-8 py-3 text-xs font-bold uppercase tracking-widest text-plonkPink transition hover:bg-plonkPink/10"
+      >
+        What&apos;s on →
+      </a>
+    </div>
+  ) : canBookOnSite ? (
+    <EventTicketBooking
+      eventId={ev.id}
+      eventName={ev.name}
+      pricePence={ev.pricePence as number}
+    />
+  ) : (
+    <div className="rounded-2xl border border-cream/15 bg-ink/40 px-6 py-10 text-center">
+      <p className="text-sm text-cream/70">
+        {ev.registration_open
+          ? "Tickets for this night aren't on sale here yet — check back soon."
+          : "Ticket sales for this night are closed."}
+      </p>
+      <a
+        href="/events"
+        className="mt-6 inline-block rounded-full border border-plonkPink/50 px-8 py-3 text-xs font-bold uppercase tracking-widest text-plonkPink transition hover:bg-plonkPink/10"
+      >
+        What&apos;s on →
+      </a>
+    </div>
+  );
+
+  // ── FULL PAGE layout ──────────────────────────────────────────────────────
+  // A fuller, long-form face for an event (chosen in the builder) — bigger
+  // hero, a details strip, roomy write-up and a prominent ticket block — all
+  // from the event's own row, no hand-coded copy. Styled like /comedybingo.
+  if (effectiveStyle === "page") {
+    const detailRow = (label: string, value: string) => (
+      <div className="flex items-baseline justify-between gap-4 border-t border-cream/10 py-4">
+        <span className="text-[10px] font-bold uppercase tracking-[0.28em] text-cream/45">
+          {label}
+        </span>
+        <span className="text-right font-display text-lg uppercase tracking-wider text-cream sm:text-xl">
+          {value}
+        </span>
+      </div>
+    );
+    return (
+      <main className="bg-ink text-cream">
+        {/* Big hero poster */}
+        {ev.poster_url && (
+          <div className="w-full bg-black">
+            <div className="mx-auto max-w-2xl px-4 pt-6 sm:pt-10">
+              {/* eslint-disable-next-line @next/next/no-img-element */}
+              <img
+                src={ev.poster_url}
+                alt={ev.name}
+                className="mx-auto h-auto w-full rounded-2xl object-contain"
+              />
+            </div>
+          </div>
+        )}
+
+        {/* Title */}
+        <section className="mx-auto max-w-3xl px-6 pb-4 pt-12 text-center">
+          <p className="text-xs font-bold uppercase tracking-[0.3em] text-plonkPink">
+            {eyebrow}
+          </p>
+          <h1 className="mt-4 font-display text-5xl uppercase leading-[1.05] tracking-wide text-cream sm:text-6xl md:text-7xl">
+            {ev.name}
+          </h1>
+          {priceLine && (
+            <div className="mt-5 inline-block rounded-full border border-plonkPink/40 bg-plonkPink/10 px-5 py-2 text-sm font-bold uppercase tracking-widest text-plonkPink">
+              {priceLine}
+            </div>
+          )}
+        </section>
+
+        {/* Write-up */}
+        {paragraphs.length > 0 && (
+          <section className="mx-auto max-w-2xl px-6 pt-6">
+            <div className="space-y-6 text-lg leading-relaxed text-cream/85">
+              {paragraphs.map((p, i) => (
+                <p key={i}>{p}</p>
+              ))}
+            </div>
+          </section>
+        )}
+
+        {/* Details strip */}
+        <section className="mx-auto max-w-2xl px-6 pt-12">
+          <div className="text-[10px] font-bold uppercase tracking-[0.3em] text-plonkPink">
+            The details
+          </div>
+          <div className="mt-2">
+            {detailRow("When", when)}
+            {timeRange ? detailRow("Time", timeRange) : null}
+            {priceLine ? detailRow("Price", priceLine) : null}
+            {detailRow("Where", "No Dice · London Fields")}
+          </div>
+          <p className="mt-4 text-sm leading-relaxed text-cream/55">
+            {VENUE_ADDRESS}
+          </p>
+        </section>
+
+        {/* Ticket block */}
+        <section className="mx-auto max-w-xl px-6 pb-28 pt-12">{ctaBlock}</section>
+      </main>
+    );
+  }
+
+  // ── COMPACT POP-UP layout (default) ───────────────────────────────────────
   return (
     <main className="bg-ink text-cream">
-      {/* Poster — the shareable visual. object-contain so a portrait poster is
-          never cropped. */}
+      {/* Poster — object-contain so a portrait poster is never cropped. */}
       {ev.poster_url && (
         <div className="relative w-full bg-black">
           <div className="mx-auto max-w-lg px-4 pt-8 sm:pt-12">
@@ -180,57 +315,7 @@ export default function EventSharePage() {
       )}
 
       {/* Ticket / CTA block */}
-      <section className="mx-auto max-w-xl px-6 pb-24 pt-10">
-        {ev.external_link ? (
-          <a
-            href={ev.external_link}
-            target={/^https?:\/\//.test(ev.external_link) ? "_blank" : undefined}
-            rel={
-              /^https?:\/\//.test(ev.external_link)
-                ? "noopener noreferrer"
-                : undefined
-            }
-            className="inline-flex w-full items-center justify-center rounded-full bg-plonkPink px-8 py-4 text-sm font-bold uppercase tracking-widest text-white transition hover:bg-plonkPink/90"
-          >
-            Get tickets{priceLine && ev.pricePence ? ` · ${formatPounds(ev.pricePence)}` : ""} →
-          </a>
-        ) : soldOut ? (
-          <div className="rounded-2xl border border-cream/15 bg-ink/40 px-6 py-10 text-center">
-            <div className="font-display text-3xl uppercase tracking-wider text-cream">
-              Sold out
-            </div>
-            <p className="mx-auto mt-3 max-w-sm text-sm text-cream/60">
-              Tickets for this one have gone. See what else is on.
-            </p>
-            <a
-              href="/events"
-              className="mt-6 inline-block rounded-full border border-plonkPink/50 px-8 py-3 text-xs font-bold uppercase tracking-widest text-plonkPink transition hover:bg-plonkPink/10"
-            >
-              What&apos;s on →
-            </a>
-          </div>
-        ) : canBookOnSite ? (
-          <EventTicketBooking
-            eventId={ev.id}
-            eventName={ev.name}
-            pricePence={ev.pricePence as number}
-          />
-        ) : (
-          <div className="rounded-2xl border border-cream/15 bg-ink/40 px-6 py-10 text-center">
-            <p className="text-sm text-cream/70">
-              {ev.registration_open
-                ? "Tickets for this night aren't on sale here yet — check back soon."
-                : "Ticket sales for this night are closed."}
-            </p>
-            <a
-              href="/events"
-              className="mt-6 inline-block rounded-full border border-plonkPink/50 px-8 py-3 text-xs font-bold uppercase tracking-widest text-plonkPink transition hover:bg-plonkPink/10"
-            >
-              What&apos;s on →
-            </a>
-          </div>
-        )}
-      </section>
+      <section className="mx-auto max-w-xl px-6 pb-24 pt-10">{ctaBlock}</section>
     </main>
   );
 }

@@ -375,6 +375,9 @@ export default function EventsAdminClient() {
   // implies it (a food residency needs the dining tables); admin can toggle.
   const [blocksTableBookings, setBlocksTableBookings] = useState(false);
   const [requiresTicket, setRequiresTicket] = useState(true);
+  // Public face: 'popup' (the compact /event?o= share card) or 'page' (the
+  // full long-form layout). Deals are always a pop-up.
+  const [pageStyle, setPageStyle] = useState<"popup" | "page">("popup");
   const [maxAttendees, setMaxAttendees] = useState<string>("");
   const [tickets, setTickets] = useState<TicketDraft[]>([
     { name: "General entry", description: "", price: "", capacity: "" },
@@ -422,6 +425,7 @@ export default function EventsAdminClient() {
     setShowOnBar(false);
     setBlocksTableBookings(false);
     setRequiresTicket(true);
+    setPageStyle("popup");
     setMaxAttendees("");
     setTickets([{ name: "General entry", description: "", price: "", capacity: "" }]);
   }
@@ -634,6 +638,7 @@ export default function EventsAdminClient() {
           show_description: showDescription,
           show_on_bar_page: showOnBar,
           requires_ticket: requiresTicket,
+          page_style: isDealEvent(category, subcategory) ? "popup" : pageStyle,
           bookable: true,
           max_attendees: maxAttendees ? parseInt(maxAttendees, 10) : null,
           registration_open: true,
@@ -1015,6 +1020,15 @@ export default function EventsAdminClient() {
                 </p>
               </Field>
             )}
+          </Section>
+
+          {/* Public page style */}
+          <Section title="How it shows online">
+            <PageStyleSelector
+              value={pageStyle}
+              onChange={setPageStyle}
+              isDeal={isDealEvent(category, subcategory)}
+            />
           </Section>
 
           {/* Tickets */}
@@ -1473,6 +1487,11 @@ function EditEventModal({
   const [posterQrUrl, setPosterQrUrl] = useState<string>(
     event.poster_qr_url ?? "",
   );
+
+  // Public face: pop-up (default) or full page. Deals are always a pop-up.
+  const [pageStyle, setPageStyle] = useState<"popup" | "page">(
+    event.page_style === "page" ? "page" : "popup",
+  );
   const [posterDayLabel, setPosterDayLabel] = useState<string>(
     event.poster_day_label ?? "",
   );
@@ -1649,6 +1668,7 @@ function EditEventModal({
         show_on_bar_page: showOnBar,
         registration_open: registrationOpen,
         blocks_table_bookings: blocksTableBookings,
+        page_style: isDealEvent(category, subcategory) ? "popup" : pageStyle,
         poster_url: nextPosterUrl || null,
         // Persist the print-ready flyer render + its structured fields on
         // EDIT too (the create path already did; this path dropped them, so
@@ -2239,6 +2259,18 @@ function EditEventModal({
           </div>
         </div>
 
+        {/* ---- Public page style ---- */}
+        <div className="px-6 py-5">
+          <h4 className="mb-3 text-[10px] font-bold uppercase tracking-widest text-cream/50">
+            How it shows online
+          </h4>
+          <PageStyleSelector
+            value={pageStyle}
+            onChange={setPageStyle}
+            isDeal={isDealEvent(category, subcategory)}
+          />
+        </div>
+
         {/* ---- Ticket types ---- */}
         <div className="px-6 py-5">
           <div className="mb-3 flex items-center justify-between">
@@ -2501,6 +2533,57 @@ function Badge({ label }: { label: string }) {
     <span className="rounded-full bg-plonkTeal/15 px-2 py-0.5 text-[9px] font-bold uppercase tracking-wider text-plonkTeal">
       {label}
     </span>
+  );
+}
+
+// Choose the event's public face: a compact pop-up share card or a full
+// long-form page — both open at the same /event?o=<id> link. Deals are always
+// a pop-up, so the full-page option is locked off for them.
+function PageStyleSelector({
+  value,
+  onChange,
+  isDeal,
+}: {
+  value: "popup" | "page";
+  onChange: (v: "popup" | "page") => void;
+  isDeal: boolean;
+}) {
+  const effective = isDeal ? "popup" : value;
+  const opt = (
+    key: "popup" | "page",
+    title: string,
+    desc: string,
+    disabled: boolean,
+  ) => {
+    const active = effective === key;
+    return (
+      <button
+        type="button"
+        disabled={disabled}
+        onClick={() => !disabled && onChange(key)}
+        className={`flex-1 rounded-xl border p-3 text-left transition ${
+          active
+            ? "border-plonkTeal bg-plonkTeal/10"
+            : "border-cream/15 bg-ink/40 hover:border-cream/30"
+        } ${disabled ? "cursor-not-allowed opacity-40" : "cursor-pointer"}`}
+      >
+        <div className="text-sm font-bold text-cream">{title}</div>
+        <div className="mt-1 text-xs text-cream/55">{desc}</div>
+      </button>
+    );
+  };
+  return (
+    <div>
+      <div className="flex gap-3">
+        {opt("popup", "Pop-up", "Quick share card — poster, details, tickets.", false)}
+        {opt("page", "Full page", "Long-form page with a big hero and write-up.", isDeal)}
+      </div>
+      <p className="mt-2 text-xs text-cream/45">
+        {isDeal
+          ? "Deals always show as a pop-up."
+          : "Both open at the same shareable link (/event?o=…)."}
+      </p>
+    </div>
   );
 }
 
