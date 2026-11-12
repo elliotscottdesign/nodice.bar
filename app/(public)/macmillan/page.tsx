@@ -2,7 +2,6 @@
 
 import { useEffect, useMemo, useRef, useState } from "react";
 import MacmillanBooking from "@/components/MacmillanBooking";
-import EventsScroller from "@/components/EventsScroller";
 import { Editable } from "@/components/Editable";
 import { useContent } from "@/lib/content";
 import { loadMacmillanEvent, type MacmillanEvent } from "@/lib/db/macmillan";
@@ -42,14 +41,6 @@ const HOW_DEFAULTS = [
     title: "The grand showdown",
     body: "The winner of each skill level goes head to head at the end of the day to crown the 12-hour champion.",
   },
-];
-
-const WHATSON_DEFAULTS = [
-  "DJs spinning all day to keep the pace",
-  "Cocktail specials + a hearty food pop-up to keep your energy up",
-  "Our draught beers flowing (we're after a sponsor to raise even more)",
-  "A betting system so non-players can buy tokens, back their mates and win bar drinks — all proceeds to the fundraiser",
-  "Side quests between games: Carrom boards (pool's ancient ancestor) and a mini table for Beat the Bar",
 ];
 
 // "12:00:00" → "12pm", "16:00:00" → "4pm", "00:00:00" → "12am".
@@ -115,13 +106,6 @@ export default function MacmillanPage() {
     body: useContent(`macmillan.how${i + 1}_body`, s.body),
   }));
 
-  const whatsonEyebrow = useContent("macmillan.whatson_eyebrow", "All day long");
-  const whatsonTitle = useContent("macmillan.whatson_title", "What else is on");
-  const whatsonItems = WHATSON_DEFAULTS.map((item, i) => ({
-    key: `macmillan.whatson${i + 1}`,
-    text: useContent(`macmillan.whatson${i + 1}`, item),
-  }));
-
   const causeEyebrow = useContent("macmillan.cause_eyebrow", "Why we're doing it");
   const causeTitle = useContent("macmillan.cause_title", "Every £10 goes to Macmillan");
   const causeBody = useContent(
@@ -177,11 +161,6 @@ export default function MacmillanPage() {
 
   // This event and its three session tiers already own the top of the page —
   // the scroller is for everything ELSE that's on.
-  const excludeFromScroller = useMemo(
-    () => (event ? [event.id, ...tiers.map((t) => t.id)] : []),
-    [event, tiers],
-  );
-
   return (
     <main>
       {/* Text-only hero — no header image (founder Nov 2026), and the
@@ -332,25 +311,6 @@ export default function MacmillanPage() {
           </ol>
         </div>
       </section>
-
-      {/* ── Events scroller — the day's own programme, then what's coming up ──
-          Was a static bullet list. Now a side-scroller of pictures and
-          information fed by the events calendar (food nights, DJs, other games
-          nights), so adding an event in /admin/events puts it on this page. */}
-      <EventsScroller
-        className="bg-white/[0.02]"
-        eyebrow={<Editable k="macmillan.whatson_eyebrow">{whatsonEyebrow}</Editable>}
-        heading={<Editable k="macmillan.whatson_title">{whatsonTitle}</Editable>}
-        highlights={whatsonItems.map((item) => ({
-          key: item.key,
-          node: (
-            <Editable k={item.key} multiline>
-              {item.text}
-            </Editable>
-          ),
-        }))}
-        excludeIds={excludeFromScroller}
-      />
 
       {/* ── The cause ── */}
       <section className="px-6 py-16">
