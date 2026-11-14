@@ -433,3 +433,31 @@ export function isDateOnlineBookable(
 ): boolean {
   return isDateBookable(cfg, iso) && !bookingCutoffPassed(cfg, iso, now);
 }
+
+// ---------------------------------------------------------------
+// Same-day HARD 3pm cutoff for TABLE reservations (founder, 14 Nov 2026)
+// ---------------------------------------------------------------
+// "Online table bookings for a given date must close at 3pm on that date.
+//  Up to 2:59pm you can still grab a table for today; from 3pm today drops
+//  off (future days unaffected). After that, walk in and we'll seat you if
+//  we can." This is a flat wall-clock cutoff, independent of that day's
+//  opening time — stricter than, and ADDITIVE to, the "1 hour before we
+//  open" lead rule above (whichever hits first closes the day). It applies
+//  to the CUSTOMER /book/table flow only; the staff/office add-a-booking
+//  path never runs through this. Mirrored server-side in
+//  create-table-reservation so a crafted request can't slip past it.
+export const TABLE_SAME_DAY_CUTOFF_MIN = 15 * 60; // 15:00 Europe/London
+
+/** True once today's online TABLE booking window has closed because the
+ *  London wall-clock is at/after 3pm. Future dates are never closed by
+ *  this rule; past dates always are. Uses `londonNowParts` so it is
+ *  correct in BST and GMT, in a London browser or a UTC edge function. */
+export function tableSameDayCutoffPassed(
+  iso: string,
+  now: Date = new Date(),
+): boolean {
+  const { iso: todayIso, minutes: nowMin } = londonNowParts(now);
+  if (iso > todayIso) return false;
+  if (iso < todayIso) return true;
+  return nowMin >= TABLE_SAME_DAY_CUTOFF_MIN;
+}

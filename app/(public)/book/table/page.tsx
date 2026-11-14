@@ -8,6 +8,7 @@ import {
   effectiveOpenWindows,
   isDateBookable,
   bookingCutoffPassed,
+  tableSameDayCutoffPassed,
   recurringClosedDaysOfWeek,
   DAY_NAMES,
   type BookableProductConfig,
@@ -260,18 +261,26 @@ function TableBookingPageInner() {
   const blockedFromBooking =
     !!blockingEvent && (slotCutoffMin === null || slots.length === 0);
 
-  // Same-day cutoff: online table booking stops one hour before we open
-  // (founder rule 9 Oct 2026). Past that, the day is closed online — walk in.
+  // Same-day cutoffs (customer-facing hard stops for TODAY only; future
+  // days unaffected). Two rules, whichever hits first closes the day:
+  //   • 3pm hard cutoff (founder 14 Nov 2026): once London time ≥ 15:00,
+  //     today is no longer bookable online.
+  //   • 1-hour-before-open lead (founder 9 Oct 2026).
+  // Both are mirrored server-side in create-table-reservation so they
+  // can't be bypassed; staff/office add-a-booking never runs through here.
   const cutoffPassed = cfg ? bookingCutoffPassed(cfg, date) : false;
+  const hardCutoffPassed = tableSameDayCutoffPassed(date);
   const dayOpen = cfg ? isDateBookable(cfg, date) : false;
-  const closed = cfg ? !dayOpen || cutoffPassed : false;
+  const closed = cfg ? !dayOpen || cutoffPassed || hardCutoffPassed : false;
   const closedOverride = cfg?.overrides.find((o) => o.date === date && o.closed);
   const closedNote = closed
-    ? cutoffPassed && dayOpen
-      ? "Online booking for today has closed — we stop one hour before we open. Just walk in and ask at the bar."
-      : closedOverride?.note
-        ? `Closed: ${closedOverride.note}`
-        : `${DAY_NAMES[dayOfWeek(date)]} — closed.`
+    ? hardCutoffPassed && dayOpen
+      ? "Online table bookings for today are closed — pop in and we'll seat you if we can."
+      : cutoffPassed && dayOpen
+        ? "Online booking for today has closed — we stop one hour before we open. Just walk in and ask at the bar."
+        : closedOverride?.note
+          ? `Closed: ${closedOverride.note}`
+          : `${DAY_NAMES[dayOfWeek(date)]} — closed.`
     : "";
 
   async function submit(e: React.FormEvent) {
@@ -374,12 +383,12 @@ function TableBookingPageInner() {
             "Pick a time, tell us about your group. We'll save a table."}
         </p>
 
-        {/* Booking rule (founder 9 Oct 2026) — table booking closes online an
-            hour before opening; after that it's walk-in. */}
+        {/* Booking rule (founder 14 Nov 2026) — same-day online table booking
+            closes at 3pm. After that it's walk-in. */}
         <div className="mx-auto mt-6 max-w-xl rounded-xl border border-plonkPink/25 bg-plonkPink/5 px-5 py-4 text-center text-sm leading-relaxed text-cream/80">
           <span className="font-bold text-plonkPink">Booking rule:</span>{" "}
-          Online table bookings close <strong>1 hour before we open</strong> each
-          day — after that, just walk in and ask at the bar.
+          Same-day online table bookings close at <strong>3pm</strong> — after
+          that, just pop in and we'll seat you if we can.
         </div>
 
         {cfgLoaded && cfg && !cfg.product.enabled && (

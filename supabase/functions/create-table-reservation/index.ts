@@ -93,6 +93,18 @@ type TableBookingInput = {
 const BOOKING_CLOSE_LEAD_MIN = 60;
 
 // =============================================================
+// Same-day HARD 3pm cutoff (founder rule, 14 Nov 2026) — online table
+// booking for a date closes at 15:00 Europe/London on that date, flat,
+// regardless of opening time. Up to 2:59pm today is still bookable; from
+// 3:00pm today drops off (future days unaffected). Stricter than, and
+// additive to, the 1-hour-before-open lead rule — whichever hits first
+// closes the day. Mirrors /book/table so a crafted request can't slip a
+// late booking past. CUSTOMER path only — staff/office add-a-booking
+// writes directly to bar_reservations and never runs through this fn.
+// =============================================================
+const TABLE_SAME_DAY_CUTOFF_MIN = 15 * 60; // 15:00
+
+// =============================================================
 // Capacity gate (founder rule, 2026-10-13)
 // =============================================================
 // Two easy-to-change knobs:
@@ -109,6 +121,32 @@ const BOOKING_CLOSE_LEAD_MIN = 60;
 //                     This is a PER-DAY total, not per time-slot.
 const MAX_PARTY_SIZE = 20;
 const DAILY_CAPACITY = 60;
+
+// =============================================================
+// Bench table capacity (founder rule, 6 Nov 2026)
+// =============================================================
+// The real bookable tables are the TEN orange-chair tables along the
+// bench — T1 (the two-seater by the front door) through T10 — mirroring
+// the till floor plan (DEFAULT_FLOOR in the team-hub repo's
+// src/till/TillScreen.jsx). EACH TABLE SEATS 2, so the bench holds about
+// 10 tables / 20 covers AT ANY ONE SITTING. Online reservations must not
+// promise more bench tables than physically exist for an overlapping time
+// window — a party needing >2 uses multiple tables (ceil(party / 2)).
+//
+// EDIT THESE TWO NUMBERS to match the floor plan if the bench changes.
+// (The till ↔ booking live auto-integration is a later-stage job; for now
+// these numbers are kept in sync with the till plan by hand.)
+const BENCH_TABLE_COUNT = 10; // T1..T10 along the bench
+const SEATS_PER_BENCH_TABLE = 2; // each orange-chair table seats 2
+// Covers available on the bench per sitting (10 × 2 = 20). Handy for copy
+// / future tweaks; the gate itself counts TABLES, not raw covers.
+const BENCH_SEATS_PER_SITTING = BENCH_TABLE_COUNT * SEATS_PER_BENCH_TABLE;
+
+/** Tables a party of `partySize` needs on the bench — 2 seats per table,
+ *  so a group of 3 or 4 takes 2 tables, 5–6 takes 3, etc. */
+function benchTablesForParty(partySize: number): number {
+  return Math.max(1, Math.ceil(partySize / SEATS_PER_BENCH_TABLE));
+}
 
 function timeToMin(t: string): number {
   const [h, m] = t.split(":").map(Number);
@@ -279,6 +317,25 @@ Deno.serve(async (req) => {
   const cutoffErr = await bookingCutoffError("table", input.reservation_date);
   if (cutoffErr) return jsonResponse({ error: cutoffErr }, { status: 423 });
 
+  // Same-day HARD 3pm cutoff (founder rule 14 Nov 2026) — once the London
+  // wall-clock is at/after 3pm, today is no longer bookable online. Future
+  // dates are never closed by this; past dates are already caught above.
+  {
+    const { iso: todayIso, minutes: nowMin } = londonNowParts();
+    if (
+      input.reservation_date === todayIso &&
+      nowMin >= TABLE_SAME_DAY_CUTOFF_MIN
+    ) {
+      return jsonResponse(
+        {
+          error:
+            "Online table bookings for today are closed — pop in and we'll seat you if we can.",
+        },
+        { status: 423 },
+      );
+    }
+  }
+
   // ---------------------------------------------------------
   // Blocking-event check — match the client-side rule on /book/table.
   // If a World Cup match or food residency is on for this date with
@@ -352,11 +409,16 @@ Deno.serve(async (req) => {
   // not promised covers yet; the office confirms them, at which point
   // they start to count).
   // ---------------------------------------------------------
+  // One fetch of the day's confirmed+paid table rows powers BOTH gates:
+  //   (a) per-DAY cover gate  — sum of covers across the whole date.
+  //   (b) per-SITTING bench gate — tables in use during this booking's
+  //       overlapping time window (see below).
   let confirmedCoversToday = 0;
+  let benchTablesInUseThisSitting = 0;
   {
     const { data: sameDay, error: coverErr } = await db
       .from("bar_reservations")
-      .select("party_size, status")
+      .select("party_size, status, start_time, duration_minutes")
       .eq("reservation_date", input.reservation_date)
       .eq("kind", "table")
       .in("status", ["confirmed", "paid"]);
@@ -366,12 +428,50 @@ Deno.serve(async (req) => {
         { status: 500 },
       );
     }
+    // This booking's time window [start, start+duration) in minutes.
+    const thisStart = timeToMin(input.start_time);
+    const thisEnd = thisStart + input.duration_minutes;
     for (const row of sameDay ?? []) {
       confirmedCoversToday += row.party_size ?? 0;
+      // Bench gate: only rows whose time window OVERLAPS this booking's
+      // window compete for the same physical tables at the same sitting.
+      // Rows missing a start_time can't be placed on the overlap axis, so
+      // we conservatively count them as overlapping (better to hold for
+      // office review than to oversell the bench).
+      const rowStart =
+        typeof row.start_time === "string" && row.start_time
+          ? timeToMin(row.start_time)
+          : null;
+      const rowDur =
+        typeof row.duration_minutes === "number" && row.duration_minutes > 0
+          ? row.duration_minutes
+          : 0;
+      const overlaps =
+        rowStart === null ||
+        (rowStart < thisEnd && rowStart + rowDur > thisStart);
+      if (overlaps) {
+        benchTablesInUseThisSitting += benchTablesForParty(row.party_size ?? 0);
+      }
     }
   }
+
+  // Gate (a): per-DAY cover total across all sittings/turns (founder
+  // 13 Oct 2026). Gate (b): per-SITTING bench tables — this booking's
+  // tables + those already committed during its overlapping window must
+  // not exceed the physical bench (founder 6 Nov 2026). EITHER gate
+  // tripping routes the booking to the warm office-review hold (pending)
+  // rather than a hard rejection — the customer is never turned away, the
+  // office just confirms it by hand. Reconciliation of the two numbers
+  // (20-cover bench/sitting vs 60-cover/day) is intentional: 60/day spans
+  // multiple sittings/turns through the night; see the hand-over note.
   const dayTotalWithThis = confirmedCoversToday + input.party_size;
-  const overCapacity = dayTotalWithThis > DAILY_CAPACITY;
+  const overDailyCapacity = dayTotalWithThis > DAILY_CAPACITY;
+
+  const benchTablesWithThis =
+    benchTablesInUseThisSitting + benchTablesForParty(input.party_size);
+  const benchSittingFull = benchTablesWithThis > BENCH_TABLE_COUNT;
+
+  const overCapacity = overDailyCapacity || benchSittingFull;
   const bookingStatus = overCapacity ? "pending" : "confirmed";
 
   const { data: r, error: insertErr } = await db
