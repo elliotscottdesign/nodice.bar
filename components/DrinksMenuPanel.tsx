@@ -45,10 +45,6 @@ export default function DrinksMenuPanel() {
 
   return (
     <div>
-      <p className="mb-7 text-sm text-cream/60">
-        🏠 House drink — what&apos;s included when a deal says &ldquo;a house
-        drink&rdquo;.
-      </p>
       <div className="gap-x-10 sm:columns-2 lg:columns-3 [&>*]:mb-8 [&>*]:break-inside-avoid">
         {drinks.map((s) => (
           <div key={s.id}>
@@ -77,9 +73,6 @@ export default function DrinksMenuPanel() {
                     <div className="flex items-baseline justify-between gap-3">
                       <span className="font-semibold text-cream">
                         {it.name}
-                        {it.house && (
-                          <span title="House drink — included in deals"> 🏠</span>
-                        )}
                       </span>
                       {it.price && (
                         <span className="shrink-0 font-semibold tabular-nums text-cream/85">
