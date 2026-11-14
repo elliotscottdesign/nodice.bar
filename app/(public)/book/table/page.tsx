@@ -9,6 +9,8 @@ import {
   isDateBookable,
   bookingCutoffPassed,
   tableSameDayCutoffPassed,
+  slotTooSoon,
+  TABLE_MIN_LEAD_MIN,
   recurringClosedDaysOfWeek,
   DAY_NAMES,
   type BookableProductConfig,
@@ -283,10 +285,23 @@ function TableBookingPageInner() {
           : `${DAY_NAMES[dayOfWeek(date)]} — closed.`
     : "";
 
+  // Clear a chosen time if it slips inside the 3-hour lead window (e.g.
+  // the clock ticks past it, or the date changes to today). Keeps the
+  // submit honest without the customer re-checking.
+  useEffect(() => {
+    if (time && slotTooSoon(date, time)) setTime("");
+  }, [time, date]);
+
   async function submit(e: React.FormEvent) {
     e.preventDefault();
     if (!time) {
       setError("Pick a time first.");
+      return;
+    }
+    if (slotTooSoon(date, time)) {
+      setError(
+        "That time's too soon — online table bookings need at least 3 hours' notice. Pick a later slot, or pop in and ask at the bar.",
+      );
       return;
     }
     setSubmitting(true);
@@ -551,25 +566,47 @@ function TableBookingPageInner() {
                     {DAY_NAMES[dayOfWeek(date)]}. Try a shorter duration.
                   </p>
                 ) : (
-                  <div className="grid grid-cols-4 gap-2 sm:grid-cols-6">
-                    {slots.map((s) => {
-                      const active = time === s;
-                      return (
-                        <button
-                          key={s}
-                          type="button"
-                          onClick={() => setTime(s)}
-                          className={`rounded-lg border px-2 py-3 text-sm transition ${
-                            active
-                              ? "border-plonkPink bg-plonkPink text-white"
-                              : "border-cream/15 bg-ink/40 text-cream hover:border-cream/40"
-                          }`}
-                        >
-                          {s}
-                        </button>
-                      );
-                    })}
-                  </div>
+                  <>
+                    <div className="grid grid-cols-4 gap-2 sm:grid-cols-6">
+                      {slots.map((s) => {
+                        const active = time === s;
+                        // 3-hour lead time (founder 14 Nov 2026): a slot
+                        // less than 3h from now can't be booked online.
+                        // Grey + disable it so the customer sees why the
+                        // early times aren't available.
+                        const tooSoon = slotTooSoon(date, s);
+                        return (
+                          <button
+                            key={s}
+                            type="button"
+                            disabled={tooSoon}
+                            onClick={() => setTime(s)}
+                            title={
+                              tooSoon
+                                ? "Too soon — we need at least 3 hours' notice"
+                                : undefined
+                            }
+                            className={`rounded-lg border px-2 py-3 text-sm transition ${
+                              tooSoon
+                                ? "cursor-not-allowed border-cream/10 bg-ink/20 text-cream/30 line-through"
+                                : active
+                                  ? "border-plonkPink bg-plonkPink text-white"
+                                  : "border-cream/15 bg-ink/40 text-cream hover:border-cream/40"
+                            }`}
+                          >
+                            {s}
+                          </button>
+                        );
+                      })}
+                    </div>
+                    {slots.some((s) => slotTooSoon(date, s)) && (
+                      <p className="mt-3 text-xs text-cream/55">
+                        Greyed-out times are within {TABLE_MIN_LEAD_MIN / 60} hours
+                        from now — we need a little notice to get your table ready.
+                        Pick a later time, or pop in and ask at the bar.
+                      </p>
+                    )}
+                  </>
                 )}
               </FormSection>
             )}

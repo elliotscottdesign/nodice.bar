@@ -105,6 +105,14 @@ const BOOKING_CLOSE_LEAD_MIN = 60;
 const TABLE_SAME_DAY_CUTOFF_MIN = 15 * 60; // 15:00
 
 // =============================================================
+// Minimum lead time (founder rule, 14 Nov 2026) — the chosen arrival slot
+// must be at least 3 hours ahead of now (Europe/London), on ANY day, not
+// just same-day. Applies alongside the 3pm cutoff — whichever is stricter
+// wins. Mirrors the greyed-out slots on /book/table. CUSTOMER path only.
+// =============================================================
+const TABLE_MIN_LEAD_MIN = 180; // 3 hours
+
+// =============================================================
 // Capacity gate (founder rule, 2026-10-13)
 // =============================================================
 // Two easy-to-change knobs:
@@ -294,6 +302,11 @@ Deno.serve(async (req) => {
   // Same-day HARD 3pm cutoff (founder rule 14 Nov 2026) — once the London
   // wall-clock is at/after 3pm, today is no longer bookable online. Future
   // dates are never closed by this; past dates are already caught above.
+  // This edge fn is the PUBLIC endpoint — the CRM/admin add-a-booking path
+  // writes bar_reservations directly and never comes through here, so the
+  // cutoffs below are a hard customer stop with no bypass flag (an override
+  // param on a public endpoint would just be a hole). Staff override lives
+  // in the CRM's own write path.
   {
     const { iso: todayIso, minutes: nowMin } = londonNowParts();
     if (
@@ -304,6 +317,27 @@ Deno.serve(async (req) => {
         {
           error:
             "Online table bookings for today are closed — pop in and we'll seat you if we can.",
+        },
+        { status: 423 },
+      );
+    }
+
+    // Minimum 3-hour lead time (founder rule 14 Nov 2026) — the chosen
+    // arrival slot must be at least TABLE_MIN_LEAD_MIN ahead of now, any
+    // day. Mirrors the greyed-out slots on /book/table. Day-boundary-safe
+    // via a whole-day offset so a next-day early slot isn't falsely blocked.
+    const dayDiff = Math.round(
+      (Date.parse(`${input.reservation_date}T00:00:00Z`) -
+        Date.parse(`${todayIso}T00:00:00Z`)) /
+        86_400_000,
+    );
+    const slotMinutesFromNow =
+      dayDiff * 1440 + timeToMin(input.start_time) - nowMin;
+    if (slotMinutesFromNow < TABLE_MIN_LEAD_MIN) {
+      return jsonResponse(
+        {
+          error:
+            "That time's too soon — online table bookings need at least 3 hours' notice. Pick a later slot, or pop in and ask at the bar.",
         },
         { status: 423 },
       );
