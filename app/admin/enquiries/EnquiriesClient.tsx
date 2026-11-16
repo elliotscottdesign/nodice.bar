@@ -2455,7 +2455,7 @@ function PosterSection({
   };
   // The venue address sits along the bottom of an invitation by default (the
   // office can edit or clear it in the maker). A saved footer wins on reopen.
-  const VENUE_ADDRESS = "407 MENTMORE TERRACE\nLONDON FIELDS · E8 3PH";
+  const VENUE_ADDRESS = "407 MENTMORE TERRACE\nLONDON FIELDS · E8 3PH · NODICE.BAR";
   const savedFooter = recStr("footer");
 
   // The poster headline / date / time. Seeded from the last saved poster if
