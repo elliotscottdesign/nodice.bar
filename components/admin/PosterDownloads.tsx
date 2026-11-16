@@ -140,7 +140,11 @@ export default function PosterDownloads({
         dealLayout: isDeal,
         textBox: isDeal ? r.textBox : undefined,
         titleScale: r.titleSize,
-        footer: isDeal ? r.footer : undefined,
+        // Pass the stored foot line whenever the recipe has one — a booking
+        // invitation keeps the venue address here, not just a deal's bottom
+        // line. Without this the post / story / A3 downloads fell back to the
+        // default "NO DICE · date" and dropped the address.
+        footer: r.footer || undefined,
         dayLabel: isDeal ? r.dayLabel : undefined,
         qrUrl: isDeal && r.qr ? r.qr : undefined,
         imgs: imgs.map((img, i) => ({
