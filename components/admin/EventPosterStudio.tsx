@@ -1424,23 +1424,36 @@ export default function EventPosterStudio({
                   <span className="mb-1 block text-[10px] text-cream/45">
                     Bottom line (optional)
                   </span>
-                  <input
-                    value={footer}
-                    onChange={(e) => {
-                      setFooterTouched(true);
-                      setFooter(e.target.value);
-                    }}
-                    maxLength={allowFooter ? 60 : 40}
-                    placeholder={
-                      allowFooter
-                        ? "e.g. 407 MENTMORE TERRACE · LONDON FIELDS · E8 3PH"
-                        : "e.g. £10 / FREE ENTRY / DEAL OF THE DAY"
-                    }
-                    className="w-full rounded-md border border-cream/20 bg-ink px-2.5 py-1.5 text-xs text-cream placeholder:text-cream/35"
-                  />
+                  {allowFooter ? (
+                    // A booking invitation carries the venue address here, over
+                    // as many lines as you type — each line is sized to fill the
+                    // width, so two short lines read bigger than one long one.
+                    <textarea
+                      value={footer}
+                      onChange={(e) => {
+                        setFooterTouched(true);
+                        setFooter(e.target.value);
+                      }}
+                      rows={2}
+                      maxLength={80}
+                      placeholder={"407 MENTMORE TERRACE\nLONDON FIELDS · E8 3PH"}
+                      className="w-full resize-none rounded-md border border-cream/20 bg-ink px-2.5 py-1.5 text-xs leading-snug text-cream placeholder:text-cream/35"
+                    />
+                  ) : (
+                    <input
+                      value={footer}
+                      onChange={(e) => {
+                        setFooterTouched(true);
+                        setFooter(e.target.value);
+                      }}
+                      maxLength={40}
+                      placeholder="e.g. £10 / FREE ENTRY / DEAL OF THE DAY"
+                      className="w-full rounded-md border border-cream/20 bg-ink px-2.5 py-1.5 text-xs text-cream placeholder:text-cream/35"
+                    />
+                  )}
                   <span className="mt-1 block text-[9px] leading-relaxed text-cream/35">
                     {allowFooter
-                      ? "The line along the very bottom — e.g. the venue address. Leave blank to keep the usual “NO DICE · date” line."
+                      ? "The lines along the very bottom — e.g. the venue address. Put it on two lines (press Return) and it reads bigger. Leave blank to keep the usual “NO DICE · date” line."
                       : "Replaces the “NO DICE · date” line at the foot — on the poster, the zine cover and the printed flyer. Leave blank to keep the usual line."}
                   </span>
                 </label>

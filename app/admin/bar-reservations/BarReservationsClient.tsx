@@ -1113,7 +1113,7 @@ function InvitationMaker({
     const v = recipe?.[k];
     return typeof v === "string" ? v : "";
   };
-  const VENUE_ADDRESS = "407 MENTMORE TERRACE · LONDON FIELDS · E8 3PH";
+  const VENUE_ADDRESS = "407 MENTMORE TERRACE\nLONDON FIELDS · E8 3PH";
   const savedFooter = recStr("footer");
 
   const [title, setTitle] = useState(() => recStr("_title") || r.name || "");
