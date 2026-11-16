@@ -162,6 +162,7 @@ export default function EventPosterStudio({
   defaultRecipe,
   defaultDayLabel,
   hideCopyInputs,
+  allowFooter,
   onSave,
   saveLabel = "Save onto this event",
   saveHint,
@@ -210,6 +211,13 @@ export default function EventPosterStudio({
    * props — the maker is then just photo + colour + generate.
    */
   hideCopyInputs?: boolean;
+  /**
+   * Let a NON-deal poster set the foot line too (normally deal-only). Shows the
+   * "Bottom line" input and passes it through to the render + the saved recipe,
+   * so a booking poster can carry e.g. the venue address along the bottom. The
+   * day-label / QR fields stay deal-only.
+   */
+  allowFooter?: boolean;
   /**
    * Called once the poster(s) are safely in storage. Ordinary events get just
    * `poster_url`; a deal also gets the flyer render + the structured fields.
@@ -443,7 +451,7 @@ export default function EventPosterStudio({
         dealLayout: isDeal,
         textBox: isDeal && textBox,
         dayLabel: isDeal && dayLabel.trim() ? dayLabel.trim() : undefined,
-        footer: isDeal ? footer : undefined,
+        footer: isDeal || allowFooter ? footer : undefined,
         qrUrl: isDeal && qr.trim() ? qr.trim() : undefined,
         colour,
         size,
@@ -735,7 +743,9 @@ export default function EventPosterStudio({
                 dayLabel: dayLabel.trim(),
                 qr: qr.trim(),
               }
-            : {}),
+            : allowFooter
+              ? { footer: footer.trim() }
+              : {}),
         },
       };
 
@@ -1408,7 +1418,7 @@ export default function EventPosterStudio({
                 />
               </label>
             </div>
-            {isDeal && (
+            {(isDeal || allowFooter) && (
               <div className="mt-2 grid gap-2 sm:grid-cols-2">
                 <label className="block">
                   <span className="mb-1 block text-[10px] text-cream/45">
@@ -1420,35 +1430,41 @@ export default function EventPosterStudio({
                       setFooterTouched(true);
                       setFooter(e.target.value);
                     }}
-                    maxLength={40}
-                    placeholder="e.g. £10 / FREE ENTRY / DEAL OF THE DAY"
+                    maxLength={allowFooter ? 60 : 40}
+                    placeholder={
+                      allowFooter
+                        ? "e.g. 407 MENTMORE TERRACE · LONDON FIELDS · E8 3PH"
+                        : "e.g. £10 / FREE ENTRY / DEAL OF THE DAY"
+                    }
                     className="w-full rounded-md border border-cream/20 bg-ink px-2.5 py-1.5 text-xs text-cream placeholder:text-cream/35"
                   />
                   <span className="mt-1 block text-[9px] leading-relaxed text-cream/35">
-                    Replaces the “NO DICE · date” line at the foot — on the
-                    poster, the zine cover and the printed flyer. Leave blank to
-                    keep the usual line.
+                    {allowFooter
+                      ? "The line along the very bottom — e.g. the venue address. Leave blank to keep the usual “NO DICE · date” line."
+                      : "Replaces the “NO DICE · date” line at the foot — on the poster, the zine cover and the printed flyer. Leave blank to keep the usual line."}
                   </span>
                 </label>
-                <label className="block">
-                  <span className="mb-1 block text-[10px] text-cream/45">
-                    Day shown (optional)
-                  </span>
-                  <input
-                    value={dayLabel}
-                    onChange={(e) => {
-                      setDayTouched(true);
-                      setDayLabel(e.target.value);
-                    }}
-                    maxLength={40}
-                    placeholder="e.g. TUESDAYS / MON-THURS"
-                    className="w-full rounded-md border border-cream/20 bg-ink px-2.5 py-1.5 text-xs text-cream placeholder:text-cream/35"
-                  />
-                  <span className="mt-1 block text-[9px] leading-relaxed text-cream/35">
-                    The day on the bottom line (a deal repeats, so a single date
-                    would be wrong). Blank shows the event date.
-                  </span>
-                </label>
+                {isDeal && (
+                  <label className="block">
+                    <span className="mb-1 block text-[10px] text-cream/45">
+                      Day shown (optional)
+                    </span>
+                    <input
+                      value={dayLabel}
+                      onChange={(e) => {
+                        setDayTouched(true);
+                        setDayLabel(e.target.value);
+                      }}
+                      maxLength={40}
+                      placeholder="e.g. TUESDAYS / MON-THURS"
+                      className="w-full rounded-md border border-cream/20 bg-ink px-2.5 py-1.5 text-xs text-cream placeholder:text-cream/35"
+                    />
+                    <span className="mt-1 block text-[9px] leading-relaxed text-cream/35">
+                      The day on the bottom line (a deal repeats, so a single date
+                      would be wrong). Blank shows the event date.
+                    </span>
+                  </label>
+                )}
               </div>
             )}
           </div>

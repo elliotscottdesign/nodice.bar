@@ -2453,6 +2453,10 @@ function PosterSection({
     const v = recipe?.[k];
     return typeof v === "string" ? v : "";
   };
+  // The venue address sits along the bottom of an invitation by default (the
+  // office can edit or clear it in the maker). A saved footer wins on reopen.
+  const VENUE_ADDRESS = "407 MENTMORE TERRACE · LONDON FIELDS · E8 3PH";
+  const savedFooter = recStr("footer");
 
   // The poster headline / date / time. Seeded from the last saved poster if
   // there is one, otherwise from the enquiry itself. The office can make the
@@ -2480,8 +2484,8 @@ function PosterSection({
   async function removePoster() {
     if (
       !(await confirmDialog(
-        "Take the poster off this booking? The artwork stays in the media library — this just clears it from the enquiry.",
-        { title: "Remove poster?", confirmLabel: "Remove", danger: false },
+        "Take the invitation off this CRM entry? The artwork stays in the media library — this just clears it from the entry.",
+        { title: "Remove invitation?", confirmLabel: "Remove", danger: false },
       ))
     )
       return;
@@ -2505,7 +2509,7 @@ function PosterSection({
         className="flex w-full items-center justify-between px-3 py-2 text-[11px] font-bold uppercase tracking-widest text-cream/70"
       >
         <span className="flex items-center gap-2">
-          <span>🎉 Booking poster</span>
+          <span>🎟 Invitation maker</span>
           {enquiry.poster_url && !open && (
             // eslint-disable-next-line @next/next/no-img-element
             <img
@@ -2520,10 +2524,10 @@ function PosterSection({
       {open && (
         <div className="space-y-3 px-3 pb-3">
           <p className="text-[10px] leading-relaxed text-cream/45">
-            The same poster maker the events use. Fill in the name, date and a
-            picture — the poster is kept on this booking, so it&apos;s still here
-            when you come back, and you can download it below to send to the
-            customer or print.
+            The same poster maker the events use — for a party invitation. Fill
+            in the name, date and a picture; the invitation is kept on this CRM
+            entry, so it&apos;s still here when you come back, and you can
+            download it below to send to the customer or print.
           </p>
 
           {/* The three things that drive the poster — the rest (photo, colour,
@@ -2531,7 +2535,7 @@ function PosterSection({
           <div className="grid gap-2 sm:grid-cols-2">
             <label className="block sm:col-span-2">
               <span className="mb-1 block text-[10px] font-bold uppercase tracking-widest text-cream/50">
-                Name on the poster
+                Name on the invitation
               </span>
               <input
                 value={title}
@@ -2580,8 +2584,10 @@ function PosterSection({
               description={enquiry.notes || null}
               currentPosterUrl={enquiry.poster_url || null}
               defaultRecipe={recipe}
-              saveLabel="Save this poster to the booking"
-              saveHint="Kept on the booking — reopen this drawer and it's still here. Download it below to send or print."
+              allowFooter
+              defaultFooter={savedFooter || VENUE_ADDRESS}
+              saveLabel="Save this invitation"
+              saveHint="Kept on this CRM entry — reopen and it's still here. Download it below to send or print."
               onSave={async (r) => {
                 setBusy(true);
                 try {
@@ -2596,7 +2602,7 @@ function PosterSection({
                       _time: time.trim(),
                     },
                   });
-                  setSaved("Saved — this poster is kept on the booking.");
+                  setSaved("Saved — this invitation is kept on this CRM entry.");
                   await onReload();
                 } finally {
                   setBusy(false);
@@ -2605,7 +2611,7 @@ function PosterSection({
             />
           ) : (
             <p className="rounded-lg border border-dashed border-cream/20 px-3 py-4 text-center text-[11px] text-cream/50">
-              Enter a name and a date above to start the poster.
+              Enter a name and a date above to start the invitation.
             </p>
           )}
 
@@ -2614,7 +2620,7 @@ function PosterSection({
           {enquiry.poster_url && (
             <div className="rounded-xl border border-cream/10 bg-ink/30 p-4">
               <p className="mb-2 text-[10px] font-bold uppercase tracking-widest text-cream/55">
-                Download this poster
+                Download this invitation
               </p>
               <PosterDownloads
                 name={title.trim() || enquiry.event_type || "Poster"}
@@ -2629,7 +2635,7 @@ function PosterSection({
                 onClick={removePoster}
                 className="mt-3 w-full rounded-full border border-cream/15 px-4 py-2 text-[11px] font-bold uppercase tracking-wider text-cream/60 transition hover:bg-cream/5 disabled:opacity-40"
               >
-                Remove poster from booking
+                Remove invitation
               </button>
             </div>
           )}
