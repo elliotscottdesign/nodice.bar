@@ -2,6 +2,7 @@
 
 import type { DbCalendarEvent } from "@/lib/db/calendarEvents";
 import { supabase } from "@/lib/supabase";
+import { DJ_PUBLIC } from "@/lib/publicLabels";
 
 // =============================================================
 // djNights — confirmed DJ nights, auto-fed onto the /events calendar
@@ -187,13 +188,13 @@ export async function loadDjNightsInRange(
         n.night_name ? `“${n.night_name}”` : null,
         genres || null,
       ].filter(Boolean) as string[];
-      const fallback = n.kind === "opendecks" ? "Open Decks" : "DJ set";
+      const fallback = n.kind === "opendecks" ? "Open Decks" : DJ_PUBLIC.singular;
       const key = djEventKey(n.date as string, n.slot);
       return {
         id: key,
         event_date: n.date as string,
         start_time: n.start || null,
-        title: n.dj || "DJ",
+        title: n.dj || DJ_PUBLIC.singular,
         body: bodyParts.join(" — ") || fallback,
         image_url: n.image || "",
         // Tapping a DJ card opens that DJ's Instagram. The feed already
