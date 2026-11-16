@@ -35,9 +35,33 @@ export type DbBarReservation = {
   parent_reservation_id: string | null;
   /** Office pool add-on: the Stripe Payment Link the customer pays later. */
   pool_pay_url: string | null;
+  /** Party invitation built for this booking (🎟 Invitation maker). The
+   *  rendered artwork + the recipe it was built from, kept on the booking. */
+  poster_url: string | null;
+  poster_recipe: Record<string, unknown> | null;
   created_at: string;
   updated_at: string;
 };
+
+// Save / clear the invitation the office built for this booking. Minimal
+// update, no select-back — the caller reloads the list.
+export async function setBarReservationPoster(
+  id: string,
+  poster: { poster_url: string; poster_recipe: Record<string, unknown> | null },
+): Promise<void> {
+  const { error } = await supabase()
+    .from("bar_reservations")
+    .update({ poster_url: poster.poster_url, poster_recipe: poster.poster_recipe })
+    .eq("id", id);
+  if (error) throw error;
+}
+export async function clearBarReservationPoster(id: string): Promise<void> {
+  const { error } = await supabase()
+    .from("bar_reservations")
+    .update({ poster_url: null, poster_recipe: null })
+    .eq("id", id);
+  if (error) throw error;
+}
 
 export type NewBarReservation = Omit<
   DbBarReservation,
