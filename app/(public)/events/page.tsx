@@ -16,6 +16,7 @@ import {
 } from "@/lib/db/leadPriority";
 import { useContent, useImage } from "@/lib/content";
 import { mediaUrl } from "@/lib/media";
+import { chipDisplay, DJ_PUBLIC } from "@/lib/publicLabels";
 import { Editable } from "@/components/Editable";
 import PageHero from "@/components/PageHero";
 import { useEditMode } from "@/lib/editMode";
@@ -539,7 +540,7 @@ export default function EventsPage() {
                             >
                               ✓
                             </span>
-                            {c}
+                            {chipDisplay(c)}
                           </button>
                         </li>
                       );
@@ -766,7 +767,7 @@ export default function EventsPage() {
             >
               <div className="min-w-[200px] flex-1">
                 <p className="text-[11px] font-bold uppercase tracking-[0.2em] text-plonkTeal">
-                  DJs in training
+                  {DJ_PUBLIC.recruitEyebrow}
                 </p>
                 <p className="mt-0.5 font-display text-xl uppercase tracking-wide text-cream sm:text-2xl">
                   Wanna play open decks?
@@ -793,11 +794,11 @@ export default function EventsPage() {
                   Want to play at No Dice?
                 </p>
                 <p className="mt-1 text-sm leading-snug text-cream/70">
-                  Set up a DJ profile and our booking team will be in touch — no need to know anyone.
+                  {DJ_PUBLIC.recruitProfile} and our booking team will be in touch — no need to know anyone.
                 </p>
               </div>
               <span className="shrink-0 rounded-full bg-plonkPink px-6 py-3 text-xs font-bold uppercase tracking-[0.18em] text-white transition group-hover:opacity-90">
-                Become a No Dice DJ
+                {DJ_PUBLIC.recruitCta}
               </span>
             </a>
 
@@ -976,7 +977,7 @@ function DayEventCard({
             <span
               className={`mb-1 inline-block rounded-full px-1.5 py-0.5 text-[9px] font-bold uppercase tracking-wider ${cc.pill}`}
             >
-              {primary}
+              {chipDisplay(primary)}
             </span>
           )}
           {/* Title line doubles as the link affordance: the ↗ is pinned to its

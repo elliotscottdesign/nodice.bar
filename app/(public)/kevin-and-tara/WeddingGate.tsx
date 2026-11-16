@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
+import { DJ_PUBLIC } from "@/lib/publicLabels";
 
 // ─── Passphrase wall for the wedding page ────────────────────────
 // Guests unlock the evening details with the code on their invite
@@ -206,8 +207,8 @@ export default function WeddingGate() {
             <span className={`italic ${gold}`}>How</span> the night runs
           </h2>
           <p className="mx-auto mt-6 max-w-2xl text-[1.02rem] leading-relaxed text-cream/85 sm:text-lg">
-            Everything is served to you — no queues, no scrambles. Two DJs
-            across the evening. The whole space is yours from 6pm. Sixty of
+            Everything is served to you — no queues, no scrambles.{" "}
+            {DJ_PUBLIC.weddingMusic}. The whole space is yours from 6pm. Sixty of
             your favourite people, all in the same room, dancing.
           </p>
         </div>

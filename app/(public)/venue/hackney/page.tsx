@@ -4,6 +4,7 @@ import Link from "next/link";
 import PageHero from "@/components/PageHero";
 import Reveal from "@/components/Reveal";
 import { useContent, useImage, useGallery } from "@/lib/content";
+import { DJ_PUBLIC } from "@/lib/publicLabels";
 import { Editable, DisplayImage } from "@/components/Editable";
 import ManageGalleryLink from "@/components/ManageGalleryLink";
 
@@ -94,7 +95,7 @@ export default function HackneyPage() {
   );
   const eventsIntro = useContent(
     "venue.hackney.events.intro",
-    "DJs, pool tournaments, parties, pop-ups — what's on at the games bar.",
+    `${DJ_PUBLIC.plural}, pool tournaments, parties, pop-ups — what's on at the games bar.`,
   );
   // Events posters — read from hackney.events gallery, fall back to
   // the bundled JPGs. Plain <img> tags below (not next/image) to keep

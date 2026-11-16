@@ -39,6 +39,7 @@ import BigEmailCta from "@/components/BigEmailCta";
 import InstagramFeed from "@/components/InstagramFeed";
 import { useContent, useImage, useGallery } from "@/lib/content";
 import { Editable } from "@/components/Editable";
+import { DJ_PUBLIC } from "@/lib/publicLabels";
 
 // Icon component shape shared by the lucide icons and our custom SVGs
 // below — just the props the grid actually passes.
@@ -173,7 +174,7 @@ const DEFAULTS = {
   capacity:
     "Standing: 100\nDining: 40\nCabaret: 60",
   features:
-    "Two pool tables\nFull cocktail bar\nCraft beer on draught\nSnack Bar kitchen\nNatural light\nWi-Fi\nStorage space\nStep-free access\nFull DJ booth — 2× Technics SL-1200 MK7, 2× Pioneer CDJ-900 Nexus, Omnitronic TRM-222 rotary mixer, Sony MDR7508 headphones, 2× iLoud monitor speakers\nMartin Audio sound system — bring your own DJ or plug in a playlist",
+    `Two pool tables\nFull cocktail bar\nCraft beer on draught\nSnack Bar kitchen\nNatural light\nWi-Fi\nStorage space\nStep-free access\n${DJ_PUBLIC.boothLabel} — 2× Technics SL-1200 MK7, 2× Pioneer CDJ-900 Nexus, Omnitronic TRM-222 rotary mixer, Sony MDR7508 headphones, 2× iLoud monitor speakers\nMartin Audio sound system — ${DJ_PUBLIC.boothBring}`,
   catering:
     "In-house catering\nApproved caterers only\nWe provide alcohol\nKitchen facilities available\nHalal available\nKosher available\nComplimentary water\nExtensive vegan menu\nExtensive gluten-free menu\nBuyout fee for external catering\nno: External catering (general)\nno: BYOB alcohol\nno: Complimentary tea & coffee",
   licences:
@@ -181,7 +182,7 @@ const DEFAULTS = {
   welcomes:
     // DJ kit lines mirror the booth spec in the DJ portal ("The kit") —
     // keep the two in step if the booth changes.
-    "Games competitions / tournaments\nVIP events\nPrivate parties\nFull DJ booth — 2× Technics SL-1200 MK7, 2× Pioneer CDJ-900 Nexus, Omnitronic TRM-222 rotary mixer, Sony MDR7508 headphones, 2× iLoud monitor speakers\nMartin Audio sound system — bring your own DJ or plug in a playlist",
+    `Games competitions / tournaments\nVIP events\nPrivate parties\n${DJ_PUBLIC.boothLabel} — 2× Technics SL-1200 MK7, 2× Pioneer CDJ-900 Nexus, Omnitronic TRM-222 rotary mixer, Sony MDR7508 headphones, 2× iLoud monitor speakers\nMartin Audio sound system — ${DJ_PUBLIC.boothBring}`,
   house_rules: "No outside catering. No BYOB. Background music only.",
 };
 

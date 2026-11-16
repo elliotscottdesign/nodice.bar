@@ -8,6 +8,7 @@
 
 import { useEffect, useMemo, useState } from "react";
 import { buildMonthGrid, ymd } from "@/lib/calendarGrid";
+import { DJ_PUBLIC } from "@/lib/publicLabels";
 import {
   loadOpenDecksCalendar,
   submitOpenDeckSignup,
@@ -173,7 +174,7 @@ export default function OpenDecksPage() {
                         key={i}
                         disabled={!open}
                         onClick={() => pickDate(iso)}
-                        title={booked ? "DJ night booked" : full ? "Fully booked" : open ? "Open decks — tap to sign up" : ""}
+                        title={booked ? `${DJ_PUBLIC.singular} booked` : full ? "Fully booked" : open ? "Open decks — tap to sign up" : ""}
                         className={`aspect-square rounded-lg flex flex-col items-center justify-center text-base transition ${
                           open ? "border border-plonkPink/50 bg-plonkPink/10 text-cream hover:border-plonkPink hover:bg-plonkPink/20 font-semibold"
                           : booked || full ? "border border-cream/10 bg-cream/[0.03] text-cream/30"
@@ -215,7 +216,7 @@ export default function OpenDecksPage() {
                 <p className="mt-1 text-sm text-creamDim">{fmtLong(date)} · {slotLabel}</p>
                 <div className="mt-4 space-y-4">
                   <div>
-                    <label className="mb-1.5 block text-xs uppercase tracking-[0.12em] text-creamDim">DJ name</label>
+                    <label className="mb-1.5 block text-xs uppercase tracking-[0.12em] text-creamDim">{DJ_PUBLIC.performerName}</label>
                     <input className={inputCls} value={f.name} onChange={(e) => setF((p) => ({ ...p, name: e.target.value }))} placeholder="What should we put on the poster?" maxLength={80} />
                   </div>
                   <div className="grid gap-4 sm:grid-cols-2">

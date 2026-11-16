@@ -19,6 +19,7 @@
 import { useEffect, useState } from "react";
 import EventTicketBooking from "@/components/EventTicketBooking";
 import { loadShareEvent, type ShareEvent } from "@/lib/db/shareEvent";
+import { DJ_PUBLIC } from "@/lib/publicLabels";
 
 function formatDate(iso: string): string {
   const d = new Date(`${iso}T00:00:00`);
@@ -47,7 +48,7 @@ const VENUE_ADDRESS =
   "No Dice, Arch 407, Mentmore Terrace, London Fields, Hackney, E8 3PH";
 
 const CATEGORY_EYEBROW: Record<string, string> = {
-  dj_night: "DJ · Live music",
+  dj_night: DJ_PUBLIC.singular,
   pool_special: "Pool · Special event",
   special_event: "Special event",
   bingo: "Comedy & bingo",

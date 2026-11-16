@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useMemo, useState } from "react";
+import { DJ_PUBLIC } from "@/lib/publicLabels";
 
 // =============================================================
 // XmasPackageBuilder — pick-and-mix Christmas party enquiry
@@ -60,7 +61,7 @@ const FALLBACK_GAMES: Item[] = [
   { id: "karaoke", name: "Karaoke", price: 10 },
 ];
 const FALLBACK_NOTES: Item[] = [
-  { id: "dj_note", name: "🎧 DJ included on Thu / Fri / Sat night sessions", price: 0, note: true },
+  { id: "dj_note", name: `🎧 ${DJ_PUBLIC.singular} included on Thu / Fri / Sat night sessions`, price: 0, note: true },
 ];
 const XMAS_PKG_FN = `${SUPABASE_URL}/functions/v1/xmas-packages`;
 
@@ -102,11 +103,11 @@ const SLOTS = [
   { id: "mw-lunch", label: "Mon–Wed · 12:00–3:00pm", min: 3000, note: "£3,000 min spend · 3 hrs" },
   { id: "mw-aft", label: "Mon–Wed · 3:30–6:30pm", min: 3000, note: "£3,000 min spend · 3 hrs" },
   { id: "mw-eve", label: "Mon–Wed · 7:00–11:00pm", min: 4000, note: "£4,000 min spend · 4 hrs" },
-  { id: "thufri-eve", label: "Thu/Fri · 7:00pm–12:00am", min: 7000, note: "£7,000 min spend · free DJ" },
-  { id: "sat-day", label: "Saturday · 12:00–6:30pm", min: 7000, note: "£7,000 min spend · free DJ" },
-  { id: "sat-eve", label: "Saturday · 7:00pm–12:00am", min: 7000, note: "£7,000 min spend · free DJ" },
-  { id: "sun-day", label: "Sunday · 12:00–6:00pm", min: 7000, note: "£7,000 min spend · free DJ" },
-  { id: "sun-eve", label: "Sunday · 7:00pm–12:00am", min: 7000, note: "£7,000 min spend · free DJ" },
+  { id: "thufri-eve", label: "Thu/Fri · 7:00pm–12:00am", min: 7000, note: `£7,000 min spend · free ${DJ_PUBLIC.singular}` },
+  { id: "sat-day", label: "Saturday · 12:00–6:30pm", min: 7000, note: `£7,000 min spend · free ${DJ_PUBLIC.singular}` },
+  { id: "sat-eve", label: "Saturday · 7:00pm–12:00am", min: 7000, note: `£7,000 min spend · free ${DJ_PUBLIC.singular}` },
+  { id: "sun-day", label: "Sunday · 12:00–6:00pm", min: 7000, note: `£7,000 min spend · free ${DJ_PUBLIC.singular}` },
+  { id: "sun-eve", label: "Sunday · 7:00pm–12:00am", min: 7000, note: `£7,000 min spend · free ${DJ_PUBLIC.singular}` },
 ] as const;
 
 const MAX_DATES = 4;

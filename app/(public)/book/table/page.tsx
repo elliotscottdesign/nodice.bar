@@ -2,6 +2,7 @@
 
 import { Suspense, useEffect, useMemo, useState } from "react";
 import { useSearchParams } from "next/navigation";
+import { DJ_PUBLIC } from "@/lib/publicLabels";
 import {
   loadBookableProductConfig,
   availableSlotsForDate,
@@ -48,7 +49,7 @@ const HEARD_FROM_OPTIONS = [
   { value: "Friend / word of mouth", label: "Friend / word of mouth" },
   { value: "Walked past", label: "Walked past the venue" },
   { value: "Google search", label: "Google search" },
-  { value: "A DJ / event night", label: "A DJ / event night" },
+  { value: "A DJ / event night", label: `A ${DJ_PUBLIC.singular} / event night` },
   { value: "Press / blog", label: "Press / blog" },
   { value: "Other", label: "Other" },
 ];

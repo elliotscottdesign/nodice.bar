@@ -9,6 +9,7 @@ import {
   type DbCalendarEvent,
 } from "@/lib/db/calendarEvents";
 import { loadDjNightsInRange, isDjEvent } from "@/lib/db/djNights";
+import { DJ_PUBLIC } from "@/lib/publicLabels";
 import { loadOpenDecksNightsInRange } from "@/lib/db/openDecksNights";
 import {
   loadLeadOrder,
@@ -108,7 +109,7 @@ const GROUP_LABEL: Record<Group, string> = {
   POOL: "Pool",
   FOOD: "Food",
   DEAL: "Deal",
-  DJ: "DJ Night",
+  DJ: DJ_PUBLIC.cardLabel,
 };
 
 // An event can belong to MORE THAN ONE rail (founder 10 Nov): a DJ night that
