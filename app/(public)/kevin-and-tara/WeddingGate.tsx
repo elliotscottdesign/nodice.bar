@@ -151,7 +151,7 @@ export default function WeddingGate() {
               role="alert"
               className="mt-4 text-[0.9rem] italic text-[#f6c1c1]"
             >
-              That code isn't right — check your invite.
+              That code isn't right, check your invite.
             </p>
           )}
 
@@ -184,7 +184,7 @@ export default function WeddingGate() {
               Tara
             </h1>
             <p className="mx-auto mt-8 max-w-xl font-display text-lg italic leading-snug text-cream/90 sm:mt-10 sm:text-2xl">
-              An evening at the arches — under the vines, over London Fields.
+              An evening at the arches, under the vines, over London Fields.
             </p>
             <div className="mt-8 flex flex-wrap items-center justify-center gap-x-4 gap-y-2 text-[10px] uppercase tracking-[0.24em] text-cream/70 sm:mt-10 sm:gap-x-6 sm:text-[11px] sm:tracking-[0.32em]">
               <span>Doors 6pm</span>
@@ -207,7 +207,7 @@ export default function WeddingGate() {
             <span className={`italic ${gold}`}>How</span> the night runs
           </h2>
           <p className="mx-auto mt-6 max-w-2xl text-[1.02rem] leading-relaxed text-cream/85 sm:text-lg">
-            Everything is served to you — no queues, no scrambles.{" "}
+            Everything is served to you, no queues, no scrambles.{" "}
             {DJ_PUBLIC.weddingMusic}. The whole space is yours from 6pm. Sixty of
             your favourite people, all in the same room, dancing.
           </p>
@@ -216,14 +216,14 @@ export default function WeddingGate() {
         <div className="mx-auto mt-16 max-w-3xl space-y-14">
           <TimeStop time="6:00 pm" title="Bubbles & oysters">
             <p>
-              Guests welcomed at the door with a glass of sparkling — Prosecco
+              Guests welcomed at the door with a glass of sparkling, Prosecco
               or English fizz, poured on arrival. Passed around by the floor
               team so nobody's stuck waiting at the bar for a first drink.
             </p>
             <p>
               <strong className="text-cream">120 Maldon oysters</strong> from
               <span className={gold}> Fin and Flounder</span>, our local
-              fishmongers — shucked live by Joe. Two per guest, served on trays
+              fishmongers, shucked live by Joe. Two per guest, served on trays
               with two dressings on the side: an apple &amp; dill vinaigrette
               (bright and grassy) and a classic lemon &amp; Tabasco mignonette.
               On the same round, small plates of <em>gildas</em> (anchovy,
@@ -244,40 +244,40 @@ export default function WeddingGate() {
           <TimeStop time="6:45 pm" title="Build-your-own tacos">
             <p>
               Central taco station opens. Everything is gluten-free, nut-free,
-              and sesame-free — no allergen dance for anyone.
+              and sesame-free, no allergen dance for anyone.
             </p>
             <ul className="list-inside list-[square] space-y-1 marker:text-[#c6a664]">
               <li>
                 <strong className="text-cream">Smoked brisket</strong>{" "}
                 <em className="text-cream/60">
-                  — slow-cooked at Smoky Lokos, Spitalfields, delivered ready
+, slow-cooked at Smoky Lokos, Spitalfields, delivered ready
                   to serve.
                 </em>
               </li>
               <li>
                 <strong className="text-cream">Smoked chicken</strong>{" "}
                 <em className="text-cream/60">
-                  — same shop, same treatment, pulled and warm.
+, same shop, same treatment, pulled and warm.
                 </em>
               </li>
               <li>
                 <strong className="text-cream">Vegan / veggie option</strong>{" "}
                 <em className="text-cream/60">
-                  — from the Fabián's-birthday menu we ran last summer. Same
+, from the Fabián's-birthday menu we ran last summer. Same
                   crowd-favourite spread.
                 </em>
               </li>
             </ul>
             <p>
               On the side: charred padrón peppers and a proper potato salad.
-              The station stays out — pick back up whenever.
+              The station stays out, pick back up whenever.
             </p>
           </TimeStop>
 
           <TimeStop time="7:45 pm" title="Josh on the decks">
             <p>
               Room-goes-up shift change. Josh takes over and pushes the energy
-              up — dancing officially begins.
+              up, dancing officially begins.
             </p>
           </TimeStop>
 
@@ -285,7 +285,7 @@ export default function WeddingGate() {
             <p>
               Two large wheels of{" "}
               <strong className="text-cream">Gubbeen</strong> from Fermoy, West
-              Cork — a milky, hazelnut-edged washed-rind cheese. About{" "}
+              Cork, a milky, hazelnut-edged washed-rind cheese. About{" "}
               <strong className="text-cream">80g per guest</strong>, cut through
               the room from 9 until 10 on proper boards.
             </p>
@@ -293,7 +293,7 @@ export default function WeddingGate() {
               <li>
                 <strong className="text-cream">Nairn's rough oatcakes</strong>{" "}
                 <em className="text-cream/60">
-                  — earthy and honest, traditional Irish pairing.
+, earthy and honest, traditional Irish pairing.
                 </em>
               </li>
               <li>
@@ -301,21 +301,21 @@ export default function WeddingGate() {
                   Peter's Yard sourdough crispbreads
                 </strong>{" "}
                 <em className="text-cream/60">
-                  — light and neutral, lets the cheese lead.
+, light and neutral, lets the cheese lead.
                 </em>
               </li>
               <li>
                 <strong className="text-cream">
                   Fresh black figs, split and drizzled with wildflower honey
                 </strong>{" "}
-                <em className="text-cream/60">— August is peak fig.</em>
+                <em className="text-cream/60">August is peak fig.</em>
               </li>
               <li>
                 <strong className="text-cream">
                   Egremont Russet apple, thin-sliced
                 </strong>{" "}
                 <em className="text-cream/60">
-                  — bookends the apple &amp; dill from the oyster round.
+, bookends the apple &amp; dill from the oyster round.
                 </em>
               </li>
             </ul>
@@ -340,7 +340,7 @@ export default function WeddingGate() {
           <p className="mx-auto mt-6 max-w-2xl text-[1.02rem] leading-relaxed text-cream/85 sm:text-lg">
             The full bar is open all night for anyone who wants a bespoke
             drink, but two easy-serve signatures are pre-batched and ready to
-            pour in jugs so nobody's waiting. One boozy, one soft — both
+            pour in jugs so nobody's waiting. One boozy, one soft, both
             proper.
           </p>
         </div>
@@ -357,7 +357,7 @@ export default function WeddingGate() {
               Aged rum + amaro, pressed lemon, honey, a touch of oloroso and a
               strong hit of ripe stone fruit. Batched cold and served in jugs
               with a slab of ice, mint sprig on top. Whiskey version on
-              request — same shape, bourbon in place of rum.
+              request, same shape, bourbon in place of rum.
             </p>
           </div>
 
@@ -371,7 +371,7 @@ export default function WeddingGate() {
             <p className="mt-4 text-sm leading-relaxed text-cream/85">
               Cold-brewed jasmine + green tea, muddled fresh mint, lemon, a
               whisper of honey. Served long over crushed ice with cucumber. As
-              good as the punch — no compromise.
+              good as the punch, no compromise.
             </p>
           </div>
         </div>
@@ -395,7 +395,7 @@ export default function WeddingGate() {
           <p className="mx-auto mt-6 max-w-2xl text-[1.02rem] leading-relaxed text-cream/85 sm:text-lg">
             One clean lemon-ice slushie running all night in its own corner.
             Pour a cup, pick a spirit from the rail behind, and it's your
-            cocktail — the frozen version of whatever you drink. Or leave it
+            cocktail, the frozen version of whatever you drink. Or leave it
             plain: it's a proper cold lemonade on its own.
           </p>
         </div>
@@ -409,7 +409,7 @@ export default function WeddingGate() {
               <span className={`italic ${gold}`}>Lemon</span> &amp; Ice
             </h3>
             <p className="mt-4 text-sm leading-relaxed text-cream/85">
-              Fresh-pressed lemon, sugar, water — spun cold in the slushie
+              Fresh-pressed lemon, sugar, water, spun cold in the slushie
               machine until it holds its shape in the cup. Deliberately
               simple: the spirit choice is what makes it yours.
             </p>
@@ -424,27 +424,27 @@ export default function WeddingGate() {
             </h3>
             <ul className="mt-4 space-y-1.5 text-sm leading-relaxed text-cream/85">
               <li>
-                <strong className="text-cream">Vodka</strong> — the clean,
+                <strong className="text-cream">Vodka</strong>, the clean,
                 crushable one
               </li>
               <li>
-                <strong className="text-cream">Gin</strong> — botanical, hard
+                <strong className="text-cream">Gin</strong>, botanical, hard
                 to beat with lemon
               </li>
               <li>
-                <strong className="text-cream">Tequila blanco</strong> —
+                <strong className="text-cream">Tequila blanco</strong>,
                 turns it into a frozen margarita
               </li>
               <li>
-                <strong className="text-cream">Aged rum</strong> — softer, a
+                <strong className="text-cream">Aged rum</strong>, softer, a
                 proper daiquiri lean
               </li>
               <li>
-                <strong className="text-cream">Bourbon</strong> — sours-adjacent,
+                <strong className="text-cream">Bourbon</strong>, sours-adjacent,
                 a warmer edge
               </li>
               <li className="italic text-cream/70">
-                Or leave it as-is — it's a great lemonade too.
+                Or leave it as-is, it's a great lemonade too.
               </li>
             </ul>
           </div>
@@ -488,7 +488,7 @@ export default function WeddingGate() {
             <dd className="mt-3 leading-relaxed text-cream">
               Saturday 29 August 2026
               <br />
-              6pm — late
+              6pm, late
             </dd>
           </div>
           <div className={`rounded-2xl ${BG_PANEL} p-5 sm:p-7`}>

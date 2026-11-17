@@ -51,7 +51,7 @@ const FALLBACK_CARDS = [
     name: "Special Events",
     tagline: "Fundraisers · Comps · One-offs",
     blurb:
-      "Charity fundraisers, one-off competitions and limited nights — grab a ticket before they sell out.",
+      "Charity fundraisers, one-off competitions and limited nights, grab a ticket before they sell out.",
     image: "",
     // Leads to the current special-events page (the Macmillan 12-hour pool
     // marathon). Repoint via /admin/content/info/book → book.special.href when
@@ -62,7 +62,7 @@ const FALLBACK_CARDS = [
     id: "parties",
     name: "Party Inquiries",
     tagline: "Private hire · Groups of 10+",
-    blurb: "Birthdays, leaving dos, brand activations — whole-venue or arch-end hires.",
+    blurb: "Birthdays, leaving dos, brand activations, whole-venue or arch-end hires.",
     image: "",
     href: "/parties",
   },
@@ -103,7 +103,7 @@ export default function BookPage() {
   const heroTitle = useContent("book.hero_title", "Book Now");
   const heroIntro = useContent(
     "book.hero_intro",
-    "Pick your booking — table, pool or party.",
+    "Pick your booking, table, pool or party.",
   );
 
   // Per-card hooks. Each card's five fields (name/tagline/blurb/image/

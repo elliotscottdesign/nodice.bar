@@ -5,7 +5,7 @@ import RedirectToPool from "@/components/RedirectToPool";
 // no customer ever lands here from a fresh booking. Kept as a
 // redirect for stale email links.
 export const metadata = {
-  title: "Tournament sign-up — No Dice",
+  title: "Tournament sign-up | No Dice",
 };
 
 export default function TournamentSuccessPage() {

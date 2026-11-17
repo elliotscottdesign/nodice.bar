@@ -61,7 +61,7 @@ export default function Header() {
   return (
     <header className="sticky top-0 z-50 bg-black">
       <div className="flex w-full items-center justify-between px-6 py-4">
-        <Link href="/" className="flex items-center" aria-label={`${logoAlt} — home`}>
+        <Link href="/" className="flex items-center" aria-label={`${logoAlt}, home`}>
           <Image
             src={logoImage}
             alt={logoAlt}

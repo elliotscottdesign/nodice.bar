@@ -38,7 +38,7 @@ export default function DrinksMenuPanel() {
   if (drinks.length === 0) {
     return (
       <p className="py-16 text-center text-sm text-cream/55">
-        Menu&apos;s having a moment — try again in a sec.
+        Menu&apos;s having a moment. Try again in a sec.
       </p>
     );
   }

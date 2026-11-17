@@ -38,7 +38,7 @@ type Item = {
 // Fallbacks (mirror KIDS_DEFAULT_DOC in the team hub) — used until the backend
 // loads, or if it's ever empty/unreachable, so the builder is never blank.
 const FALLBACK_GAMES: Item[] = [
-  { id: "kids_games_pack", name: "Games pack", price: 8, desc: "Golf · pool · ping pong — parental supervision at all times" },
+  { id: "kids_games_pack", name: "Games pack", price: 8, desc: "Golf · pool · ping pong, parental supervision at all times" },
   { id: "kids_treasure", name: "Treasure hunt", price: 6, desc: "Around the venue, prizes for the winners" },
   { id: "kids_karaoke", name: "Karaoke", price: 5 },
   { id: "kids_face_paint", name: "Face painting", price: 7, desc: "Professional face painter" },
@@ -61,9 +61,9 @@ const FALLBACK_NOTES: Item[] = [
 // Party time slots (2-hour sittings). Simple fixed list — the kids party is a
 // set sitting, not a min-spend private hire.
 const TIME_SLOTS = [
-  "11:00am – 1:00pm",
-  "1:30pm – 3:30pm",
-  "4:00pm – 6:00pm",
+  "11:00am-1:00pm",
+  "1:30pm-3:30pm",
+  "4:00pm-6:00pm",
 ];
 
 const MAX_DATES = 3;
@@ -315,7 +315,7 @@ export default function KidsPartyBuilder() {
     } catch (err) {
       setState("error");
       setError(
-        err instanceof Error ? err.message : "Something went wrong — email hello@nodice.bar instead.",
+        err instanceof Error ? err.message : "Something went wrong. Email hello@nodice.bar instead.",
       );
     }
   }
@@ -327,7 +327,7 @@ export default function KidsPartyBuilder() {
           Party sent 🎈
         </div>
         <p className="mx-auto mt-3 max-w-md text-sm leading-relaxed text-cream/80">
-          Thanks {name.trim().split(" ")[0]} — your kids&apos; party plan is with the
+          Thanks {name.trim().split(" ")[0]}, your kids&apos; party plan is with the
           No Dice team, and a copy is on its way to your inbox. We&apos;ll be in touch
           to confirm availability and send a firm quote.
         </p>
@@ -343,7 +343,7 @@ export default function KidsPartyBuilder() {
       <section>
         <StepHeading n={1} title="Pick your dates" />
         <p className="mt-1 text-center text-sm text-cream/60">
-          Choose up to {MAX_DATES} options that work — we&apos;ll confirm availability.
+          Choose up to {MAX_DATES} options that work, we&apos;ll confirm availability.
         </p>
         <div className="mx-auto mt-4 max-w-sm rounded-2xl border border-cream/10 bg-white/[0.02] p-4">
           <div className="flex items-center justify-between">
@@ -506,7 +506,7 @@ export default function KidsPartyBuilder() {
           {!detailsOk && (
             <p className="mt-2 text-center text-xs text-cream/45">Add your name, a valid email and how many children to send.</p>
           )}
-          <p className="mt-2 text-center text-xs text-cream/45">This is an enquiry, not a confirmed booking — we&apos;ll be in touch to lock it in.</p>
+          <p className="mt-2 text-center text-xs text-cream/45">This is an enquiry, not a confirmed booking, we&apos;ll be in touch to lock it in.</p>
         </div>
       </section>
     </form>

@@ -278,12 +278,12 @@ function TableBookingPageInner() {
   const closedOverride = cfg?.overrides.find((o) => o.date === date && o.closed);
   const closedNote = closed
     ? hardCutoffPassed && dayOpen
-      ? "Online table bookings for today are closed — pop in and we'll seat you if we can."
+      ? "Online table bookings for today are closed, pop in and we'll seat you if we can."
       : cutoffPassed && dayOpen
-        ? "Online booking for today has closed — we stop one hour before we open. Just walk in and ask at the bar."
+        ? "Online booking for today has closed, we stop one hour before we open. Just walk in and ask at the bar."
         : closedOverride?.note
           ? `Closed: ${closedOverride.note}`
-          : `${DAY_NAMES[dayOfWeek(date)]} — closed.`
+          : `${DAY_NAMES[dayOfWeek(date)]}, closed.`
     : "";
 
   // Clear a chosen time if it slips inside the 3-hour lead window (e.g.
@@ -301,7 +301,7 @@ function TableBookingPageInner() {
     }
     if (slotTooSoon(date, time)) {
       setError(
-        "That time's too soon — online table bookings need at least 3 hours' notice. Pick a later slot, or pop in and ask at the bar.",
+        "That time's too soon, online table bookings need at least 3 hours' notice. Pick a later slot, or pop in and ask at the bar.",
       );
       return;
     }
@@ -348,7 +348,7 @@ function TableBookingPageInner() {
       setError(
         err instanceof Error
           ? err.message
-          : "Couldn't send the reservation — try again or email info@nodice.bar",
+          : "Couldn't send the reservation. Try again or email info@nodice.bar",
       );
     } finally {
       setSubmitting(false);
@@ -368,11 +368,11 @@ function TableBookingPageInner() {
           </h1>
           {bookingStatus === "pending" ? (
             <p className="mt-4 text-base text-cream/75">
-              Thanks — your request for {time} on {date} has gone through to our
+              Thanks, your request for {time} on {date} has gone through to our
               office. It's a busy day, so to make sure we can look after you
               properly a member of the team will be in touch at{" "}
               <strong>{email}</strong> shortly to confirm. Nothing's held just
-              yet — we'll sort the details with you first.
+              yet, we'll sort the details with you first.
             </p>
           ) : (
             <p className="mt-4 text-base text-cream/75">
@@ -403,7 +403,7 @@ function TableBookingPageInner() {
             closes at 3pm. After that it's walk-in. */}
         <div className="mx-auto mt-6 max-w-xl rounded-xl border border-plonkPink/25 bg-plonkPink/5 px-5 py-4 text-center text-sm leading-relaxed text-cream/80">
           <span className="font-bold text-plonkPink">Booking rule:</span>{" "}
-          Same-day online table bookings close at <strong>3pm</strong> — after
+          Same-day online table bookings close at <strong>3pm</strong>, after
           that, just pop in and we'll seat you if we can.
         </div>
 
@@ -414,7 +414,7 @@ function TableBookingPageInner() {
             </div>
             <p className="mt-4 text-base text-cream/85">
               {cfg.product.closed_message ||
-                "Table bookings are temporarily paused — DM us on Instagram."}
+                "Table bookings are temporarily paused, DM us on Instagram."}
             </p>
             <a
               href="https://instagram.com/nodice.bar"
@@ -466,7 +466,7 @@ function TableBookingPageInner() {
                 </h3>
                 <p className="mt-3 max-w-prose text-sm text-cream/75">
                   {blockingEvent.category === "food_event"
-                    ? "We've got a food residency on that night — the kitchen team uses the dining tables for guests. See what's on, or pick a different night."
+                    ? "We've got a food residency on that night, the kitchen team uses the dining tables for guests. See what's on, or pick a different night."
                     : "We've got something on that night that needs the dining tables. See what's on, or pick a different night."}
                 </p>
                 <div className="mt-5 flex flex-wrap gap-3">
@@ -507,7 +507,7 @@ function TableBookingPageInner() {
                     {blockingEvent.event_start_time
                       ? formatTimeLabel(blockingEvent.event_start_time)
                       : "the venue"}
-                    {" "}— dining tables must be cleared by{" "}
+                    , dining tables must be cleared by{" "}
                     <span className="font-semibold text-cream">
                       {formatMinuteOfDay(slotCutoffMin)}
                     </span>
@@ -542,7 +542,7 @@ function TableBookingPageInner() {
                     {blockingEvent.event_start_time
                       ? formatTimeLabel(blockingEvent.event_start_time)
                       : "the venue"}{" "}
-                    — we need tables back by{" "}
+, we need tables back by{" "}
                     <span className="font-semibold text-cream">
                       {formatMinuteOfDay(slotCutoffMin)}
                     </span>
@@ -584,7 +584,7 @@ function TableBookingPageInner() {
                             onClick={() => setTime(s)}
                             title={
                               tooSoon
-                                ? "Too soon — we need at least 3 hours' notice"
+                                ? "Too soon. We need at least 3 hours' notice"
                                 : undefined
                             }
                             className={`rounded-lg border px-2 py-3 text-sm transition ${
@@ -603,7 +603,7 @@ function TableBookingPageInner() {
                     {slots.some((s) => slotTooSoon(date, s)) && (
                       <p className="mt-3 text-xs text-cream/55">
                         Greyed-out times are within {TABLE_MIN_LEAD_MIN / 60} hours
-                        from now — we need a little notice to get your table ready.
+                        from now, we need a little notice to get your table ready.
                         Pick a later time, or pop in and ask at the bar.
                       </p>
                     )}
@@ -780,7 +780,7 @@ function TableBookingPageInner() {
                 className="mt-0.5 h-4 w-4 shrink-0 accent-plonkPink"
               />
               <span>
-                Keep me in the loop — send me No Dice news, upcoming events
+                Keep me in the loop, send me No Dice news, upcoming events
                 and the odd offer. Unsubscribe anytime.
               </span>
             </label>

@@ -25,7 +25,7 @@ export default function PlonkPage() {
   );
   const hours = useContent(
     "plonk.hours",
-    "Tue–Thu 4pm–12am · Fri 4pm–2am · Sat 12pm–2am · Sun 12pm–11pm",
+    "Tue-Thu 4pm-12am · Fri 4pm-2am · Sat 12pm-2am · Sun 12pm-11pm",
   );
   const instagram = useContent(
     "plonk.instagram",

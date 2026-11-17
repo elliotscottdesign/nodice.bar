@@ -16,7 +16,7 @@ export default function DealsPage() {
   const title = useContent("deals.title", "Deals");
   const intro = useContent(
     "deals.intro",
-    "A deal for every day of the week. Straight from the calendar — always current.",
+    "A deal for every day of the week. Straight from the calendar, always current.",
   );
 
   const [deals, setDeals] = useState<CalendarDeal[]>([]);
@@ -64,7 +64,7 @@ export default function DealsPage() {
             </p>
           ) : deals.length === 0 ? (
             <p className="py-16 text-center text-sm text-cream/55">
-              No deal posters on the calendar yet — check back soon.
+              No deal posters on the calendar yet, check back soon.
             </p>
           ) : (
             // 4 across on tablet+ (→ 4×2 for 8 deals), 2 across on mobile.

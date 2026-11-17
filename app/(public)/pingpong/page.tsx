@@ -60,15 +60,15 @@ function formatFee(pence: number): string {
 const HOW_IT_WORKS: Array<{ title: string; body: string }> = [
   {
     title: "Teams of two, Sundays 6pm",
-    body: "Grab a partner, pick a Sunday — free to enter. Swiss rounds mean you play all night — nobody's knocked out early.",
+    body: "Grab a partner, pick a Sunday, free to enter. Swiss rounds mean you play all night, nobody's knocked out early.",
   },
   {
     title: "First to 11, win by 2",
-    body: "Proper table tennis scoring. Rounds are first to 11 (deuce past 10–10), the knockout is first to 21, and the final's best of 3.",
+    body: "Proper table tennis scoring. Rounds are first to 11 (deuce past 10-10), the knockout is first to 21, and the final's best of 3.",
   },
   {
     title: "Prizes for BOTH of you",
-    body: "Bar-tab prizes — £30 / £20 / £10 — split half-and-half, one voucher each, straight to each player's inbox.",
+    body: "Bar-tab prizes, £30 / £20 / £10, split half-and-half, one voucher each, straight to each player's inbox.",
   },
   {
     title: "Season league",
@@ -79,15 +79,15 @@ const HOW_IT_WORKS: Array<{ title: string; body: string }> = [
 const FAQS: Array<{ q: string; a: string }> = [
   {
     q: "Can we just turn up on the night?",
-    a: "Yes — walk-ups are welcome while spots last. Booking ahead guarantees your team's place (Sundays fill up).",
+    a: "Yes, walk-ups are welcome while spots last. Booking ahead guarantees your team's place (Sundays fill up).",
   },
   {
     q: "What if we're running late?",
-    a: "You can join mid-tournament — late teams enter the standings and get drawn into the next round.",
+    a: "You can join mid-tournament, late teams enter the standings and get drawn into the next round.",
   },
   {
     q: "How do league points work?",
-    a: "1st place 5 · 2nd 4 · 3rd 3 · turning up 1 · topping the rounds table +1. Use the same captain email every night — that's how your team's points add up.",
+    a: "1st place 5 · 2nd 4 · 3rd 3 · turning up 1 · topping the rounds table +1. Use the same captain email every night, that's how your team's points add up.",
   },
 ];
 
@@ -98,17 +98,17 @@ export default function PingPongPage() {
   const title = useContent("pingpong.title", "Ping Pong");
   const intro = useContent(
     "pingpong.intro",
-    "Our ping pong table is free to play for all customers at the bar — a professional-standard Cornilleau outdoor table outside, bats and balls provided, and a host of local talent ready to beat you if you're looking for some singles action.",
+    "Our ping pong table is free to play for all customers at the bar, a professional-standard Cornilleau outdoor table outside, bats and balls provided, and a host of local talent ready to beat you if you're looking for some singles action.",
   );
   const tournamentLine = useContent(
     "pingpong.tournament_line",
-    "We also run a Sunday ping pong tournament every week from 6pm — rounds, then knockouts, with bar-tab prizes to be won. Sign up below.",
+    "We also run a Sunday ping pong tournament every week from 6pm, rounds, then knockouts, with bar-tab prizes to be won. Sign up below.",
   );
   const ctaLabel = useContent("pingpong.cta_label", "Book your team in · £12");
   const sundaysTitle = useContent("pingpong.sundays_title", "Pick your Sunday");
   const sundaysIntro = useContent(
     "pingpong.sundays_intro",
-    "Free to enter — grab a partner and sign up. Both players' names and emails at sign-up — any prize you win splits between you.",
+    "Free to enter, grab a partner and sign up. Both players' names and emails at sign-up, any prize you win splits between you.",
   );
   // How-it-works cards + FAQ + league copy — every visible sentence on the
   // page is CMS-editable (founder hit the wall on the static cards, 7 Aug 2026).
@@ -308,7 +308,7 @@ export default function PingPongPage() {
             {err && <p className="text-center text-sm text-plonkPink">{err}</p>}
             {!loading && !err && upcoming.length === 0 && (
               <p className="text-center text-sm text-cream/55">
-                No Sundays on sale right now — check back soon.
+                No Sundays on sale right now, check back soon.
               </p>
             )}
 
@@ -403,7 +403,7 @@ export default function PingPongPage() {
           <div className="mt-8 overflow-x-auto rounded-2xl border border-pong/25 bg-white/[0.03] p-5">
             {!league || league.length === 0 ? (
               <p className="py-6 text-center text-sm text-cream/55">
-                The league starts with the first Sunday — your team could be
+                The league starts with the first Sunday, your team could be
                 top of this table.
               </p>
             ) : (

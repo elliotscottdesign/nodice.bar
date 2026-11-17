@@ -34,7 +34,7 @@ export default function LeaguePage() {
             Pool League
           </h1>
           <p className="mx-auto mt-4 max-w-xl text-base text-violet-100/70">
-            Every Wednesday counts. Play the nights, climb the table — the top 8 seed the grand final.
+            Every Wednesday counts. Play the nights, climb the table, the top 8 seed the grand final.
           </p>
         </div>
 

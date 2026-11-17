@@ -117,7 +117,7 @@ export default function BingoBooking({
       };
       const mob = normUk(phone);
       if (!mob) {
-        setError("Please enter a UK mobile number (starting 07 or +44 7) — we text you the details before the night.");
+        setError("Please enter a UK mobile number (starting 07 or +44 7), we text you the details before the night.");
         return;
       }
       setSubmitting(true);
@@ -147,7 +147,7 @@ export default function BingoBooking({
         setClientSecret(body.client_secret);
         setPhase("paying");
       } catch (err) {
-        setError(err instanceof Error ? err.message : "Couldn't start payment — try again or email info@nodice.bar");
+        setError(err instanceof Error ? err.message : "Couldn't start payment. Try again or email info@nodice.bar");
         setPhase("error");
       } finally {
         setSubmitting(false);
@@ -162,7 +162,7 @@ export default function BingoBooking({
         <div className="text-xs font-bold uppercase tracking-[0.3em] text-plonkTeal">Payment received</div>
         <h3 className="mt-3 font-display text-2xl uppercase tracking-wider text-cream">You&apos;re in</h3>
         <p className="mt-3 text-sm text-cream/75">
-          {quantity === 1 ? "Your ticket is booked" : `All ${quantity} tickets are booked`} — confirmation is on its way to <strong>{email}</strong>. See you on the night — eyes down!
+          {quantity === 1 ? "Your ticket is booked" : `All ${quantity} tickets are booked`}, confirmation is on its way to <strong>{email}</strong>. See you on the night, eyes down!
         </p>
         <button
           type="button"
@@ -216,7 +216,7 @@ export default function BingoBooking({
               inputMode="tel"
               value={phone}
               onChange={(e) => setPhone(e.target.value.replace(/[^0-9+ ]/g, ""))}
-              placeholder="UK mobile (07… or +44 7…) — we text you the details"
+              placeholder="UK mobile (07… or +44 7…), we text you the details"
               className="w-full rounded-lg border border-cream/15 bg-ink/40 px-4 py-3 text-base text-cream focus:border-[#D65139] focus:outline-none"
             />
           </div>
@@ -268,7 +268,7 @@ export default function BingoBooking({
               </span>
             </div>
             <p className="mt-2 text-xs text-cream/50">
-              One person per ticket — book up to {MAX_TICKETS} in one go.
+              One person per ticket, book up to {MAX_TICKETS} in one go.
             </p>
           </div>
 
@@ -281,7 +281,7 @@ export default function BingoBooking({
               style={{ accentColor: RED }}
             />
             <span>
-              Keep me in the loop — send me No Dice news, future bingo dates and the odd offer. Unsubscribe anytime.
+              Keep me in the loop, send me No Dice news, future bingo dates and the odd offer. Unsubscribe anytime.
             </span>
           </label>
 
@@ -390,9 +390,9 @@ function PaymentForm({
     });
     if (error) {
       if (error.type === "card_error" || error.type === "validation_error") {
-        setInlineErr(error.message ?? "Card declined — try a different card.");
+        setInlineErr(error.message ?? "Card declined. Try a different card.");
       } else {
-        onError(error.message ?? "Payment failed — please try again.");
+        onError(error.message ?? "Payment failed. Please try again.");
       }
       setSubmitting(false);
       return;

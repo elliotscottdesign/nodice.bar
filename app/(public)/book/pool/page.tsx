@@ -229,10 +229,10 @@ function PoolBookingPageInner() {
   const closedOverride = cfg?.overrides.find((o) => o.date === date && o.closed);
   const closedNote = closed
     ? cutoffPassed && dayOpen
-      ? "Online booking for today has closed — we stop one hour before we open. Just walk in and grab a table at the bar."
+      ? "Online booking for today has closed, we stop one hour before we open. Just walk in and grab a table at the bar."
       : closedOverride?.note
         ? `Closed: ${closedOverride.note}`
-        : `${DAY_NAMES[dayOfWeek(date)]} — closed.`
+        : `${DAY_NAMES[dayOfWeek(date)]}, closed.`
     : "";
 
   const totalPence =
@@ -331,7 +331,7 @@ function PoolBookingPageInner() {
         setError(
           err instanceof Error
             ? err.message
-            : "Couldn't start payment — try again or email info@nodice.bar",
+            : "Couldn't start payment. Try again or email info@nodice.bar",
         );
         setPhase("error");
       } finally {
@@ -392,7 +392,7 @@ function PoolBookingPageInner() {
           <span className="font-bold text-plonkPink">Booking rules:</span>{" "}
           Online pool bookings close <strong>1 hour before we open</strong> each
           day, and we don&apos;t take pool reservations on{" "}
-          <strong>Saturdays</strong> — Saturdays are walk-in only. You can always
+          <strong>Saturdays</strong>, Saturdays are walk-in only. You can always
           walk in and grab a free table at the bar.
         </div>
 
@@ -403,7 +403,7 @@ function PoolBookingPageInner() {
             </div>
             <p className="mt-4 text-base text-cream/85">
               {cfg.product.closed_message ||
-                "Pool table bookings are temporarily paused — check back soon or DM us on Instagram."}
+                "Pool table bookings are temporarily paused, check back soon or DM us on Instagram."}
             </p>
             <a
               href="https://instagram.com/nodice.bar"
@@ -452,7 +452,7 @@ function PoolBookingPageInner() {
                   Heads up · Wednesday is tournament night
                 </div>
                 <p className="mt-2 text-sm text-cream/85">
-                  Casual pool tables get busy from 8pm — book an earlier
+                  Casual pool tables get busy from 8pm, book an earlier
                   slot below, or come for the tournament itself.
                 </p>
                 <a
@@ -613,7 +613,7 @@ function PoolBookingPageInner() {
                 className="mt-0.5 h-4 w-4 shrink-0 accent-plonkPink"
               />
               <span>
-                Keep me in the loop — send me No Dice news, upcoming events
+                Keep me in the loop, send me No Dice news, upcoming events
                 and the odd offer. Unsubscribe anytime.
               </span>
             </label>
@@ -738,9 +738,9 @@ function PaymentForm({
         error.type === "card_error" ||
         error.type === "validation_error"
       ) {
-        setInlineErr(error.message ?? "Card declined — try a different card.");
+        setInlineErr(error.message ?? "Card declined. Try a different card.");
       } else {
-        onError(error.message ?? "Payment failed — please try again.");
+        onError(error.message ?? "Payment failed. Please try again.");
       }
       setSubmitting(false);
       return;

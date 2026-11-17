@@ -14,11 +14,11 @@ const EVENT_POSTERS_FALLBACK = [
   { src: "", alt: "No Dice Mondays" },
   { src: "", alt: "Burger deal at Snack Bar" },
   { src: "", alt: "Fun of the Fair" },
-  { src: "", alt: "Cue — pool night" },
+  { src: "", alt: "Cue, pool night" },
   { src: "", alt: "Martini & Fries" },
   { src: "", alt: "Rolling Bones" },
   { src: "", alt: "Fun Club" },
-  { src: "", alt: "Pingers — ping pong night" },
+  { src: "", alt: "Pingers, ping pong night" },
 ];
 
 export default function HackneyPage() {
@@ -42,7 +42,7 @@ export default function HackneyPage() {
   );
   const bodyIntro = useContent(
     "venue.hackney.body_intro",
-    "Our Hackney course has been rebuilt — bigger, brighter and bolder than ever. Volcano canyons, a tiki forest, golf gods to appease, a stone circle to navigate and octopuses to dodge under the sea — all now fully covered and out of the rain.",
+    "Our Hackney course has been rebuilt, bigger, brighter and bolder than ever. Volcano canyons, a tiki forest, golf gods to appease, a stone circle to navigate and octopuses to dodge under the sea, all now fully covered and out of the rain.",
   );
   // body_image is rendered + edited by the DisplayImage component
   // below; no need to also resolve the URL here.
@@ -75,7 +75,7 @@ export default function HackneyPage() {
   const f4Title = useContent("venue.hackney.feature4.title", "Beer garden");
   const f4Body = useContent(
     "venue.hackney.feature4.body",
-    "When the sun's out — kick back with top-of-the-line ping pong tables to keep the competition going outside.",
+    "When the sun's out, kick back with top-of-the-line ping pong tables to keep the competition going outside.",
   );
   const f5Title = useContent("venue.hackney.feature5.title", "Snack Bar");
   const f5Body = useContent(
@@ -85,7 +85,7 @@ export default function HackneyPage() {
   const f6Title = useContent("venue.hackney.feature6.title", "Doubles pool tournament");
   const f6Body = useContent(
     "venue.hackney.feature6.body",
-    "2nd and 4th Wednesday of the month. £200+ in bar tabs, medals, beer and Tees. Eight slots — always sells out.",
+    "2nd and 4th Wednesday of the month. £200+ in bar tabs, medals, beer and Tees. Eight slots, always sells out.",
   );
 
   // ---------- Events ----------
@@ -95,7 +95,7 @@ export default function HackneyPage() {
   );
   const eventsIntro = useContent(
     "venue.hackney.events.intro",
-    `${DJ_PUBLIC.plural}, pool tournaments, parties, pop-ups — what's on at the games bar.`,
+    `${DJ_PUBLIC.plural}, pool tournaments, parties, pop-ups, what's on at the games bar.`,
   );
   // Events posters — read from hackney.events gallery, fall back to
   // the bundled JPGs. Plain <img> tags below (not next/image) to keep

@@ -517,7 +517,7 @@ export default function BookingFlow({
             <h2 className="font-display text-2xl sm:text-3xl">Select a time</h2>
             {venue.id === "hackney" && (
               <div className="mb-4 mt-2 inline-flex items-center rounded-full border border-plonkYellow/40 bg-plonkYellow/10 px-4 py-2 text-xs font-semibold text-cream/90">
-                Happy Hour Mon – Fri, Drinks Deals til 7pm
+                Happy Hour Mon-Fri, Drinks Deals til 7pm
               </div>
             )}
             {dateClosed && (
@@ -526,7 +526,7 @@ export default function BookingFlow({
                   We&apos;re closed for golf on this date.
                 </p>
                 <p className="mt-1 text-xs text-cream/55">
-                  Pick another day above — or email{" "}
+                  Pick another day above, or email{" "}
                   <a href="mailto:info@nodice.bar" className="underline">
                     info@nodice.bar
                   </a>{" "}
@@ -596,17 +596,17 @@ export default function BookingFlow({
               <div className="mb-4 space-y-2">
                 {ctx.happyHour && (
                   <RuleBanner color="teal">
-                    Happy hour — all tickets £5 (Tue–Fri before 5pm)
+                    Happy hour, all tickets £5 (Tue-Fri before 5pm)
                   </RuleBanner>
                 )}
                 {ctx.mondayBOGOF && (
                   <RuleBanner color="pink">
-                    Monday — buy one, get one free on tickets, all day
+                    Monday, buy one, get one free on tickets, all day
                   </RuleBanner>
                 )}
                 {ctx.tuesdaySpecial && (
                   <RuleBanner color="yellow">
-                    Tuesday special — Drink, Golf & Game bundle available below
+                    Tuesday special, Drink, Golf & Game bundle available below
                   </RuleBanner>
                 )}
               </div>
@@ -658,7 +658,7 @@ export default function BookingFlow({
                         </p>
                         {disabled && (
                           <p className="mt-1 text-xs text-plonkYellow">
-                            Under-16s only available before 6pm — pick an
+                            Under-16s only available before 6pm, pick an
                             earlier slot
                           </p>
                         )}
@@ -682,7 +682,7 @@ export default function BookingFlow({
                 <ul className="mt-2 space-y-0.5 text-cream/85">
                   {slotAllocation.groups.map((g) => (
                     <li key={g.time} className="font-mono text-xs">
-                      <span className="text-plonkTeal">{g.time}</span> — {g.count}{" "}
+                      <span className="text-plonkTeal">{g.time}</span>, {g.count}{" "}
                       {g.count === 1 ? "player" : "players"}
                     </li>
                   ))}
@@ -696,7 +696,7 @@ export default function BookingFlow({
             {tooBigForSelfService && (
               <div className="mt-4 rounded-xl border border-plonkYellow/40 bg-plonkYellow/10 px-4 py-3 text-sm text-cream/90">
                 <p className="font-semibold text-plonkYellow">
-                  Groups of 12+ — please book via the office
+                  Groups of 12+, please book via the office
                 </p>
                 <p className="mt-1.5 text-xs leading-relaxed text-cream/80">
                   For parties bigger than 12, email{" "}
@@ -706,7 +706,7 @@ export default function BookingFlow({
                   >
                     info@nodice.bar
                   </a>{" "}
-                  and our bookings team will arrange it — we keep online
+                  and our bookings team will arrange it, we keep online
                   bookings to a 2-slot maximum so things don't get confusing
                   on the day.
                 </p>
@@ -716,13 +716,13 @@ export default function BookingFlow({
               <div className="mt-4 rounded-xl border border-red-400/30 bg-red-400/5 px-4 py-3 text-sm text-red-300">
                 We can't fit {partyTotal}{" "}
                 {partyTotal === 1 ? "person" : "people"} in the next two slots
-                starting at {slotTime} — try an earlier start time, a different
+                starting at {slotTime}, try an earlier start time, a different
                 date, or reduce your party.
               </div>
             )}
             {childRuleViolated && !childCutoffViolated && (
               <div className="mt-4 rounded-xl border border-red-400/30 bg-red-400/5 px-4 py-3 text-sm text-red-300">
-                Add at least one adult ticket — children can't be booked on
+                Add at least one adult ticket, children can't be booked on
                 their own.
               </div>
             )}
@@ -799,7 +799,7 @@ export default function BookingFlow({
             </div>
             {promoApplied && (
               <p className="mt-2 text-sm text-plonkTeal">
-                ✓ {promoApplied.code} applied —{" "}
+                ✓ {promoApplied.code} applied,{" "}
                 {promoApplied.kind === "percent"
                   ? `${promoApplied.value}% off`
                   : `${fmtMoney(promoApplied.value)} off`}
@@ -845,7 +845,7 @@ export default function BookingFlow({
                     </div>
                     {l.freeQty > 0 && (
                       <p className="mt-0.5 text-[11px] text-plonkPink">
-                        {l.freeQty} free — Monday BOGOF
+                        {l.freeQty} free, Monday BOGOF
                       </p>
                     )}
                   </li>
@@ -905,7 +905,7 @@ export default function BookingFlow({
             )}
 
             <p className="mt-3 text-center text-[10px] uppercase tracking-widest text-cream/40">
-              Preview — no money will be taken
+              Preview, no money will be taken
             </p>
           </div>
         </aside>

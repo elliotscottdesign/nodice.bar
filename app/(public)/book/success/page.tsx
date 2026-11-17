@@ -6,7 +6,7 @@ import RedirectToBook from "@/components/RedirectToBook";
 // /book/success URLs (e.g. an old payment receipt link) now redirect
 // to /book. SuccessClient.tsx is left in place for future revival.
 export const metadata = {
-  title: "Book — No Dice",
+  title: "Book | No Dice",
 };
 
 export default function SuccessPage() {

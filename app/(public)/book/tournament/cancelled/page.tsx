@@ -4,7 +4,7 @@ import RedirectToPool from "@/components/RedirectToPool";
 // Stripe Checkout handles cancellation inline (the customer closes
 // the iframe or starts fresh), so no fresh booking lands here.
 export const metadata = {
-  title: "Tournament sign-up — No Dice",
+  title: "Tournament sign-up | No Dice",
 };
 
 export default function TournamentCancelledPage() {

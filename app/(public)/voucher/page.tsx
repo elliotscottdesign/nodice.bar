@@ -119,7 +119,7 @@ export default function VoucherVerifyPage() {
                   year: "numeric",
                 })}
                 . To be used in store, in person. On the day it's first used the
-                whole value must be spent — no change is carried over.
+                whole value must be spent, no change is carried over.
               </p>
             )}
           </div>

@@ -64,7 +64,7 @@ export default function LeagueTable() {
           <p className="px-6 py-16 text-center text-sm text-violet-100/60">Loading the league…</p>
         ) : rows.length === 0 ? (
           <p className="px-6 py-16 text-center text-sm text-violet-100/60">
-            No finished {disc} nights yet — the table fills in as tournaments are played.
+            No finished {disc} nights yet, the table fills in as tournaments are played.
           </p>
         ) : (
           <div className="overflow-x-auto">

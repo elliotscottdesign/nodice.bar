@@ -52,7 +52,7 @@ const PRIZES: Array<{ label: string; amount: string }> = [
   { label: "First vertical line", amount: "£20" },
   { label: "First horizontal line", amount: "£20" },
   { label: "First diagonal line", amount: "£20" },
-  { label: "Full house — BINGO!", amount: "£40" },
+  { label: "Full house, BINGO!", amount: "£40" },
 ];
 
 // The shape of the evening (founder, 18 Oct 2026): two comics, a round of
@@ -63,13 +63,13 @@ const RUN_ORDER: Array<{
   kind: "comedy" | "bingo" | "break";
   time: string;
 }> = [
-  { label: "Two comics", kind: "comedy", time: "7:30 – 8:00pm" },
-  { label: "Round of bingo", kind: "bingo", time: "8:00 – 8:15pm" },
-  { label: "Break", kind: "break", time: "8:15 – 8:30pm" },
-  { label: "Two comics", kind: "comedy", time: "8:30 – 9:00pm" },
-  { label: "Round of bingo", kind: "bingo", time: "9:00 – 9:15pm" },
-  { label: "Break", kind: "break", time: "9:15 – 9:30pm" },
-  { label: "Headline set", kind: "comedy", time: "9:30 – 10:00pm" },
+  { label: "Two comics", kind: "comedy", time: "7:30-8:00pm" },
+  { label: "Round of bingo", kind: "bingo", time: "8:00-8:15pm" },
+  { label: "Break", kind: "break", time: "8:15-8:30pm" },
+  { label: "Two comics", kind: "comedy", time: "8:30-9:00pm" },
+  { label: "Round of bingo", kind: "bingo", time: "9:00-9:15pm" },
+  { label: "Break", kind: "break", time: "9:15-9:30pm" },
+  { label: "Headline set", kind: "comedy", time: "9:30-10:00pm" },
 ];
 
 // Split the single event-date field into a big DATE line and a smaller
@@ -96,7 +96,7 @@ export default function BingoPage() {
   const title = useContent("bingo.title", "Bingo Night");
   const intro = useContent(
     "bingo.intro",
-    "Comedy and bingo under one roof at No Dice. £10 a ticket gets you the comedy and 5 bingo cards to play across the 2 games — bingo's free to play, with prizes put up by the bar. Eyes down, London Fields.",
+    "Comedy and bingo under one roof at No Dice. £10 a ticket gets you the comedy and 5 bingo cards to play across the 2 games, bingo's free to play, with prizes put up by the bar. Eyes down, London Fields.",
   );
   // The headline the founder points at the next event + its date(s).
   const eventHeader = useContent("bingo.event_header", "Our first-ever Bingo Night");
@@ -106,7 +106,7 @@ export default function BingoPage() {
 
   const bookLine = useContent(
     "bingo.book_line",
-    "£10 a ticket — one per person. Comedy + 5 bingo cards across the 2 games. Grab yours below.",
+    "£10 a ticket, one per person. Comedy + 5 bingo cards across the 2 games. Grab yours below.",
   );
   const ctaLabel = useContent("bingo.cta_label", "Book your ticket · £10");
 
@@ -139,7 +139,7 @@ export default function BingoPage() {
   const prizesTitle = useContent("bingo.prizes_title", "Prizes on the night");
   const prizesIntro = useContent(
     "bingo.prizes_intro",
-    "All put up by the bar — free to play, so it's a game not a gamble. Win it, spend it over the bar.",
+    "All put up by the bar, free to play, so it's a game not a gamble. Win it, spend it over the bar.",
   );
 
   const runTexts = RUN_ORDER.map((r, i) => ({
@@ -152,7 +152,7 @@ export default function BingoPage() {
   const runTitle = useContent("bingo.run_title", "How the night runs");
   const runIntro = useContent(
     "bingo.run_intro",
-    "Comedy and bingo, back to back — building to the headline act.",
+    "Comedy and bingo, back to back, building to the headline act.",
   );
 
   // Photo slider — comedian/host headshots + the bingo machine. Founder
@@ -338,7 +338,7 @@ export default function BingoPage() {
           </button>
           {!loading && !err && upcoming.length === 0 && (
             <p className="mt-4 text-sm text-cream/60">
-              Tickets aren&apos;t on sale just yet — check back soon.
+              Tickets aren&apos;t on sale just yet, check back soon.
             </p>
           )}
           {err && <p className="mt-4 text-sm text-[#D65139]">{err}</p>}

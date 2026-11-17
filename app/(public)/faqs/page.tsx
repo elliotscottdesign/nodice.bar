@@ -29,15 +29,15 @@ const SECTIONS: Section[] = [
       },
       {
         q: "How long does a round take?",
-        a: "About 30–40 minutes for a group of four — longer for bigger groups. After your round you're welcome to stay in the bar / arcade as long as you like.",
+        a: "About 30-40 minutes for a group of four, longer for bigger groups. After your round you're welcome to stay in the bar / arcade as long as you like.",
       },
       {
         q: "What does my ticket include?",
-        a: "A single round on the crazy golf course (one putter, one ball per person, scorecard). Drinks, food and arcade tokens are extra — you can add them to your booking or buy at the bar.",
+        a: "A single round on the crazy golf course (one putter, one ball per person, scorecard). Drinks, food and arcade tokens are extra, you can add them to your booking or buy at the bar.",
       },
       {
         q: "Do I need to print my ticket?",
-        a: "No. Your confirmation email is enough — show it to staff on your phone when you arrive.",
+        a: "No. Your confirmation email is enough, show it to staff on your phone when you arrive.",
       },
     ],
   },
@@ -52,7 +52,7 @@ const SECTIONS: Section[] = [
         q: "What if my group is bigger than 6?",
         a: (
           <>
-            For groups of 7–12, pick a start time and add everyone — we'll
+            For groups of 7-12, pick a start time and add everyone, we'll
             split you across <strong>two consecutive 10-minute slots</strong>{" "}
             so everyone fits in. One booking, one payment, one reference.
             Although your two slots are 10 minutes apart, you can all play
@@ -62,17 +62,17 @@ const SECTIONS: Section[] = [
       },
       {
         q: "What if only 2 spots are left in my preferred slot but I have 4 people?",
-        a: "You can still book all 4. The system fills the rest from the very next 10-minute slot. You'll see exactly how your party splits before you pay — for example: '17:30 — 2 players, 17:40 — 2 players'. Everyone in your group can meet up and play together at 17:40.",
+        a: "You can still book all 4. The system fills the rest from the very next 10-minute slot. You'll see exactly how your party splits before you pay, for example: '17:30 (2 players), 17:40 (2 players)'. Everyone in your group can meet up and play together at 17:40.",
       },
       {
         q: "Why is my preferred time greyed out?",
-        a: "It's sold out — all 6 tickets in that slot have already been booked. Try a slot earlier or later, or pick a different date.",
+        a: "It's sold out, all 6 tickets in that slot have already been booked. Try a slot earlier or later, or pick a different date.",
       },
       {
         q: "I want to book for 13 or more people",
         a: (
           <>
-            Online bookings cap at 12 across two consecutive slots — for
+            Online bookings cap at 12 across two consecutive slots, for
             anything bigger, please email{" "}
             <a href="mailto:info@nodice.bar" className="underline-offset-4 hover:underline">
               info@nodice.bar
@@ -92,23 +92,23 @@ const SECTIONS: Section[] = [
     faqs: [
       {
         q: "Do prices include VAT?",
-        a: "No — No Dice is currently below the UK VAT registration threshold, so we don't charge VAT. The price you see is the price you pay; there are no added taxes or hidden fees.",
+        a: "No, No Dice is currently below the UK VAT registration threshold, so we don't charge VAT. The price you see is the price you pay; there are no added taxes or hidden fees.",
       },
       {
         q: "Is there a happy hour?",
-        a: "At No Dice, all golf tickets are £5 per person Tuesday to Friday before 5pm. Drink deals run at the bar Mon–Fri til 7pm.",
+        a: "At No Dice, all golf tickets are £5 per person Tuesday to Friday before 5pm. Drink deals run at the bar Mon-Fri til 7pm.",
       },
       {
         q: "What's the Monday No Dice deal?",
-        a: "Buy one, get one free on tickets all day every Monday at No Dice — automatically applied as soon as you pick a Monday slot. No code needed.",
+        a: "Buy one, get one free on tickets all day every Monday at No Dice, automatically applied as soon as you pick a Monday slot. No code needed.",
       },
       {
         q: "What's the Tuesday Hackney bundle?",
-        a: "Every Tuesday at No Dice we offer the Drink, Golf & Game bundle for £14 per person — a round of golf, a house drink (cocktail / beer / soft) and 4 arcade tokens. Available on the booking page when you pick a Tuesday slot.",
+        a: "Every Tuesday at No Dice we offer the Drink, Golf & Game bundle for £14 per person, a round of golf, a house drink (cocktail / beer / soft) and 4 arcade tokens. Available on the booking page when you pick a Tuesday slot.",
       },
       {
         q: "Do you offer student or hospitality discounts?",
-        a: "Yes — 10% off with valid ID, in venue. Use code STUDENT10 at online checkout. Cannot be combined with other offers.",
+        a: "Yes, 10% off with valid ID, in venue. Use code STUDENT10 at online checkout. Cannot be combined with other offers.",
       },
     ],
   },
@@ -117,7 +117,7 @@ const SECTIONS: Section[] = [
     faqs: [
       {
         q: "Can children play?",
-        a: "Yes — under-16s are welcome until 6pm each day. They must be accompanied by at least one adult on the booking.",
+        a: "Yes, under-16s are welcome until 6pm each day. They must be accompanied by at least one adult on the booking.",
       },
       {
         q: "Why can't I add a child ticket to my evening booking?",
@@ -125,11 +125,11 @@ const SECTIONS: Section[] = [
       },
       {
         q: "Is there a minimum age?",
-        a: "We welcome golfers of any age — toddlers included. Buggies can be parked at the bar while you play.",
+        a: "We welcome golfers of any age, toddlers included. Buggies can be parked at the bar while you play.",
       },
       {
         q: "Are pool tables age-restricted?",
-        a: "Yes — under-16s aren't permitted to play on the pool tables at either venue.",
+        a: "Yes, under-16s aren't permitted to play on the pool tables at either venue.",
       },
     ],
   },
@@ -142,13 +142,13 @@ const SECTIONS: Section[] = [
       },
       {
         q: "How is payment taken?",
-        a: "Securely via Stripe. We accept all major credit and debit cards, Apple Pay, Google Pay and Link. Money goes straight to No Dice — we don't store your card details ourselves.",
+        a: "Securely via Stripe. We accept all major credit and debit cards, Apple Pay, Google Pay and Link. Money goes straight to No Dice, we don't store your card details ourselves.",
       },
       {
         q: "Can I cancel or change my booking?",
         a: (
           <>
-            Yes — email{" "}
+            Yes, email{" "}
             <a href="mailto:info@nodice.bar" className="underline-offset-4 hover:underline">
               info@nodice.bar
             </a>{" "}
@@ -159,7 +159,7 @@ const SECTIONS: Section[] = [
       },
       {
         q: "How long do refunds take?",
-        a: "Refunds are processed immediately on our end, but it can take 5–10 working days for the money to land back on your card depending on your bank.",
+        a: "Refunds are processed immediately on our end, but it can take 5-10 working days for the money to land back on your card depending on your bank.",
       },
     ],
   },
@@ -175,7 +175,7 @@ const SECTIONS: Section[] = [
               Vouchers page
             </Link>{" "}
             and the recipient gets a unique code by email. They're valid for
-            12 months, redeemable at either venue, and can be spent in parts —
+            12 months, redeemable at either venue, and can be spent in parts,
             no need to use the full balance in one go.
           </>
         ),
@@ -188,7 +188,7 @@ const SECTIONS: Section[] = [
         q: "I have a Fever / TimeOut / Wowcher voucher",
         a: (
           <>
-            These are processed manually — email{" "}
+            These are processed manually, email{" "}
             <a href="mailto:info@nodice.bar" className="underline-offset-4 hover:underline">
               info@nodice.bar
             </a>{" "}
@@ -207,16 +207,16 @@ const SECTIONS: Section[] = [
         a: "Aim for 10 minutes before your start time so you've got time to grab a drink, get your scorecard and warm up your swing.",
       },
       {
-        q: "I'm running late — will I still be able to play?",
+        q: "I'm running late, will I still be able to play?",
         a: "We'll do our best. Ten or fifteen minutes is usually fine. If you'll be significantly later, especially on a Saturday, we can't guarantee a spot but we'll always try to fit you in around other bookings.",
       },
       {
         q: "Do you accept walk-ins?",
-        a: "Yes, but pre-booked ticket holders always get priority. Saturdays are often fully booked — we strongly recommend booking ahead.",
+        a: "Yes, but pre-booked ticket holders always get priority. Saturdays are often fully booked, we strongly recommend booking ahead.",
       },
       {
         q: "Can I bring my own food or drink?",
-        a: "No — but with cocktails, draught beers, tacos at Hackney and a full menu at Borough you won't go hungry or thirsty.",
+        a: "No, but with cocktails, draught beers, tacos at Hackney and a full menu at Borough you won't go hungry or thirsty.",
       },
       {
         q: "Can I bring my dog?",
@@ -255,7 +255,7 @@ const SECTIONS: Section[] = [
       },
       {
         q: "Where is No Dice?",
-        a: "Arches B, C, D & E Montague Close, off Green Dragon Court, London SE1 9DA. Don't follow the postcode — search 'No Dice' on Google Maps. The entrance is in a courtyard just below street level, next door to Boro Bistro.",
+        a: "Arches B, C, D & E Montague Close, off Green Dragon Court, London SE1 9DA. Don't follow the postcode, search 'No Dice' on Google Maps. The entrance is in a courtyard just below street level, next door to Boro Bistro.",
       },
     ],
   },
@@ -265,7 +265,7 @@ export default function FAQsPage() {
   const title = useContent("faqs.title", "Booking FAQs");
   const intro = useContent(
     "faqs.intro",
-    "Everything you need to know about how No Dice bookings work — slots, splits, prices, refunds, and what happens on the day.",
+    "Everything you need to know about how No Dice bookings work, slots, splits, prices, refunds, and what happens on the day.",
   );
   const [dbFaqs, setDbFaqs] = useState<DbFaq[] | null>(null);
 
@@ -380,7 +380,7 @@ export default function FAQsPage() {
           >
             Email the team
           </a>{" "}
-          — we read every message.
+, we read every message.
         </p>
       </div>
       </section>

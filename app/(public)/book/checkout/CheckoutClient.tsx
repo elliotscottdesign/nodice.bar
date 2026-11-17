@@ -298,7 +298,7 @@ function CheckoutInner() {
         </Link>
         <h1 className="mt-4 font-display text-4xl">Checkout</h1>
         <p className="mt-2 text-sm text-cream/70">
-          Almost there — just your details, then payment.
+          Almost there, just your details, then payment.
         </p>
 
         {expired ? (
@@ -370,7 +370,7 @@ function CheckoutInner() {
                   onChange={(e) => setNotes(e.target.value.slice(0, 500))}
                   rows={3}
                   maxLength={500}
-                  placeholder="Birthday or special occasion? Accessibility needs? Anything else — our team will see it."
+                  placeholder="Birthday or special occasion? Accessibility needs? Anything else, our team will see it."
                   className="mt-1.5 w-full resize-y rounded-lg border border-cream/15 bg-ink/40 px-4 py-2.5 text-base text-cream placeholder:text-cream/30 focus:border-plonkPink focus:outline-none"
                 />
               </label>
@@ -383,7 +383,7 @@ function CheckoutInner() {
                   className="mt-0.5 h-4 w-4 rounded border-cream/20 bg-ink/40"
                 />
                 <span>
-                  Email me about No Dice deals and events — no spam, unsub
+                  Email me about No Dice deals and events, no spam, unsub
                   anytime.
                 </span>
               </label>
@@ -393,7 +393,7 @@ function CheckoutInner() {
               <h2 className="font-display text-xl">Payment</h2>
               <p className="mt-2 text-sm text-cream/70">
                 Card, Apple Pay, Google Pay and Link all supported. You won't
-                leave this page — the form below is hosted securely by Stripe.
+                leave this page, the form below is hosted securely by Stripe.
               </p>
 
               {!intent && !intentLoading && !intentError && (
@@ -570,7 +570,7 @@ function PaymentForm({
         {submitting
           ? "Processing…"
           : disabled
-            ? "Hold expired — start again"
+            ? "Hold expired. Start again"
             : `Pay £${(totalPence / 100).toFixed(2)} →`}
       </button>
     </form>

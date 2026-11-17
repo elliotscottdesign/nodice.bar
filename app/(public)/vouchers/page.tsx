@@ -23,7 +23,7 @@ export default function VouchersPage() {
   const ctaLabel = useContent("vouchers.cta_label", "Buy a Voucher");
   const ctaNote = useContent(
     "vouchers.cta_note",
-    "Vouchers shop coming with the new booking system — meanwhile, email info@nodice.bar to arrange one.",
+    "Vouchers shop coming with the new booking system, meanwhile, email info@nodice.bar to arrange one.",
   );
 
   const perks: { title: string; body: string }[] = [
@@ -31,21 +31,21 @@ export default function VouchersPage() {
       title: useContent("vouchers.perk1.title", "Valid for 12 months"),
       body: useContent(
         "vouchers.perk1.body",
-        "Every voucher is valid for a full year from the date of purchase — plenty of time to find a date that works.",
+        "Every voucher is valid for a full year from the date of purchase, plenty of time to find a date that works.",
       ),
     },
     {
       title: useContent("vouchers.perk2.title", "Use across all venues"),
       body: useContent(
         "vouchers.perk2.body",
-        "Redeemable against any ticket at any of our venues — Hackney and Borough Market.",
+        "Redeemable against any ticket at any of our venues, Hackney and Borough Market.",
       ),
     },
     {
       title: useContent("vouchers.perk3.title", "Spend at your own pace"),
       body: useContent(
         "vouchers.perk3.body",
-        "Redeemable up to the full value — no need to spend it all at once.",
+        "Redeemable up to the full value, no need to spend it all at once.",
       ),
     },
   ];

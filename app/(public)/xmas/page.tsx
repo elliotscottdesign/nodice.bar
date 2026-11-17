@@ -17,12 +17,12 @@ const MENU_FN = "https://rntcujcpsozvuxvmlejv.supabase.co/functions/v1/menu";
 export const revalidate = 60; // refresh the menu at most once a minute
 
 export const metadata: Metadata = {
-  title: "Christmas 2026 — Corporate & Party Menus | No Dice",
+  title: "Christmas 2026, Corporate & Party Menus | No Dice",
   description:
-    "Christmas parties at No Dice, London Fields. Festive sharing menus and packages for corporate and private celebrations — book direct with the team.",
+    "Christmas parties at No Dice, London Fields. Festive sharing menus and packages for corporate and private celebrations, book direct with the team.",
   alternates: { canonical: "/xmas" },
   openGraph: {
-    title: "Christmas 2026 at No Dice — London Fields",
+    title: "Christmas 2026 at No Dice, London Fields",
     description:
       "Festive sharing menus and party packages for your Christmas do. Book direct with the team.",
     url: "/xmas",
@@ -130,7 +130,7 @@ export default async function XmasPage() {
           as="p"
           multiline
           k="xmas.hero_intro"
-          fallback="Festive sharing menus and party packages for your Christmas do — corporate or private, big group or small. Booze, games and proper food in the heart of London Fields."
+          fallback="Festive sharing menus and party packages for your Christmas do, corporate or private, big group or small. Booze, games and proper food in the heart of London Fields."
           className="mx-auto mt-5 max-w-xl text-base text-cream/85 sm:text-lg"
         />
         <div className="mt-7 flex items-center gap-3 text-pongLight" aria-hidden>
@@ -146,7 +146,7 @@ export default async function XmasPage() {
         galleryKey="xmas.menu"
         heading="This year's festive menu"
         headingClassName="font-festive capitalize"
-        intro="A taste of what's on — swipe through."
+        intro="A taste of what's on, swipe through."
         headingKey="xmas.menu_heading"
         introKey="xmas.menu_intro"
         blankLabel="Menu photo"
@@ -259,7 +259,7 @@ export default async function XmasPage() {
                   <EditableText
                     as="p"
                     k="xmas.alacarte_sub"
-                    fallback="Build your own spread — price per head unless noted."
+                    fallback="Build your own spread, price per head unless noted."
                     className="mt-2 text-sm text-cream/60"
                   />
                   <div className="mt-6 space-y-3">
@@ -321,7 +321,7 @@ export default async function XmasPage() {
             as="div"
             multiline
             k="xmas.allergies_note"
-            fallback="Allergies? Just let our team know when you book — we'll guide you to safe options."
+            fallback="Allergies? Just let our team know when you book, we'll guide you to safe options."
             className="mt-10 rounded-2xl border border-pong/30 bg-pong/[0.06] p-5 text-sm leading-relaxed text-pongLight"
           />
           <div className="mt-10 text-center">

@@ -247,7 +247,7 @@ export default function NewsletterPopup() {
                 Stay in<br />the loop
               </h2>
               <p className="mx-auto mt-4 max-w-xs text-center text-sm leading-relaxed text-cream/65">
-                The occasional email on what's on at No Dice — pool
+                The occasional email on what's on at No Dice, pool
                 tournaments, {DJ_PUBLIC.plural}, food residencies and golf.
                 Unsubscribe anytime.
               </p>

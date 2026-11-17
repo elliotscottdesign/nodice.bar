@@ -118,7 +118,7 @@ export default function XmasMenuDropdown() {
           )}
           {!loading && err && (
             <p className="text-sm text-cream/70">
-              Couldn&apos;t load the menu just now — email{" "}
+              Couldn&apos;t load the menu just now, email{" "}
               <a className="text-nodiceRed underline" href="mailto:hello@nodice.bar">
                 hello@nodice.bar
               </a>{" "}
@@ -127,7 +127,7 @@ export default function XmasMenuDropdown() {
           )}
           {!loading && !err && !hasMenu && (
             <p className="text-sm text-cream/70">
-              Our Christmas menu is being finalised — check back soon.
+              Our Christmas menu is being finalised, check back soon.
             </p>
           )}
 

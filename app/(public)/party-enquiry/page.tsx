@@ -51,7 +51,7 @@ export default function PartyEnquiryPage() {
       setDone(true);
     } catch {
       setErr(
-        "Something went wrong sending that — please email us at info@nodice.bar.",
+        "Something went wrong sending that. Please email us at info@nodice.bar.",
       );
     } finally {
       setSending(false);
@@ -69,7 +69,7 @@ export default function PartyEnquiryPage() {
       <section className="mx-auto max-w-xl px-4 pb-24">
         {done ? (
           <div className="rounded-2xl border border-plonkTeal/40 bg-plonkTeal/10 p-8 text-center">
-            <h2 className="font-display text-2xl text-cream">Got it — thank you!</h2>
+            <h2 className="font-display text-2xl text-cream">Got it, thank you!</h2>
             <p className="mt-2 text-sm leading-relaxed text-cream/70">
               Your enquiry is in. We&apos;ll be in touch shortly to pencil in
               your date and sort the details.

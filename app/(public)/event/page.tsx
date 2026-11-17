@@ -113,7 +113,7 @@ export default function EventSharePage() {
   const when = formatDate(ev.event_date);
   const timeRange = [formatTime(ev.start_time), formatTime(ev.end_time)]
     .filter(Boolean)
-    .join(" – ");
+    .join("-");
   const paragraphs = (ev.description || "")
     .split(/\n\s*\n/)
     .map((p) => p.trim())
@@ -177,7 +177,7 @@ export default function EventSharePage() {
     <div className="rounded-2xl border border-cream/15 bg-ink/40 px-6 py-10 text-center">
       <p className="text-sm text-cream/70">
         {ev.registration_open
-          ? "Tickets for this night aren't on sale here yet — check back soon."
+          ? "Tickets for this night aren't on sale here yet, check back soon."
           : "Ticket sales for this night are closed."}
       </p>
       <a

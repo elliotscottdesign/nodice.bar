@@ -12,7 +12,7 @@ import CheckoutClient from "./CheckoutClient";
 // plonkgolf.co.uk site is still being finished.
 
 export const metadata = {
-  title: "Checkout — No Dice",
+  title: "Checkout | No Dice",
   description: "Confirm your No Dice Crazy Golf booking.",
 };
 

@@ -63,7 +63,7 @@ export default function BarPage() {
             </p>
           ) : !menu ? (
             <p className="py-16 text-center text-sm text-cream/55">
-              Menu's having a moment — try again in a sec.
+              Menu's having a moment. Try again in a sec.
             </p>
           ) : (
             <>

@@ -155,7 +155,7 @@ export default function EventTicketBooking({
       const mob = normUkMobile(phone);
       if (!mob) {
         setError(
-          "Please enter a UK mobile (starting 07 or +44 7) — we text you the details before the night.",
+          "Please enter a UK mobile (starting 07 or +44 7), we text you the details before the night.",
         );
         return;
       }
@@ -203,7 +203,7 @@ export default function EventTicketBooking({
         setError(
           err instanceof Error
             ? err.message
-            : "Something went wrong — try again or email info@nodice.bar",
+            : "Something went wrong. Try again or email info@nodice.bar",
         );
         setPhase("error");
       } finally {
@@ -224,7 +224,7 @@ export default function EventTicketBooking({
         </h3>
         <p className="mx-auto mt-3 max-w-sm text-sm text-cream/70">
           We&apos;ve got your {isFree ? "spot" : "ticket"} for {eventName}. Check
-          your email for confirmation — see you on the night.
+          your email for confirmation, see you on the night.
         </p>
       </div>
     );
@@ -371,9 +371,9 @@ function PaymentForm({
 
     if (error) {
       if (error.type === "card_error" || error.type === "validation_error") {
-        setInlineErr(error.message ?? "Card declined — try a different card.");
+        setInlineErr(error.message ?? "Card declined. Try a different card.");
       } else {
-        onError(error.message ?? "Payment failed — please try again.");
+        onError(error.message ?? "Payment failed. Please try again.");
       }
       setSubmitting(false);
       return;

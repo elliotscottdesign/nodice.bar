@@ -25,7 +25,7 @@ const VENUE_NAMES: Record<string, string> = {
 export function generateMetadata({ params }: { params: { venue: string } }) {
   const name = VENUE_NAMES[params.venue];
   return {
-    title: name ? `Book ${name} — No Dice` : "Book — No Dice",
+    title: name ? `Book ${name} | No Dice` : "Book | No Dice",
     description: "Pick a date, time and party size.",
   };
 }

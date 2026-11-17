@@ -39,7 +39,7 @@ const FALLBACK: { title: string; items: { title: string; price: string; body?: s
       {
         title: "Green peppers (v)",
         price: "6",
-        body: "Like a Padrón pepper — salted in Maldon and fried.",
+        body: "Like a Padrón pepper, salted in Maldon and fried.",
       },
       {
         title: "Chips (v)",
@@ -168,7 +168,7 @@ export default function SnackBarMenuPage() {
           {/* Allergies note */}
           <div className="mt-12 rounded-2xl border border-plonkYellow/40 bg-plonkYellow/10 p-5 text-sm leading-relaxed text-plonkYellow">
             <strong className="font-bold">Allergies?</strong> Please let our
-            team know when ordering — we'll guide you to safe options.
+            team know when ordering, we'll guide you to safe options.
           </div>
 
           {/* Back to Hackney */}

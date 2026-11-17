@@ -4,7 +4,7 @@ export default function BigEmailCta({
   subject = "Private Hire Enquiry",
   eyebrow = "Ready to chat?",
   heading = "Drop our bookings team a line.",
-  body = "Tell us roughly when, how many people, and which venue — we'll come back fast with availability, set-up options and pricing.",
+  body = "Tell us roughly when, how many people, and which venue, we'll come back fast with availability, set-up options and pricing.",
 }: {
   subject?: string;
   eyebrow?: string;

@@ -31,11 +31,11 @@ import type { EventTier } from "@/lib/db/tournaments";
 const HOW_DEFAULTS = [
   {
     title: "Pick your skill level",
-    body: "Three four-hour sessions across the day — Beginner, Intermediate and Advanced. Enter the one that suits your game so everyone gets a fair, fun run out.",
+    body: "Three four-hour sessions across the day, Beginner, Intermediate and Advanced. Enter the one that suits your game so everyone gets a fair, fun run out.",
   },
   {
     title: "Just like the weekly comp",
-    body: "Each session plays all-v-all group rounds across both tables, then a knockout — exactly like our regular Wednesday singles.",
+    body: "Each session plays all-v-all group rounds across both tables, then a knockout, exactly like our regular Wednesday singles.",
   },
   {
     title: "The grand showdown",
@@ -58,7 +58,7 @@ function formatHour(hhmmss: string | null): string {
 function tierWindow(tier: EventTier): string {
   const a = formatHour(tier.start_time);
   const b = formatHour(tier.end_time);
-  if (a && b) return `${a} – ${b}`;
+  if (a && b) return `${a}-${b}`;
   return a || b || "";
 }
 
@@ -82,12 +82,12 @@ export default function MacmillanPage() {
   const heroTitle = useContent("macmillan.title", "12 Hour Singles Comp");
   const heroIntro = useContent(
     "macmillan.intro",
-    "No Dice takes on a 12-hour pool marathon for Macmillan Cancer Support. £10 a player, all proceeds to the fundraiser — the long-awaited return of our singles comp.",
+    "No Dice takes on a 12-hour pool marathon for Macmillan Cancer Support. £10 a player, all proceeds to the fundraiser, the long-awaited return of our singles comp.",
   );
   const ctaLabel = useContent("macmillan.cta_label", "Pick your session · £10");
   const soldOutNote = useContent(
     "macmillan.soldout_note",
-    "Tickets aren't on sale just yet — check back soon.",
+    "Tickets aren't on sale just yet, check back soon.",
   );
 
   const selectorEyebrow = useContent("macmillan.selector_eyebrow", "Choose your session");
@@ -110,7 +110,7 @@ export default function MacmillanPage() {
   const causeTitle = useContent("macmillan.cause_title", "Every £10 goes to Macmillan");
   const causeBody = useContent(
     "macmillan.cause_body",
-    "We all know the damage this disease does to patients, friends and families — most of us have been touched by cancer at some point. So let's do our part. Play, spectate, bet on your mates or just come down and drink for a good cause. Big love, and we can't wait to see you there. x",
+    "We all know the damage this disease does to patients, friends and families, most of us have been touched by cancer at some point. So let's do our part. Play, spectate, bet on your mates or just come down and drink for a good cause. Big love, and we can't wait to see you there. x",
   );
   const donateLabel = useContent("macmillan.donate_label", "Donate on our Macmillan page →");
   // The founder's own Macmillan fundraising page — editable so it can be repointed.

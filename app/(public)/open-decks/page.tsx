@@ -109,7 +109,7 @@ export default function OpenDecksPage() {
       });
       setDone(true);
     } catch (e: any) {
-      setErr(e.message || "That didn't go through — try again.");
+      setErr(e.message || "That didn't go through. Try again.");
       loadOpenDecksCalendar().then(setCal).catch(() => {});
     } finally { setSending(false); }
   }
@@ -136,13 +136,13 @@ export default function OpenDecksPage() {
           <div className="mt-10 rounded-2xl border border-plonkTeal/40 bg-plonkTeal/5 p-6">
             <h2 className="font-display text-4xl text-plonkTeal">YOU&apos;RE IN 🎧</h2>
             <p className="mt-2 text-base text-cream">
-              Thanks — we&apos;ve got your open-decks slot for <strong>{fmtLong(date)}</strong> at <strong>{slotLabel}</strong>. We&apos;ll be in touch. See you on the decks.
+              Thanks, we&apos;ve got your open-decks slot for <strong>{fmtLong(date)}</strong> at <strong>{slotLabel}</strong>. We&apos;ll be in touch. See you on the decks.
             </p>
             <button onClick={reset} className="mt-5 rounded-lg border border-cream/25 px-4 py-2.5 text-sm hover:border-cream/60">Sign up for another slot</button>
           </div>
         ) : cal && months.length === 0 && !loadErr ? (
           <div className="mt-10 rounded-lg border border-cream/15 bg-cream/5 px-4 py-6 text-creamDim">
-            No open-decks dates are free right now — check back soon.
+            No open-decks dates are free right now, check back soon.
           </div>
         ) : cal ? (
           <>
@@ -174,7 +174,7 @@ export default function OpenDecksPage() {
                         key={i}
                         disabled={!open}
                         onClick={() => pickDate(iso)}
-                        title={booked ? `${DJ_PUBLIC.singular} booked` : full ? "Fully booked" : open ? "Open decks — tap to sign up" : ""}
+                        title={booked ? `${DJ_PUBLIC.singular} booked` : full ? "Fully booked" : open ? "Open decks, tap to sign up" : ""}
                         className={`aspect-square rounded-lg flex flex-col items-center justify-center text-base transition ${
                           open ? "border border-plonkPink/50 bg-plonkPink/10 text-cream hover:border-plonkPink hover:bg-plonkPink/20 font-semibold"
                           : booked || full ? "border border-cream/10 bg-cream/[0.03] text-cream/30"

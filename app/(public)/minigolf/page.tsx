@@ -42,7 +42,7 @@ export default function MiniGolfPage() {
   const ctaLabel = useContent("minigolf.cta_label", "Book a tee time");
   const newsletterPrompt = useContent(
     "minigolf.newsletter_prompt",
-    "Not ready to book? Drop your email — we'll send openings, deals and event nights.",
+    "Not ready to book? Drop your email, we'll send openings, deals and event nights.",
   );
   const signupLabel = useContent(
     "minigolf.signup_label",
@@ -51,12 +51,12 @@ export default function MiniGolfPage() {
   const signupButton = useContent("minigolf.signup_button", "Notify me");
   const signupSuccess = useContent(
     "minigolf.signup_success",
-    "You're on the list — we'll be in touch with openings and offers.",
+    "You're on the list, we'll be in touch with openings and offers.",
   );
   const aboutTitle = useContent("minigolf.about_title", "About the course");
   const aboutBody = useContent(
     "minigolf.about_body",
-    "A Polynesian-themed 9-hole crazy golf course at London Fields, sharing the venue with No Dice bar — one address, two doors. Drinks in hand, tacos on the side.",
+    "A Polynesian-themed 9-hole crazy golf course at London Fields, sharing the venue with No Dice bar, one address, two doors. Drinks in hand, tacos on the side.",
   );
 
   const [email, setEmail] = useState("");
@@ -86,7 +86,7 @@ export default function MiniGolfPage() {
       setErr(
         e2 instanceof Error
           ? e2.message
-          : "Couldn't add you to the list — try again or email info@nodice.bar",
+          : "Couldn't add you to the list. Try again or email info@nodice.bar",
       );
     } finally {
       setBusy(false);

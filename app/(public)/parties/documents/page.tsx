@@ -46,7 +46,7 @@ const DOCS: { title: string; blurb: string; href: string }[] = [
   {
     title: "Summary of Insurance Cover",
     blurb:
-      "Employers' (£10m), public (£5m) and products (£5m) liability — policy ASCCL251279, Ascot at Lloyd's, to 12/06/2027.",
+      "Employers' (£10m), public (£5m) and products (£5m) liability, policy ASCCL251279, Ascot at Lloyd's, to 12/06/2027.",
     href: "/docs/no-dice-insurance-summary.pdf",
   },
   {
@@ -84,7 +84,7 @@ export default function DocumentsPage() {
         /* fine — unlock just won't survive a refresh */
       }
     } else {
-      setError("That code isn't right — check the email from our events team.");
+      setError("That code isn't right, check the email from our events team.");
     }
   }
 
@@ -103,7 +103,7 @@ export default function DocumentsPage() {
             <p className="mt-5 max-w-md text-sm leading-relaxed text-cream/70">
               Risk assessments and the fire &amp; evacuation plan for No Dice,
               for clients who need them for a booking. Enter the access code
-              from our events team — or email{" "}
+              from our events team, or email{" "}
               <a href="mailto:info@nodice.bar" className="text-plonkTeal underline">
                 info@nodice.bar
               </a>{" "}

@@ -119,7 +119,7 @@ export default function MyEventPage() {
 
             <p className="text-sm leading-relaxed text-cream/70">
               {state.s.status === "confirmed"
-                ? "You're all set. We'll be in touch with the final details — food, drinks and timings — closer to the day."
+                ? "You're all set. We'll be in touch with the final details, food, drinks and timings, closer to the day."
                 : "We've got your date held. We'll confirm shortly once the details are locked in."}
             </p>
             <p className="text-xs text-cream/45">

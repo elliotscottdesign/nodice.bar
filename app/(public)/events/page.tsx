@@ -242,7 +242,7 @@ export default function EventsPage() {
   const title = useContent("events.title", "Events");
   const intro = useContent(
     "events.intro",
-    "Every poster on our calendar — gigs, tournaments, residencies, pop-ups, parties.",
+    "Every poster on our calendar, gigs, tournaments, residencies, pop-ups, parties.",
   );
   const heroImage = useImage("events.hero_image", "");
 
@@ -736,12 +736,12 @@ export default function EventsPage() {
             <p className="mt-12 text-center text-sm text-cream/55">
               {events.length > 0 && !allCatsOn ? (
                 <>
-                  No matching events for {monthLabel(active.year, active.month)} —
-                  try showing more types above.
+                  No matching events for {monthLabel(active.year, active.month)}.
+                  Try showing more types above.
                 </>
               ) : (
                 <Editable k="events.empty_state">
-                  Nothing yet for {monthLabel(active.year, active.month)} — check
+                  Nothing yet for {monthLabel(active.year, active.month)}, check
                   back soon.
                 </Editable>
               )}
@@ -773,7 +773,7 @@ export default function EventsPage() {
                   Wanna play open decks?
                 </p>
                 <p className="mt-1 text-sm leading-snug text-cream/70">
-                  Free 1-hour slots on our quiet nights — grab a date and come play.
+                  Free 1-hour slots on our quiet nights, grab a date and come play.
                 </p>
               </div>
               <span className="shrink-0 rounded-full bg-plonkPink px-6 py-3 text-xs font-bold uppercase tracking-[0.18em] text-white transition group-hover:opacity-90">
@@ -794,7 +794,7 @@ export default function EventsPage() {
                   Want to play at No Dice?
                 </p>
                 <p className="mt-1 text-sm leading-snug text-cream/70">
-                  {DJ_PUBLIC.recruitProfile} and our booking team will be in touch — no need to know anyone.
+                  {DJ_PUBLIC.recruitProfile} and our booking team will be in touch, no need to know anyone.
                 </p>
               </div>
               <span className="shrink-0 rounded-full bg-plonkPink px-6 py-3 text-xs font-bold uppercase tracking-[0.18em] text-white transition group-hover:opacity-90">
@@ -1342,7 +1342,7 @@ const RECORD_STORES: {
   note: string;
   flag?: string;
 }[] = [
-  { name: "Oca Records", handle: "oca_records_ldn", area: "115 High St, Walthamstow E17", note: "The E17 stop — right on Walthamstow High Street, mid-market. Make a day of it with the stalls." },
+  { name: "Oca Records", handle: "oca_records_ldn", area: "115 High St, Walthamstow E17", note: "The E17 stop, right on Walthamstow High Street, mid-market. Make a day of it with the stalls." },
   { name: "Rook Records", handle: "rookrecords", area: "Hackney Wick, E3", note: "Jazz, soul, disco into house. Reggae and hip hop. Heavy on US and Japanese second-hand imports." },
   { name: "Stranger Than Paradise", handle: "strangerthanparadiserecords", area: "Mare Street Market, E8", note: "New releases and leftfield. The tastemaker shop." },
   { name: "Kingsland Records", handle: "kingsland_records", area: "492 Kingsland Rd, E8", note: "Reggae, jazz, African, Latin, highlife, soukous, funk, soul, jungle, hip hop. Custom soundsystem in store." },
@@ -1352,11 +1352,11 @@ const RECORD_STORES: {
   { name: "The BBE Store", handle: "the_bbe_store", area: "Helmsley Place, London Fields", note: "Practically neighbours. BBE releases plus second-hand soul, disco, jazz, rap, breaks, reggae." },
   { name: "Tome Records", handle: "tomerecords", area: "234 Graham Rd, Hackney Central", note: "All genres, new and used, vinyl and cassettes. Open seven days." },
   { name: "Atlantis Records", handle: "atlantis_records_hackney", area: "8 Clarence Rd, Lower Clapton", note: "Collectible second-hand. They buy collections too." },
-  { name: "Yoyo Records", handle: "yoyorecordslondon", area: "501 Cambridge Heath Rd, E2", note: "Soul, funk, jazz and hip hop — US original pressings a speciality. Split off Cosmos Records in 2020." },
-  { name: "Caravan Records", handle: "caravan_worldwide", area: "260 Globe Rd, Bethnal Green", note: "Japanese vintage record and book shop — every record hand-cleaned, plus art mags and zines." },
+  { name: "Yoyo Records", handle: "yoyorecordslondon", area: "501 Cambridge Heath Rd, E2", note: "Soul, funk, jazz and hip hop, US original pressings a speciality. Split off Cosmos Records in 2020." },
+  { name: "Caravan Records", handle: "caravan_worldwide", area: "260 Globe Rd, Bethnal Green", note: "Japanese vintage record and book shop, every record hand-cleaned, plus art mags and zines." },
   { name: "Rough Trade East", handle: "roughtradeeast", area: "Brick Lane", note: "The flagship. Big new-release racks, venue and bar attached." },
   { name: "Next Door Records", handle: "nextdoorrecords_", area: "W12 and N16", flag: "N16 site is the close one", note: "Contemporary, jazz, broken beat, dub, reggae, house, techno, garage. Shop, bar and venue." },
-  { name: "Cigarette Records", handle: "cigarette_records", area: "Old Street Records, 350 Old St", flag: "Residency — check IG before you go", note: "Currently set up inside Old Street Records. Strong on afro, reggae and soul rarities." },
+  { name: "Cigarette Records", handle: "cigarette_records", area: "Old Street Records, 350 Old St", flag: "Residency, check IG before you go", note: "Currently set up inside Old Street Records. Strong on afro, reggae and soul rarities." },
 ];
 
 // The record-shop cycle crawl — an efficient one-way ride through the
@@ -1449,7 +1449,7 @@ function RecordStores() {
               rel="noopener noreferrer"
               className="inline-block rounded-full bg-plonkPink px-5 py-2.5 text-xs font-bold uppercase tracking-widest text-white transition hover:bg-plonkPink/90"
             >
-              🚲 Plan a trip — cycle route in Google Maps
+              🚲 Plan a trip, cycle route in Google Maps
             </a>
             <p className="mt-3 font-mono text-[11px] leading-relaxed text-cream/60">
               {CRAWL_LEGS.map((l, i) => (
@@ -1463,7 +1463,7 @@ function RecordStores() {
             </p>
             <p className="mt-2 text-[11px] text-cream/45">
               ~1 hr riding, one way. Starts 1 min from our door, ends in
-              Hackney Wick — a 10-minute roll back to the bar for a pint.
+              Hackney Wick, a 10-minute roll back to the bar for a pint.
               Fancy Rough Trade East too? It&apos;s a 7-minute spur from
               Caravan down to Brick Lane. Times are estimates; check shop
               opening hours before setting off.
@@ -1493,7 +1493,7 @@ function RecordStores() {
                   )}
                 </div>
                 <div className="mt-1 text-[13px] text-cream/60">
-                  <span className="text-cream/80">{s.area}</span> — {s.note}
+                  <span className="text-cream/80">{s.area}</span>, {s.note}
                 </div>
               </a>
             ))}

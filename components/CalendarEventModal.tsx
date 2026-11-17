@@ -272,7 +272,7 @@ export default function CalendarEventModal({
             <input
               type="text"
               required
-              placeholder="e.g. Rolling Bones — Pool Tournament"
+              placeholder="e.g. Rolling Bones, Pool Tournament"
               value={draft.title}
               onChange={(e) => setDraft({ ...draft, title: e.target.value })}
               className={inputClass}
