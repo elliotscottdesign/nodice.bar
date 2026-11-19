@@ -801,6 +801,7 @@ export default function EventsAdminClient() {
               defaultFooter={posterFooter || undefined}
               defaultSubcopy={posterSubcopy || undefined}
               defaultQrUrl={posterQrUrl || undefined}
+              bookingUrl={externalLink || undefined}
               defaultImageUrl={posterImageUrl || undefined}
               defaultRecipe={posterRecipe}
               defaultDayLabel={posterDayLabel || undefined}
@@ -1935,6 +1936,7 @@ function EditEventModal({
             defaultFooter={posterFooter || undefined}
             defaultSubcopy={posterSubcopy || undefined}
             defaultQrUrl={posterQrUrl || undefined}
+            bookingUrl={externalLink || undefined}
             defaultImageUrl={posterImageUrl || undefined}
             defaultRecipe={posterRecipe}
             defaultDayLabel={posterDayLabel || undefined}

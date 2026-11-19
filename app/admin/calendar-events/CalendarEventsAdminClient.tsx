@@ -407,6 +407,8 @@ export default function CalendarEventsAdminClient() {
               start={draft.start_time}
               description={draft.body}
               currentPosterUrl={draft.image_url || null}
+              // The event's own link becomes the A3 QR target when the QR is on.
+              bookingUrl={draft.link_url || undefined}
               // A "Deals"-chipped event builds its poster page-shaped for the
               // drinks zine cover, same as the ticketed tab does.
               isDeal={isDealEvent(null, draft.subcategory)}

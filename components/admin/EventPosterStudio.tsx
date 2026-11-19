@@ -18,7 +18,7 @@
 // artwork he's about to replace, and asked, before anything is written.
 // =============================================================
 
-import { useCallback, useEffect, useRef, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import MediaPicker from "@/components/admin/MediaPicker";
 import Notice from "@/components/Notice";
 import {
@@ -158,6 +158,7 @@ export default function EventPosterStudio({
   defaultFooter,
   defaultSubcopy,
   defaultQrUrl,
+  bookingUrl,
   defaultImageUrl,
   defaultRecipe,
   defaultDayLabel,
@@ -196,6 +197,14 @@ export default function EventPosterStudio({
   defaultFooter?: string | null;
   defaultSubcopy?: string | null;
   defaultQrUrl?: string | null;
+  /**
+   * The event's own public link (events.external_link) — a ticket/booking page
+   * like "/comedybingo", or an absolute URL. When the A3 QR is switched on, it
+   * points a scanner straight here so they land where they can book. A bare
+   * path is made absolute against nodice.bar. Left blank, the QR falls back to
+   * the event's day on the calendar.
+   */
+  bookingUrl?: string | null;
   defaultImageUrl?: string | null;
   /**
    * How this event's poster was built last time. Reopening restores the whole
@@ -356,6 +365,23 @@ export default function EventPosterStudio({
   useEffect(() => {
     setQr(defaultQrUrl || "");
   }, [defaultQrUrl]);
+  // ---- QR code on the A3 print (non-deal events) ----
+  // A scannable code in the A3's top-right corner that opens the event's own
+  // booking/ticket page. On/off switch, so a plain wall poster can skip it.
+  // Older posters (recipe with no showQr) always carried the QR, so a missing
+  // value reads as ON — they stay exactly as they were. Deals never show one
+  // (their price circle owns that corner), so this is ignored for them.
+  const [showQr, setShowQr] = useState(saved.showQr !== false);
+  // Where the QR points. A hand-set QR override (deals / legacy poster_qr_url)
+  // wins; otherwise it's the event's public link; failing both the engine uses
+  // the calendar-day fallback. A bare path ("/comedybingo") is made absolute so
+  // the code is a real scannable URL, not a relative string a phone can't open.
+  const qrTarget = useMemo(() => {
+    const raw = (qr.trim() || bookingUrl || "").trim();
+    if (!raw) return "";
+    if (/^https?:\/\//i.test(raw)) return raw;
+    return `https://nodice.bar${raw.startsWith("/") ? raw : `/${raw}`}`;
+  }, [qr, bookingUrl]);
   const [dayLabel, setDayLabel] = useState(
     defaultDayLabel || saved.dayLabel || "",
   );
@@ -444,7 +470,16 @@ export default function EventPosterStudio({
         textBox: isDeal && textBox,
         dayLabel: isDeal && dayLabel.trim() ? dayLabel.trim() : undefined,
         footer: isDeal ? footer : undefined,
-        qrUrl: isDeal && qr.trim() ? qr.trim() : undefined,
+        // Deals keep their own QR field (they draw no code, so it's only
+        // round-tripped). A non-deal A3 shows the QR only when switched on:
+        // the resolved booking link, or "" to suppress it entirely. An empty
+        // target with the switch on falls through to the engine's calendar
+        // default (undefined).
+        qrUrl: isDeal
+          ? qr.trim() || undefined
+          : showQr
+            ? qrTarget || undefined
+            : "",
         colour,
         size,
         mode,
@@ -476,6 +511,8 @@ export default function EventPosterStudio({
       textBox,
       footer,
       qr,
+      showQr,
+      qrTarget,
       dayLabel,
       colour,
       treatment,
@@ -728,6 +765,10 @@ export default function EventPosterStudio({
               zoom: ph.zoom,
               caption: ph.caption,
             })),
+          // The A3 QR switch, so re-downloading the print reproduces it. For a
+          // non-deal we also bake the resolved booking link, so the download
+          // path draws the same code without needing the event row again.
+          showQr,
           ...(isDeal
             ? {
                 textBox,
@@ -735,7 +776,7 @@ export default function EventPosterStudio({
                 dayLabel: dayLabel.trim(),
                 qr: qr.trim(),
               }
-            : {}),
+            : { qr: showQr ? qrTarget : "" }),
         },
       };
 
@@ -905,16 +946,51 @@ export default function EventPosterStudio({
               Pick a picture below and the poster appears here.
             </div>
           )}
-          {/* The QR now lives ONLY on the A3 print (founder 19 Oct 2026) — the
-              thing that gets put on a wall and scanned. The Instagram post and
-              story don't carry it. */}
-          <p className="mt-2 max-w-[236px] text-[10px] leading-relaxed text-cream/40">
-            The A3 print has a QR code (top right) that opens{" "}
-            <span className="break-all text-cream/60">
-              {eventQrUrl(date).replace(/^https:\/\//, "")}
-            </span>{" "}
-            when scanned. The post and story don&apos;t carry it.
-          </p>
+          {/* QR code switch — lives ONLY on the A3 print (founder 19 Oct 2026):
+              the thing that gets put on a wall and scanned. The Instagram post
+              and story never carry it. Deals use their price circle in that
+              corner instead, so they get no switch. */}
+          {!isDeal && (
+            <div className="mt-3 w-full max-w-[236px] rounded-md border border-cream/15 bg-cream/[0.03] p-2.5">
+              <div className="flex items-center justify-between gap-2">
+                <span className="text-[10px] font-bold uppercase tracking-widest text-cream/55">
+                  QR code on A3 print
+                </span>
+                <button
+                  type="button"
+                  onClick={() => setShowQr((v) => !v)}
+                  title="Show or hide the scannable QR code on the A3 print-out"
+                  className={`shrink-0 rounded-full border px-2.5 py-0.5 text-[9px] font-bold uppercase tracking-wider transition ${
+                    showQr
+                      ? "border-plonkTeal/60 bg-plonkTeal/15 text-plonkTeal"
+                      : "border-cream/20 text-cream/50 hover:bg-cream/5"
+                  }`}
+                >
+                  {showQr ? "● On" : "Off"}
+                </button>
+              </div>
+              <p className="mt-1.5 text-[10px] leading-relaxed text-cream/40">
+                {showQr ? (
+                  <>
+                    A QR in the top-right of the A3 print opens{" "}
+                    <span className="break-all text-cream/60">
+                      {(qrTarget || eventQrUrl(date)).replace(
+                        /^https:\/\//,
+                        "",
+                      )}
+                    </span>{" "}
+                    when scanned. Only the A3 print carries it — the post and
+                    story don&apos;t.
+                  </>
+                ) : (
+                  <>
+                    No QR on the A3 print. Turn this on to add a scannable code
+                    for the printed flyer.
+                  </>
+                )}
+              </p>
+            </div>
+          )}
         </div>
 
         {/* ───── Controls ───── */}

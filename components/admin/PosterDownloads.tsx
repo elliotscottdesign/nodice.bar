@@ -142,7 +142,15 @@ export default function PosterDownloads({
         titleScale: r.titleSize,
         footer: isDeal ? r.footer : undefined,
         dayLabel: isDeal ? r.dayLabel : undefined,
-        qrUrl: isDeal && r.qr ? r.qr : undefined,
+        // A3 QR: deals carry none. A non-deal shows it unless the saved recipe
+        // turned it off (older recipes have no flag and always carried one, so
+        // undefined reads as on). r.qr is the booking link baked in at save;
+        // undefined lets the engine fall back to the calendar day.
+        qrUrl: isDeal
+          ? r.qr || undefined
+          : r.showQr === false
+            ? ""
+            : r.qr || undefined,
         imgs: imgs.map((img, i) => ({
           img,
           exposure: list[i]?.exposure ?? 1,

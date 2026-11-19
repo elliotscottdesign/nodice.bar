@@ -32,10 +32,22 @@ export type PosterRecipe = {
   /** Price wording as typed. */
   price?: string;
   photos?: RecipePhoto[];
+  /**
+   * Show the scannable QR code on the A3 print-out. Absent on older recipes,
+   * where the A3 always carried a QR — so a missing value is read as ON, to
+   * keep those posters exactly as they were. Deals never carry a QR.
+   */
+  showQr?: boolean;
   /** Deal-only extras. */
   textBox?: boolean;
   footer?: string;
   dayLabel?: string;
+  /**
+   * What the QR points at. For a non-deal this is the resolved booking link
+   * baked in at save time (the event's own link, else the calendar fallback),
+   * so re-downloading the A3 reproduces the exact same code. For a deal it's
+   * the free-text QR target (deals no longer draw one, kept for round-tripping).
+   */
   qr?: string;
 };
 
@@ -82,6 +94,7 @@ export function parseRecipe(
     detail: str(raw.detail),
     price: str(raw.price),
     photos: photos && photos.length ? photos : undefined,
+    showQr: typeof raw.showQr === "boolean" ? raw.showQr : undefined,
     textBox: typeof raw.textBox === "boolean" ? raw.textBox : undefined,
     footer: str(raw.footer),
     dayLabel: str(raw.dayLabel),
