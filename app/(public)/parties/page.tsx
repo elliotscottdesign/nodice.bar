@@ -39,6 +39,7 @@ import BigEmailCta from "@/components/BigEmailCta";
 import InstagramFeed from "@/components/InstagramFeed";
 import { useContent, useImage, useGallery } from "@/lib/content";
 import { Editable } from "@/components/Editable";
+import { DJ_PUBLIC } from "@/lib/publicLabels";
 
 // Icon component shape shared by the lucide icons and our custom SVGs
 // below — just the props the grid actually passes.
@@ -163,7 +164,7 @@ const DEFAULTS = {
   eyebrow: "Private hire / Share the venue",
   title: "Party With Us",
   intro:
-    "London Fields' newest bar — yours for the night. Two arches of pool, drinks and snacks for parties of up to 65.",
+    "London Fields' newest bar, yours for the night. Two arches of pool, drinks and snacks for parties of up to 65.",
   popular_heading: "No Dice is popular for",
   popular_list:
     "Birthday party\nChristmas party\nCorporate event\nOutdoor space\nParkside location\nUnusual space\nPool\nArcade\nPing pong\nDJs\nBingo\nMini golf\nBoard games\nDarts\nFood truck\nCatering",
@@ -173,7 +174,7 @@ const DEFAULTS = {
   capacity:
     "Standing: 100\nDining: 40\nCabaret: 60",
   features:
-    "Two pool tables\nFull cocktail bar\nCraft beer on draught\nSnack Bar kitchen\nNatural light\nWi-Fi\nStorage space\nStep-free access\nFull DJ booth — 2× Technics SL-1200 MK7, 2× Pioneer CDJ-900 Nexus, Omnitronic TRM-222 rotary mixer, Sony MDR7508 headphones, 2× iLoud monitor speakers\nMartin Audio sound system — bring your own DJ or plug in a playlist",
+    `Two pool tables\nFull cocktail bar\nCraft beer on draught\nSnack Bar kitchen\nNatural light\nWi-Fi\nStorage space\nStep-free access\n${DJ_PUBLIC.boothLabel}, 2× Technics SL-1200 MK7, 2× Pioneer CDJ-900 Nexus, Omnitronic TRM-222 rotary mixer, Sony MDR7508 headphones, 2× iLoud monitor speakers\nMartin Audio sound system, ${DJ_PUBLIC.boothBring}`,
   catering:
     "In-house catering\nApproved caterers only\nWe provide alcohol\nKitchen facilities available\nHalal available\nKosher available\nComplimentary water\nExtensive vegan menu\nExtensive gluten-free menu\nBuyout fee for external catering\nno: External catering (general)\nno: BYOB alcohol\nno: Complimentary tea & coffee",
   licences:
@@ -181,7 +182,7 @@ const DEFAULTS = {
   welcomes:
     // DJ kit lines mirror the booth spec in the DJ portal ("The kit") —
     // keep the two in step if the booth changes.
-    "Games competitions / tournaments\nVIP events\nPrivate parties\nFull DJ booth — 2× Technics SL-1200 MK7, 2× Pioneer CDJ-900 Nexus, Omnitronic TRM-222 rotary mixer, Sony MDR7508 headphones, 2× iLoud monitor speakers\nMartin Audio sound system — bring your own DJ or plug in a playlist",
+    `Games competitions / tournaments\nVIP events\nPrivate parties\n${DJ_PUBLIC.boothLabel}, 2× Technics SL-1200 MK7, 2× Pioneer CDJ-900 Nexus, Omnitronic TRM-222 rotary mixer, Sony MDR7508 headphones, 2× iLoud monitor speakers\nMartin Audio sound system, ${DJ_PUBLIC.boothBring}`,
   house_rules: "No outside catering. No BYOB. Background music only.",
 };
 
@@ -443,7 +444,7 @@ export default function PrivateHirePage() {
                   />
                 ) : (
                   <div className="flex min-h-[160px] items-center justify-center rounded-2xl border border-dashed border-cream/20 text-sm text-cream/40">
-                    Floorplan — add an image
+                    Floorplan, add an image
                   </div>
                 )}
                 <ManageGalleryLink
@@ -539,7 +540,7 @@ export default function PrivateHirePage() {
               className="mt-6 flex flex-wrap items-center justify-between gap-3 rounded-2xl border border-plonkTeal/40 bg-plonkTeal/10 px-5 py-4 transition hover:bg-plonkTeal/15"
             >
               <span className="font-display text-xl uppercase tracking-wider text-cream">
-                📄 Corporate documents — risk assessments &amp; fire plan
+                📄 Corporate documents, risk assessments &amp; fire plan
               </span>
               <span className="rounded-full bg-plonkTeal px-4 py-1.5 text-[11px] font-bold uppercase tracking-wider text-ink">
                 Access with code →
@@ -551,7 +552,7 @@ export default function PrivateHirePage() {
 
       {/* Pulled up to shrink the gap after the fact sheet (founder 9 Oct). */}
       <div className="-mt-16 sm:-mt-20">
-        <BigEmailCta subject="Private Hire Enquiry — No Dice" />
+        <BigEmailCta subject="No Dice Private Hire Enquiry" />
       </div>
 
       {/* Instagram feed at the end of Venue details (founder 9 Oct 2026). */}
@@ -616,7 +617,7 @@ export default function PrivateHirePage() {
             <div className="mb-8 text-center">
               <h2 className="font-display text-3xl uppercase tracking-wider text-cream sm:text-4xl">Kids parties</h2>
               <p className="mx-auto mt-2 max-w-xl text-sm text-cream/60">
-                Pick a date and time, tell us how many little ones, then build the party — games, drinks and food. We&apos;ll confirm availability and send a firm quote.
+                Pick a date and time, tell us how many little ones, then build the party, games, drinks and food. We&apos;ll confirm availability and send a firm quote.
               </p>
             </div>
             <KidsPartyBuilder />

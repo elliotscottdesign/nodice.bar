@@ -159,10 +159,12 @@ export default function EventPosterStudio({
   defaultSubcopy,
   defaultQrUrl,
   bookingUrl,
+  qrOption,
   defaultImageUrl,
   defaultRecipe,
   defaultDayLabel,
   hideCopyInputs,
+  allowFooter,
   onSave,
   saveLabel = "Save onto this event",
   saveHint,
@@ -205,6 +207,13 @@ export default function EventPosterStudio({
    * the event's day on the calendar.
    */
   bookingUrl?: string | null;
+  /**
+   * Offer the A3 QR-code on/off switch. Only for real, public events (the
+   * events + calendar-events makers) where a scan can lead somewhere bookable.
+   * Off/absent on the private invitation makers (bar reservations, enquiries)
+   * and deals, which keep their own corner and draw no event QR.
+   */
+  qrOption?: boolean;
   defaultImageUrl?: string | null;
   /**
    * How this event's poster was built last time. Reopening restores the whole
@@ -219,6 +228,13 @@ export default function EventPosterStudio({
    * props — the maker is then just photo + colour + generate.
    */
   hideCopyInputs?: boolean;
+  /**
+   * Let a NON-deal poster set the foot line too (normally deal-only). Shows the
+   * "Bottom line" input and passes it through to the render + the saved recipe,
+   * so a booking poster can carry e.g. the venue address along the bottom. The
+   * day-label / QR fields stay deal-only.
+   */
+  allowFooter?: boolean;
   /**
    * Called once the poster(s) are safely in storage. Ordinary events get just
    * `poster_url`; a deal also gets the flyer render + the structured fields.
@@ -469,17 +485,20 @@ export default function EventPosterStudio({
         dealLayout: isDeal,
         textBox: isDeal && textBox,
         dayLabel: isDeal && dayLabel.trim() ? dayLabel.trim() : undefined,
-        footer: isDeal ? footer : undefined,
-        // Deals keep their own QR field (they draw no code, so it's only
-        // round-tripped). A non-deal A3 shows the QR only when switched on:
-        // the resolved booking link, or "" to suppress it entirely. An empty
-        // target with the switch on falls through to the engine's calendar
-        // default (undefined).
+        footer: isDeal || allowFooter ? footer : undefined,
+        // QR on the A3 print. Deals keep their own QR field (they draw no code,
+        // only round-trip it). A real event (qrOption) shows the QR only when
+        // switched on: the resolved booking link, or "" to suppress it — and an
+        // empty target with the switch on falls through to the engine's
+        // calendar default (undefined). Any other surface (the invitation
+        // makers) is left as it was: the engine's own default.
         qrUrl: isDeal
           ? qr.trim() || undefined
-          : showQr
-            ? qrTarget || undefined
-            : "",
+          : qrOption
+            ? showQr
+              ? qrTarget || undefined
+              : ""
+            : undefined,
         colour,
         size,
         mode,
@@ -513,6 +532,7 @@ export default function EventPosterStudio({
       qr,
       showQr,
       qrTarget,
+      qrOption,
       dayLabel,
       colour,
       treatment,
@@ -765,10 +785,6 @@ export default function EventPosterStudio({
               zoom: ph.zoom,
               caption: ph.caption,
             })),
-          // The A3 QR switch, so re-downloading the print reproduces it. For a
-          // non-deal we also bake the resolved booking link, so the download
-          // path draws the same code without needing the event row again.
-          showQr,
           ...(isDeal
             ? {
                 textBox,
@@ -776,7 +792,18 @@ export default function EventPosterStudio({
                 dayLabel: dayLabel.trim(),
                 qr: qr.trim(),
               }
-            : { qr: showQr ? qrTarget : "" }),
+            : qrOption
+              ? {
+                  // The A3 QR switch + the resolved booking link, so
+                  // re-downloading the print reproduces the exact same code
+                  // without needing the event row again.
+                  showQr,
+                  qr: showQr ? qrTarget : "",
+                  ...(allowFooter ? { footer: footer.trim() } : {}),
+                }
+              : allowFooter
+                ? { footer: footer.trim() }
+                : {}),
         },
       };
 
@@ -948,9 +975,10 @@ export default function EventPosterStudio({
           )}
           {/* QR code switch — lives ONLY on the A3 print (founder 19 Oct 2026):
               the thing that gets put on a wall and scanned. The Instagram post
-              and story never carry it. Deals use their price circle in that
-              corner instead, so they get no switch. */}
-          {!isDeal && (
+              and story never carry it. Offered on real events (qrOption) where a
+              scan leads somewhere bookable; deals use their price circle in that
+              corner, and the invitation makers don't carry an event QR. */}
+          {!isDeal && qrOption && (
             <div className="mt-3 w-full max-w-[236px] rounded-md border border-cream/15 bg-cream/[0.03] p-2.5">
               <div className="flex items-center justify-between gap-2">
                 <span className="text-[10px] font-bold uppercase tracking-widest text-cream/55">
@@ -1484,47 +1512,66 @@ export default function EventPosterStudio({
                 />
               </label>
             </div>
-            {isDeal && (
+            {(isDeal || allowFooter) && (
               <div className="mt-2 grid gap-2 sm:grid-cols-2">
                 <label className="block">
                   <span className="mb-1 block text-[10px] text-cream/45">
                     Bottom line (optional)
                   </span>
-                  <input
-                    value={footer}
-                    onChange={(e) => {
-                      setFooterTouched(true);
-                      setFooter(e.target.value);
-                    }}
-                    maxLength={40}
-                    placeholder="e.g. £10 / FREE ENTRY / DEAL OF THE DAY"
-                    className="w-full rounded-md border border-cream/20 bg-ink px-2.5 py-1.5 text-xs text-cream placeholder:text-cream/35"
-                  />
+                  {allowFooter ? (
+                    // A booking invitation carries the venue address here, over
+                    // as many lines as you type — each line is sized to fill the
+                    // width, so two short lines read bigger than one long one.
+                    <textarea
+                      value={footer}
+                      onChange={(e) => {
+                        setFooterTouched(true);
+                        setFooter(e.target.value);
+                      }}
+                      rows={2}
+                      maxLength={80}
+                      placeholder={"407 MENTMORE TERRACE\nLONDON FIELDS · E8 3PH"}
+                      className="w-full resize-none rounded-md border border-cream/20 bg-ink px-2.5 py-1.5 text-xs leading-snug text-cream placeholder:text-cream/35"
+                    />
+                  ) : (
+                    <input
+                      value={footer}
+                      onChange={(e) => {
+                        setFooterTouched(true);
+                        setFooter(e.target.value);
+                      }}
+                      maxLength={40}
+                      placeholder="e.g. £10 / FREE ENTRY / DEAL OF THE DAY"
+                      className="w-full rounded-md border border-cream/20 bg-ink px-2.5 py-1.5 text-xs text-cream placeholder:text-cream/35"
+                    />
+                  )}
                   <span className="mt-1 block text-[9px] leading-relaxed text-cream/35">
-                    Replaces the “NO DICE · date” line at the foot — on the
-                    poster, the zine cover and the printed flyer. Leave blank to
-                    keep the usual line.
+                    {allowFooter
+                      ? "The lines along the very bottom — e.g. the venue address. Put it on two lines (press Return) and it reads bigger. Leave blank to keep the usual “NO DICE · date” line."
+                      : "Replaces the “NO DICE · date” line at the foot — on the poster, the zine cover and the printed flyer. Leave blank to keep the usual line."}
                   </span>
                 </label>
-                <label className="block">
-                  <span className="mb-1 block text-[10px] text-cream/45">
-                    Day shown (optional)
-                  </span>
-                  <input
-                    value={dayLabel}
-                    onChange={(e) => {
-                      setDayTouched(true);
-                      setDayLabel(e.target.value);
-                    }}
-                    maxLength={40}
-                    placeholder="e.g. TUESDAYS / MON-THURS"
-                    className="w-full rounded-md border border-cream/20 bg-ink px-2.5 py-1.5 text-xs text-cream placeholder:text-cream/35"
-                  />
-                  <span className="mt-1 block text-[9px] leading-relaxed text-cream/35">
-                    The day on the bottom line (a deal repeats, so a single date
-                    would be wrong). Blank shows the event date.
-                  </span>
-                </label>
+                {isDeal && (
+                  <label className="block">
+                    <span className="mb-1 block text-[10px] text-cream/45">
+                      Day shown (optional)
+                    </span>
+                    <input
+                      value={dayLabel}
+                      onChange={(e) => {
+                        setDayTouched(true);
+                        setDayLabel(e.target.value);
+                      }}
+                      maxLength={40}
+                      placeholder="e.g. TUESDAYS / MON-THURS"
+                      className="w-full rounded-md border border-cream/20 bg-ink px-2.5 py-1.5 text-xs text-cream placeholder:text-cream/35"
+                    />
+                    <span className="mt-1 block text-[9px] leading-relaxed text-cream/35">
+                      The day on the bottom line (a deal repeats, so a single date
+                      would be wrong). Blank shows the event date.
+                    </span>
+                  </label>
+                )}
               </div>
             )}
           </div>

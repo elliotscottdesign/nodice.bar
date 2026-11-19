@@ -66,7 +66,7 @@ export default function PrivacyPage() {
               tournament): name, email, phone, party size,
               date / time, any notes you give us, and where you heard about
               us. For paid bookings we also receive a Stripe payment-intent
-              ID and confirmation status — the actual card data goes directly
+              ID and confirmation status, the actual card data goes directly
               to Stripe and never touches our servers.
             </p>
             <p>
@@ -77,33 +77,33 @@ export default function PrivacyPage() {
             </p>
             <p>
               <strong>If you simply browse:</strong> minimal technical data
-              from your browser (cookies — see Section 6) and, only with
+              from your browser (cookies, see Section 6) and, only with
               your consent, basic analytics about which pages you viewed.
             </p>
 
             <h2>2. Why we use it (legal basis)</h2>
             <ul>
               <li>
-                <strong>To deliver bookings you've made</strong> — contract
+                <strong>To deliver bookings you've made</strong>, contract
                 performance (UK GDPR Article 6(1)(b)).
               </li>
               <li>
-                <strong>To take payment via Stripe</strong> — contract
+                <strong>To take payment via Stripe</strong>, contract
                 performance, and the legal obligations imposed on us as a
                 merchant.
               </li>
               <li>
-                <strong>To send marketing emails</strong> — your explicit
+                <strong>To send marketing emails</strong>, your explicit
                 consent (UK GDPR Article 6(1)(a) + PECR), which you can
                 withdraw at any time.
               </li>
               <li>
                 <strong>To improve the site and decide where to invest in
-                ads</strong> — legitimate interests, but only when you've
+                ads</strong>, legitimate interests, but only when you've
                 also accepted analytics / marketing cookies.
               </li>
               <li>
-                <strong>To keep accounting records</strong> — legal
+                <strong>To keep accounting records</strong>, legal
                 obligation (Companies Act 2006 + HMRC rules require us to
                 retain transaction records for at least 6 years).
               </li>
@@ -117,7 +117,7 @@ export default function PrivacyPage() {
             </p>
             <ul>
               <li>
-                <strong>Stripe Payments UK Ltd</strong> — card processing.
+                <strong>Stripe Payments UK Ltd</strong>, card processing.
                 See{" "}
                 <a
                   href="https://stripe.com/gb/privacy"
@@ -129,11 +129,11 @@ export default function PrivacyPage() {
                 .
               </li>
               <li>
-                <strong>Supabase Inc.</strong> — database hosting for the
+                <strong>Supabase Inc.</strong>, database hosting for the
                 booking records (EU region).
               </li>
               <li>
-                <strong>Resend</strong> — sending confirmation emails. See{" "}
+                <strong>Resend</strong>, sending confirmation emails. See{" "}
                 <a
                   href="https://resend.com/legal/privacy-policy"
                   target="_blank"
@@ -144,11 +144,11 @@ export default function PrivacyPage() {
                 .
               </li>
               <li>
-                <strong>Behold.so</strong> — embedded Instagram feed on the
+                <strong>Behold.so</strong>, embedded Instagram feed on the
                 events page (only loads if you've accepted marketing cookies).
               </li>
               <li>
-                <strong>GitHub Pages</strong> — static-site hosting for the
+                <strong>GitHub Pages</strong>, static-site hosting for the
                 website.
               </li>
             </ul>
@@ -206,7 +206,7 @@ export default function PrivacyPage() {
               >
                 ico.org.uk
               </a>{" "}
-              — though we'd appreciate the chance to put it right first.
+, though we'd appreciate the chance to put it right first.
             </p>
 
             <h2>6. Cookies</h2>
@@ -217,16 +217,16 @@ export default function PrivacyPage() {
             </p>
             <ul>
               <li>
-                <strong>Strictly necessary</strong> — make the site and the
+                <strong>Strictly necessary</strong>, make the site and the
                 booking flow work (session storage, Stripe payment session,
                 cookie-consent record). Cannot be turned off.
               </li>
               <li>
-                <strong>Analytics</strong> — anonymised page-view data so
+                <strong>Analytics</strong>, anonymised page-view data so
                 we know which pages people use. Off until you accept.
               </li>
               <li>
-                <strong>Marketing</strong> — measurement pixels for Meta /
+                <strong>Marketing</strong>, measurement pixels for Meta /
                 Google / TikTok ads, and the embedded Instagram feed. Off
                 until you accept.
               </li>

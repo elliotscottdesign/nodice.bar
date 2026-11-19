@@ -15,7 +15,10 @@ const FALLBACK_NAV = [
   "Pool | /pool",
   "Parties | /parties",
   "Deals | /deals",
-  "DJs & Events | /events",
+  // Public label swapped DJ → Listening Session (council compliance, Nov 2026).
+  // "Sessions" keeps the nav item short enough for the desktop row; the live
+  // value is the page_content `header.nav` row (see scripts/dj-public-rename.sql).
+  "Sessions & Events | /events",
   "Ping Pong | /pingpong",
   // Crazy golf at the London Fields venue. The "Plonk" brand name is
   // withheld from all public copy pending name-ownership due diligence
@@ -58,7 +61,7 @@ export default function Header() {
   return (
     <header className="sticky top-0 z-50 bg-black">
       <div className="flex w-full items-center justify-between px-6 py-4">
-        <Link href="/" className="flex items-center" aria-label={`${logoAlt} — home`}>
+        <Link href="/" className="flex items-center" aria-label={`${logoAlt}, home`}>
           <Image
             src={logoImage}
             alt={logoAlt}

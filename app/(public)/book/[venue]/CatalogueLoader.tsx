@@ -38,7 +38,7 @@ export default function CatalogueLoader({ venueSlug }: { venueSlug: string }) {
         setPaused({
           message:
             p.closed_message ||
-            "Golf bookings are temporarily paused — check back soon or DM us on Instagram.",
+            "Golf bookings are temporarily paused, check back soon or DM us on Instagram.",
         });
       });
     loadCatalogue(venueSlug)

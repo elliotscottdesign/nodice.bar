@@ -204,13 +204,13 @@ function FooterNewsletter() {
       }
       if (!res.ok) {
         setState("err");
-        setError("Couldn't send right now — try again in a minute.");
+        setError("Couldn't send right now. Try again in a minute.");
         return;
       }
       setState("ok");
     } catch {
       setState("err");
-      setError("Network blip — please try again.");
+      setError("Network blip. Please try again.");
     }
   }
 

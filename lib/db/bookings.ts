@@ -25,7 +25,8 @@ export type DbBookingRow = {
   stripe_payment_intent_id: string | null;
   created_at: string;
   // Joined slot rows for first-slot display in lists; lightweight on purpose.
-  slots: { slot_date: string; slot_time: string; count: number }[];
+  // `id` is carried so the admin can reschedule a specific slot row.
+  slots: { id: string; slot_date: string; slot_time: string; count: number }[];
 };
 
 export async function loadBookings(): Promise<DbBookingRow[]> {
@@ -35,7 +36,7 @@ export async function loadBookings(): Promise<DbBookingRow[]> {
       `id, reference, venue_id, customer_name, customer_email, customer_phone,
        party_size, notes, total_pence, subtotal_pence, discount_pence, status,
        stripe_payment_intent_id, created_at,
-       slots:booking_slots(slot_date, slot_time, count)`,
+       slots:booking_slots(id, slot_date, slot_time, count)`,
     )
     .order("created_at", { ascending: false })
     .limit(500);
@@ -163,4 +164,96 @@ export async function createManualGolfBooking(
   if (tlErr) throw new Error(`Booking saved but tickets failed: ${tlErr.message}`);
 
   return booking;
+}
+
+// =============================================================
+// Editing an existing golf booking (admin) — founder 3 Nov 2026.
+// Golf was the one booking type with no edit path: pool / table /
+// private-hire (bar_reservations) and tournaments could be changed
+// in the admin, golf could only be created + viewed. These bring it
+// in line — change the contact details, party size, notes and status
+// (incl. cancel/restore), and move the booking to another day / time.
+//
+// Every write re-SELECTs the row it changed and treats ZERO returned
+// rows as a hard error. On this project an anon/authenticated write
+// that RLS blocks comes back as a silent 204 / 0-rows "success" (the
+// gallery_images trap), so without this guard a save could look fine
+// and change nothing. The admin runs as an authenticated Supabase
+// session (AdminGate → signInWithPassword), which has update grants
+// on these tables.
+// =============================================================
+
+function noRowsMsg(what: string): string {
+  return (
+    `Couldn't save the ${what} — the booking wasn't changed. ` +
+    `This is a backend permissions block, not a typo. Tell the developer ` +
+    `(golf bookings tables need an authenticated update policy).`
+  );
+}
+
+export type GolfBookingEdit = {
+  customer_name: string;
+  customer_email: string;
+  customer_phone: string | null;
+  party_size: number;
+  notes: string | null;
+};
+
+// Update the contact details / party size / notes on the booking row.
+export async function updateGolfBooking(
+  id: string,
+  fields: GolfBookingEdit,
+): Promise<void> {
+  const { data, error } = await supabase()
+    .from("bookings")
+    .update({
+      customer_name: fields.customer_name.trim(),
+      customer_email: fields.customer_email.trim(),
+      customer_phone: fields.customer_phone?.trim() || null,
+      party_size: fields.party_size,
+      notes: fields.notes?.trim() ? fields.notes.trim().slice(0, 500) : null,
+    })
+    .eq("id", id)
+    .select("id");
+  if (error) throw error;
+  if (!data || data.length === 0) throw new Error(noRowsMsg("booking details"));
+}
+
+// Change a booking's status — confirm, cancel, restore, mark refunded.
+export async function setGolfBookingStatus(
+  id: string,
+  status: BookingStatus,
+): Promise<void> {
+  const { data, error } = await supabase()
+    .from("bookings")
+    .update({ status })
+    .eq("id", id)
+    .select("id");
+  if (error) throw error;
+  if (!data || data.length === 0) throw new Error(noRowsMsg("status change"));
+}
+
+// Reschedule — move one slot row to a new date / time (and keep its
+// headcount in step with the party size for the usual single-slot
+// booking). Golf slots have no hard server-side capacity on this
+// project (availability is advisory), so this just moves the slot.
+export async function rescheduleGolfSlot(
+  slotId: string,
+  slot_date: string,
+  slot_time: string,
+  count?: number,
+): Promise<void> {
+  const patch: Record<string, unknown> = {
+    slot_date,
+    // store seconds-precision time like the booking flow does
+    slot_time: slot_time.length === 5 ? `${slot_time}:00` : slot_time,
+  };
+  if (typeof count === "number" && count > 0) patch.count = count;
+  const { data, error } = await supabase()
+    .from("booking_slots")
+    .update(patch)
+    .eq("id", slotId)
+    .select("id");
+  if (error) throw error;
+  if (!data || data.length === 0) throw new Error(noRowsMsg("new date / time"));
 }

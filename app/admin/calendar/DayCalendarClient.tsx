@@ -10,11 +10,53 @@ import AddTournamentEntryForm from "@/components/admin/AddTournamentEntryForm";
 import AddGolfBookingForm from "@/components/admin/AddGolfBookingForm";
 import BookingLockedTag from "@/components/admin/BookingLockedTag";
 import { loadAllTournaments, type DbTournament } from "@/lib/db/tournaments";
+import {
+  loadCalendarEventsInRange,
+  type DbCalendarEvent,
+} from "@/lib/db/calendarEvents";
+import { loadDjNightsInRange, isDjEvent } from "@/lib/db/djNights";
+import { loadOpenDecksNightsInRange } from "@/lib/db/openDecksNights";
 
 // Founder-set hard capacities. Heatmap colour = max(bar%, golf%) so
 // whichever side is filling up first drives the cell's warmth.
 const BAR_CAPACITY = 70;
 const GOLF_CAPACITY = 54;
+
+// ─── "What's on" event chips ───────────────────────────────────
+// So the team can see everything programmed on a day/month — DJ nights,
+// specials, food, pool, drinks deals — not just the bar/golf bookings
+// (founder 4 Nov 2026). Same five groups + mapping as the PUBLIC /events
+// calendar (kept in step by hand — the public page inlines the identical
+// map). A tag is a group over categories: everything pool-shaped is POOL,
+// bingo sits under SPECIALS, drink deals are DEAL, DJ-feed nights are DJ.
+const CATEGORY_TO_CHIP: Record<string, string> = {
+  dj_night: "DJ",
+  pool_tournament_doubles: "POOL",
+  pool_tournament_singles: "POOL",
+  pool_special: "POOL",
+  ping_pong: "POOL",
+  food_event: "FOOD",
+  drink_special: "DEAL",
+  special_event: "SPECIALS",
+  bingo: "SPECIALS",
+  // arcade / golf / other → no chip (shown only when no filter is narrowing)
+};
+const EVENT_CHIPS = ["POOL", "FOOD", "SPECIALS", "DJ", "DEAL"] as const;
+type EventChip = (typeof EVENT_CHIPS)[number];
+function chipForEvent(ev: DbCalendarEvent): string | null {
+  if (isDjEvent(ev)) return "DJ";
+  return CATEGORY_TO_CHIP[ev.category ?? ""] ?? null;
+}
+const CHIP_STYLE: Record<
+  EventChip,
+  { pill: string; dot: string; emoji: string }
+> = {
+  POOL: { pill: "bg-purple-500/15 text-purple-300", dot: "bg-purple-400", emoji: "🎱" },
+  FOOD: { pill: "bg-orange-500/15 text-orange-300", dot: "bg-orange-400", emoji: "🍔" },
+  SPECIALS: { pill: "bg-plonkPink/15 text-plonkPink", dot: "bg-plonkPink", emoji: "✨" },
+  DJ: { pill: "bg-sky-500/15 text-sky-300", dot: "bg-sky-400", emoji: "🎧" },
+  DEAL: { pill: "bg-plonkYellow/15 text-plonkYellow", dot: "bg-plonkYellow", emoji: "💸" },
+};
 
 // ─── Types ─────────────────────────────────────────────────────
 type Source = "pool" | "table" | "golf" | "private_hire";
@@ -111,6 +153,21 @@ export default function DayCalendarClient() {
   >(null);
   // Tournaments for the inline tournament-entry form.
   const [tournaments, setTournaments] = useState<DbTournament[]>([]);
+  // "What's on" events (DJ / specials / food / pool / deals) for the
+  // visible month + which group chips are switched on (all on by default).
+  const [events, setEvents] = useState<DbCalendarEvent[]>([]);
+  const [selectedChips, setSelectedChips] = useState<Set<string>>(
+    () => new Set(EVENT_CHIPS),
+  );
+  const allChipsOn = selectedChips.size === EVENT_CHIPS.length;
+  function toggleChip(chip: string) {
+    setSelectedChips((prev) => {
+      const next = new Set(prev);
+      if (next.has(chip)) next.delete(chip);
+      else next.add(chip);
+      return next;
+    });
+  }
   useEffect(() => {
     loadAllTournaments()
       .then(setTournaments)
@@ -205,6 +262,49 @@ export default function DayCalendarClient() {
     };
   }, [refreshKey]);
 
+  // Load the month's "what's on" events — same three sources the public
+  // /events calendar uses (manually-added events incl. deals + specials +
+  // food + pool, confirmed DJ nights, open-decks nights). allSettled so one
+  // feed failing never blanks the others.
+  useEffect(() => {
+    let cancelled = false;
+    const from = ymd(new Date(active.year, active.month, 1));
+    const lastDay = new Date(active.year, active.month + 1, 0).getDate();
+    const to = ymd(new Date(active.year, active.month, lastDay));
+    Promise.allSettled([
+      loadCalendarEventsInRange(from, to),
+      loadDjNightsInRange(from, to),
+      loadOpenDecksNightsInRange(from, to),
+    ]).then((res) => {
+      if (cancelled) return;
+      const vals = res.flatMap((r) =>
+        r.status === "fulfilled" ? r.value : [],
+      ) as DbCalendarEvent[];
+      setEvents(vals);
+    });
+    return () => {
+      cancelled = true;
+    };
+  }, [active.year, active.month, refreshKey]);
+
+  // Events for the visible month, filtered by the chip toggles and indexed
+  // by date. When every chip is on we show all events (including any with no
+  // chip, e.g. arcade/golf); narrowing shows only matching groups — exactly
+  // like the public calendar.
+  const eventsByDate = useMemo(() => {
+    const map: Record<string, (DbCalendarEvent & { chip: string | null })[]> = {};
+    for (const ev of events) {
+      if (ev.active === false) continue;
+      const chip = chipForEvent(ev);
+      if (!allChipsOn && !(chip && selectedChips.has(chip))) continue;
+      (map[ev.event_date] ??= []).push({ ...ev, chip });
+    }
+    for (const k of Object.keys(map)) {
+      map[k].sort((a, b) => (a.start_time ?? "").localeCompare(b.start_time ?? ""));
+    }
+    return map;
+  }, [events, selectedChips, allChipsOn]);
+
   const grid = useMemo(
     () => buildMonthGrid(active.year, active.month),
     [active.year, active.month],
@@ -273,6 +373,45 @@ export default function DayCalendarClient() {
         </div>
       </div>
 
+      {/* "What's on" filters — same five groups as the public calendar, so
+          the team can narrow the month to DJ nights / specials / food /
+          pool / deals (founder 4 Nov 2026). All on by default. */}
+      <div className="flex flex-wrap items-center gap-2">
+        <span className="mr-1 text-[10px] font-bold uppercase tracking-widest text-cream/45">
+          What&apos;s on
+        </span>
+        <button
+          type="button"
+          onClick={() => setSelectedChips(new Set(EVENT_CHIPS))}
+          className={`rounded-full border px-3 py-1 text-[11px] font-bold uppercase tracking-wider transition ${
+            allChipsOn
+              ? "border-cream/40 bg-cream/10 text-cream"
+              : "border-cream/15 text-cream/60 hover:border-cream/40"
+          }`}
+        >
+          All
+        </button>
+        {EVENT_CHIPS.map((chip) => {
+          const on = selectedChips.has(chip);
+          const s = CHIP_STYLE[chip];
+          return (
+            <button
+              key={chip}
+              type="button"
+              onClick={() => toggleChip(chip)}
+              className={`flex items-center gap-1.5 rounded-full border px-3 py-1 text-[11px] font-bold uppercase tracking-wider transition ${
+                on
+                  ? `border-transparent ${s.pill}`
+                  : "border-cream/15 text-cream/40 hover:border-cream/40"
+              }`}
+            >
+              <span aria-hidden>{s.emoji}</span>
+              {chip}
+            </button>
+          );
+        })}
+      </div>
+
       {/* Weekday header (desktop only). */}
       <div className="hidden grid-cols-7 gap-2 sm:grid">
         {WEEKDAYS.map((w) => (
@@ -297,6 +436,7 @@ export default function DayCalendarClient() {
             );
           const dateIso = ymd(new Date(active.year, active.month, day));
           const bucket = buckets[dateIso];
+          const dayEvents = eventsByDate[dateIso] ?? [];
           const barUtil = bucket ? bucket.bar_people / BAR_CAPACITY : 0;
           const golfUtil = bucket ? bucket.golf_people / GOLF_CAPACITY : 0;
           const util = Math.max(barUtil, golfUtil);
@@ -351,6 +491,26 @@ export default function DayCalendarClient() {
                     <div className="font-bold text-amber-300">
                       ⏳ {counts!.pending} pending
                     </div>
+                  )}
+                </div>
+              )}
+              {dayEvents.length > 0 && (
+                <div className="mt-1 flex flex-wrap items-center gap-1">
+                  {dayEvents.slice(0, 5).map((ev, i) => (
+                    <span
+                      key={`${ev.id}-${i}`}
+                      title={`${ev.chip ?? "Event"}: ${ev.title}`}
+                      className={`inline-block h-2 w-2 rounded-full ${
+                        ev.chip
+                          ? CHIP_STYLE[ev.chip as EventChip].dot
+                          : "bg-cream/40"
+                      }`}
+                    />
+                  ))}
+                  {dayEvents.length > 5 && (
+                    <span className="text-[9px] font-bold text-cream/60">
+                      +{dayEvents.length - 5}
+                    </span>
                   )}
                 </div>
               )}
@@ -441,6 +601,54 @@ export default function DayCalendarClient() {
               onCreated={afterAdd}
             />
           )}
+
+        {(eventsByDate[selected] ?? []).length > 0 && (
+          <AdminCard title="What's on this day">
+            <ul className="divide-y divide-cream/10">
+              {(eventsByDate[selected] ?? []).map((ev) => {
+                const s = ev.chip ? CHIP_STYLE[ev.chip as EventChip] : null;
+                const row = (
+                  <>
+                    <span
+                      className={`rounded-full px-2 py-0.5 text-[9px] font-bold uppercase tracking-widest ${
+                        s ? s.pill : "bg-cream/10 text-cream/60"
+                      }`}
+                    >
+                      {s ? `${s.emoji} ${ev.chip}` : "Event"}
+                    </span>
+                    <span className="min-w-[3.5rem] text-cream/85">
+                      {ev.start_time ? ev.start_time.slice(0, 5) : "All day"}
+                    </span>
+                    <span className="text-cream">{ev.title}</span>
+                    {ev.link_url && (
+                      <span className="ml-auto text-[10px] font-bold uppercase tracking-widest text-plonkPink">
+                        Open ↗
+                      </span>
+                    )}
+                  </>
+                );
+                return (
+                  <li key={ev.id}>
+                    {ev.link_url ? (
+                      <a
+                        href={ev.link_url}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        className="flex flex-wrap items-center gap-3 px-5 py-3 text-sm transition hover:bg-cream/5"
+                      >
+                        {row}
+                      </a>
+                    ) : (
+                      <div className="flex flex-wrap items-center gap-3 px-5 py-3 text-sm">
+                        {row}
+                      </div>
+                    )}
+                  </li>
+                );
+              })}
+            </ul>
+          </AdminCard>
+        )}
 
         <AdminCard
           title={new Date(selected + "T12:00:00").toLocaleDateString("en-GB", {

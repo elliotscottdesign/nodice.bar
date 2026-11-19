@@ -6,10 +6,11 @@ import Link from "next/link";
 import Script from "next/script";
 import Reveal from "@/components/Reveal";
 import HeroBookingWidget from "@/components/HeroBookingWidget";
-import { useContent, useImage, useGallery } from "@/lib/content";
+import { useContent, useGallery, useImage } from "@/lib/content";
 import { Editable, DisplayImage } from "@/components/Editable";
 import ManageGalleryLink from "@/components/ManageGalleryLink";
 import InstagramFeed from "@/components/InstagramFeed";
+import UpcomingEvents from "@/components/UpcomingEvents";
 
 const PRESS = [
   { name: "Evening Standard", src: "/images/London-Evening-Standard-logo.jpg" },
@@ -44,15 +45,14 @@ const FEATURES = [
 ];
 
 export default function HomePage() {
-  // Every useContent / useImage call passes the current hardcoded value as
-  // its fallback, so the page renders identically when nothing's been edited
+  // Every useContent call passes the current hardcoded value as its
+  // fallback, so the page renders identically when nothing's been edited
   // in the admin. Saved values override the fallback on hydration.
-  // No hardcoded fallback — the Plonk Golf "shark + volcano course"
-  // photo used to live here and kept resurrecting itself whenever the
-  // CMS row was empty. Empty fallback + conditional render below means
-  // the hero is solid black until the founder uploads a real photo via
-  // admin → Site Content → Home page → "Hero image" (or the click-to-
-  // edit overlay on the live page in admin Edit mode).
+  // Header photo restored (founder, 12 Nov 2026 — "put the header image
+  // back in, removed by accident"). The hero leads with the venue photo
+  // again (home.hero.image CMS row), then title + intro + booking, then
+  // the "what's coming up" rails. Image only renders when the CMS row has
+  // one — empty just shows the copy on forest, never a black box.
   const heroImage = useImage("home.hero.image", "");
   const heroEyebrow = useContent("home.hero.eyebrow", "London Fields · Hackney");
   const heroLine1 = useContent("home.hero.headline_1", "No Dice");
@@ -60,10 +60,6 @@ export default function HomePage() {
   const heroSubcopy = useContent(
     "home.hero.subcopy",
     "A neighbourhood bar in the railway arches off London Fields. Pool, board games, arcade, residents on the decks, every big match on the screens.",
-  );
-  const hackneyBlurb = useContent(
-    "home.venues.hackney",
-    "A short walk from Broadway Market overlooking London Fields. Our home in the arches — beer garden, kitchen residencies, pool tables, retro arcade and craft cocktail bar.",
   );
   const f1Title = useContent("home.feature1.title", FEATURES[0].title);
   const f1Body = useContent("home.feature1.body", FEATURES[0].body);
@@ -82,17 +78,19 @@ export default function HomePage() {
 
   return (
     <main>
-      {/* ───────────── HERO (forest) ───────────── */}
+      {/* ───────────── HERO (forest) ─────────────
+          Header photo restored (founder, 12 Nov 2026 — "put the header image
+          back in"). Full-width image banner with the desktop booking widget
+          floating over it, just below the sticky header, so the search bar
+          rides down the page with the banner the way it used to before the
+          image was stripped out. Copy (title + intro) sits on forest below,
+          with a plain Book button standing in for the widget on phones. */}
       <section className="relative isolate flex flex-col">
-        {/* Image — always fills the full width; aspect-[3/2] matches our venue
-            photo ratio so the shot fits cleanly without top/bottom crop.
-            The desktop booking widget floats over this image, near the top
-            just below the sticky header. */}
-        <div className="relative w-full bg-forest aspect-[3/2] max-h-[80vh] min-h-[360px] overflow-hidden">
-          {/* Only render the Image when an actual src exists — empty
-              string would error next/image. With no image, the parent
-              div's bg-forest (now black) shows through, which is
-              exactly what we want until an upload exists. */}
+        {/* Image banner + floating booking widget. The container always
+            renders so the booking bar has its place even before an image is
+            uploaded; the <Image> itself only paints when home.hero.image has
+            a value, otherwise the forest background shows through. */}
+        <div className="relative w-full overflow-hidden bg-forest aspect-[3/2] max-h-[80vh] min-h-[360px]">
           {heroImage && (
             <Image
               src={heroImage}
@@ -106,7 +104,7 @@ export default function HomePage() {
           )}
           <div className="pointer-events-none absolute inset-x-0 top-0 h-24 bg-gradient-to-b from-forestDeep/55 to-transparent" />
 
-          {/* Booking widget — desktop only, floats over the image just below
+          {/* Booking widget — desktop only, floats over the banner just below
               the sticky header. Hidden on mobile (the pink CTA below the
               image takes its place there). */}
           <div className="pointer-events-none absolute inset-x-0 top-6 z-30 hidden px-6 md:block">
@@ -116,8 +114,8 @@ export default function HomePage() {
           </div>
         </div>
 
-        {/* Copy below the image — sits on forest */}
-        <div className="bg-forest px-6 pb-20 pt-10 text-center">
+        {/* Copy below the banner — sits on forest */}
+        <div className="bg-forest px-6 pb-16 pt-10 text-center">
           <Reveal>
             <p className="text-xs font-bold uppercase tracking-eyebrow text-plonkYellow">
               <Editable k="home.hero.eyebrow">{heroEyebrow}</Editable>
@@ -137,40 +135,40 @@ export default function HomePage() {
               <Editable k="home.hero.subcopy" multiline>{heroSubcopy}</Editable>
             </p>
           </Reveal>
+
+          {/* Phones: the desktop search bar renders nothing below md, so show
+              a plain booking button in its place rather than a dead gap. */}
+          <Reveal delay={360}>
+            <Link
+              href="/book"
+              className="mx-auto mt-8 flex w-full max-w-sm items-center justify-center rounded-full bg-plonkPink px-6 py-3.5 text-sm font-bold uppercase tracking-wider text-white transition hover:bg-plonkPink/90 md:hidden"
+            >
+              Book a table or pool
+            </Link>
+          </Reveal>
         </div>
       </section>
 
-      {/* ───────────── VENUES (plum) ───────────── */}
-      <section id="venues" className="tint-plum relative overflow-hidden">
-        <div className="glow-blob-plum pointer-events-none absolute inset-x-0 top-0 h-[40vh]" />
-        <VenueSpotlight
-          // Fallbacks — render when no admin override exists
-          name="Hackney"
-          eyebrow="London Fields · 407 Mentmore Terrace"
-          blurb={hackneyBlurb}
-          features={[
-            "Pool & arcade",
-            "Beer garden",
-            "Kitchen residencies",
-            "Big screens for sport",
-          ]}
-          bookLabel="Book"
-          detailLabel="Party bookings →"
-          bookHref="/book"
-          detailHref="/parties"
-          image=""
-          imageAlt="No Dice Hackney"
-          align="left"
-          // CMS keys — every text surface editable from admin
-          nameKey="home.venues.hackney_name"
-          eyebrowKey="home.venues.hackney_eyebrow"
-          blurbKey="home.venues.hackney"
-          featuresKey="home.venues.hackney_features"
-          bookLabelKey="home.venues.hackney_book_label"
-          detailLabelKey="home.venues.hackney_detail_label"
-          imageKey="home.venues.hackney_image"
-        />
-      </section>
+      {/* ───────────── WHAT'S ON — two rails, next 30 days ─────────────
+          Up top on purpose. First the special events / pool / food / drink
+          nights, then a separate rail just for the DJs (in order of play,
+          Open Decks included). Each renders nothing when its 30-day window
+          is empty, so neither leaves a bare band. */}
+      <UpcomingEvents
+        kind="events"
+        eyebrow="Next 30 days"
+        heading="Special events"
+      />
+      <UpcomingEvents
+        kind="djs"
+        eyebrow="On the decks"
+        heading="Music sessions"
+      />
+
+      {/* VENUES (plum) — the "No Dice Crazy Golf" venue spotlight was
+          removed on founder request (12 Nov 2026). The VenueSpotlight
+          component is kept defined below (unused) so the block can be
+          restored quickly if wanted. */}
 
       {/* ───────────── FEATURES (plum → ember) ───────────── */}
       <section className="tint-plum-to-ember relative overflow-hidden px-6 py-28">

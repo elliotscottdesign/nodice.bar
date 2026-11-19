@@ -56,6 +56,10 @@ import {
   unarchiveEnquiry,
   saveEnquiryForLater,
   unsaveEnquiry,
+  setEnquiryFollowup,
+  clearEnquiryFollowup,
+  setEnquiryPoster,
+  clearEnquiryPoster,
   type Shelf,
   tidyEnquiryGmail,
   type EnquiryActivity,
@@ -75,8 +79,12 @@ import {
   draftEnquiryReply,
   loadAiKnowledge,
   saveAiKnowledge,
-  loadEmailSignature,
-  saveEmailSignature,
+  loadMySignature,
+  loadSignatureConfig,
+  saveSignatureConfig,
+  buildSignature,
+  currentUserEmail,
+  type SignatureConfig,
   loadQuickLinks,
   saveQuickLinks,
   type QuickLink,
@@ -92,6 +100,9 @@ import {
   type EnquiryType,
   ENQUIRY_TYPE_LABEL,
 } from "@/lib/db/enquiries";
+import { setBarReservationStatus } from "@/lib/db/barReservations";
+import EventPosterStudio from "@/components/admin/EventPosterStudio";
+import PosterDownloads from "@/components/admin/PosterDownloads";
 
 function describe(e: unknown, fallback: string): string {
   return e instanceof Error ? e.message : fallback;
@@ -434,9 +445,20 @@ export default function EnquiriesClient() {
     }
     // Newest-first by default; "Must respond" surfaces the longest-waiting first.
     const key: SortKey = onlyOwed ? "oldest" : sortBy;
-    for (const st of STATUS_ORDER) m[st] = sortEnquiries(m[st], key, activity);
+    for (const st of STATUS_ORDER) {
+      m[st] = sortEnquiries(m[st], key, activity);
+      // In the Follow up view, order by the chase date so overdue chases sit
+      // at the top of each column.
+      if (shelf === "followup") {
+        m[st].sort(
+          (a, b) =>
+            (a.followup_at ? new Date(a.followup_at).getTime() : Infinity) -
+            (b.followup_at ? new Date(b.followup_at).getTime() : Infinity),
+        );
+      }
+    }
     return m;
-  }, [enquiries, bucket, typeFilter, onlyOwed, sortBy, activity, nowMs]);
+  }, [enquiries, bucket, typeFilter, onlyOwed, sortBy, activity, nowMs, shelf]);
 
   // How many open enquiries we owe a reply on, in this bucket (the badge count).
   const owedCount = useMemo(() => {
@@ -482,6 +504,26 @@ export default function EnquiriesClient() {
     } catch (err) {
       setErr(describe(err, "Couldn't save."));
       await reload();
+    }
+  }
+
+  // Follow up = chase on a date. Default 7 days out; moves it to the Follow up
+  // section. Passing a date changes it.
+  async function followupOne(e: Enquiry, dateIso?: string) {
+    try {
+      await setEnquiryFollowup(e.id, dateIso);
+      await reload();
+    } catch (err) {
+      setErr(describe(err, "Couldn't set a follow-up."));
+    }
+  }
+  // Done with the follow-up → back onto the active board.
+  async function clearFollowupOne(id: string) {
+    try {
+      await clearEnquiryFollowup(id);
+      await reload();
+    } catch (err) {
+      setErr(describe(err, "Couldn't clear the follow-up."));
     }
   }
 
@@ -738,6 +780,7 @@ export default function EnquiriesClient() {
           {(
             [
               ["active", "Active"],
+              ["followup", "Follow up"],
               ["saved", "Saved"],
               ["archived", "Archived"],
             ] as [Shelf, string][]
@@ -760,6 +803,11 @@ export default function EnquiriesClient() {
           ))}
         </div>
 
+        {shelf === "followup" && (
+          <span className="text-[10px] uppercase tracking-wider text-cream/40">
+            Chasing on a date · due ones turn amber and rise to the top · ✓ on a card when done
+          </span>
+        )}
         {shelf === "saved" && (
           <span className="text-[10px] uppercase tracking-wider text-cream/40">
             Set aside for later — still in Gmail · ↩ on a card to bring back
@@ -942,6 +990,9 @@ export default function EnquiriesClient() {
               <div className="space-y-2">
                 {byStatus[st].map((e) => {
                   const f = flagsFor(e, activity[e.id], nowMs);
+                  const followupDue =
+                    !!e.followup_at &&
+                    new Date(e.followup_at).getTime() <= nowMs;
                   return (
                     <div
                       key={e.id}
@@ -955,7 +1006,11 @@ export default function EnquiriesClient() {
                         }
                       }}
                       className={`group relative block w-full cursor-pointer rounded-lg border bg-ink/50 p-2.5 text-left transition hover:border-cream/40 ${
-                        f.overdue ? "border-red-500/60" : STATUS_STYLE[e.status]
+                        f.overdue
+                          ? "border-red-500/60"
+                          : followupDue
+                            ? "border-amber-400/70 bg-amber-400/5"
+                            : STATUS_STYLE[e.status]
                       }`}
                     >
                       <div className="flex items-start justify-between gap-1.5">
@@ -982,8 +1037,20 @@ export default function EnquiriesClient() {
                               <CheckIcon />
                             </span>
                           )}
-                          {/* save / archive (active) or restore (side views) */}
-                          {shelf !== "active" ? (
+                          {/* follow up done (followup view) · restore (saved/archived) · save+archive+followup (active) */}
+                          {shelf === "followup" ? (
+                            <button
+                              type="button"
+                              title="Done — move back to the active board"
+                              onClick={(ev) => {
+                                ev.stopPropagation();
+                                clearFollowupOne(e.id);
+                              }}
+                              className="rounded border border-cream/20 px-1.5 py-0.5 text-[10px] font-bold text-plonkTeal transition hover:bg-plonkTeal/10"
+                            >
+                              ✓ Done
+                            </button>
+                          ) : shelf !== "active" ? (
                             <button
                               type="button"
                               title="Bring back to the board"
@@ -997,6 +1064,17 @@ export default function EnquiriesClient() {
                             </button>
                           ) : (
                             <>
+                              <button
+                                type="button"
+                                title="Follow up — chase in 7 days (change the date in the enquiry)"
+                                onClick={(ev) => {
+                                  ev.stopPropagation();
+                                  followupOne(e);
+                                }}
+                                className="rounded border border-cream/20 p-1 text-cream/50 transition hover:border-amber-400/60 hover:text-amber-300"
+                              >
+                                <ClockIcon />
+                              </button>
                               <button
                                 type="button"
                                 title="Save for later — keeps the email in Gmail, clears it from this list"
@@ -1031,6 +1109,19 @@ export default function EnquiriesClient() {
                         >
                           {f.today ? "Today" : shortDate(f.arrival)}
                         </span>
+                        {e.followup_at && (
+                          <span
+                            className={
+                              followupDue
+                                ? "font-bold text-amber-300"
+                                : "text-amber-300/70"
+                            }
+                            title={`Follow up ${new Date(e.followup_at).toLocaleString("en-GB")}`}
+                          >
+                            ⏰ {followupDue ? "due " : ""}
+                            {shortDate(new Date(e.followup_at))}
+                          </span>
+                        )}
                         {e.enquiry_type && e.enquiry_type !== "other" && (
                           <span className="rounded border border-cream/20 px-1.5 py-0.5 font-bold text-cream/70">
                             {ENQUIRY_TYPE_LABEL[e.enquiry_type]}
@@ -1093,13 +1184,22 @@ export default function EnquiriesClient() {
             }
           }}
           onDelete={async () => {
+            const hasBooking =
+              open.linked_kind === "booking" && !!open.linked_id;
             if (
               !(await confirmDialog(
-                "Delete this enquiry? It's removed from the CRM and its email is archived out of the Gmail inbox (not binned). This can't be undone.",
+                `Delete this enquiry? It's removed from the CRM and its email is archived out of the Gmail inbox (not binned).${hasBooking ? " Its linked booking is also cancelled (removed from reservations)." : ""} This can't be undone.`,
               ))
             )
               return;
             try {
+              // If it became a real booking, cancel that too so it drops off
+              // the reservations / arrivals view.
+              if (hasBooking) {
+                await setBarReservationStatus(open.linked_id, "cancelled").catch(
+                  () => {},
+                );
+              }
               // Clear it out of the Gmail inbox first (while we still have its
               // id), then remove the enquiry from the CRM.
               await tidyEnquiryGmail(open.id).catch(() => {});
@@ -1222,7 +1322,7 @@ function ComposeModal({
   // lands on the blank line, ready to type.
   useEffect(() => {
     let on = true;
-    loadEmailSignature()
+    loadMySignature()
       .then((s) => {
         if (!on) return;
         setSig(s);
@@ -1405,15 +1505,38 @@ function ComposeModal({
     </button>
   );
 
+  // Never close on an accidental click-off — only via the cross/Discard, and
+  // then only after confirming (so a half-written reply is never lost).
+  async function requestClose() {
+    const hasText = !!(editorRef.current?.innerText || "").trim();
+    if (hasText && !busy) {
+      const ok = await confirmDialog(
+        "Close this message? Your reply will be lost unless you've sent it.",
+      );
+      if (!ok) return;
+    }
+    onClose();
+  }
+
+  // Esc closes the compose window (same guard as the ✕) — Leonie's request.
+  // A ref keeps the listener pointed at the latest requestClose closure.
+  const requestCloseRef = useRef(requestClose);
+  requestCloseRef.current = requestClose;
+  useEffect(() => {
+    const onKey = (ev: KeyboardEvent) => {
+      if (ev.key === "Escape") {
+        ev.preventDefault();
+        ev.stopPropagation();
+        void requestCloseRef.current();
+      }
+    };
+    window.addEventListener("keydown", onKey);
+    return () => window.removeEventListener("keydown", onKey);
+  }, []);
+
   return (
-    <div
-      className="fixed inset-0 z-[60] flex items-center justify-center bg-black/80 p-2 sm:p-6"
-      onClick={onClose}
-    >
-      <div
-        className="flex h-full max-h-[92vh] w-full max-w-5xl flex-col overflow-hidden rounded-2xl border border-cream/15 bg-ink shadow-2xl"
-        onClick={(e) => e.stopPropagation()}
-      >
+    <div className="fixed inset-0 z-[60] flex items-center justify-center bg-black/80 p-2 sm:p-6">
+      <div className="flex h-full max-h-[92vh] w-full max-w-5xl flex-col overflow-hidden rounded-2xl border border-cream/15 bg-ink shadow-2xl">
         {/* header */}
         <div className="flex items-center justify-between border-b border-cream/10 px-4 py-3">
           <div className="min-w-0">
@@ -1427,7 +1550,7 @@ function ComposeModal({
           </div>
           <button
             type="button"
-            onClick={onClose}
+            onClick={requestClose}
             className="shrink-0 rounded-full border border-cream/20 px-3 py-1 text-xs font-bold uppercase tracking-widest text-cream/70 hover:border-cream/40"
           >
             Close
@@ -1538,7 +1661,7 @@ function ComposeModal({
               </button>
               <button
                 type="button"
-                onClick={onClose}
+                onClick={requestClose}
                 className="rounded-full border border-cream/20 px-4 py-2 text-xs font-bold uppercase tracking-wider text-cream/60 hover:border-cream/40"
               >
                 Discard
@@ -1596,24 +1719,41 @@ function ComposeModal({
 
 // Edit the email signature (HTML) used by the compose window.
 function SignatureEditor() {
-  const [text, setText] = useState("");
-  const [loaded, setLoaded] = useState(false);
+  const [cfg, setCfg] = useState<SignatureConfig | null>(null);
+  const [rows, setRows] = useState<{ email: string; name: string }[]>([]);
   const [busy, setBusy] = useState(false);
   const [msg, setMsg] = useState("");
+  const [myEmail, setMyEmail] = useState("");
 
   useEffect(() => {
-    loadEmailSignature()
-      .then((v) => setText(v))
-      .catch(() => setText(""))
-      .finally(() => setLoaded(true));
+    Promise.all([loadSignatureConfig(), currentUserEmail()])
+      .then(([c, email]) => {
+        setCfg(c);
+        setMyEmail(email);
+        setRows(Object.entries(c.names).map(([email, name]) => ({ email, name })));
+      })
+      .catch(() => setCfg({ footer: "", title: "Bookings Manager", names: {} }));
   }, []);
 
+  function setRow(i: number, patch: Partial<{ email: string; name: string }>) {
+    setRows((prev) => prev.map((r, j) => (j === i ? { ...r, ...patch } : r)));
+  }
+
   async function save() {
+    if (!cfg) return;
     setBusy(true);
     setMsg("");
     try {
-      await saveEmailSignature(text);
-      setMsg("Saved — used on every reply.");
+      const names: Record<string, string> = {};
+      for (const r of rows) {
+        const e = r.email.trim().toLowerCase();
+        const n = r.name.trim();
+        if (e && n) names[e] = n;
+      }
+      const next = { ...cfg, names };
+      await saveSignatureConfig(next);
+      setCfg(next);
+      setMsg("Saved — each person signs with their own name now.");
     } catch (e) {
       setMsg(describe(e, "Couldn't save."));
     } finally {
@@ -1621,41 +1761,104 @@ function SignatureEditor() {
     }
   }
 
+  if (!cfg) return <div className="rounded-xl border border-cream/15 bg-ink/40 p-4 text-xs text-cream/50">Loading…</div>;
+
+  const previewName =
+    cfg.names[myEmail] ||
+    rows.find((r) => r.email.trim().toLowerCase() === myEmail)?.name ||
+    rows[0]?.name ||
+    "The No Dice Team";
+
   return (
     <div className="rounded-xl border border-cream/15 bg-ink/40 p-4">
       <p className="text-[11px] font-bold uppercase tracking-widest text-cream/70">
         Email signature
       </p>
       <p className="mt-1 max-w-2xl text-xs text-cream/55">
-        Added to the bottom of replies from the compose window (Gmail’s send API
-        doesn’t attach your Gmail signature, so this is the one that goes out).
-        Basic HTML is fine — links like{" "}
-        <code className="text-cream/70">&lt;a href="…"&gt;</code> work.
+        Replies sign off with <b className="text-cream/75">whoever is logged in</b> —
+        the name below for their login, the shared title, then the footer. Add a
+        row for each staff member (their login email → full name).
       </p>
-      <div className="mt-3 grid gap-3 lg:grid-cols-2">
-        <textarea
-          value={text}
-          onChange={(e) => setText(e.target.value)}
-          rows={8}
-          disabled={!loaded}
-          placeholder={loaded ? "" : "Loading…"}
-          className={`${inputCls} font-mono text-xs leading-relaxed`}
-        />
+
+      {/* who signs — per login */}
+      <div className="mt-3">
+        <p className="mb-1 text-[10px] font-bold uppercase tracking-widest text-cream/45">
+          Who signs ({myEmail ? `you're ${myEmail}` : "not signed in"})
+        </p>
+        <div className="space-y-2">
+          {rows.map((r, i) => (
+            <div key={i} className="flex items-center gap-2">
+              <input
+                value={r.email}
+                onChange={(e) => setRow(i, { email: e.target.value })}
+                placeholder="login email (e.g. leoniesands5@gmail.com)"
+                className="w-64 shrink-0 rounded-md border border-cream/20 bg-ink px-2 py-1 text-xs text-cream outline-none"
+              />
+              <input
+                value={r.name}
+                onChange={(e) => setRow(i, { name: e.target.value })}
+                placeholder="Full name (e.g. Leonie Sands)"
+                className="flex-1 rounded-md border border-cream/20 bg-ink px-2 py-1 text-xs text-cream outline-none"
+              />
+              <button
+                type="button"
+                onClick={() => setRows((prev) => prev.filter((_, j) => j !== i))}
+                className="shrink-0 rounded px-2 py-1 text-xs text-red-400/70 hover:bg-red-500/10"
+                title="Remove"
+              >
+                ✕
+              </button>
+            </div>
+          ))}
+          <button
+            type="button"
+            onClick={() => setRows((prev) => [...prev, { email: "", name: "" }])}
+            className="rounded-full border border-cream/25 px-3 py-1 text-[11px] font-bold uppercase tracking-wider text-cream/70 hover:border-cream/50"
+          >
+            + Add person
+          </button>
+        </div>
+      </div>
+
+      {/* shared title + footer + live preview */}
+      <div className="mt-4 grid gap-3 lg:grid-cols-2">
+        <div className="space-y-2">
+          <label className="block text-[10px] font-bold uppercase tracking-widest text-cream/45">
+            Title (same for everyone)
+            <input
+              value={cfg.title}
+              onChange={(e) => setCfg({ ...cfg, title: e.target.value })}
+              className={`${inputCls} mt-1`}
+            />
+          </label>
+          <label className="block text-[10px] font-bold uppercase tracking-widest text-cream/45">
+            Shared footer (address, links, logo — basic HTML)
+            <textarea
+              value={cfg.footer}
+              onChange={(e) => setCfg({ ...cfg, footer: e.target.value })}
+              rows={6}
+              className={`${inputCls} mt-1 font-mono text-xs leading-relaxed`}
+            />
+          </label>
+        </div>
         <div className="rounded-lg border border-cream/10 bg-ink/60 p-3">
           <p className="mb-1 text-[9px] uppercase tracking-widest text-cream/35">
-            Preview
+            Preview (as {previewName})
           </p>
           <div
             className="text-sm text-cream/85 [&_a]:text-plonkTeal [&_a]:underline [&_p]:mb-2"
-            dangerouslySetInnerHTML={{ __html: text }}
+            dangerouslySetInnerHTML={{
+              __html: buildSignature(myEmail, { ...cfg, names: Object.fromEntries(rows.map((r) => [r.email.trim().toLowerCase(), r.name.trim()])) }),
+            }}
           />
         </div>
       </div>
-      <div className="mt-2 flex items-center gap-2">
+
+      <div className="mt-3 flex items-center gap-2">
         <button
           type="button"
           onClick={save}
-          disabled={busy || !loaded}
+          disabled={busy}
           className="rounded-full bg-plonkTeal px-5 py-2 text-xs font-bold uppercase tracking-wider text-ink transition hover:brightness-110 disabled:opacity-40"
         >
           {busy ? "Saving…" : "Save signature"}
@@ -1816,6 +2019,25 @@ function EnquiryDrawer({
   const [sending, setSending] = useState(false);
   const [composeOpen, setComposeOpen] = useState(false);
   const [avail, setAvail] = useState<DayAvailability | null>(null);
+  const [fuDate, setFuDate] = useState(
+    enquiry.followup_at ? enquiry.followup_at.slice(0, 10) : "",
+  );
+  useEffect(() => {
+    setFuDate(enquiry.followup_at ? enquiry.followup_at.slice(0, 10) : "");
+  }, [enquiry.id, enquiry.followup_at]);
+
+  // Esc closes the drawer (same as the Close button) — but not while the
+  // compose window is on top, which handles its own Esc.
+  useEffect(() => {
+    const onKey = (ev: KeyboardEvent) => {
+      if (ev.key === "Escape" && !composeOpen) {
+        ev.preventDefault();
+        onClose();
+      }
+    };
+    window.addEventListener("keydown", onKey);
+    return () => window.removeEventListener("keydown", onKey);
+  }, [composeOpen, onClose]);
 
   useEffect(() => {
     setAvail(null);
@@ -1864,14 +2086,8 @@ function EnquiryDrawer({
   }
 
   return (
-    <div
-      className="fixed inset-0 z-50 flex justify-end bg-black/70"
-      onClick={onClose}
-    >
-      <div
-        className="h-full w-full max-w-md overflow-y-auto border-l border-cream/15 bg-ink p-5"
-        onClick={(e) => e.stopPropagation()}
-      >
+    <div className="fixed inset-0 z-50 flex justify-end bg-black/70">
+      <div className="h-full w-full max-w-md overflow-y-auto border-l border-cream/15 bg-ink p-5">
         <div className="mb-3 flex items-start justify-between gap-2">
           <h2 className="font-display text-2xl">
             {enquiry.contact_name || enquiry.event_type || "Enquiry"}
@@ -1901,6 +2117,59 @@ function EnquiryDrawer({
               {STATUS_LABEL[st]}
             </button>
           ))}
+        </div>
+
+        {/* Follow up — chase this customer on a date (default 7 days). Moves it
+            to the Follow up section; when the date passes it turns amber and
+            rises to the top. */}
+        <div className="mb-4 rounded-lg border border-cream/10 bg-ink/40 p-3">
+          <div className="flex items-center justify-between">
+            <span className="text-[10px] font-bold uppercase tracking-widest text-cream/45">
+              Follow up
+            </span>
+            {enquiry.followup_at && (
+              <span className="text-[10px] font-bold uppercase tracking-wider text-amber-300">
+                set · {new Date(enquiry.followup_at).toLocaleDateString("en-GB")}
+              </span>
+            )}
+          </div>
+          <div className="mt-2 flex flex-wrap items-center gap-2">
+            <div className="min-w-[150px]">
+              <DatePickerInput
+                value={fuDate}
+                onChange={async (iso: string) => {
+                  setFuDate(iso);
+                  if (iso) {
+                    await setEnquiryFollowup(enquiry.id, iso);
+                    await onReload();
+                  }
+                }}
+                className="w-full rounded-lg border border-cream/15 bg-ink/40 px-3 py-2 text-sm text-cream focus:border-plonkTeal focus:outline-none"
+              />
+            </div>
+            <button
+              type="button"
+              onClick={async () => {
+                await setEnquiryFollowup(enquiry.id); // default +7 days
+                await onReload();
+              }}
+              className="rounded-full border border-amber-400/40 px-3 py-1.5 text-[11px] font-bold uppercase tracking-wider text-amber-300 transition hover:bg-amber-400/10"
+            >
+              In 7 days
+            </button>
+            {enquiry.followup_at && (
+              <button
+                type="button"
+                onClick={async () => {
+                  await clearEnquiryFollowup(enquiry.id);
+                  await onReload();
+                }}
+                className="rounded-full border border-cream/20 px-3 py-1.5 text-[11px] font-bold uppercase tracking-wider text-cream/60 transition hover:bg-cream/5"
+              >
+                ✓ Done
+              </button>
+            )}
+          </div>
         </div>
 
         {/* Pipeline bucket — venue vs Wacky Works course-build. Lets staff
@@ -1962,6 +2231,8 @@ function EnquiryDrawer({
         )}
 
         <FulfilmentSection enquiry={enquiry} onReload={onReload} />
+
+        <PosterSection enquiry={enquiry} onReload={onReload} />
 
         <dl className="space-y-1.5 text-sm">
           <Row k="Email" v={enquiry.contact_email} />
@@ -2156,6 +2427,219 @@ function EnquiryDrawer({
           onClose={() => setComposeOpen(false)}
           onSent={refreshThread}
         />
+      )}
+    </div>
+  );
+}
+
+// Poster — build a branded No Dice poster for this booking (birthday, wedding,
+// engagement, leaving drinks…) with the SAME maker special events / bingo use
+// (EventPosterStudio). The poster is kept ON the enquiry — artwork + the recipe
+// it was built from — so reopening the drawer shows the last poster instead of a
+// blank maker, and it can be rebuilt/downloaded at any size. The office types a
+// headline (e.g. the birthday person's name), a date and an optional time; the
+// rest (photo, colour, treatment, title size, wording) is the full poster maker.
+function PosterSection({
+  enquiry,
+  onReload,
+}: {
+  enquiry: Enquiry;
+  onReload: () => Promise<void>;
+}) {
+  // Reopen holds the last poster — so if one's already saved, show it.
+  const [open, setOpen] = useState(!!enquiry.poster_url);
+  const recipe = (enquiry.poster_recipe || null) as Record<string, unknown> | null;
+  const recStr = (k: string): string => {
+    const v = recipe?.[k];
+    return typeof v === "string" ? v : "";
+  };
+  // The venue address sits along the bottom of an invitation by default (the
+  // office can edit or clear it in the maker). A saved footer wins on reopen.
+  const VENUE_ADDRESS = "407 MENTMORE TERRACE\nLONDON FIELDS · E8 3PH · NODICE.BAR";
+  const savedFooter = recStr("footer");
+
+  // The poster headline / date / time. Seeded from the last saved poster if
+  // there is one, otherwise from the enquiry itself. The office can make the
+  // headline the birthday person's name (it needn't match the booking title).
+  const [title, setTitle] = useState(
+    () => recStr("_title") || enquiry.event_type || enquiry.contact_name || "",
+  );
+  const [date, setDate] = useState(
+    () => recStr("_date") || enquiry.requested_date || "",
+  );
+  const [time, setTime] = useState(() => recStr("_time"));
+  const [saved, setSaved] = useState("");
+  const [busy, setBusy] = useState(false);
+
+  // Reset the fields when switching to a different enquiry.
+  useEffect(() => {
+    setTitle(recStr("_title") || enquiry.event_type || enquiry.contact_name || "");
+    setDate(recStr("_date") || enquiry.requested_date || "");
+    setTime(recStr("_time"));
+    setOpen(!!enquiry.poster_url);
+    setSaved("");
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [enquiry.id]);
+
+  async function removePoster() {
+    if (
+      !(await confirmDialog(
+        "Take the invitation off this CRM entry? The artwork stays in the media library — this just clears it from the entry.",
+        { title: "Remove invitation?", confirmLabel: "Remove", danger: false },
+      ))
+    )
+      return;
+    setBusy(true);
+    try {
+      await clearEnquiryPoster(enquiry.id);
+      setSaved("");
+      await onReload();
+    } catch {
+      /* no-op */
+    } finally {
+      setBusy(false);
+    }
+  }
+
+  return (
+    <div className="mb-4 rounded-lg border border-cream/15 bg-ink/40">
+      <button
+        type="button"
+        onClick={() => setOpen((v) => !v)}
+        className="flex w-full items-center justify-between px-3 py-2 text-[11px] font-bold uppercase tracking-widest text-cream/70"
+      >
+        <span className="flex items-center gap-2">
+          <span>🎟 Invitation maker</span>
+          {enquiry.poster_url && !open && (
+            // eslint-disable-next-line @next/next/no-img-element
+            <img
+              src={enquiry.poster_url}
+              alt=""
+              className="h-6 w-5 rounded border border-cream/20 object-cover"
+            />
+          )}
+        </span>
+        <span className="text-cream/40">{open ? "–" : "+"}</span>
+      </button>
+      {open && (
+        <div className="space-y-3 px-3 pb-3">
+          <p className="text-[10px] leading-relaxed text-cream/45">
+            The same poster maker the events use — for a party invitation. Fill
+            in the name, date and a picture; the invitation is kept on this CRM
+            entry, so it&apos;s still here when you come back, and you can
+            download it below to send to the customer or print.
+          </p>
+
+          {/* The three things that drive the poster — the rest (photo, colour,
+              treatment, wording) is in the maker. */}
+          <div className="grid gap-2 sm:grid-cols-2">
+            <label className="block sm:col-span-2">
+              <span className="mb-1 block text-[10px] font-bold uppercase tracking-widest text-cream/50">
+                Name on the invitation
+              </span>
+              <input
+                value={title}
+                onChange={(e) => setTitle(e.target.value)}
+                maxLength={60}
+                placeholder="e.g. NAI'S BIRTHDAY"
+                className="w-full rounded-md border border-cream/20 bg-ink px-3 py-2.5 text-base text-cream placeholder:text-cream/35"
+              />
+              <span className="mt-1 block text-[9px] leading-relaxed text-cream/35">
+                The big headline. For a birthday this is usually the birthday
+                person&apos;s name — it needn&apos;t match the booking title.
+              </span>
+            </label>
+            <label className="block">
+              <span className="mb-1 block text-[10px] font-bold uppercase tracking-widest text-cream/50">
+                Date
+              </span>
+              <DatePickerInput
+                value={date}
+                onChange={(iso: string) => setDate(iso)}
+                className="w-full rounded-lg border border-cream/15 bg-ink/40 px-3 py-2 text-sm text-cream focus:border-plonkTeal focus:outline-none"
+              />
+            </label>
+            <label className="block">
+              <span className="mb-1 block text-[10px] font-bold uppercase tracking-widest text-cream/50">
+                Time (optional)
+              </span>
+              <input
+                value={time}
+                onChange={(e) => setTime(e.target.value)}
+                maxLength={5}
+                placeholder="e.g. 19:00"
+                className="w-full rounded-md border border-cream/20 bg-ink px-3 py-2.5 text-base text-cream placeholder:text-cream/35"
+              />
+            </label>
+          </div>
+
+          {saved && <Notice variant="success">{saved}</Notice>}
+
+          {date && title.trim() ? (
+            <EventPosterStudio
+              key={enquiry.id}
+              name={title.trim()}
+              date={date}
+              start={time.trim() || null}
+              description={enquiry.notes || null}
+              currentPosterUrl={enquiry.poster_url || null}
+              defaultRecipe={recipe}
+              allowFooter
+              defaultFooter={savedFooter || VENUE_ADDRESS}
+              saveLabel="Save this invitation"
+              saveHint="Kept on this CRM entry — reopen and it's still here. Download it below to send or print."
+              onSave={async (r) => {
+                setBusy(true);
+                try {
+                  await setEnquiryPoster(enquiry.id, {
+                    poster_url: r.poster_url,
+                    // Stash the headline/date/time alongside the maker's own
+                    // recipe so reopening rebuilds the exact same poster.
+                    poster_recipe: {
+                      ...((r.poster_recipe as Record<string, unknown>) || {}),
+                      _title: title.trim(),
+                      _date: date,
+                      _time: time.trim(),
+                    },
+                  });
+                  setSaved("Saved — this invitation is kept on this CRM entry.");
+                  await onReload();
+                } finally {
+                  setBusy(false);
+                }
+              }}
+            />
+          ) : (
+            <p className="rounded-lg border border-dashed border-cream/20 px-3 py-4 text-center text-[11px] text-cream/50">
+              Enter a name and a date above to start the invitation.
+            </p>
+          )}
+
+          {/* Downloads live outside the maker (founder rule) — they work on the
+              poster that's already saved on the booking. */}
+          {enquiry.poster_url && (
+            <div className="rounded-xl border border-cream/10 bg-ink/30 p-4">
+              <p className="mb-2 text-[10px] font-bold uppercase tracking-widest text-cream/55">
+                Download this invitation
+              </p>
+              <PosterDownloads
+                name={title.trim() || enquiry.event_type || "Poster"}
+                date={date || enquiry.requested_date || ""}
+                start={time.trim() || null}
+                posterUrl={enquiry.poster_url}
+                recipe={recipe}
+              />
+              <button
+                type="button"
+                disabled={busy}
+                onClick={removePoster}
+                className="mt-3 w-full rounded-full border border-cream/15 px-4 py-2 text-[11px] font-bold uppercase tracking-wider text-cream/60 transition hover:bg-cream/5 disabled:opacity-40"
+              >
+                Remove invitation
+              </button>
+            </div>
+          )}
+        </div>
       )}
     </div>
   );

@@ -3,9 +3,10 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 import PageHero from "@/components/PageHero";
 import RollerDeck from "@/components/RollerDeck";
-import MediaStrip from "@/components/MediaStrip";
+import PhotoLineup from "@/components/PhotoLineup";
 import BingoBooking from "@/components/BingoBooking";
 import { useContent } from "@/lib/content";
+import { useEditMode } from "@/lib/editMode";
 import { Editable } from "@/components/Editable";
 import { loadBingoNights } from "@/lib/db/bingo";
 import type { DbTournament } from "@/lib/db/tournaments";
@@ -27,8 +28,8 @@ import type { DbTournament } from "@/lib/db/tournaments";
 // InlineTournamentBooking already understand (see lib/db/bingo.ts) — no
 // bespoke booking code, no edge-function change.
 //
-// Accent: bright pink #e878f0, sampled from the founder's magenta halftone
-// hero artwork (11 Oct 2026 — "style all red to pink"), used for CTAs,
+// Accent: warm poster-red #D65139, sampled from the Comedy Bingo poster
+// (Nov 2026 — founder "suit this colourway in red not pink"), used for CTAs,
 // headings and the bar-sponsored prizes. Checked at 375px + 1280px.
 // =============================================================
 
@@ -51,7 +52,7 @@ const PRIZES: Array<{ label: string; amount: string }> = [
   { label: "First vertical line", amount: "£20" },
   { label: "First horizontal line", amount: "£20" },
   { label: "First diagonal line", amount: "£20" },
-  { label: "Full house — BINGO!", amount: "£40" },
+  { label: "Full house, BINGO!", amount: "£40" },
 ];
 
 // The shape of the evening (founder, 18 Oct 2026): two comics, a round of
@@ -62,14 +63,29 @@ const RUN_ORDER: Array<{
   kind: "comedy" | "bingo" | "break";
   time: string;
 }> = [
-  { label: "Two comics", kind: "comedy", time: "7:30 – 8:00pm" },
-  { label: "Round of bingo", kind: "bingo", time: "8:00 – 8:15pm" },
-  { label: "Break", kind: "break", time: "8:15 – 8:30pm" },
-  { label: "Two comics", kind: "comedy", time: "8:30 – 9:00pm" },
-  { label: "Round of bingo", kind: "bingo", time: "9:00 – 9:15pm" },
-  { label: "Break", kind: "break", time: "9:15 – 9:30pm" },
-  { label: "Headline set", kind: "comedy", time: "9:30 – 10:00pm" },
+  { label: "Two comics", kind: "comedy", time: "7:30-8:00pm" },
+  { label: "Round of bingo", kind: "bingo", time: "8:00-8:15pm" },
+  { label: "Break", kind: "break", time: "8:15-8:30pm" },
+  { label: "Two comics", kind: "comedy", time: "8:30-9:00pm" },
+  { label: "Round of bingo", kind: "bingo", time: "9:00-9:15pm" },
+  { label: "Break", kind: "break", time: "9:15-9:30pm" },
+  { label: "Headline set", kind: "comedy", time: "9:30-10:00pm" },
 ];
+
+// Split the single event-date field into a big DATE line and a smaller
+// TIMES line (doors / show) on its own line below, so the two read as
+// self-contained sections and never flap onto one another. Splits on a
+// newline the founder added (Return in Edit mode), else on the first
+// "doors" word; falls back to the whole string as the date line.
+function splitEventDate(s: string): { date: string; times: string } {
+  const nl = s.indexOf("\n");
+  if (nl >= 0)
+    return { date: s.slice(0, nl).trim(), times: s.slice(nl + 1).trim() };
+  const m = s.match(/\s+(doors\b[\s\S]*)$/i);
+  if (m && m.index != null)
+    return { date: s.slice(0, m.index).trim(), times: m[1].trim() };
+  return { date: s.trim(), times: "" };
+}
 
 export default function BingoPage() {
   // CMS copy — editable in /admin or on-page in Edit mode. The KEY
@@ -80,15 +96,17 @@ export default function BingoPage() {
   const title = useContent("bingo.title", "Bingo Night");
   const intro = useContent(
     "bingo.intro",
-    "Comedy and bingo under one roof at No Dice. £10 a ticket gets you in and gets you a drink — the bingo's free to play, with prizes put up by the bar. Eyes down, London Fields.",
+    "Comedy and bingo under one roof at No Dice. £10 a ticket gets you the comedy and 5 bingo cards to play across the 2 games, bingo's free to play, with prizes put up by the bar. Eyes down, London Fields.",
   );
   // The headline the founder points at the next event + its date(s).
   const eventHeader = useContent("bingo.event_header", "Our first-ever Bingo Night");
   const eventDate = useContent("bingo.event_date", "Wednesday 25 November 2026 · 7pm");
+  const editing = useEditMode();
+  const eventParts = splitEventDate(eventDate);
 
   const bookLine = useContent(
     "bingo.book_line",
-    "£10 a ticket — one per person, drink included. Grab yours below.",
+    "£10 a ticket, one per person. Comedy + 5 bingo cards across the 2 games. Grab yours below.",
   );
   const ctaLabel = useContent("bingo.cta_label", "Book your ticket · £10");
 
@@ -121,7 +139,7 @@ export default function BingoPage() {
   const prizesTitle = useContent("bingo.prizes_title", "Prizes on the night");
   const prizesIntro = useContent(
     "bingo.prizes_intro",
-    "All put up by the bar — free to play, so it's a game not a gamble. Win it, spend it over the bar.",
+    "All put up by the bar, free to play, so it's a game not a gamble. Win it, spend it over the bar.",
   );
 
   const runTexts = RUN_ORDER.map((r, i) => ({
@@ -134,16 +152,12 @@ export default function BingoPage() {
   const runTitle = useContent("bingo.run_title", "How the night runs");
   const runIntro = useContent(
     "bingo.run_intro",
-    "Comedy and bingo, back to back — building to the headline act.",
+    "Comedy and bingo, back to back, building to the headline act.",
   );
 
   // Photo slider — comedian/host headshots + the bingo machine. Founder
   // uploads to the "bingo.gallery" gallery in /admin/content/galleries.
   const galleryTitle = useContent("bingo.gallery_title", "The line-up");
-  const galleryIntro = useContent(
-    "bingo.gallery_intro",
-    "Your hosts for the night, and the machine that calls the shots.",
-  );
   const [nights, setNights] = useState<DbTournament[]>([]);
   const [loading, setLoading] = useState(true);
   const [err, setErr] = useState("");
@@ -162,15 +176,31 @@ export default function BingoPage() {
     return () => cancelAnimationFrame(id);
   }, [expandedId]);
 
+  // Show the top sticky CTA only once the in-page book button has scrolled
+  // UP out of view (its bottom is above the nav). A plain scroll listener,
+  // not an IntersectionObserver — the observer skipped the "in view" state
+  // on fast/jump scrolls, so the pill either never showed or popped over
+  // the hero. Hidden at the top and while the button is on screen, so it
+  // never covers the eyebrow/title.
   useEffect(() => {
     const el = headerCtaRef.current;
-    if (!el || typeof IntersectionObserver === "undefined") return;
-    const obs = new IntersectionObserver(
-      ([entry]) => setShowStickyCta(!entry.isIntersecting),
-      { rootMargin: "-80px 0px 0px 0px" },
-    );
-    obs.observe(el);
-    return () => obs.disconnect();
+    if (!el) return;
+    let raf = 0;
+    const update = () => {
+      raf = 0;
+      setShowStickyCta(el.getBoundingClientRect().bottom < 72);
+    };
+    const onScroll = () => {
+      if (!raf) raf = requestAnimationFrame(update);
+    };
+    update();
+    window.addEventListener("scroll", onScroll, { passive: true });
+    window.addEventListener("resize", onScroll);
+    return () => {
+      window.removeEventListener("scroll", onScroll);
+      window.removeEventListener("resize", onScroll);
+      if (raf) cancelAnimationFrame(raf);
+    };
   }, []);
 
   // Hidden pre-launch: bounce to home so the page isn't publicly viewable.
@@ -221,15 +251,17 @@ export default function BingoPage() {
   return (
     <main className="bingo-page">
       {/* The hero eyebrow is rendered by the SHARED PageHero in the brand
-          red (text-plonkYellow). Re-skin it to bingo pink page-wide here,
+          red (text-plonkYellow). Re-skin it to the bingo poster-red page-wide here,
           the same way the booking form is re-skinned below. */}
       <style
         dangerouslySetInnerHTML={{
-          __html: `.bingo-page [class~="text-plonkYellow"]{color:#e878f0 !important}`,
+          __html: `.bingo-page [class~="text-plonkYellow"]{color:#D65139 !important}`,
         }}
       />
-      {/* Hero banner — swap the image from admin Galleries → "hero.bingo",
-          falls back to the shipped placeholder until the founder uploads. */}
+      {/* Hero — image removed for now (founder, Nov 2026 — "remove banner
+          image for now, add later"). The hero renders its plain background
+          + title band. To bring a banner back, re-add sliderKey="hero.bingo"
+          (and upload an image to that gallery in admin). */}
       <PageHero
         eyebrow={eyebrow}
         title={title}
@@ -238,25 +270,20 @@ export default function BingoPage() {
         eyebrowKey="bingo.eyebrow"
         titleKey="bingo.title"
         introKey="bingo.intro"
-        sliderKey="hero.bingo"
       />
 
-      {/* ── Photo slider: hosts + the bingo machine ──
-          Moved ABOVE the ticket booking (founder, 18 Oct 2026) so the acts /
-          machine are seen before the CTA. Same component, uploader and
-          behaviour as the parties-page strips (MediaStrip → the "Add / manage
-          photos" pill in Edit mode → /admin/content/galleries). Shows
-          placeholder tiles until the founder uploads to "bingo.gallery". */}
+      {/* ── Line-up: comedian / host photos ──
+          Above the booking (founder, 18 Oct 2026) so the acts are seen
+          before the CTA. DESKTOP shows every face across the full page
+          width; PHONE is a centred carousel. Names (red, Bebas Neue) sit
+          above each photo. Founder uploads to "bingo.gallery" in admin. */}
       <section className="bg-white/[0.02] py-8">
-        <MediaStrip
+        <PhotoLineup
           galleryKey="bingo.gallery"
           heading={galleryTitle}
-          intro={galleryIntro}
           headingKey="bingo.gallery_title"
-          introKey="bingo.gallery_intro"
-          aspect="4 / 5"
-          blankCount={4}
           blankLabel="Host / machine photo"
+          nameColor="#D65139"
         />
       </section>
 
@@ -264,13 +291,39 @@ export default function BingoPage() {
           Both lines are on-page editable so the founder can roll it to the
           next date each month. */}
       <section className="px-6 pb-8 pt-12 text-center">
-        <div className="mx-auto max-w-2xl rounded-3xl border border-[#e878f0]/30 bg-[#e878f0]/5 px-6 py-8">
-          <div className="text-xs font-bold uppercase tracking-[0.3em] text-[#e878f0]">
+        <div className="mx-auto max-w-2xl rounded-3xl border border-[#D65139]/30 bg-[#D65139]/5 px-6 py-8">
+          <div className="text-xs font-bold uppercase tracking-[0.3em] text-[#D65139]">
             <Editable k="bingo.event_header">{eventHeader}</Editable>
           </div>
-          <div className="mt-3 font-display text-4xl uppercase leading-tight tracking-wider text-cream sm:text-5xl">
-            <Editable k="bingo.event_date">{eventDate}</Editable>
-          </div>
+          {/* Date + times. In Edit mode it's a single editable field (the
+              founder can press Return to split the two lines); on the live
+              page it renders as a big DATE line and a smaller TIMES line
+              directly below, each self-contained so they never overlap. */}
+          {editing ? (
+            <div
+              className="mt-3 font-display text-3xl uppercase leading-tight tracking-wider text-cream sm:text-5xl"
+              style={{ textWrap: "balance" }}
+            >
+              <Editable k="bingo.event_date">{eventDate}</Editable>
+            </div>
+          ) : (
+            <>
+              <div
+                className="mt-3 font-display text-3xl uppercase leading-tight tracking-wider text-cream sm:text-5xl"
+                style={{ textWrap: "balance" }}
+              >
+                {eventParts.date}
+              </div>
+              {eventParts.times && (
+                <div
+                  className="mt-2 font-display text-lg uppercase leading-snug tracking-wider text-cream/85 sm:text-2xl"
+                  style={{ textWrap: "balance" }}
+                >
+                  {eventParts.times}
+                </div>
+              )}
+            </>
+          )}
           <p className="mx-auto mt-4 max-w-md text-sm text-cream/80">
             <Editable k="bingo.book_line">{bookLine}</Editable>
           </p>
@@ -279,16 +332,16 @@ export default function BingoPage() {
             type="button"
             onClick={openBooking}
             disabled={!loading && upcoming.length === 0}
-            className="mt-6 inline-block rounded-full bg-[#e878f0] px-10 py-4 text-sm font-bold uppercase tracking-widest text-ink shadow-lg shadow-[#e878f0]/30 transition hover:bg-[#e878f0]/90 disabled:cursor-not-allowed disabled:opacity-50"
+            className="mt-6 inline-block rounded-full bg-[#D65139] px-10 py-4 text-sm font-bold uppercase tracking-widest text-ink shadow-lg shadow-[#D65139]/30 transition hover:bg-[#D65139]/90 disabled:cursor-not-allowed disabled:opacity-50"
           >
             <Editable k="bingo.cta_label">{ctaLabel}</Editable>
           </button>
           {!loading && !err && upcoming.length === 0 && (
             <p className="mt-4 text-sm text-cream/60">
-              Tickets aren&apos;t on sale just yet — check back soon.
+              Tickets aren&apos;t on sale just yet, check back soon.
             </p>
           )}
-          {err && <p className="mt-4 text-sm text-[#e878f0]">{err}</p>}
+          {err && <p className="mt-4 text-sm text-[#D65139]">{err}</p>}
         </div>
       </section>
 
@@ -307,7 +360,7 @@ export default function BingoPage() {
       {/* ── Running order ── */}
       <section className="px-6 pb-8 pt-16">
         <div className="mx-auto max-w-2xl">
-          <div className="mb-3 text-center text-xs font-bold uppercase tracking-[0.3em] text-[#e878f0]">
+          <div className="mb-3 text-center text-xs font-bold uppercase tracking-[0.3em] text-[#D65139]">
             The shape of the evening
           </div>
           <h2 className="text-center font-display text-4xl uppercase tracking-wider text-cream">
@@ -332,7 +385,7 @@ export default function BingoPage() {
                   {i < runTexts.length - 1 && (
                     <span
                       aria-hidden
-                      className="absolute left-[17px] top-9 h-full w-px bg-[#e878f0]/25"
+                      className="absolute left-[17px] top-9 h-full w-px bg-[#D65139]/25"
                     />
                   )}
                   <span
@@ -340,7 +393,7 @@ export default function BingoPage() {
                       isBreak
                         ? "border-cream/15 bg-ink"
                         : r.kind === "bingo"
-                          ? "border-[#e878f0]/50 bg-[#e878f0]/15 text-[#e878f0]"
+                          ? "border-[#D65139]/50 bg-[#D65139]/15 text-[#D65139]"
                           : "border-cream/20 bg-white/5 text-cream/70"
                     }`}
                   >
@@ -361,7 +414,7 @@ export default function BingoPage() {
                     </div>
                     <div
                       className={`shrink-0 text-xs font-bold uppercase tracking-widest ${
-                        isBreak ? "text-cream/40" : "text-[#e878f0]"
+                        isBreak ? "text-cream/40" : "text-[#D65139]"
                       }`}
                     >
                       <Editable k={r.timeKey}>{r.time}</Editable>
@@ -377,7 +430,7 @@ export default function BingoPage() {
       {/* ── Prizes ── */}
       <section className="bg-white/[0.02] px-6 py-16">
         <div className="mx-auto max-w-3xl">
-          <div className="mb-3 text-center text-xs font-bold uppercase tracking-[0.3em] text-[#e878f0]">
+          <div className="mb-3 text-center text-xs font-bold uppercase tracking-[0.3em] text-[#D65139]">
             Bar-sponsored · free to play
           </div>
           <h2 className="text-center font-display text-5xl uppercase tracking-wider text-cream">
@@ -390,12 +443,12 @@ export default function BingoPage() {
             {prizeTexts.map((p) => (
               <div
                 key={p.labelKey}
-                className="flex items-center justify-between gap-4 rounded-2xl border border-[#e878f0]/25 bg-[#e878f0]/5 px-6 py-5"
+                className="flex items-center justify-between gap-4 rounded-2xl border border-[#D65139]/25 bg-[#D65139]/5 px-6 py-5"
               >
                 <span className="text-sm font-semibold uppercase tracking-wider text-cream/85">
                   <Editable k={p.labelKey}>{p.label}</Editable>
                 </span>
-                <span className="font-display text-2xl text-[#e878f0]">
+                <span className="font-display text-2xl text-[#D65139]">
                   <Editable k={p.amountKey}>{p.amount}</Editable>
                 </span>
               </div>
@@ -411,15 +464,17 @@ export default function BingoPage() {
         </p>
       </section>
 
-      {/* Sticky "Book your ticket" CTA — follows the reader down the page on
-          phone + desktop, once the header CTA has scrolled away. Hidden while
-          the booking form is open, or when there's no night on sale. */}
+      {/* Sticky "Book your ticket" CTA — pinned just under the nav at the TOP
+          of the viewport (founder, Nov 2026 — "stay at top so users can read
+          the info and book quickly"), once the header CTA has scrolled away.
+          Hidden while the booking form is open, or when there's no night on
+          sale. z-40 sits under the sticky nav (z-50). */}
       {showStickyCta && !selected && upcoming.length > 0 && (
-        <div className="pointer-events-none fixed inset-x-0 bottom-0 z-40 flex justify-center px-4 pb-[max(1rem,env(safe-area-inset-bottom))]">
+        <div className="pointer-events-none fixed inset-x-0 top-[60px] z-40 flex justify-center px-4 pt-2 sm:top-[68px]">
           <button
             type="button"
             onClick={openBooking}
-            className="pointer-events-auto rounded-full bg-[#e878f0] px-8 py-4 text-sm font-bold uppercase tracking-widest text-ink shadow-xl shadow-black/40 ring-1 ring-black/10 transition hover:bg-[#e878f0]/90"
+            className="pointer-events-auto rounded-full bg-[#D65139] px-8 py-4 text-sm font-bold uppercase tracking-widest text-ink shadow-xl shadow-black/40 ring-1 ring-black/10 transition hover:bg-[#D65139]/90"
           >
             {ctaLabel}
           </button>

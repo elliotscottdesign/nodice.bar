@@ -2,12 +2,16 @@
 
 import { Suspense, useEffect, useMemo, useState } from "react";
 import { useSearchParams } from "next/navigation";
+import { DJ_PUBLIC } from "@/lib/publicLabels";
 import {
   loadBookableProductConfig,
   availableSlotsForDate,
   effectiveOpenWindows,
   isDateBookable,
   bookingCutoffPassed,
+  tableSameDayCutoffPassed,
+  slotTooSoon,
+  TABLE_MIN_LEAD_MIN,
   recurringClosedDaysOfWeek,
   DAY_NAMES,
   type BookableProductConfig,
@@ -45,7 +49,7 @@ const HEARD_FROM_OPTIONS = [
   { value: "Friend / word of mouth", label: "Friend / word of mouth" },
   { value: "Walked past", label: "Walked past the venue" },
   { value: "Google search", label: "Google search" },
-  { value: "A DJ / event night", label: "A DJ / event night" },
+  { value: "A DJ / event night", label: `A ${DJ_PUBLIC.singular} / event night` },
   { value: "Press / blog", label: "Press / blog" },
   { value: "Other", label: "Other" },
 ];
@@ -260,24 +264,45 @@ function TableBookingPageInner() {
   const blockedFromBooking =
     !!blockingEvent && (slotCutoffMin === null || slots.length === 0);
 
-  // Same-day cutoff: online table booking stops one hour before we open
-  // (founder rule 9 Oct 2026). Past that, the day is closed online — walk in.
+  // Same-day cutoffs (customer-facing hard stops for TODAY only; future
+  // days unaffected). Two rules, whichever hits first closes the day:
+  //   • 3pm hard cutoff (founder 14 Nov 2026): once London time ≥ 15:00,
+  //     today is no longer bookable online.
+  //   • 1-hour-before-open lead (founder 9 Oct 2026).
+  // Both are mirrored server-side in create-table-reservation so they
+  // can't be bypassed; staff/office add-a-booking never runs through here.
   const cutoffPassed = cfg ? bookingCutoffPassed(cfg, date) : false;
+  const hardCutoffPassed = tableSameDayCutoffPassed(date);
   const dayOpen = cfg ? isDateBookable(cfg, date) : false;
-  const closed = cfg ? !dayOpen || cutoffPassed : false;
+  const closed = cfg ? !dayOpen || cutoffPassed || hardCutoffPassed : false;
   const closedOverride = cfg?.overrides.find((o) => o.date === date && o.closed);
   const closedNote = closed
-    ? cutoffPassed && dayOpen
-      ? "Online booking for today has closed — we stop one hour before we open. Just walk in and ask at the bar."
-      : closedOverride?.note
-        ? `Closed: ${closedOverride.note}`
-        : `${DAY_NAMES[dayOfWeek(date)]} — closed.`
+    ? hardCutoffPassed && dayOpen
+      ? "Online table bookings for today are closed, pop in and we'll seat you if we can."
+      : cutoffPassed && dayOpen
+        ? "Online booking for today has closed, we stop one hour before we open. Just walk in and ask at the bar."
+        : closedOverride?.note
+          ? `Closed: ${closedOverride.note}`
+          : `${DAY_NAMES[dayOfWeek(date)]}, closed.`
     : "";
+
+  // Clear a chosen time if it slips inside the 3-hour lead window (e.g.
+  // the clock ticks past it, or the date changes to today). Keeps the
+  // submit honest without the customer re-checking.
+  useEffect(() => {
+    if (time && slotTooSoon(date, time)) setTime("");
+  }, [time, date]);
 
   async function submit(e: React.FormEvent) {
     e.preventDefault();
     if (!time) {
       setError("Pick a time first.");
+      return;
+    }
+    if (slotTooSoon(date, time)) {
+      setError(
+        "That time's too soon, online table bookings need at least 3 hours' notice. Pick a later slot, or pop in and ask at the bar.",
+      );
       return;
     }
     setSubmitting(true);
@@ -323,7 +348,7 @@ function TableBookingPageInner() {
       setError(
         err instanceof Error
           ? err.message
-          : "Couldn't send the reservation — try again or email info@nodice.bar",
+          : "Couldn't send the reservation. Try again or email info@nodice.bar",
       );
     } finally {
       setSubmitting(false);
@@ -343,11 +368,11 @@ function TableBookingPageInner() {
           </h1>
           {bookingStatus === "pending" ? (
             <p className="mt-4 text-base text-cream/75">
-              Thanks — your request for {time} on {date} has gone through to our
+              Thanks, your request for {time} on {date} has gone through to our
               office. It's a busy day, so to make sure we can look after you
               properly a member of the team will be in touch at{" "}
               <strong>{email}</strong> shortly to confirm. Nothing's held just
-              yet — we'll sort the details with you first.
+              yet, we'll sort the details with you first.
             </p>
           ) : (
             <p className="mt-4 text-base text-cream/75">
@@ -374,12 +399,12 @@ function TableBookingPageInner() {
             "Pick a time, tell us about your group. We'll save a table."}
         </p>
 
-        {/* Booking rule (founder 9 Oct 2026) — table booking closes online an
-            hour before opening; after that it's walk-in. */}
+        {/* Booking rule (founder 14 Nov 2026) — same-day online table booking
+            closes at 3pm. After that it's walk-in. */}
         <div className="mx-auto mt-6 max-w-xl rounded-xl border border-plonkPink/25 bg-plonkPink/5 px-5 py-4 text-center text-sm leading-relaxed text-cream/80">
           <span className="font-bold text-plonkPink">Booking rule:</span>{" "}
-          Online table bookings close <strong>1 hour before we open</strong> each
-          day — after that, just walk in and ask at the bar.
+          Same-day online table bookings close at <strong>3pm</strong>, after
+          that, just pop in and we'll seat you if we can.
         </div>
 
         {cfgLoaded && cfg && !cfg.product.enabled && (
@@ -389,7 +414,7 @@ function TableBookingPageInner() {
             </div>
             <p className="mt-4 text-base text-cream/85">
               {cfg.product.closed_message ||
-                "Table bookings are temporarily paused — DM us on Instagram."}
+                "Table bookings are temporarily paused, DM us on Instagram."}
             </p>
             <a
               href="https://instagram.com/nodice.bar"
@@ -441,7 +466,7 @@ function TableBookingPageInner() {
                 </h3>
                 <p className="mt-3 max-w-prose text-sm text-cream/75">
                   {blockingEvent.category === "food_event"
-                    ? "We've got a food residency on that night — the kitchen team uses the dining tables for guests. See what's on, or pick a different night."
+                    ? "We've got a food residency on that night, the kitchen team uses the dining tables for guests. See what's on, or pick a different night."
                     : "We've got something on that night that needs the dining tables. See what's on, or pick a different night."}
                 </p>
                 <div className="mt-5 flex flex-wrap gap-3">
@@ -482,7 +507,7 @@ function TableBookingPageInner() {
                     {blockingEvent.event_start_time
                       ? formatTimeLabel(blockingEvent.event_start_time)
                       : "the venue"}
-                    {" "}— dining tables must be cleared by{" "}
+                    , dining tables must be cleared by{" "}
                     <span className="font-semibold text-cream">
                       {formatMinuteOfDay(slotCutoffMin)}
                     </span>
@@ -517,7 +542,7 @@ function TableBookingPageInner() {
                     {blockingEvent.event_start_time
                       ? formatTimeLabel(blockingEvent.event_start_time)
                       : "the venue"}{" "}
-                    — we need tables back by{" "}
+, we need tables back by{" "}
                     <span className="font-semibold text-cream">
                       {formatMinuteOfDay(slotCutoffMin)}
                     </span>
@@ -542,25 +567,47 @@ function TableBookingPageInner() {
                     {DAY_NAMES[dayOfWeek(date)]}. Try a shorter duration.
                   </p>
                 ) : (
-                  <div className="grid grid-cols-4 gap-2 sm:grid-cols-6">
-                    {slots.map((s) => {
-                      const active = time === s;
-                      return (
-                        <button
-                          key={s}
-                          type="button"
-                          onClick={() => setTime(s)}
-                          className={`rounded-lg border px-2 py-3 text-sm transition ${
-                            active
-                              ? "border-plonkPink bg-plonkPink text-white"
-                              : "border-cream/15 bg-ink/40 text-cream hover:border-cream/40"
-                          }`}
-                        >
-                          {s}
-                        </button>
-                      );
-                    })}
-                  </div>
+                  <>
+                    <div className="grid grid-cols-4 gap-2 sm:grid-cols-6">
+                      {slots.map((s) => {
+                        const active = time === s;
+                        // 3-hour lead time (founder 14 Nov 2026): a slot
+                        // less than 3h from now can't be booked online.
+                        // Grey + disable it so the customer sees why the
+                        // early times aren't available.
+                        const tooSoon = slotTooSoon(date, s);
+                        return (
+                          <button
+                            key={s}
+                            type="button"
+                            disabled={tooSoon}
+                            onClick={() => setTime(s)}
+                            title={
+                              tooSoon
+                                ? "Too soon. We need at least 3 hours' notice"
+                                : undefined
+                            }
+                            className={`rounded-lg border px-2 py-3 text-sm transition ${
+                              tooSoon
+                                ? "cursor-not-allowed border-cream/10 bg-ink/20 text-cream/30 line-through"
+                                : active
+                                  ? "border-plonkPink bg-plonkPink text-white"
+                                  : "border-cream/15 bg-ink/40 text-cream hover:border-cream/40"
+                            }`}
+                          >
+                            {s}
+                          </button>
+                        );
+                      })}
+                    </div>
+                    {slots.some((s) => slotTooSoon(date, s)) && (
+                      <p className="mt-3 text-xs text-cream/55">
+                        Greyed-out times are within {TABLE_MIN_LEAD_MIN / 60} hours
+                        from now, we need a little notice to get your table ready.
+                        Pick a later time, or pop in and ask at the bar.
+                      </p>
+                    )}
+                  </>
                 )}
               </FormSection>
             )}
@@ -733,7 +780,7 @@ function TableBookingPageInner() {
                 className="mt-0.5 h-4 w-4 shrink-0 accent-plonkPink"
               />
               <span>
-                Keep me in the loop — send me No Dice news, upcoming events
+                Keep me in the loop, send me No Dice news, upcoming events
                 and the odd offer. Unsubscribe anytime.
               </span>
             </label>

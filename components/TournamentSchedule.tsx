@@ -142,11 +142,11 @@ export default function TournamentSchedule() {
   const title = useContent("pool.tournaments.title", "Sign Your Team Up");
   const intro = useContent(
     "pool.tournaments.intro",
-    "Pool tournaments run every Wednesday at No Dice — doubles and singles alternate weekly. Pick a format and a date, pay in advance to hold your spot.",
+    "Pool tournaments run every Wednesday at No Dice, doubles and singles alternate weekly. Pick a format and a date, pay in advance to hold your spot.",
   );
   const tagline = useContent(
     "pool.tournaments.tagline",
-    "Doubles, singles and special events — every open night, in date order.",
+    "Doubles, singles and special events, every open night, in date order.",
   );
 
   useEffect(() => {
@@ -262,7 +262,7 @@ export default function TournamentSchedule() {
               House Rules
             </div>
             <p className="mb-4 text-xs text-cream/55">
-              8-ball, No Dice house rules — Scotch doubles, and the golden
+              8-ball, No Dice house rules, Scotch doubles, and the golden
               break is NOT a win. Tap a rule to read it.
             </p>
             <div className="divide-y divide-cream/10">

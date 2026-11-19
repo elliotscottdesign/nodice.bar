@@ -433,3 +433,64 @@ export function isDateOnlineBookable(
 ): boolean {
   return isDateBookable(cfg, iso) && !bookingCutoffPassed(cfg, iso, now);
 }
+
+// ---------------------------------------------------------------
+// Same-day HARD 3pm cutoff for TABLE reservations (founder, 14 Nov 2026)
+// ---------------------------------------------------------------
+// "Online table bookings for a given date must close at 3pm on that date.
+//  Up to 2:59pm you can still grab a table for today; from 3pm today drops
+//  off (future days unaffected). After that, walk in and we'll seat you if
+//  we can." This is a flat wall-clock cutoff, independent of that day's
+//  opening time — stricter than, and ADDITIVE to, the "1 hour before we
+//  open" lead rule above (whichever hits first closes the day). It applies
+//  to the CUSTOMER /book/table flow only; the staff/office add-a-booking
+//  path never runs through this. Mirrored server-side in
+//  create-table-reservation so a crafted request can't slip past it.
+export const TABLE_SAME_DAY_CUTOFF_MIN = 15 * 60; // 15:00 Europe/London
+
+/** True once today's online TABLE booking window has closed because the
+ *  London wall-clock is at/after 3pm. Future dates are never closed by
+ *  this rule; past dates always are. Uses `londonNowParts` so it is
+ *  correct in BST and GMT, in a London browser or a UTC edge function. */
+export function tableSameDayCutoffPassed(
+  iso: string,
+  now: Date = new Date(),
+): boolean {
+  const { iso: todayIso, minutes: nowMin } = londonNowParts(now);
+  if (iso > todayIso) return false;
+  if (iso < todayIso) return true;
+  return nowMin >= TABLE_SAME_DAY_CUTOFF_MIN;
+}
+
+// ---------------------------------------------------------------
+// Minimum lead time for TABLE reservations (founder, 14 Nov 2026)
+// ---------------------------------------------------------------
+// "A table can only be booked if the arrival time is at least 3 hours from
+//  now — at any time of day, not just same-day. At 6pm you can't book an
+//  8pm table; the earliest is 9pm." Applies ALONGSIDE the 3pm same-day
+//  cutoff — whichever is stricter wins. Slots closer than this are greyed
+//  out in the UI and rejected server-side. CUSTOMER path only; the
+//  staff/office add-a-booking path never runs through this check.
+export const TABLE_MIN_LEAD_MIN = 180; // 3 hours
+
+/** True if a slot starting at `time` (HH:MM) on calendar date `iso` is
+ *  less than TABLE_MIN_LEAD_MIN minutes ahead of now (Europe/London).
+ *  Compares across the day boundary via a whole-day offset, so a slot on
+ *  a later date is correctly seen as far in the future and a slot earlier
+ *  today (or on a past date) as too soon. Wall-clock based via
+ *  `londonNowParts` so it holds in BST and GMT, browser or edge. */
+export function slotTooSoon(
+  iso: string,
+  time: string,
+  now: Date = new Date(),
+): boolean {
+  const { iso: todayIso, minutes: nowMin } = londonNowParts(now);
+  const dayDiff = Math.round(
+    (Date.parse(`${iso}T00:00:00Z`) - Date.parse(`${todayIso}T00:00:00Z`)) /
+      86_400_000,
+  );
+  const [h, m] = time.split(":").map((s) => parseInt(s, 10));
+  const slotMin = h * 60 + (m || 0);
+  const minutesFromNow = dayDiff * 1440 + slotMin - nowMin;
+  return minutesFromNow < TABLE_MIN_LEAD_MIN;
+}

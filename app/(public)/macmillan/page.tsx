@@ -1,9 +1,7 @@
 "use client";
 
 import { useEffect, useMemo, useRef, useState } from "react";
-import PageHero from "@/components/PageHero";
 import MacmillanBooking from "@/components/MacmillanBooking";
-import EventsScroller from "@/components/EventsScroller";
 import { Editable } from "@/components/Editable";
 import { useContent } from "@/lib/content";
 import { loadMacmillanEvent, type MacmillanEvent } from "@/lib/db/macmillan";
@@ -28,42 +26,22 @@ import type { EventTier } from "@/lib/db/tournaments";
 // admin Galleries → "hero.macmillan". Checked at phone (375px) + desktop (1280px).
 // =============================================================
 
-const HERO_SLIDER_KEY = "hero.macmillan";
-
 // Default copy — overridden per-field from the backend. The three "how it works"
 // steps and the "what else is on" bullets are editable by key too (see below).
 const HOW_DEFAULTS = [
   {
     title: "Pick your skill level",
-    body: "Three four-hour sessions across the day — Beginner, Intermediate and Advanced. Enter the one that suits your game so everyone gets a fair, fun run out.",
+    body: "Three four-hour sessions across the day, Beginner, Intermediate and Advanced. Enter the one that suits your game so everyone gets a fair, fun run out.",
   },
   {
     title: "Just like the weekly comp",
-    body: "Each session plays all-v-all group rounds across both tables, then a knockout — exactly like our regular Wednesday singles.",
+    body: "Each session plays all-v-all group rounds across both tables, then a knockout, exactly like our regular Wednesday singles.",
   },
   {
     title: "The grand showdown",
     body: "The winner of each skill level goes head to head at the end of the day to crown the 12-hour champion.",
   },
 ];
-
-const WHATSON_DEFAULTS = [
-  "DJs spinning all day to keep the pace",
-  "Cocktail specials + a hearty food pop-up to keep your energy up",
-  "Our draught beers flowing (we're after a sponsor to raise even more)",
-  "A betting system so non-players can buy tokens, back their mates and win bar drinks — all proceeds to the fundraiser",
-  "Side quests between games: Carrom boards (pool's ancient ancestor) and a mini table for Beat the Bar",
-];
-
-function formatEventDate(iso: string): string {
-  const d = new Date(`${iso}T00:00:00`);
-  return d.toLocaleDateString("en-GB", {
-    weekday: "long",
-    day: "numeric",
-    month: "long",
-    year: "numeric",
-  });
-}
 
 // "12:00:00" → "12pm", "16:00:00" → "4pm", "00:00:00" → "12am".
 function formatHour(hhmmss: string | null): string {
@@ -80,7 +58,7 @@ function formatHour(hhmmss: string | null): string {
 function tierWindow(tier: EventTier): string {
   const a = formatHour(tier.start_time);
   const b = formatHour(tier.end_time);
-  if (a && b) return `${a} – ${b}`;
+  if (a && b) return `${a}-${b}`;
   return a || b || "";
 }
 
@@ -104,18 +82,12 @@ export default function MacmillanPage() {
   const heroTitle = useContent("macmillan.title", "12 Hour Singles Comp");
   const heroIntro = useContent(
     "macmillan.intro",
-    "No Dice takes on a 12-hour pool marathon for Macmillan Cancer Support. £10 a player, all proceeds to the fundraiser — the long-awaited return of our singles comp.",
-  );
-  const bandTime = useContent("macmillan.band_time", "12pm – 12am");
-  const bandHeadline = useContent("macmillan.band_headline", "12 Hour Marathon");
-  const bandPromise = useContent(
-    "macmillan.band_promise",
-    "£10 — 100% goes to the Macmillan 12 Hour Pool Marathon Fundraiser; we donate the cash once tickets are sold.",
+    "No Dice takes on a 12-hour pool marathon for Macmillan Cancer Support. £10 a player, all proceeds to the fundraiser, the long-awaited return of our singles comp.",
   );
   const ctaLabel = useContent("macmillan.cta_label", "Pick your session · £10");
   const soldOutNote = useContent(
     "macmillan.soldout_note",
-    "Tickets aren't on sale just yet — check back soon.",
+    "Tickets aren't on sale just yet, check back soon.",
   );
 
   const selectorEyebrow = useContent("macmillan.selector_eyebrow", "Choose your session");
@@ -134,18 +106,11 @@ export default function MacmillanPage() {
     body: useContent(`macmillan.how${i + 1}_body`, s.body),
   }));
 
-  const whatsonEyebrow = useContent("macmillan.whatson_eyebrow", "All day long");
-  const whatsonTitle = useContent("macmillan.whatson_title", "What else is on");
-  const whatsonItems = WHATSON_DEFAULTS.map((item, i) => ({
-    key: `macmillan.whatson${i + 1}`,
-    text: useContent(`macmillan.whatson${i + 1}`, item),
-  }));
-
   const causeEyebrow = useContent("macmillan.cause_eyebrow", "Why we're doing it");
   const causeTitle = useContent("macmillan.cause_title", "Every £10 goes to Macmillan");
   const causeBody = useContent(
     "macmillan.cause_body",
-    "We all know the damage this disease does to patients, friends and families — most of us have been touched by cancer at some point. So let's do our part. Play, spectate, bet on your mates or just come down and drink for a good cause. Big love, and we can't wait to see you there. x",
+    "We all know the damage this disease does to patients, friends and families, most of us have been touched by cancer at some point. So let's do our part. Play, spectate, bet on your mates or just come down and drink for a good cause. Big love, and we can't wait to see you there. x",
   );
   const donateLabel = useContent("macmillan.donate_label", "Donate on our Macmillan page →");
   // The founder's own Macmillan fundraising page — editable so it can be repointed.
@@ -196,71 +161,57 @@ export default function MacmillanPage() {
 
   // This event and its three session tiers already own the top of the page —
   // the scroller is for everything ELSE that's on.
-  const excludeFromScroller = useMemo(
-    () => (event ? [event.id, ...tiers.map((t) => t.id)] : []),
-    [event, tiers],
-  );
-
   return (
     <main>
-      <PageHero
-        eyebrow={heroEyebrow}
-        title={heroTitle}
-        intro={heroIntro}
-        image={event?.poster_url || ""}
-        eyebrowKey="macmillan.eyebrow"
-        titleKey="macmillan.title"
-        introKey="macmillan.intro"
-        sliderKey={HERO_SLIDER_KEY}
-      />
+      {/* Text-only hero — no header image (founder Nov 2026), and the
+          kicker is Macmillan green rather than the house red so the page
+          reads as a Macmillan fundraiser. Mirrors PageHero's copy band so
+          the typography (Bebas Neue display) and layout are unchanged. */}
+      <section className="flex flex-col items-center justify-center bg-forest px-6 py-10 text-center md:py-14">
+        <p className="text-xs font-bold uppercase tracking-eyebrow text-[#00A94F]">
+          <Editable k="macmillan.eyebrow">{heroEyebrow}</Editable>
+        </p>
+        <h1 className="mt-4 font-display text-4xl leading-tight sm:text-5xl md:text-6xl">
+          <Editable k="macmillan.title">{heroTitle}</Editable>
+        </h1>
+        <p className="mx-auto mt-4 max-w-2xl text-base leading-relaxed text-cream/85 sm:text-lg">
+          <Editable k="macmillan.intro" multiline>{heroIntro}</Editable>
+        </p>
+      </section>
 
-      {/* Fundraiser headline band — the date + the £10/100% promise + the
-          primary "pick your session" action. */}
-      <section className="px-6 pb-6 pt-10 text-center">
-        <div className="mx-auto max-w-2xl rounded-3xl border border-plonkPink/30 bg-plonkPink/5 px-6 py-8">
-          <div className="text-xs font-bold uppercase tracking-[0.3em] text-plonkPink">
-            {event ? formatEventDate(event.event_date) : "Sunday 15 November 2026"} ·{" "}
-            <Editable k="macmillan.band_time">{bandTime}</Editable>
-          </div>
-          <div className="mt-3 font-display text-4xl uppercase leading-tight tracking-wider text-cream sm:text-5xl">
-            <Editable k="macmillan.band_headline">{bandHeadline}</Editable>
-          </div>
-          <p className="mx-auto mt-4 max-w-md text-sm text-cream/85">
-            <Editable k="macmillan.band_promise" multiline>
-              {bandPromise}
-            </Editable>
+      {/* Primary action — the "pick your session" pill sits right under the
+          intro (the old fundraiser headline band was removed, founder Nov 2026). */}
+      <section className="px-6 pb-2 pt-8 text-center">
+        <button
+          type="button"
+          onClick={scrollToSelector}
+          disabled={!loading && tiers.length === 0}
+          className="inline-block rounded-full bg-[#00A94F] px-10 py-4 text-sm font-bold uppercase tracking-widest text-white shadow-lg shadow-[#00A94F]/30 transition hover:bg-[#00A94F]/90 disabled:cursor-not-allowed disabled:opacity-50"
+        >
+          <Editable k="macmillan.cta_label">{ctaLabel}</Editable>
+        </button>
+        {!loading && !err && tiers.length === 0 && (
+          <p className="mx-auto mt-4 max-w-md text-sm text-cream/60">
+            <Editable k="macmillan.soldout_note">{soldOutNote}</Editable>{" "}
+            <a
+              href={donateUrl}
+              target="_blank"
+              rel="noopener noreferrer"
+              className="text-[#00A94F] underline hover:text-[#00A94F]/80"
+            >
+              Donate on our Macmillan page
+            </a>
+            .
           </p>
-          <button
-            type="button"
-            onClick={scrollToSelector}
-            disabled={!loading && tiers.length === 0}
-            className="mt-6 inline-block rounded-full bg-plonkPink px-10 py-4 text-sm font-bold uppercase tracking-widest text-white shadow-lg shadow-plonkPink/30 transition hover:bg-plonkPink/90 disabled:cursor-not-allowed disabled:opacity-50"
-          >
-            <Editable k="macmillan.cta_label">{ctaLabel}</Editable>
-          </button>
-          {!loading && !err && tiers.length === 0 && (
-            <p className="mt-4 text-sm text-cream/60">
-              <Editable k="macmillan.soldout_note">{soldOutNote}</Editable>{" "}
-              <a
-                href={donateUrl}
-                target="_blank"
-                rel="noopener noreferrer"
-                className="text-plonkPink underline hover:text-plonkPink/80"
-              >
-                Donate on our Macmillan page
-              </a>
-              .
-            </p>
-          )}
-          {err && <p className="mt-4 text-sm text-plonkPink">{err}</p>}
-        </div>
+        )}
+        {err && <p className="mt-4 text-sm text-[#00A94F]">{err}</p>}
       </section>
 
       {/* ── Skill-tier selector ── */}
       {tiers.length > 0 && (
         <section ref={selectorRef} className="px-6 pb-8 pt-8 scroll-mt-24">
           <div className="mx-auto max-w-4xl">
-            <div className="mb-3 text-center text-xs font-bold uppercase tracking-[0.3em] text-plonkPink">
+            <div className="mb-3 text-center text-xs font-bold uppercase tracking-[0.3em] text-[#00A94F]">
               <Editable k="macmillan.selector_eyebrow">{selectorEyebrow}</Editable>
             </div>
             <h2 className="text-center font-display text-4xl uppercase tracking-wider text-cream">
@@ -287,11 +238,11 @@ export default function MacmillanPage() {
                       full
                         ? "cursor-not-allowed border-cream/10 bg-ink/20 opacity-60"
                         : isSelected
-                          ? "border-plonkPink bg-plonkPink/15 ring-1 ring-plonkPink/40"
-                          : "border-cream/15 bg-white/5 hover:border-plonkPink/60 hover:bg-plonkPink/10"
+                          ? "border-[#00A94F] bg-[#00A94F]/15 ring-1 ring-[#00A94F]/40"
+                          : "border-cream/15 bg-white/5 hover:border-[#00A94F]/60 hover:bg-[#00A94F]/10"
                     }`}
                   >
-                    <div className="text-[10px] font-bold uppercase tracking-[0.28em] text-plonkPink">
+                    <div className="text-[10px] font-bold uppercase tracking-[0.28em] text-[#00A94F]">
                       {tierWindow(tier)}
                     </div>
                     <div className="mt-2 font-display text-2xl uppercase leading-tight tracking-wider text-cream">
@@ -308,7 +259,7 @@ export default function MacmillanPage() {
                           ? "border border-cream/15 text-cream/50"
                           : isSelected
                             ? "bg-cream/10 text-cream"
-                            : "bg-plonkPink text-white"
+                            : "bg-[#00A94F] text-white"
                       }`}
                     >
                       {full ? "Sold out" : isSelected ? "Selected" : "Enter →"}
@@ -333,7 +284,7 @@ export default function MacmillanPage() {
       {/* ── How the day works ── */}
       <section className="px-6 pb-8 pt-12">
         <div className="mx-auto max-w-2xl">
-          <div className="mb-3 text-center text-xs font-bold uppercase tracking-[0.3em] text-plonkPink">
+          <div className="mb-3 text-center text-xs font-bold uppercase tracking-[0.3em] text-[#00A94F]">
             <Editable k="macmillan.how_eyebrow">{howEyebrow}</Editable>
           </div>
           <h2 className="text-center font-display text-4xl uppercase tracking-wider text-cream">
@@ -342,7 +293,7 @@ export default function MacmillanPage() {
           <ol className="mx-auto mt-8 max-w-md space-y-6">
             {howSteps.map((step, i) => (
               <li key={step.titleKey} className="flex items-start gap-4">
-                <span className="mt-0.5 flex h-9 w-9 shrink-0 items-center justify-center rounded-full border border-plonkPink/50 bg-plonkPink/15 text-base font-bold text-plonkPink">
+                <span className="mt-0.5 flex h-9 w-9 shrink-0 items-center justify-center rounded-full border border-[#00A94F]/50 bg-[#00A94F]/15 text-base font-bold text-[#00A94F]">
                   {i + 1}
                 </span>
                 <div>
@@ -361,29 +312,10 @@ export default function MacmillanPage() {
         </div>
       </section>
 
-      {/* ── Events scroller — the day's own programme, then what's coming up ──
-          Was a static bullet list. Now a side-scroller of pictures and
-          information fed by the events calendar (food nights, DJs, other games
-          nights), so adding an event in /admin/events puts it on this page. */}
-      <EventsScroller
-        className="bg-white/[0.02]"
-        eyebrow={<Editable k="macmillan.whatson_eyebrow">{whatsonEyebrow}</Editable>}
-        heading={<Editable k="macmillan.whatson_title">{whatsonTitle}</Editable>}
-        highlights={whatsonItems.map((item) => ({
-          key: item.key,
-          node: (
-            <Editable k={item.key} multiline>
-              {item.text}
-            </Editable>
-          ),
-        }))}
-        excludeIds={excludeFromScroller}
-      />
-
       {/* ── The cause ── */}
       <section className="px-6 py-16">
         <div className="mx-auto max-w-2xl text-center">
-          <div className="mb-3 text-xs font-bold uppercase tracking-[0.3em] text-plonkPink">
+          <div className="mb-3 text-xs font-bold uppercase tracking-[0.3em] text-[#00A94F]">
             <Editable k="macmillan.cause_eyebrow">{causeEyebrow}</Editable>
           </div>
           <h2 className="font-display text-3xl uppercase tracking-wider text-cream sm:text-4xl">
@@ -398,7 +330,7 @@ export default function MacmillanPage() {
             href={donateUrl}
             target="_blank"
             rel="noopener noreferrer"
-            className="mt-6 inline-block rounded-full border border-plonkPink/50 px-8 py-3 text-sm font-bold uppercase tracking-widest text-plonkPink transition hover:bg-plonkPink/10"
+            className="mt-6 inline-block rounded-full border border-[#00A94F]/50 px-8 py-3 text-sm font-bold uppercase tracking-widest text-[#00A94F] transition hover:bg-[#00A94F]/10"
           >
             <Editable k="macmillan.donate_label">{donateLabel}</Editable>
           </a>

@@ -159,7 +159,7 @@ export default function XmasMenuTab() {
         galleryKey="xmas.menu"
         heading="This year's festive menu"
         headingClassName="font-festive capitalize"
-        intro="A taste of what's on — swipe through."
+        intro="A taste of what's on, swipe through."
         headingKey="xmas.menu_heading"
         introKey="xmas.menu_intro"
         blankLabel="Menu photo"
@@ -234,7 +234,7 @@ export default function XmasMenuTab() {
 
           {!loading && packages.length === 0 && alacarte.length === 0 && (
             <p className="text-center text-sm text-cream/60">
-              Our Christmas menu is being finalised — check back soon.
+              Our Christmas menu is being finalised, check back soon.
             </p>
           )}
 

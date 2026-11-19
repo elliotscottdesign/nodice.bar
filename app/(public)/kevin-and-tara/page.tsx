@@ -7,9 +7,9 @@ import WeddingGate from "./WeddingGate";
 // WeddingGate.tsx (client) so the metadata export here still runs
 // on the server for the `<head>` tags.
 export const metadata: Metadata = {
-  title: "Kevin & Tara · 29 August 2026 — No Dice",
+  title: "Kevin & Tara · 29 August 2026, No Dice",
   description:
-    "Kevin & Tara's wedding evening at No Dice, Hackney — 29 August 2026, from 6pm.",
+    "Kevin & Tara's wedding evening at No Dice, Hackney, 29 August 2026, from 6pm.",
   robots: {
     index: false,
     follow: false,

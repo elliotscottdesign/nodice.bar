@@ -66,7 +66,7 @@ export default function TermsPage() {
               written permission.
             </p>
 
-            <h2>2. Bookings — general</h2>
+            <h2>2. Bookings, general</h2>
             <p>
               A booking is a contract between you and No Dice Hackney
               Ltd. It is only confirmed when:
@@ -78,7 +78,7 @@ export default function TermsPage() {
               </li>
               <li>
                 where payment is required, your card has successfully been
-                charged (we use Stripe — your card details never touch our
+                charged (we use Stripe, your card details never touch our
                 servers).
               </li>
             </ul>
@@ -115,7 +115,7 @@ export default function TermsPage() {
             <h2>4. Bar table reservations (/book/table)</h2>
             <p>
               Bar table reservations are free to make and are a
-              best-efforts hold — we'll keep the table for you for the
+              best-efforts hold, we'll keep the table for you for the
               first 15 minutes after the start time. If you haven't
               arrived by then we may release it.
             </p>
@@ -129,7 +129,7 @@ export default function TermsPage() {
             <p>
               Tournament sign-ups are pre-paid via Stripe. Entry fees are
               non-refundable, but transferable to another team in the same
-              tournament with at least 24 hours' notice — email{" "}
+              tournament with at least 24 hours' notice, email{" "}
               <a href="mailto:info@nodice.bar">info@nodice.bar</a>.
             </p>
             <p>

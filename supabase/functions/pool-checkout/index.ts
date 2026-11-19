@@ -41,6 +41,7 @@
 
 import Stripe from "https://esm.sh/stripe@17.4.0?target=denonext";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2.45.4";
+import { bookingFeePence } from "../_shared/bookingFee.ts";
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
@@ -460,11 +461,16 @@ Deno.serve(async (req) => {
     );
   }
 
+  // Optional retained booking fee (OFF by default — see _shared/bookingFee.ts).
+  // When enabled it's added to the charge and kept by No Dice.
+  const bookingFee = await bookingFeePence(db, amount);
+  const total = amount + bookingFee;
+
   // Stripe FIRST — if Stripe rejects, we never write a half-baked row.
   let intent: Stripe.PaymentIntent;
   try {
     intent = await stripe.paymentIntents.create({
-      amount,
+      amount: total,
       currency: "gbp",
       receipt_email: input.email,
       description: `Pool table — ${input.duration_minutes} min on ${input.reservation_date} at ${input.start_time}`,
@@ -517,7 +523,7 @@ Deno.serve(async (req) => {
       notes: input.notes,
       heard_from: input.heard_from,
       marketing_opt_in: input.marketing_opt_in,
-      amount_pence: amount,
+      amount_pence: total,
       stripe_payment_intent_id: intent.id,
     })
     .select("id")

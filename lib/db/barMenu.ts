@@ -137,6 +137,35 @@ export type BarMenu = {
   happyHour: CalendarDeal | null;
 };
 
+// Games pricing + bar snacks are NOT hardcoded here: the drinks A4 feed already
+// carries live `games`, `snacks` (and `merch`) sections in its a4.cols, so they
+// flow through `drinks` above with the real till prices (Pool £6/£12 for
+// 30/60min, Crazy Golf £7, Ping Pong/Darts/Board Games free, Crisps free, Nuts
+// £1.5, etc.). Reading them live beats a static block that would drift from the
+// till — so we deliberately render them straight from the feed.
+
+// A dated pop-up section only belongs on today's menu. Dates are encoded either
+// as a trailing YYYYMMDD in the id (popup-matthew-20260919) or a DD/MM in the
+// name/id (Pop-up · 03/11). A section with no parseable date is a core/undated
+// section (Rolls, Sides) and always shows. The `menu` feed carries no explicit
+// service-date field, so this is the signal available.
+function sectionOnToday(section: any, now: Date): boolean {
+  const hay = `${section?.id ?? ""} ${section?.name ?? ""}`;
+  const ymd = hay.match(/(20\d{2})(\d{2})(\d{2})/);
+  if (ymd) {
+    return (
+      Number(ymd[1]) === now.getFullYear() &&
+      Number(ymd[2]) === now.getMonth() + 1 &&
+      Number(ymd[3]) === now.getDate()
+    );
+  }
+  const dm = hay.match(/\b(\d{1,2})\/(\d{1,2})\b/);
+  if (dm) {
+    return Number(dm[1]) === now.getDate() && Number(dm[2]) === now.getMonth() + 1;
+  }
+  return true; // undated → core section, always on
+}
+
 export async function loadBarMenu(): Promise<BarMenu> {
   const todayWd = (new Date().getDay() + 6) % 7;
 
@@ -173,9 +202,16 @@ export async function loadBarMenu(): Promise<BarMenu> {
     }
   }
 
-  // ----- Food: the kitchen sections, archived items dropped -----
+  // ----- Food: today's live offering only -----
+  // Drop archived SECTIONS outright (old pop-ups whose items aren't each flagged
+  // still carry archived:true), then drop any dated pop-up that isn't on offer
+  // today, so the bar menu shows just the food you can actually order now. Core
+  // Rolls + Sides (undated) always ride along.
+  const now = new Date();
   const food: MenuSection[] = [];
   for (const s of (foodRes?.sections ?? []) as any[]) {
+    if (!s || s.archived) continue;
+    if (!sectionOnToday(s, now)) continue;
     const items: MenuItem[] = (s.items ?? [])
       .filter((i: any) => i && !i.archived && i.name)
       .map((i: any) => ({

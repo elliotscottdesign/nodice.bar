@@ -92,6 +92,12 @@ export type Enquiry = {
   enquiry_type: EnquiryType | null;
   archived_at: string | null;
   saved_at: string | null;
+  followup_at: string | null;
+  // The poster built for this booking (party / wedding / leaving drinks…) with
+  // the same maker special events use. poster_url is the rendered artwork;
+  // poster_recipe is how it was built, so reopening restores the exact poster.
+  poster_url: string | null;
+  poster_recipe: Record<string, unknown> | null;
   created_at: string;
   updated_at: string;
 };
@@ -132,7 +138,7 @@ export type EnquiryMessage = {
 };
 
 const SELECT =
-  "id, source, status, contact_name, contact_email, contact_phone, event_type, party_size, requested_date, date_flex, budget, notes, assigned_to, linked_kind, linked_id, share_token, amount_pence, payment_url, paid_at, last_emailed_at, lead_bucket, enquiry_type, archived_at, saved_at, created_at, updated_at";
+  "id, source, status, contact_name, contact_email, contact_phone, event_type, party_size, requested_date, date_flex, budget, notes, assigned_to, linked_kind, linked_id, share_token, amount_pence, payment_url, paid_at, last_emailed_at, lead_bucket, enquiry_type, archived_at, saved_at, followup_at, poster_url, poster_recipe, created_at, updated_at";
 
 export const SOURCE_LABEL: Record<EnquirySource, string> = {
   party_form: "Party form",
@@ -211,22 +217,80 @@ export async function checkDateAvailability(
   return { date: iso, tableCount, tableCovers, poolCount, events, busy };
 }
 
-export type Shelf = "active" | "archived" | "saved";
+export type Shelf = "active" | "followup" | "archived" | "saved";
 
 export async function loadEnquiries(
   opts: { shelf?: Shelf } = {},
 ): Promise<Enquiry[]> {
-  // active (default) = on the board (not archived, not saved).
+  // active (default) = on the board (not archived, not saved, not a follow-up).
+  // followup = being chased on a date (followup_at set). Soonest/overdue first.
   // archived = hidden as not-relevant (+ tidied out of Gmail).
   // saved    = set aside for later (email left in Gmail untouched).
   const shelf = opts.shelf ?? "active";
   let q = supabase().from("enquiries").select(SELECT);
   if (shelf === "archived") q = q.not("archived_at", "is", null);
   else if (shelf === "saved") q = q.not("saved_at", "is", null);
-  else q = q.is("archived_at", null).is("saved_at", null);
-  const { data, error } = await q.order("created_at", { ascending: false });
+  else if (shelf === "followup") q = q.not("followup_at", "is", null);
+  else q = q.is("archived_at", null).is("saved_at", null).is("followup_at", null);
+  // Follow-ups sort by their chase date (overdue at the top); everything else
+  // newest-first.
+  q =
+    shelf === "followup"
+      ? q.order("followup_at", { ascending: true })
+      : q.order("created_at", { ascending: false });
+  const { data, error } = await q;
   if (error) throw error;
   return (data ?? []) as Enquiry[];
+}
+
+// Follow up = chase this customer on a date. Defaults to 7 days out when no
+// date is given. Clears the other shelves so it lands in the Follow up section.
+export async function setEnquiryFollowup(
+  id: string,
+  dateIso?: string | null,
+): Promise<void> {
+  const when = dateIso
+    ? new Date(dateIso.length <= 10 ? `${dateIso}T09:00:00` : dateIso).toISOString()
+    : new Date(Date.now() + 7 * 86400_000).toISOString();
+  const { error } = await supabase()
+    .from("enquiries")
+    .update({ followup_at: when, archived_at: null, saved_at: null })
+    .eq("id", id);
+  if (error) throw error;
+}
+export async function clearEnquiryFollowup(id: string): Promise<void> {
+  const { error } = await supabase()
+    .from("enquiries")
+    .update({ followup_at: null })
+    .eq("id", id);
+  if (error) throw error;
+}
+
+// Save the poster the office built for this booking onto the enquiry. Stores
+// the rendered artwork AND the recipe (how it was built, incl. the poster
+// title/date/time) so reopening the maker rebuilds the exact same poster.
+// Minimal update, no select-back — the caller reloads the board.
+export async function setEnquiryPoster(
+  id: string,
+  poster: { poster_url: string; poster_recipe: Record<string, unknown> | null },
+): Promise<void> {
+  const { error } = await supabase()
+    .from("enquiries")
+    .update({
+      poster_url: poster.poster_url,
+      poster_recipe: poster.poster_recipe,
+    })
+    .eq("id", id);
+  if (error) throw error;
+}
+
+// Take the poster back off the enquiry (the artwork stays in the media library).
+export async function clearEnquiryPoster(id: string): Promise<void> {
+  const { error } = await supabase()
+    .from("enquiries")
+    .update({ poster_url: null, poster_recipe: null })
+    .eq("id", id);
+  if (error) throw error;
 }
 
 // Archive = "not relevant, get it off the board" (spam, duplicate, wrong
@@ -507,6 +571,79 @@ export async function saveEmailSignature(value: string): Promise<void> {
     .from("crm_settings")
     .upsert({ key: "email_signature", value, updated_at: new Date().toISOString() }, { onConflict: "key" });
   if (error) throw new Error(error.message);
+}
+
+// Per-staff signature. The sign-off NAME changes with who's logged in (Leonie,
+// Elliot, Reese…); the title is the same for everyone (Bookings Manager); the
+// footer (address, Events & Deals links, logo) is shared. All editable.
+export type SignatureConfig = {
+  footer: string; // shared HTML block below the name/title
+  title: string; // e.g. "Bookings Manager"
+  names: Record<string, string>; // lowercased login email → full name
+};
+
+export async function loadSignatureConfig(): Promise<SignatureConfig> {
+  const db = supabase();
+  const { data } = await db
+    .from("crm_settings")
+    .select("key, value")
+    .in("key", ["signature_footer", "signature_title", "signature_names"]);
+  const by: Record<string, string> = {};
+  for (const r of (data ?? []) as { key: string; value: string }[]) by[r.key] = r.value;
+  let names: Record<string, string> = {};
+  try {
+    const parsed = JSON.parse(by.signature_names || "{}");
+    if (parsed && typeof parsed === "object") {
+      for (const k of Object.keys(parsed)) {
+        if (typeof parsed[k] === "string") names[k.toLowerCase()] = parsed[k];
+      }
+    }
+  } catch { names = {}; }
+  return {
+    footer: by.signature_footer ?? "",
+    title: by.signature_title || "Bookings Manager",
+    names,
+  };
+}
+
+export async function saveSignatureConfig(cfg: SignatureConfig): Promise<void> {
+  const db = supabase();
+  const rows = [
+    { key: "signature_footer", value: cfg.footer },
+    { key: "signature_title", value: cfg.title },
+    { key: "signature_names", value: JSON.stringify(cfg.names) },
+  ].map((r) => ({ ...r, updated_at: new Date().toISOString() }));
+  const { error } = await db.from("crm_settings").upsert(rows, { onConflict: "key" });
+  if (error) throw new Error(error.message);
+}
+
+// The email of the currently signed-in admin user (from Supabase Auth), lowercased.
+export async function currentUserEmail(): Promise<string> {
+  try {
+    const { data } = await supabase().auth.getUser();
+    return (data.user?.email ?? "").toLowerCase();
+  } catch {
+    return "";
+  }
+}
+
+function esc(s: string): string {
+  return (s || "").replace(/[&<>]/g, (c) =>
+    c === "&" ? "&amp;" : c === "<" ? "&lt;" : "&gt;",
+  );
+}
+
+// Build the signature HTML for a given login email from the config.
+export function buildSignature(email: string, cfg: SignatureConfig): string {
+  const name = cfg.names[(email || "").toLowerCase()] || "The No Dice Team";
+  const titleLine = cfg.title ? `<br>${esc(cfg.title)}` : "";
+  return `<p>--</p><p><strong>${esc(name)}</strong>${titleLine}</p>${cfg.footer || ""}`;
+}
+
+// Convenience: the signature for whoever is logged in right now.
+export async function loadMySignature(): Promise<string> {
+  const [email, cfg] = await Promise.all([currentUserEmail(), loadSignatureConfig()]);
+  return buildSignature(email, cfg);
 }
 
 // Quick links = one-tap hyperlink buttons in the compose window (Book a table,

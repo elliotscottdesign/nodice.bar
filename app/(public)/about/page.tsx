@@ -28,7 +28,7 @@ const DEFAULTS = {
   body_image1: "",
   body_image2: "",
   body_para1:
-    "No Dice Crazy Golf was founded by a troop of set designers from the film industry who banded together for a common cause — using their skills to create the greatest crazy golf courses imaginable and plonking them down around the Capital.\n\nIn 2014 we opened our first course in Haggerston, London, built from 100% up-cycled materials rescued from the streets of Hackney. Since that initial success, we've been creating ever more ambitious courses across the UK and Europe.",
+    "No Dice Crazy Golf was founded by a troop of set designers from the film industry who banded together for a common cause, using their skills to create the greatest crazy golf courses imaginable and plonking them down around the Capital.\n\nIn 2014 we opened our first course in Haggerston, London, built from 100% up-cycled materials rescued from the streets of Hackney. Since that initial success, we've been creating ever more ambitious courses across the UK and Europe.",
   body_heading2: "Totally unique, totally No Dice",
   body_para2:
     "Totally unique and customisable, we work closely with award-winning venues, bars, pubs, and museums to create one-of-a-kind golf-stacle courses tailored to each venue. Outdoors you can find us working with major tourist attractions such as ZSL London Zoo and The Horniman Museum and Gardens, bringing our signature nine-hole courses to award-winning venues. Indoors, we're creating hyper-coloured UV adventures.",

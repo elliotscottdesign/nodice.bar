@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useMemo, useState } from "react";
+import { DJ_PUBLIC } from "@/lib/publicLabels";
 
 // =============================================================
 // XmasPackageBuilder — pick-and-mix Christmas party enquiry
@@ -51,7 +52,7 @@ type Item = {
 const FALLBACK_DRINKS: Item[] = [
   { id: "house_drink", name: "House drink", price: 8, qty: true, desc: "Pint / single & mix / wine / bottles / softs" },
   { id: "xmas_cocktail", name: "Xmas cocktail", price: 12, qty: true, desc: "One from our Xmas seasonal menu" },
-  { id: "open_bar", name: "Open Bar — house drinks", price: 70, exclusive: true },
+  { id: "open_bar", name: "Open Bar, house drinks", price: 70, exclusive: true },
 ];
 const FALLBACK_GAMES: Item[] = [
   { id: "gaming_pack", name: "Gaming pack", price: 12, desc: "Golf · tokens · pool · darts · ping pong" },
@@ -60,7 +61,7 @@ const FALLBACK_GAMES: Item[] = [
   { id: "karaoke", name: "Karaoke", price: 10 },
 ];
 const FALLBACK_NOTES: Item[] = [
-  { id: "dj_note", name: "🎧 DJ included on Thu / Fri / Sat night sessions", price: 0, note: true },
+  { id: "dj_note", name: `🎧 ${DJ_PUBLIC.singular} included on Thu / Fri / Sat night sessions`, price: 0, note: true },
 ];
 const XMAS_PKG_FN = `${SUPABASE_URL}/functions/v1/xmas-packages`;
 
@@ -99,14 +100,14 @@ const STANDALONE_FOOD: { match: RegExp }[] = [
 // £3k; Thu/Fri evenings and all of Sat/Sun are £7k. Each slot names its
 // day so the customer self-selects and the minimum is unambiguous.
 const SLOTS = [
-  { id: "mw-lunch", label: "Mon–Wed · 12:00–3:00pm", min: 3000, note: "£3,000 min spend · 3 hrs" },
-  { id: "mw-aft", label: "Mon–Wed · 3:30–6:30pm", min: 3000, note: "£3,000 min spend · 3 hrs" },
-  { id: "mw-eve", label: "Mon–Wed · 7:00–11:00pm", min: 4000, note: "£4,000 min spend · 4 hrs" },
-  { id: "thufri-eve", label: "Thu/Fri · 7:00pm–12:00am", min: 7000, note: "£7,000 min spend · free DJ" },
-  { id: "sat-day", label: "Saturday · 12:00–6:30pm", min: 7000, note: "£7,000 min spend · free DJ" },
-  { id: "sat-eve", label: "Saturday · 7:00pm–12:00am", min: 7000, note: "£7,000 min spend · free DJ" },
-  { id: "sun-day", label: "Sunday · 12:00–6:00pm", min: 7000, note: "£7,000 min spend · free DJ" },
-  { id: "sun-eve", label: "Sunday · 7:00pm–12:00am", min: 7000, note: "£7,000 min spend · free DJ" },
+  { id: "mw-lunch", label: "Mon-Wed · 12:00-3:00pm", min: 3000, note: "£3,000 min spend · 3 hrs" },
+  { id: "mw-aft", label: "Mon-Wed · 3:30-6:30pm", min: 3000, note: "£3,000 min spend · 3 hrs" },
+  { id: "mw-eve", label: "Mon-Wed · 7:00-11:00pm", min: 4000, note: "£4,000 min spend · 4 hrs" },
+  { id: "thufri-eve", label: "Thu/Fri · 7:00pm-12:00am", min: 7000, note: `£7,000 min spend · free ${DJ_PUBLIC.singular}` },
+  { id: "sat-day", label: "Saturday · 12:00-6:30pm", min: 7000, note: `£7,000 min spend · free ${DJ_PUBLIC.singular}` },
+  { id: "sat-eve", label: "Saturday · 7:00pm-12:00am", min: 7000, note: `£7,000 min spend · free ${DJ_PUBLIC.singular}` },
+  { id: "sun-day", label: "Sunday · 12:00-6:00pm", min: 7000, note: `£7,000 min spend · free ${DJ_PUBLIC.singular}` },
+  { id: "sun-eve", label: "Sunday · 7:00pm-12:00am", min: 7000, note: `£7,000 min spend · free ${DJ_PUBLIC.singular}` },
 ] as const;
 
 const MAX_DATES = 4;
@@ -426,7 +427,7 @@ export default function XmasPackageBuilder() {
       setError(
         err instanceof Error
           ? err.message
-          : "Something went wrong — email hello@nodice.bar instead.",
+          : "Something went wrong. Email hello@nodice.bar instead.",
       );
     }
   }
@@ -438,7 +439,7 @@ export default function XmasPackageBuilder() {
           Package sent 🎄
         </div>
         <p className="mx-auto mt-3 max-w-md text-sm leading-relaxed text-cream/80">
-          Thanks {name.trim().split(" ")[0]} — your Christmas party package is
+          Thanks {name.trim().split(" ")[0]}, your Christmas party package is
           with the No Dice team, and a copy is on its way to your inbox. We&apos;ll
           be in touch to lock it in.
         </p>
@@ -454,7 +455,7 @@ export default function XmasPackageBuilder() {
       <section>
         <StepHeading n={1} title="Pick your dates" />
         <p className="mt-1 text-center text-sm text-cream/60">
-          Choose up to {MAX_DATES} options that work — we&apos;ll confirm
+          Choose up to {MAX_DATES} options that work, we&apos;ll confirm
           availability.
         </p>
         <div className="mx-auto mt-4 max-w-sm rounded-2xl border border-cream/10 bg-white/[0.02] p-4">
@@ -551,7 +552,7 @@ export default function XmasPackageBuilder() {
             className="mt-0.5 h-5 w-5 accent-nodiceRed"
           />
           <span className="text-sm text-cream/85">
-            Take the space privately — pick a slot below. Each has a minimum
+            Take the space privately, pick a slot below. Each has a minimum
             spend you build up to with your packages. Not private? You can book
             up to {MAX_HEADS_NO_HIRE} people with no minimum.
           </span>
@@ -721,7 +722,7 @@ export default function XmasPackageBuilder() {
               </div>
               <p className={`mt-2 text-sm ${minMet ? "text-pongLight" : "text-cream/75"}`}>
                 {minMet
-                  ? "✓ Minimum reached — you're ready to send your package."
+                  ? "✓ Minimum reached, you're ready to send your package."
                   : heads > 0
                     ? `Add ${gbp(remaining)} more to reach your minimum (pick more packages, or add guests).`
                     : "Add your guest numbers and packages to build up to your minimum."}
@@ -752,7 +753,7 @@ export default function XmasPackageBuilder() {
           )}
           {!privateHire && budgetNum === 0 && (
             <p className="mt-3 text-xs text-cream/45">
-              No private-hire minimum — your total adds up as you go. Pop in a
+              No private-hire minimum, your total adds up as you go. Pop in a
               budget above to track what&apos;s left. The team will confirm a
               firm quote.
             </p>
@@ -777,14 +778,14 @@ export default function XmasPackageBuilder() {
             value={notes}
             onChange={(e) => setNotes(e.target.value)}
             rows={3}
-            placeholder="Anything else — dietaries, occasion, must-haves…"
+            placeholder="Anything else, dietaries, occasion, must-haves…"
             className="mt-1.5 w-full rounded-xl border border-cream/15 bg-ink/40 px-4 py-3 text-base text-cream placeholder:text-cream/35 focus:border-nodiceRed focus:outline-none"
           />
         </label>
       </section>
 
       <p className="rounded-xl border border-pong/30 bg-pong/[0.06] px-4 py-3 text-sm leading-relaxed text-pongLight">
-        When confirmed, a final food-ordering link will be sent to you — no need
+        When confirmed, a final food-ordering link will be sent to you, no need
         for menu selections today.
       </p>
 
@@ -1015,7 +1016,7 @@ function FoodPackageGroup({
       </div>
       {packages.length === 0 ? (
         <p className="mt-2 text-sm text-cream/55">
-          Our festive food packages are being finalised — check back soon, or
+          Our festive food packages are being finalised, check back soon, or
           add a note below and we&apos;ll build the food around you.
         </p>
       ) : (

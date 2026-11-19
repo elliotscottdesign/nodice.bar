@@ -176,7 +176,7 @@ export default function AllergenMatrix({ menuPrefix = "🎄" }: { menuPrefix?: s
   if (rows.length === 0) {
     return (
       <p className="text-sm text-cream/70">
-        Full allergen information is being finalised — ask our team and we&apos;ll
+        Full allergen information is being finalised, ask our team and we&apos;ll
         guide you to safe options.
       </p>
     );
@@ -240,7 +240,7 @@ export default function AllergenMatrix({ menuPrefix = "🎄" }: { menuPrefix?: s
                   return (
                     <td key={a.key} className="px-2 py-3 text-center">
                       {cell ? (
-                        <span className={`text-base ${cell.cls}`} title={`${a.label} — ${cell.title}`}>
+                        <span className={`text-base ${cell.cls}`} title={`${a.label}, ${cell.title}`}>
                           {cell.sym}
                         </span>
                       ) : (

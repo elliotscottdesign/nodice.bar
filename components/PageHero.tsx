@@ -55,12 +55,18 @@ export default function PageHero({
 
   const useSlider = sliderImages.length > 1;
   const singleSrc = sliderImages.length >= 1 ? sliderImages[0].src : "";
+  // Whether there's actually an image to show. When a page has no hero
+  // image (and no single-image key), we skip the image box entirely so
+  // the title band sits straight under the nav instead of leaving a tall
+  // empty black gap (e.g. /comedybingo with its banner removed).
+  const hasHeroImage = useSlider || !!singleSrc || !!imageKey;
 
   return (
     <section className="relative isolate flex flex-col">
       {/* Image — always fills the full width. aspect-[3/2] matches the natural
           ratio of our venue photos so they fit without top/bottom crop on the
           most common viewports; ultrawide screens see a very minor side crop. */}
+      {hasHeroImage && (
       <div className="relative w-full bg-forest aspect-[3/2] max-h-[80vh] min-h-[360px] overflow-hidden">
         {useSlider ? (
           <HeroSlider
@@ -105,6 +111,7 @@ export default function PageHero({
           />
         )}
       </div>
+      )}
 
       {/* Copy — clean hard edge between image and title band */}
       <div className="flex flex-col items-center justify-center bg-forest px-6 py-10 text-center md:py-14">

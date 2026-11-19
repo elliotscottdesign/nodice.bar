@@ -16,7 +16,7 @@ export default function DealsPage() {
   const title = useContent("deals.title", "Deals");
   const intro = useContent(
     "deals.intro",
-    "A deal for every day of the week. Straight from the calendar — always current.",
+    "A deal for every day of the week. Straight from the calendar, always current.",
   );
 
   const [deals, setDeals] = useState<CalendarDeal[]>([]);
@@ -64,15 +64,19 @@ export default function DealsPage() {
             </p>
           ) : deals.length === 0 ? (
             <p className="py-16 text-center text-sm text-cream/55">
-              No deal posters on the calendar yet — check back soon.
+              No deal posters on the calendar yet, check back soon.
             </p>
           ) : (
             // 4 across on tablet+ (→ 4×2 for 8 deals), 2 across on mobile.
             <div className="grid grid-cols-2 gap-3 sm:grid-cols-4 sm:gap-4">
               {deals.map((d) => (
-                <div
+                // Each deal poster links to its own shareable page
+                // (/event?o=<id> — a static route + query param, so it never
+                // 404s on the static export). Added 12 Nov 2026.
+                <a
                   key={d.id}
-                  className="relative aspect-[5/7] overflow-hidden rounded-xl bg-ink"
+                  href={`/event?o=${d.id}`}
+                  className="relative block aspect-[5/7] overflow-hidden rounded-xl bg-ink transition hover:opacity-90"
                 >
                   <Image
                     src={d.posterUrl}
@@ -81,7 +85,7 @@ export default function DealsPage() {
                     sizes="(min-width: 640px) 25vw, 50vw"
                     className="object-cover"
                   />
-                </div>
+                </a>
               ))}
             </div>
           )}

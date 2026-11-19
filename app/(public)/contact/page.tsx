@@ -22,7 +22,7 @@ export default function ContactPage() {
   const title = useContent("contact.title", "Say Hello");
   const intro = useContent(
     "contact.intro",
-    "For group bookings, partnership enquiries or anything else — drop us a line, we read every message.",
+    "For group bookings, partnership enquiries or anything else, drop us a line, we read every message.",
   );
 
   const emailLabel = useContent("contact.email_label", "Email us");
@@ -56,7 +56,7 @@ export default function ContactPage() {
   const hoursLabel = useContent("contact.hours_label", "Opening hours");
   const hoursBody = useContent(
     "contact.hours_body",
-    "Mon–Thu 3pm – 11pm\nFri 12pm – 12am\nSat 12pm – 12am\nSun 12pm – 11pm",
+    "Mon-Thu 3pm-11pm\nFri 12pm-12am\nSat 12pm-12am\nSun 12pm-11pm",
   );
 
   const socialLabel = useContent("contact.social_label", "Follow No Dice");

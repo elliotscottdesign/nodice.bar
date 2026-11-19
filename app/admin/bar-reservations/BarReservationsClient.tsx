@@ -10,10 +10,15 @@ import BookingLockedTag from "@/components/admin/BookingLockedTag";
 import {
   loadAllTableSurfaceReservations,
   setUnifiedReservationStatus,
+  setBarReservationPoster,
+  clearBarReservationPoster,
   type DbBarReservation,
   type UnifiedReservation,
 } from "@/lib/db/barReservations";
 import { supabase } from "@/lib/supabase";
+import EventPosterStudio from "@/components/admin/EventPosterStudio";
+import PosterDownloads from "@/components/admin/PosterDownloads";
+import Notice from "@/components/Notice";
 
 const STRIPE_PAYMENT_URL = (pi: string) =>
   `https://dashboard.stripe.com/payments/${pi}`;
@@ -136,6 +141,8 @@ export default function BarReservationsClient({
   const [jumpDate, setJumpDate] = useState("");
   // Inline-edit state — only one row open at a time.
   const [editingId, setEditingId] = useState<string | null>(null);
+  // Invitation maker — which booking's invitation panel is open (one at a time).
+  const [invId, setInvId] = useState<string | null>(null);
   // Add-pool-time state (office pool add-on on a table booking). One form
   // open at a time. priceWindows feed the auto-filled fee.
   const [priceWindows, setPriceWindows] = useState<PriceWindow[]>([]);
@@ -797,6 +804,19 @@ export default function BarReservationsClient({
                       : "🎱 Add pool time"}
                   </button>
                 )}
+                {/* Invitation maker — build a branded party invitation for this
+                    booking (birthday, etc.), kept on the booking. */}
+                <button
+                  type="button"
+                  onClick={() => setInvId(invId === r.id ? null : r.id)}
+                  className="rounded-full border border-plonkPink/40 bg-plonkPink/10 px-3 py-1 text-[11px] font-bold uppercase tracking-wider text-plonkPink transition hover:bg-plonkPink/20"
+                >
+                  {invId === r.id
+                    ? "Close"
+                    : r.poster_url
+                    ? "🎟 Edit invitation"
+                    : "🎟 Invitation maker"}
+                </button>
                 {r.stripe_payment_intent_id && (
                   <a
                     href={STRIPE_PAYMENT_URL(r.stripe_payment_intent_id)}
@@ -813,6 +833,11 @@ export default function BarReservationsClient({
                   </span>
                 )}
               </div>
+
+              {/* Invitation maker — opens inline under this booking. */}
+              {invId === r.id && (
+                <InvitationMaker r={r} onReload={reload} />
+              )}
 
               {/* Transient per-row note after adding / emailing. */}
               {poolMsg?.id === r.id && (
@@ -1037,6 +1062,209 @@ export default function BarReservationsClient({
               )}
             </article>
           ))}
+        </div>
+      )}
+    </div>
+  );
+}
+
+// ─── Invitation maker (opens inline under a booking card) ─────────────
+// The same poster maker the events use, pointed at a booking: build a branded
+// party invitation (photos/grid, colour, treatment, the lot), with the venue
+// address along the foot. Kept ON the booking (poster_url + poster_recipe) so
+// reopening shows the last one; download it below to send or print.
+function invWhenLine(dateIso: string, timeHHMM: string): string {
+  const parts = ["AT NO DICE"];
+  if (dateIso) {
+    const d = new Date(`${dateIso}T00:00:00`);
+    if (!isNaN(d.getTime())) {
+      parts.push(
+        d
+          .toLocaleDateString("en-GB", {
+            weekday: "short",
+            day: "numeric",
+            month: "short",
+          })
+          .replace(",", "")
+          .toUpperCase(),
+      );
+    }
+  }
+  const [hStr, mStr] = (timeHHMM || "").split(":");
+  const h = Number(hStr);
+  if (Number.isFinite(h)) {
+    const m = Number(mStr) || 0;
+    const ap = h < 12 ? "AM" : "PM";
+    const hh = h % 12 === 0 ? 12 : h % 12;
+    parts.push(m ? `${hh}:${String(m).padStart(2, "0")}${ap}` : `${hh}${ap}`);
+  }
+  return parts.join(" · ");
+}
+
+function InvitationMaker({
+  r,
+  onReload,
+}: {
+  r: UnifiedReservation;
+  onReload: () => Promise<void>;
+}) {
+  const recipe = (r.poster_recipe || null) as Record<string, unknown> | null;
+  const recStr = (k: string): string => {
+    const v = recipe?.[k];
+    return typeof v === "string" ? v : "";
+  };
+  const VENUE_ADDRESS = "407 MENTMORE TERRACE\nLONDON FIELDS · E8 3PH · NODICE.BAR";
+  const savedFooter = recStr("footer");
+
+  const [title, setTitle] = useState(() => recStr("_title") || r.name || "");
+  const [date, setDate] = useState(() => recStr("_date") || r.reservation_date || "");
+  const [time, setTime] = useState(
+    () => recStr("_time") || (r.start_time ?? "").slice(0, 5),
+  );
+  const [saved, setSaved] = useState("");
+  const [busy, setBusy] = useState(false);
+
+  const whenLine = invWhenLine(date, time);
+
+  async function removeInvite() {
+    if (
+      !(await confirmDialog(
+        "Take the invitation off this booking? The artwork stays in the media library — this just clears it from the booking.",
+        { title: "Remove invitation?", confirmLabel: "Remove", danger: false },
+      ))
+    )
+      return;
+    setBusy(true);
+    try {
+      await clearBarReservationPoster(r.id);
+      setSaved("");
+      await onReload();
+    } catch {
+      /* no-op */
+    } finally {
+      setBusy(false);
+    }
+  }
+
+  return (
+    <div className="mt-4 rounded-2xl border border-plonkPink/25 bg-plonkPink/5 p-4">
+      <p className="mb-3 text-[10px] font-bold uppercase tracking-[0.22em] text-plonkPink">
+        🎟 Invitation maker
+      </p>
+      <p className="mb-3 text-[11px] leading-relaxed text-cream/55">
+        The same maker the events use. Give it a name, pick a picture (or several
+        for a grid) and a colour — the venue address sits along the foot. The
+        invitation is kept on this booking, so it&apos;s here when you come back;
+        download it below to send or print.
+      </p>
+
+      <div className="grid gap-2 sm:grid-cols-2">
+        <label className="block sm:col-span-2">
+          <span className="mb-1 block text-[10px] font-bold uppercase tracking-widest text-cream/50">
+            Name on the invitation
+          </span>
+          <input
+            value={title}
+            onChange={(e) => setTitle(e.target.value)}
+            maxLength={60}
+            placeholder="e.g. NAI'S BIRTHDAY"
+            className={editInputCls}
+          />
+          <span className="mt-1 block text-[9px] leading-relaxed text-cream/35">
+            The big headline — usually the birthday person&apos;s name (needn&apos;t
+            match the booking name).
+          </span>
+        </label>
+        <label className="block">
+          <span className="mb-1 block text-[10px] font-bold uppercase tracking-widest text-cream/50">
+            Date
+          </span>
+          <DatePickerInput
+            value={date}
+            onChange={(iso: string) => setDate(iso)}
+            className={editInputCls}
+          />
+        </label>
+        <label className="block">
+          <span className="mb-1 block text-[10px] font-bold uppercase tracking-widest text-cream/50">
+            Time (optional)
+          </span>
+          <input
+            value={time}
+            onChange={(e) => setTime(e.target.value)}
+            maxLength={5}
+            placeholder="e.g. 14:00"
+            className={editInputCls}
+          />
+        </label>
+      </div>
+
+      {saved && (
+        <div className="mt-3">
+          <Notice variant="success">{saved}</Notice>
+        </div>
+      )}
+
+      {date && title.trim() ? (
+        <div className="mt-3">
+          <EventPosterStudio
+            key={r.id}
+            name={title.trim()}
+            date={date}
+            start={time.trim() || null}
+            defaultSubcopy={recStr("detail") || whenLine}
+            currentPosterUrl={r.poster_url || null}
+            defaultRecipe={recipe}
+            allowFooter
+            defaultFooter={savedFooter || VENUE_ADDRESS}
+            saveLabel="Save this invitation"
+            saveHint="Kept on this booking — reopen and it's still here. Download it below to send or print."
+            onSave={async (res) => {
+              setBusy(true);
+              try {
+                await setBarReservationPoster(r.id, {
+                  poster_url: res.poster_url,
+                  poster_recipe: {
+                    ...((res.poster_recipe as Record<string, unknown>) || {}),
+                    _title: title.trim(),
+                    _date: date,
+                    _time: time.trim(),
+                  },
+                });
+                setSaved("Saved — this invitation is kept on the booking.");
+                await onReload();
+              } finally {
+                setBusy(false);
+              }
+            }}
+          />
+        </div>
+      ) : (
+        <p className="mt-3 rounded-lg border border-dashed border-cream/20 px-3 py-4 text-center text-[11px] text-cream/50">
+          Enter a name and a date above to start the invitation.
+        </p>
+      )}
+
+      {r.poster_url && (
+        <div className="mt-3 rounded-xl border border-cream/10 bg-ink/30 p-4">
+          <p className="mb-2 text-[10px] font-bold uppercase tracking-widest text-cream/55">
+            Download this invitation
+          </p>
+          <PosterDownloads
+            name={title.trim() || r.name || "Invitation"}
+            date={date || r.reservation_date || ""}
+            start={time.trim() || null}
+            posterUrl={r.poster_url}
+            recipe={recipe}
+          />
+          <button
+            type="button"
+            disabled={busy}
+            onClick={removeInvite}
+            className="mt-3 w-full rounded-full border border-cream/15 px-4 py-2 text-[11px] font-bold uppercase tracking-wider text-cream/60 transition hover:bg-cream/5 disabled:opacity-40"
+          >
+            Remove invitation
+          </button>
         </div>
       )}
     </div>

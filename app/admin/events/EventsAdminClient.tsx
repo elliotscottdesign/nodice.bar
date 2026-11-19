@@ -9,6 +9,10 @@ import PosterDownloads from "@/components/admin/PosterDownloads";
 import DatePickerInput from "@/components/admin/DatePickerInput";
 import Notice from "@/components/Notice";
 import { isDealEvent } from "@/lib/db/calendarEvents";
+import {
+  rebuildPosterFromRecipe,
+  recipeIsRebuildable,
+} from "@/lib/poster/rebuild";
 
 // Category colour swatches — used by the dropdown and list-row
 // left-stripe so the palette in the calendar view is discoverable
@@ -371,6 +375,9 @@ export default function EventsAdminClient() {
   // implies it (a food residency needs the dining tables); admin can toggle.
   const [blocksTableBookings, setBlocksTableBookings] = useState(false);
   const [requiresTicket, setRequiresTicket] = useState(true);
+  // Public face: 'popup' (the compact /event?o= share card) or 'page' (the
+  // full long-form layout). Deals are always a pop-up.
+  const [pageStyle, setPageStyle] = useState<"popup" | "page">("popup");
   const [maxAttendees, setMaxAttendees] = useState<string>("");
   const [tickets, setTickets] = useState<TicketDraft[]>([
     { name: "General entry", description: "", price: "", capacity: "" },
@@ -418,6 +425,7 @@ export default function EventsAdminClient() {
     setShowOnBar(false);
     setBlocksTableBookings(false);
     setRequiresTicket(true);
+    setPageStyle("popup");
     setMaxAttendees("");
     setTickets([{ name: "General entry", description: "", price: "", capacity: "" }]);
   }
@@ -630,6 +638,7 @@ export default function EventsAdminClient() {
           show_description: showDescription,
           show_on_bar_page: showOnBar,
           requires_ticket: requiresTicket,
+          page_style: isDealEvent(category, subcategory) ? "popup" : pageStyle,
           bookable: true,
           max_attendees: maxAttendees ? parseInt(maxAttendees, 10) : null,
           registration_open: true,
@@ -1012,6 +1021,15 @@ export default function EventsAdminClient() {
                 </p>
               </Field>
             )}
+          </Section>
+
+          {/* Public page style */}
+          <Section title="How it shows online">
+            <PageStyleSelector
+              value={pageStyle}
+              onChange={setPageStyle}
+              isDeal={isDealEvent(category, subcategory)}
+            />
           </Section>
 
           {/* Tickets */}
@@ -1470,6 +1488,11 @@ function EditEventModal({
   const [posterQrUrl, setPosterQrUrl] = useState<string>(
     event.poster_qr_url ?? "",
   );
+
+  // Public face: pop-up (default) or full page. Deals are always a pop-up.
+  const [pageStyle, setPageStyle] = useState<"popup" | "page">(
+    event.page_style === "page" ? "page" : "popup",
+  );
   const [posterDayLabel, setPosterDayLabel] = useState<string>(
     event.poster_day_label ?? "",
   );
@@ -1530,6 +1553,11 @@ function EditEventModal({
 
   const [busy, setBusy] = useState(false);
   const [err, setErr] = useState("");
+  // Non-blocking note shown after a save when the poster couldn't be kept in
+  // step — either the rebuild threw, or there's no recipe to rebuild from so
+  // the baked picture may now be out of date (a rename / date move won't have
+  // reached it).
+  const [posterWarn, setPosterWarn] = useState("");
 
   // Price wording suggested to the poster maker — cheapest live ticket tier,
   // "£8+" when they differ. Blank means the poster carries no price line.
@@ -1568,7 +1596,65 @@ function EditEventModal({
   async function save() {
     setErr("");
     setBusy(true);
+    setPosterWarn("");
     try {
+      // 0) Keep the saved poster in step with the event. The poster is a baked
+      //    picture — the headline (the name), date/time and wording are drawn
+      //    INTO it — so an edit that changes any of those would otherwise leave
+      //    the old artwork on the event. If we have the recipe it was built
+      //    from, re-render it from the recipe + the event's NEW fields and swap
+      //    poster_url. If there's no recipe we can't rebuild it, so flag it so
+      //    the founder knows to reopen the Poster Maker. Either way the save
+      //    goes ahead — a failed rebuild must never block the edit or blank a
+      //    live poster.
+      const isDealEvt = category === "drink_special";
+      const normTime = (t: string | null | undefined) =>
+        t ? t.slice(0, 5) : "";
+      const posterVisibleChanged =
+        name.trim() !== (event.name ?? "").trim() ||
+        eventDate !== event.event_date ||
+        (startTime || "") !== normTime(event.start_time) ||
+        (endTime || "") !== normTime(event.end_time) ||
+        (posterSubcopy || "") !== (event.poster_subcopy ?? "") ||
+        (posterFooter || "") !== (event.poster_footer ?? "") ||
+        (posterDayLabel || "") !== (event.poster_day_label ?? "") ||
+        String(ticketPrice || "") !==
+          (event.ticket_price != null ? String(event.ticket_price) : "");
+      let nextPosterUrl = posterUrl;
+      let nextFlyerUrl = flyerPosterUrl;
+      if (posterUrl && posterVisibleChanged) {
+        if (recipeIsRebuildable(posterRecipe, isDealEvt)) {
+          try {
+            const rebuilt = await rebuildPosterFromRecipe(
+              {
+                name: name.trim(),
+                date: eventDate,
+                start: startTime || null,
+                end: endTime || null,
+                isDeal: isDealEvt,
+                exportFlyer: !!flyerPosterUrl || isDealEvt,
+                detail: posterSubcopy || "",
+                footer: posterFooter || "",
+                dayLabel: posterDayLabel || "",
+              },
+              posterRecipe,
+            );
+            if (rebuilt) {
+              nextPosterUrl = rebuilt.poster_url;
+              if (rebuilt.flyer_poster_url) nextFlyerUrl = rebuilt.flyer_poster_url;
+            }
+          } catch (rebuildErr) {
+            setPosterWarn(
+              `The event was saved, but its poster couldn't be refreshed automatically (${describe(rebuildErr, "render failed")}). Open the Poster Maker and press save to redraw it with the new wording.`,
+            );
+          }
+        } else {
+          setPosterWarn(
+            "⚠️ This event's poster was uploaded (not built in the Poster Maker), so it can't be refreshed automatically — the picture may now be out of date. Open the Poster Maker to regenerate it.",
+          );
+        }
+      }
+
       // 1) Update the event row itself.
       const patch: Partial<NewEvent> = {
         name: name.trim(),
@@ -1583,13 +1669,14 @@ function EditEventModal({
         show_on_bar_page: showOnBar,
         registration_open: registrationOpen,
         blocks_table_bookings: blocksTableBookings,
-        poster_url: posterUrl || null,
+        page_style: isDealEvent(category, subcategory) ? "popup" : pageStyle,
+        poster_url: nextPosterUrl || null,
         // Persist the print-ready flyer render + its structured fields on
         // EDIT too (the create path already did; this path dropped them, so
         // re-saving a poster never populated flyer_poster_url — bug found via
         // the print lane 22 Oct 2026). All six are CASCADE_FIELDS, so saving
         // a series ROOT flows the flyer to every date.
-        flyer_poster_url: flyerPosterUrl || null,
+        flyer_poster_url: nextFlyerUrl || null,
         poster_subcopy: posterSubcopy || null,
         poster_footer: posterFooter || null,
         poster_image_url: posterImageUrl || null,
@@ -1645,9 +1732,9 @@ function EditEventModal({
             name: name.trim(),
             description: description.trim() || null,
             external_link: externalLink.trim() || null,
-            poster_url: posterUrl || null,
+            poster_url: nextPosterUrl || null,
             // Each instance of a recurring deal carries the same poster data.
-            flyer_poster_url: flyerPosterUrl || null,
+            flyer_poster_url: nextFlyerUrl || null,
             poster_subcopy: posterSubcopy || null,
             poster_footer: posterFooter || null,
             poster_image_url: posterImageUrl || null,
@@ -1737,6 +1824,11 @@ function EditEventModal({
           });
         }
       }
+
+      // Reflect the rebuilt poster in the modal's own preview state, so the
+      // artwork shown matches what was just written.
+      if (nextPosterUrl !== posterUrl) setPosterUrl(nextPosterUrl);
+      if (nextFlyerUrl !== flyerPosterUrl) setFlyerPosterUrl(nextFlyerUrl);
 
       await onSaved();
     } catch (e) {
@@ -1914,6 +2006,18 @@ function EditEventModal({
                 )}
               </div>
             </div>
+            {posterUrl &&
+              !recipeIsRebuildable(
+                posterRecipe,
+                category === "drink_special",
+              ) && (
+                <p className="mt-2 text-[11px] leading-snug text-plonkYellow/90">
+                  ⚠️ This poster was uploaded (not built in the Poster Maker
+                  below), so renaming or re-dating the event won&apos;t update the
+                  picture — it may be out of date. Open the Poster Maker and save
+                  to regenerate it.
+                </p>
+              )}
           </ModalField>
 
           {/* Poster maker — fed by the fields above. Saving writes the poster
@@ -2157,6 +2261,18 @@ function EditEventModal({
           </div>
         </div>
 
+        {/* ---- Public page style ---- */}
+        <div className="px-6 py-5">
+          <h4 className="mb-3 text-[10px] font-bold uppercase tracking-widest text-cream/50">
+            How it shows online
+          </h4>
+          <PageStyleSelector
+            value={pageStyle}
+            onChange={setPageStyle}
+            isDeal={isDealEvent(category, subcategory)}
+          />
+        </div>
+
         {/* ---- Ticket types ---- */}
         <div className="px-6 py-5">
           <div className="mb-3 flex items-center justify-between">
@@ -2258,6 +2374,12 @@ function EditEventModal({
         {err && (
           <Notice variant="error" className="mx-6 mb-4">
             {err}
+          </Notice>
+        )}
+
+        {posterWarn && (
+          <Notice variant="warning" className="mx-6 mb-4">
+            {posterWarn}
           </Notice>
         )}
 
@@ -2413,6 +2535,57 @@ function Badge({ label }: { label: string }) {
     <span className="rounded-full bg-plonkTeal/15 px-2 py-0.5 text-[9px] font-bold uppercase tracking-wider text-plonkTeal">
       {label}
     </span>
+  );
+}
+
+// Choose the event's public face: a compact pop-up share card or a full
+// long-form page — both open at the same /event?o=<id> link. Deals are always
+// a pop-up, so the full-page option is locked off for them.
+function PageStyleSelector({
+  value,
+  onChange,
+  isDeal,
+}: {
+  value: "popup" | "page";
+  onChange: (v: "popup" | "page") => void;
+  isDeal: boolean;
+}) {
+  const effective = isDeal ? "popup" : value;
+  const opt = (
+    key: "popup" | "page",
+    title: string,
+    desc: string,
+    disabled: boolean,
+  ) => {
+    const active = effective === key;
+    return (
+      <button
+        type="button"
+        disabled={disabled}
+        onClick={() => !disabled && onChange(key)}
+        className={`flex-1 rounded-xl border p-3 text-left transition ${
+          active
+            ? "border-plonkTeal bg-plonkTeal/10"
+            : "border-cream/15 bg-ink/40 hover:border-cream/30"
+        } ${disabled ? "cursor-not-allowed opacity-40" : "cursor-pointer"}`}
+      >
+        <div className="text-sm font-bold text-cream">{title}</div>
+        <div className="mt-1 text-xs text-cream/55">{desc}</div>
+      </button>
+    );
+  };
+  return (
+    <div>
+      <div className="flex gap-3">
+        {opt("popup", "Pop-up", "Quick share card — poster, details, tickets.", false)}
+        {opt("page", "Full page", "Long-form page with a big hero and write-up.", isDeal)}
+      </div>
+      <p className="mt-2 text-xs text-cream/45">
+        {isDeal
+          ? "Deals always show as a pop-up."
+          : "Both open at the same shareable link (/event?o=…)."}
+      </p>
+    </div>
   );
 }
 

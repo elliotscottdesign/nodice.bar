@@ -167,7 +167,7 @@ function SuccessInner() {
         </div>
         <h1 className="mt-6 font-display text-4xl sm:text-5xl">You're booked in!</h1>
         <p className="mt-3 text-cream/80">
-          {`Thanks ${booking.customer_name.split(" ")[0]} — your booking is `}
+          {`Thanks ${booking.customer_name.split(" ")[0]}, your booking is `}
           {confirmed ? "confirmed" : "going through"}.
           {" "}A confirmation email is on its way to{" "}
           <span className="text-cream">{booking.customer_email}</span>.
@@ -176,7 +176,7 @@ function SuccessInner() {
         {showPendingNote && (
           <div className="mx-auto mt-6 max-w-md rounded-xl border border-plonkYellow/30 bg-plonkYellow/5 px-4 py-3 text-xs text-plonkYellow">
             Stripe is still finalising the payment. This usually clears in a
-            few seconds — you don't need to pay again. We've held your slot
+            few seconds, you don't need to pay again. We've held your slot
             and will email you the moment it's confirmed.
           </div>
         )}
@@ -225,7 +225,7 @@ function SuccessInner() {
           {booking.slots.length > 1 && (
             <p className="mt-4 rounded-lg border border-plonkTeal/30 bg-plonkTeal/5 p-3 text-xs leading-relaxed text-cream/80">
               One booking, one payment. Although your slots are apart, you can
-              all play together at the later start time —{" "}
+              all play together at the later start time,{" "}
               <span className="font-mono text-plonkTeal">
                 {trimTime(booking.slots[booking.slots.length - 1].slot_time)}
               </span>

@@ -2,6 +2,7 @@
 
 import { useEffect, useState } from "react";
 import { usePathname } from "next/navigation";
+import { DJ_PUBLIC } from "@/lib/publicLabels";
 
 // =============================================================
 // NewsletterPopup — join-the-list, one per visitor
@@ -246,8 +247,8 @@ export default function NewsletterPopup() {
                 Stay in<br />the loop
               </h2>
               <p className="mx-auto mt-4 max-w-xs text-center text-sm leading-relaxed text-cream/65">
-                The occasional email on what's on at No Dice — pool
-                tournaments, DJ nights, food residencies and golf.
+                The occasional email on what's on at No Dice, pool
+                tournaments, {DJ_PUBLIC.plural}, food residencies and golf.
                 Unsubscribe anytime.
               </p>
 

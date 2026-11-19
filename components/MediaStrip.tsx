@@ -1,10 +1,78 @@
 "use client";
 
+import { useEffect, useRef, useState } from "react";
 import Image from "next/image";
 import RollerDeck from "./RollerDeck";
 import ManageGalleryLink from "./ManageGalleryLink";
 import { Editable } from "./Editable";
 import { useGallery, useContent } from "@/lib/content";
+
+// A name rendered as an SVG whose viewBox is the text's own bounding box,
+// so at width:100% it scales to FILL the tile's width — reading like a
+// poster headline and auto-sizing on phone / tablet with no breakpoints.
+// Measures after mount, and again once the custom font loads (its glyph
+// widths differ from the fallback, so the first measurement would be off).
+function FillName({
+  text,
+  color,
+  fontFamily,
+}: {
+  text: string;
+  color?: string;
+  fontFamily?: string;
+}) {
+  const ref = useRef<SVGTextElement>(null);
+  const [box, setBox] = useState<{
+    x: number;
+    y: number;
+    w: number;
+    h: number;
+  } | null>(null);
+  const up = text.toUpperCase();
+  useEffect(() => {
+    const el = ref.current;
+    if (!el) return;
+    let cancelled = false;
+    const measure = () => {
+      if (cancelled || !el) return;
+      try {
+        const b = el.getBBox();
+        if (b.width > 0) setBox({ x: b.x, y: b.y, w: b.width, h: b.height });
+      } catch {
+        /* getBBox throws if not yet rendered — ignore, re-run fires again */
+      }
+    };
+    measure();
+    const f = (document as unknown as { fonts?: FontFaceSet }).fonts;
+    if (f?.ready) f.ready.then(measure).catch(() => {});
+    return () => {
+      cancelled = true;
+    };
+  }, [up, fontFamily]);
+  return (
+    <svg
+      width="100%"
+      viewBox={box ? `${box.x} ${box.y} ${box.w} ${box.h}` : undefined}
+      preserveAspectRatio="xMidYMid meet"
+      role="img"
+      aria-label={text}
+      style={{ display: "block", overflow: "visible" }}
+    >
+      <text
+        ref={ref}
+        x="0"
+        y="0"
+        fill={color || "currentColor"}
+        style={{
+          fontFamily: fontFamily || "inherit",
+          letterSpacing: "0.01em",
+        }}
+      >
+        {up}
+      </text>
+    </svg>
+  );
+}
 
 // =============================================================
 // MediaStrip — full-width, swipe-able image scroller
@@ -35,7 +103,15 @@ export default function MediaStrip({
   aspect = "16 / 10",
   tint,
   headingClassName,
+  headingSize,
   fade = true,
+  showNames = false,
+  nameColor,
+  nameFontFamily,
+  nameScale = 1,
+  centerTiles = false,
+  tileWidthClass = "w-[82vw] sm:w-[52vw] lg:w-[34vw]",
+  centerRow = false,
 }: {
   galleryKey: string;
   heading?: string;
@@ -54,9 +130,33 @@ export default function MediaStrip({
   tint?: string;
   /** Optional override for the heading's font classes (Xmas pages use Shrikhand). */
   headingClassName?: string;
+  /** Optional override for the heading's SIZE classes (default
+   *  "text-2xl sm:text-3xl"). Bingo passes the big h1-matching sizes. */
+  headingSize?: string;
   /** Edge-fade blends cards into a BLACK page; set false on a coloured/
    *  gradient background (e.g. the kids-party page) where it shows as a band. */
   fade?: boolean;
+  /** Show a NAME under each photo (for line-ups like the /comedybingo
+   *  comedians). Uses the image's caption, falling back to its alt text
+   *  (so names typed in either admin field still appear). Off by default,
+   *  so photo-only strips (parties / venue) render exactly as before. */
+  showNames?: boolean;
+  /** Fill colour for the names (e.g. the bingo red). Defaults to cream. */
+  nameColor?: string;
+  /** Font family for the names (e.g. the poster headline font). */
+  nameFontFamily?: string;
+  /** Width the name fills, as a fraction of the tile (centred). 1 = full
+   *  width; 0.75 = 75%, i.e. reduced 25% from the centre. */
+  nameScale?: number;
+  /** Centre each tile in the viewport on phone (snap-centre + spacers), so
+   *  the active image + its name sit dead-centre, not left-aligned. */
+  centerTiles?: boolean;
+  /** Override the per-tile width classes (default 82/52/34vw). Smaller
+   *  tiles let a short line-up FIT and centre on desktop. */
+  tileWidthClass?: string;
+  /** Centre the whole row when the tiles fit the width (desktop), falling
+   *  back to a scroll when they don't. */
+  centerRow?: boolean;
 }) {
   const images = useGallery(galleryKey, []);
   const hasImages = images.length > 0;
@@ -74,7 +174,7 @@ export default function MediaStrip({
       <div className="py-6 sm:py-8">
         {(headingText || headingKey) && (
           <div className="mx-auto mb-6 max-w-6xl px-6 text-center">
-            <h2 className={`${headingClassName ?? "font-display uppercase tracking-wider"} text-2xl text-cream sm:text-3xl`}>
+            <h2 className={`${headingClassName ?? "font-display uppercase tracking-wider"} ${headingSize ?? "text-2xl sm:text-3xl"} text-cream`}>
               {headingKey ? (
                 <Editable k={headingKey}>{headingText}</Editable>
               ) : (
@@ -97,39 +197,89 @@ export default function MediaStrip({
             mobile bleed reach the screen edge; on sm+ it keeps a small
             inset so the scroll arrows sit in the gutter, not over a tile. */}
         <div className="relative px-6">
-          <RollerDeck ariaLabel={heading || "Photo gallery"} fade={fade}>
+          <RollerDeck
+            ariaLabel={heading || "Photo gallery"}
+            fade={fade}
+            centerMode={centerTiles}
+            center={centerRow}
+          >
+            {/* Leading spacer (phone only) gives the first tile room to
+                snap-centre instead of sitting against the left edge. */}
+            {centerTiles && (
+              <div
+                aria-hidden
+                className="shrink-0 w-[calc(9vw-12px)] sm:w-[calc(30vw-92px)] lg:w-[calc(36vw-92px)]"
+              />
+            )}
             {(hasImages ? images : Array.from({ length: blankCount })).map(
               (tile, i) => {
                 const img = hasImages
                   ? (tile as (typeof images)[number])
                   : null;
+                // The visible name: prefer the caption, fall back to alt
+                // (the founder may type the name into either field).
+                const nameLabel = showNames
+                  ? (img?.caption?.trim() || img?.alt?.trim() || "")
+                  : "";
                 return (
+                  // Outer wrapper owns the tile width + scroll snap; the
+                  // image box and the optional name label stack inside it,
+                  // so the caption is locked to the image's width.
                   <div
                     key={img?.src || `blank-${i}`}
-                    className="relative shrink-0 snap-start overflow-hidden rounded-2xl border border-cream/10 bg-white/[0.03] w-[82vw] sm:w-[52vw] lg:w-[34vw]"
-                    style={{ aspectRatio: aspect }}
+                    className={`shrink-0 ${tileWidthClass} ${
+                      centerTiles ? "snap-center" : "snap-start"
+                    }`}
                   >
-                    {img?.src ? (
-                      <Image
-                        src={img.src}
-                        alt={img.alt || ""}
-                        fill
-                        sizes="(min-width:1024px) 34vw, (min-width:640px) 52vw, 82vw"
-                        style={{
-                          objectFit:
-                            img.position_fit === "contain"
-                              ? "contain"
-                              : "cover",
-                          objectPosition: `${img.position_x ?? 50}% ${img.position_y ?? 50}%`,
-                        }}
-                        className="transition duration-500 hover:scale-105"
-                      />
-                    ) : (
-                      <BlankTile label={blankLabel} />
-                    )}
+                    {/* Optional name ABOVE the photo — only when showNames
+                        is set AND there's a name, so photo-only strips
+                        (parties pages) are unchanged. Rendered as a
+                        fill-to-width poster headline. */}
+                    {nameLabel ? (
+                      <div className="mb-2 flex justify-center px-1">
+                        <div style={{ width: `${(nameScale ?? 1) * 100}%` }}>
+                          <FillName
+                            text={nameLabel}
+                            color={nameColor}
+                            fontFamily={nameFontFamily}
+                          />
+                        </div>
+                      </div>
+                    ) : null}
+                    <div
+                      className="relative overflow-hidden rounded-2xl border border-cream/10 bg-white/[0.03]"
+                      style={{ aspectRatio: aspect }}
+                    >
+                      {img?.src ? (
+                        <Image
+                          src={img.src}
+                          alt={img.alt || ""}
+                          fill
+                          sizes="(min-width:1024px) 34vw, (min-width:640px) 52vw, 82vw"
+                          style={{
+                            objectFit:
+                              img.position_fit === "contain"
+                                ? "contain"
+                                : "cover",
+                            objectPosition: `${img.position_x ?? 50}% ${img.position_y ?? 50}%`,
+                          }}
+                          className="transition duration-500 hover:scale-105"
+                        />
+                      ) : (
+                        <BlankTile label={blankLabel} />
+                      )}
+                    </div>
                   </div>
                 );
               },
+            )}
+            {/* Trailing spacer (phone only) so the last tile can also
+                snap-centre rather than sticking to the right edge. */}
+            {centerTiles && (
+              <div
+                aria-hidden
+                className="shrink-0 w-[calc(9vw-12px)] sm:w-[calc(30vw-92px)] lg:w-[calc(36vw-92px)]"
+              />
             )}
           </RollerDeck>
           <ManageGalleryLink galleryKey={galleryKey} label="Add / manage photos" />

@@ -69,6 +69,10 @@ export type DbEvent = {
   show_on_events_calendar: boolean;
   show_on_bar_page: boolean;
   requires_ticket: boolean;
+  /** Public face chosen in the builder: 'popup' (default) = the compact
+   *  /event?o=<id> share card; 'page' = the full long-form layout. Deals are
+   *  always rendered as 'popup' regardless of this value. */
+  page_style?: "popup" | "page";
   bookable: boolean;
   max_attendees: number | null;
   registration_open: boolean;
@@ -362,6 +366,7 @@ export const CASCADE_FIELDS = [
   "show_on_events_calendar",
   "show_on_bar_page",
   "requires_ticket",
+  "page_style",
   "bookable",
   "max_attendees",
   "registration_open",

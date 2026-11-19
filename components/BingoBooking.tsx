@@ -21,10 +21,10 @@ import type { DbTournament } from "@/lib/db/tournaments";
 // InlineTournamentBooking. One person per ticket: name + email + phone +
 // marketing opt-in. Talks to the `bingo-checkout` Edge Function (its own
 // endpoint), which returns a Stripe PaymentIntent client_secret. Styled in
-// bingo pink (#e878f0) natively — no scoped re-skin needed.
+// bingo pink (#D65139) natively — no scoped re-skin needed.
 // =============================================================
 
-const PINK = "#e878f0";
+const RED = "#D65139";
 const PUBLISHABLE_KEY = process.env.NEXT_PUBLIC_STRIPE_PUBLISHABLE_KEY ?? "";
 const SUPABASE_URL =
   process.env.NEXT_PUBLIC_SUPABASE_URL ?? "https://rntcujcpsozvuxvmlejv.supabase.co";
@@ -47,7 +47,7 @@ function buildAppearance(): StripeElementsOptions["appearance"] {
   return {
     theme: "night",
     variables: {
-      colorPrimary: PINK,
+      colorPrimary: RED,
       colorBackground: "#0c0c0c",
       colorText: "#F5EFE3",
       colorTextSecondary: "rgba(245,239,227,0.55)",
@@ -64,7 +64,7 @@ function buildAppearance(): StripeElementsOptions["appearance"] {
         border: "1px solid rgba(245,239,227,0.15)",
         padding: "12px 14px",
       },
-      ".Input:focus": { border: `1px solid ${PINK}`, boxShadow: `0 0 0 1px ${PINK}` },
+      ".Input:focus": { border: `1px solid ${RED}`, boxShadow: `0 0 0 1px ${RED}` },
       ".Label": {
         color: "rgba(245,239,227,0.55)",
         fontSize: "10px",
@@ -73,7 +73,7 @@ function buildAppearance(): StripeElementsOptions["appearance"] {
         letterSpacing: "0.28em",
       },
       ".Tab": { backgroundColor: "rgba(255,255,255,0.04)", border: "1px solid rgba(245,239,227,0.15)" },
-      ".Tab--selected": { border: `1px solid ${PINK}`, backgroundColor: "rgba(232,120,240,0.08)" },
+      ".Tab--selected": { border: `1px solid ${RED}`, backgroundColor: "rgba(214,81,57,0.08)" },
     },
   };
 }
@@ -92,8 +92,12 @@ export default function BingoBooking({
   const [name, setName] = useState("");
   const [email, setEmail] = useState("");
   const [phone, setPhone] = useState("");
+  const [quantity, setQuantity] = useState(1);
   const [marketingOptIn, setMarketingOptIn] = useState(false);
   const [submitting, setSubmitting] = useState(false);
+
+  const MAX_TICKETS = 50;
+  const totalPence = night.entry_fee_pence * quantity;
 
   const elementsOptions = useMemo<StripeElementsOptions | null>(
     () => (clientSecret ? { clientSecret, appearance: buildAppearance(), loader: "auto" } : null),
@@ -113,7 +117,7 @@ export default function BingoBooking({
       };
       const mob = normUk(phone);
       if (!mob) {
-        setError("Please enter a UK mobile number (starting 07 or +44 7) — we text you the details before the night.");
+        setError("Please enter a UK mobile number (starting 07 or +44 7), we text you the details before the night.");
         return;
       }
       setSubmitting(true);
@@ -130,6 +134,7 @@ export default function BingoBooking({
             name: name.trim(),
             email: email.trim(),
             phone: mob,
+            quantity,
             marketing_opt_in: marketingOptIn,
           }),
         });
@@ -142,13 +147,13 @@ export default function BingoBooking({
         setClientSecret(body.client_secret);
         setPhase("paying");
       } catch (err) {
-        setError(err instanceof Error ? err.message : "Couldn't start payment — try again or email info@nodice.bar");
+        setError(err instanceof Error ? err.message : "Couldn't start payment. Try again or email info@nodice.bar");
         setPhase("error");
       } finally {
         setSubmitting(false);
       }
     },
-    [night.id, name, email, phone, marketingOptIn],
+    [night.id, name, email, phone, quantity, marketingOptIn],
   );
 
   if (phase === "paid") {
@@ -157,7 +162,7 @@ export default function BingoBooking({
         <div className="text-xs font-bold uppercase tracking-[0.3em] text-plonkTeal">Payment received</div>
         <h3 className="mt-3 font-display text-2xl uppercase tracking-wider text-cream">You&apos;re in</h3>
         <p className="mt-3 text-sm text-cream/75">
-          Confirmation is on its way to <strong>{email}</strong>. See you on the night — eyes down!
+          {quantity === 1 ? "Your ticket is booked" : `All ${quantity} tickets are booked`}, confirmation is on its way to <strong>{email}</strong>. See you on the night, eyes down!
         </p>
         <button
           type="button"
@@ -171,12 +176,12 @@ export default function BingoBooking({
   }
 
   return (
-    <div className="mt-3 rounded-xl border border-[#e878f0]/30 bg-[#e878f0]/5 p-6">
+    <div className="mt-3 rounded-xl border border-[#D65139]/30 bg-[#D65139]/5 p-6">
       {phase === "form" && (
         <form onSubmit={handleSubmit} className="space-y-5">
           <div className="grid gap-4 sm:grid-cols-2">
             <div>
-              <label className="mb-2 block text-[10px] font-bold uppercase tracking-[0.28em] text-[#e878f0]">
+              <label className="mb-2 block text-[10px] font-bold uppercase tracking-[0.28em] text-[#D65139]">
                 Your name
               </label>
               <input
@@ -184,11 +189,11 @@ export default function BingoBooking({
                 required
                 value={name}
                 onChange={(e) => setName(e.target.value)}
-                className="w-full rounded-lg border border-cream/15 bg-ink/40 px-4 py-3 text-base text-cream focus:border-[#e878f0] focus:outline-none"
+                className="w-full rounded-lg border border-cream/15 bg-ink/40 px-4 py-3 text-base text-cream focus:border-[#D65139] focus:outline-none"
               />
             </div>
             <div>
-              <label className="mb-2 block text-[10px] font-bold uppercase tracking-[0.28em] text-[#e878f0]">
+              <label className="mb-2 block text-[10px] font-bold uppercase tracking-[0.28em] text-[#D65139]">
                 Email
               </label>
               <input
@@ -196,13 +201,13 @@ export default function BingoBooking({
                 required
                 value={email}
                 onChange={(e) => setEmail(e.target.value)}
-                className="w-full rounded-lg border border-cream/15 bg-ink/40 px-4 py-3 text-base text-cream focus:border-[#e878f0] focus:outline-none"
+                className="w-full rounded-lg border border-cream/15 bg-ink/40 px-4 py-3 text-base text-cream focus:border-[#D65139] focus:outline-none"
               />
             </div>
           </div>
 
           <div>
-            <label className="mb-2 block text-[10px] font-bold uppercase tracking-[0.28em] text-[#e878f0]">
+            <label className="mb-2 block text-[10px] font-bold uppercase tracking-[0.28em] text-[#D65139]">
               Phone
             </label>
             <input
@@ -211,9 +216,60 @@ export default function BingoBooking({
               inputMode="tel"
               value={phone}
               onChange={(e) => setPhone(e.target.value.replace(/[^0-9+ ]/g, ""))}
-              placeholder="UK mobile (07… or +44 7…) — we text you the details"
-              className="w-full rounded-lg border border-cream/15 bg-ink/40 px-4 py-3 text-base text-cream focus:border-[#e878f0] focus:outline-none"
+              placeholder="UK mobile (07… or +44 7…), we text you the details"
+              className="w-full rounded-lg border border-cream/15 bg-ink/40 px-4 py-3 text-base text-cream focus:border-[#D65139] focus:outline-none"
             />
+          </div>
+
+          <div>
+            <label className="mb-2 block text-[10px] font-bold uppercase tracking-[0.28em] text-[#D65139]">
+              How many tickets?
+            </label>
+            <div className="flex flex-wrap items-center gap-3">
+              <div className="flex items-center gap-2">
+                <button
+                  type="button"
+                  onClick={() => setQuantity((q) => Math.max(1, q - 1))}
+                  disabled={quantity <= 1}
+                  aria-label="One fewer ticket"
+                  className="flex h-11 w-11 shrink-0 items-center justify-center rounded-lg border border-cream/15 bg-ink/40 text-2xl leading-none text-cream transition hover:border-[#D65139] disabled:opacity-40"
+                >
+                  −
+                </button>
+                <input
+                  type="number"
+                  inputMode="numeric"
+                  min={1}
+                  max={MAX_TICKETS}
+                  value={quantity}
+                  onChange={(e) => {
+                    const n = parseInt(e.target.value, 10);
+                    setQuantity(
+                      Number.isFinite(n)
+                        ? Math.min(MAX_TICKETS, Math.max(1, n))
+                        : 1,
+                    );
+                  }}
+                  className="h-11 w-16 rounded-lg border border-cream/15 bg-ink/40 text-center text-base text-cream focus:border-[#D65139] focus:outline-none"
+                />
+                <button
+                  type="button"
+                  onClick={() => setQuantity((q) => Math.min(MAX_TICKETS, q + 1))}
+                  disabled={quantity >= MAX_TICKETS}
+                  aria-label="One more ticket"
+                  className="flex h-11 w-11 shrink-0 items-center justify-center rounded-lg border border-cream/15 bg-ink/40 text-2xl leading-none text-cream transition hover:border-[#D65139] disabled:opacity-40"
+                >
+                  +
+                </button>
+              </div>
+              <span className="text-sm text-cream/70">
+                {quantity} × {formatPounds(night.entry_fee_pence)} ={" "}
+                <strong className="text-cream">{formatPounds(totalPence)}</strong>
+              </span>
+            </div>
+            <p className="mt-2 text-xs text-cream/50">
+              One person per ticket, book up to {MAX_TICKETS} in one go.
+            </p>
           </div>
 
           <label className="flex cursor-pointer items-start gap-3 rounded-lg border border-cream/10 bg-ink/20 px-4 py-3 text-sm text-cream/85 transition hover:border-cream/25">
@@ -222,15 +278,15 @@ export default function BingoBooking({
               checked={marketingOptIn}
               onChange={(e) => setMarketingOptIn(e.target.checked)}
               className="mt-0.5 h-4 w-4 shrink-0"
-              style={{ accentColor: PINK }}
+              style={{ accentColor: RED }}
             />
             <span>
-              Keep me in the loop — send me No Dice news, future bingo dates and the odd offer. Unsubscribe anytime.
+              Keep me in the loop, send me No Dice news, future bingo dates and the odd offer. Unsubscribe anytime.
             </span>
           </label>
 
           {error && phase === "form" && (
-            <div className="rounded-lg border border-[#e878f0]/40 bg-[#e878f0]/10 px-4 py-3 text-sm text-[#e878f0]">
+            <div className="rounded-lg border border-[#D65139]/40 bg-[#D65139]/10 px-4 py-3 text-sm text-[#D65139]">
               {error}
             </div>
           )}
@@ -246,9 +302,9 @@ export default function BingoBooking({
             <button
               type="submit"
               disabled={submitting}
-              className="rounded-full bg-[#e878f0] px-7 py-3 text-sm font-bold uppercase tracking-widest text-ink shadow-lg shadow-[#e878f0]/30 transition hover:bg-[#e878f0]/90 disabled:opacity-50"
+              className="rounded-full bg-[#D65139] px-7 py-3 text-sm font-bold uppercase tracking-widest text-ink shadow-lg shadow-[#D65139]/30 transition hover:bg-[#D65139]/90 disabled:opacity-50"
             >
-              {submitting ? "One sec…" : `Continue to payment · ${formatPounds(night.entry_fee_pence)}`}
+              {submitting ? "One sec…" : `Continue to payment · ${formatPounds(totalPence)}`}
             </button>
           </div>
         </form>
@@ -257,17 +313,18 @@ export default function BingoBooking({
       {phase === "paying" && elementsOptions && (
         <div>
           <div className="mb-5 text-center">
-            <div className="text-[10px] font-bold uppercase tracking-[0.3em] text-[#e878f0]">Payment</div>
+            <div className="text-[10px] font-bold uppercase tracking-[0.3em] text-[#D65139]">Payment</div>
             <h3 className="mt-2 font-display text-2xl uppercase tracking-wider text-cream">
-              Pay {formatPounds(night.entry_fee_pence)} to confirm
+              Pay {formatPounds(totalPence)} to confirm
             </h3>
             <p className="mt-1 text-xs text-cream/55">
-              Ticket for <strong>{name}</strong>
+              {quantity} {quantity === 1 ? "ticket" : "tickets"} for{" "}
+              <strong>{name}</strong>
             </p>
           </div>
           <Elements stripe={getStripePromise()} options={elementsOptions}>
             <PaymentForm
-              feeLabel={formatPounds(night.entry_fee_pence)}
+              feeLabel={formatPounds(totalPence)}
               onSuccess={() => setPhase("paid")}
               onError={(msg) => {
                 setError(msg);
@@ -281,7 +338,7 @@ export default function BingoBooking({
 
       {phase === "error" && (
         <div className="space-y-4 text-center">
-          <div className="rounded-lg border border-[#e878f0]/40 bg-[#e878f0]/10 px-4 py-3 text-sm text-[#e878f0]">
+          <div className="rounded-lg border border-[#D65139]/40 bg-[#D65139]/10 px-4 py-3 text-sm text-[#D65139]">
             {error || "Something went wrong."}
           </div>
           <button
@@ -290,7 +347,7 @@ export default function BingoBooking({
               setError("");
               setPhase("form");
             }}
-            className="rounded-full bg-[#e878f0] px-6 py-2.5 text-xs font-bold uppercase tracking-widest text-ink hover:bg-[#e878f0]/90"
+            className="rounded-full bg-[#D65139] px-6 py-2.5 text-xs font-bold uppercase tracking-widest text-ink hover:bg-[#D65139]/90"
           >
             Try again
           </button>
@@ -333,9 +390,9 @@ function PaymentForm({
     });
     if (error) {
       if (error.type === "card_error" || error.type === "validation_error") {
-        setInlineErr(error.message ?? "Card declined — try a different card.");
+        setInlineErr(error.message ?? "Card declined. Try a different card.");
       } else {
-        onError(error.message ?? "Payment failed — please try again.");
+        onError(error.message ?? "Payment failed. Please try again.");
       }
       setSubmitting(false);
       return;
@@ -349,7 +406,7 @@ function PaymentForm({
         <PaymentElement options={{ layout: "tabs", wallets: { applePay: "auto", googlePay: "auto" } }} />
       </div>
       {inlineErr && (
-        <div className="rounded-lg border border-[#e878f0]/40 bg-[#e878f0]/10 px-4 py-3 text-sm text-[#e878f0]">
+        <div className="rounded-lg border border-[#D65139]/40 bg-[#D65139]/10 px-4 py-3 text-sm text-[#D65139]">
           {inlineErr}
         </div>
       )}
@@ -365,7 +422,7 @@ function PaymentForm({
           type="button"
           onClick={handlePay}
           disabled={submitting || !stripe || !elements}
-          className="rounded-full bg-[#e878f0] px-7 py-3 text-sm font-bold uppercase tracking-widest text-ink shadow-lg shadow-[#e878f0]/30 transition hover:bg-[#e878f0]/90 disabled:opacity-50"
+          className="rounded-full bg-[#D65139] px-7 py-3 text-sm font-bold uppercase tracking-widest text-ink shadow-lg shadow-[#D65139]/30 transition hover:bg-[#D65139]/90 disabled:opacity-50"
         >
           {submitting ? "Processing…" : `Pay ${feeLabel}`}
         </button>

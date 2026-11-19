@@ -63,7 +63,7 @@ export default function BarPage() {
             </p>
           ) : !menu ? (
             <p className="py-16 text-center text-sm text-cream/55">
-              Menu's having a moment — try again in a sec.
+              Menu's having a moment. Try again in a sec.
             </p>
           ) : (
             <>
@@ -71,10 +71,6 @@ export default function BarPage() {
               {menu.drinks.length > 0 && (
                 <>
                   <MenuHeading>Drinks</MenuHeading>
-                  <p className="-mt-4 mb-7 text-sm text-cream/60">
-                    🏠 House drink — what&apos;s included when a deal says &ldquo;a
-                    house drink&rdquo;.
-                  </p>
                   <div className="gap-x-10 sm:columns-2 lg:columns-3 [&>*]:mb-8 [&>*]:break-inside-avoid">
                     {menu.drinks.map((s) => (
                       <SectionBlock key={s.id} section={s} />
@@ -143,9 +139,6 @@ function SectionBlock({ section }: { section: MenuSection }) {
               <div className="flex items-baseline justify-between gap-3">
                 <span className="font-semibold text-cream">
                   {it.name}
-                  {it.house && (
-                    <span title="House drink — included in deals"> 🏠</span>
-                  )}
                 </span>
                 {it.price && (
                   <span className="shrink-0 font-semibold tabular-nums text-cream/85">

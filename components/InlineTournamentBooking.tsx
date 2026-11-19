@@ -1,6 +1,7 @@
 "use client";
 
 import { useCallback, useEffect, useMemo, useState } from "react";
+import { DJ_PUBLIC } from "@/lib/publicLabels";
 import {
   loadStripe,
   type Stripe as StripeJs,
@@ -21,7 +22,7 @@ const HEARD_FROM_OPTIONS = [
   { value: "Friend / word of mouth", label: "Friend / word of mouth" },
   { value: "Walked past", label: "Walked past the venue" },
   { value: "Google search", label: "Google search" },
-  { value: "A DJ / event night", label: "A DJ / event night" },
+  { value: "A DJ / event night", label: `A ${DJ_PUBLIC.singular} / event night` },
   { value: "Press / blog", label: "Press / blog" },
   { value: "Other", label: "Other" },
 ];
@@ -248,7 +249,7 @@ export default function InlineTournamentBooking({
       }
       const capMob = normUkMobile(captainPhone);
       if (!capMob) {
-        setError("Please enter a UK mobile number (starting 07 or +44 7) — we text you when you're up to play.");
+        setError("Please enter a UK mobile number (starting 07 or +44 7), we text you when you're up to play.");
         return;
       }
       setSubmitting(true);
@@ -312,7 +313,7 @@ export default function InlineTournamentBooking({
         setError(
           err instanceof Error
             ? err.message
-            : "Couldn't start payment — try again or email info@nodice.bar",
+            : "Couldn't start payment. Try again or email info@nodice.bar",
         );
         setPhase("error");
       } finally {
@@ -347,14 +348,14 @@ export default function InlineTournamentBooking({
         <p className="mt-3 text-sm text-cream/75">
           {isFree ? (
             <>
-              No payment needed — your spot's booked. Confirmation is on its way
-              to <strong>{captainEmail}</strong>. See you on the night — bring
+              No payment needed, your spot's booked. Confirmation is on its way
+              to <strong>{captainEmail}</strong>. See you on the night, bring
               your best stick.
             </>
           ) : (
             <>
               Confirmation email is on its way to <strong>{captainEmail}</strong>.
-              See you on the night — bring your best stick.
+              See you on the night, bring your best stick.
             </>
           )}
         </p>
@@ -405,7 +406,7 @@ export default function InlineTournamentBooking({
                       </div>
                       {time && (
                         <div className="mt-0.5 text-[11px] text-cream/60">
-                          {time}{till ? `–${till}` : ""}
+                          {time}{till ? `-${till}` : ""}
                         </div>
                       )}
                       {/* Status only — "Full" when it's gone, never a count
@@ -418,7 +419,7 @@ export default function InlineTournamentBooking({
                 })}
               </div>
               <p className="mt-1.5 text-[11px] text-cream/50">
-                Not sure? Pick the one that sounds like you — we'll move you if the standard isn't right on the day.
+                Not sure? Pick the one that sounds like you, we'll move you if the standard isn't right on the day.
               </p>
             </div>
           )}
@@ -472,13 +473,13 @@ export default function InlineTournamentBooking({
                   changing it between nights would split the season record. */}
               <p className="mt-1.5 text-[11px] text-cream/50">
                 {isSingles
-                  ? "Use the same email every time you enter — your league points follow it."
-                  : "Use the same captain email every night — that's how your team's league points add up."}
+                  ? "Use the same email every time you enter, your league points follow it."
+                  : "Use the same captain email every night, that's how your team's league points add up."}
               </p>
               {knownTeam && (
                 <div className="mt-3 rounded-lg border border-plonkPink/45 bg-plonkPink/10 p-3">
                   <p className="text-[13px] leading-relaxed text-cream">
-                    We know this email{knownTeam.player ? ` as ${knownTeam.player}` : ""} — are you signing up as{" "}
+                    We know this email{knownTeam.player ? ` as ${knownTeam.player}` : ""}, are you signing up as{" "}
                     <strong className="uppercase">{knownTeam.team}</strong>?
                   </p>
                   <div className="mt-2.5 flex flex-wrap gap-2">
@@ -490,7 +491,7 @@ export default function InlineTournamentBooking({
                       }}
                       className={`rounded-full px-3.5 py-1.5 text-[12px] font-bold ${teamChoice === "same" ? "bg-plonkPink text-ink" : "border border-cream/25 text-cream/80"}`}
                     >
-                      Yes — {knownTeam.team}
+                      Yes, {knownTeam.team}
                     </button>
                     <button
                       type="button"
@@ -500,7 +501,7 @@ export default function InlineTournamentBooking({
                       }}
                       className={`rounded-full px-3.5 py-1.5 text-[12px] font-bold ${teamChoice === "new" ? "bg-plonkPink text-ink" : "border border-cream/25 text-cream/80"}`}
                     >
-                      No — different team
+                      No, different team
                     </button>
                   </div>
                   {teamChoice === "same" && (
@@ -509,7 +510,7 @@ export default function InlineTournamentBooking({
                   {teamChoice === "new" && (
                     <p className="mt-2 text-[11px] text-cream/55">
                       {isSingles
-                        ? "No problem — this entry stands on its own."
+                        ? "No problem, this entry stands on its own."
                         : "Give the new team its name above; it starts its own record."}
                     </p>
                   )}
@@ -532,7 +533,7 @@ export default function InlineTournamentBooking({
               onChange={(e) => setCaptainPhone(e.target.value.replace(/[^0-9+ ]/g, ""))}
               inputMode="tel"
               className="w-full rounded-lg border border-cream/15 bg-ink/40 px-4 py-3 text-base text-cream focus:border-plonkPink focus:outline-none"
-              placeholder="UK mobile (07… or +44 7…) — we text you when you're up"
+              placeholder="UK mobile (07… or +44 7…), we text you when you're up"
             />
           </div>
 
@@ -559,7 +560,7 @@ export default function InlineTournamentBooking({
               className="mt-0.5 h-4 w-4 shrink-0 accent-plonkPink"
             />
             <span>
-              Keep me in the loop — send me No Dice news, future
+              Keep me in the loop, send me No Dice news, future
               tournament dates and the odd offer. Unsubscribe anytime.
             </span>
           </label>
@@ -586,7 +587,7 @@ export default function InlineTournamentBooking({
               {submitting
                 ? "One sec…"
                 : isFree
-                  ? "Reserve your spot — free"
+                  ? "Reserve your spot, free"
                   : `Continue to payment · ${formatPounds(tournament.entry_fee_pence)}`}
             </button>
           </div>
@@ -715,9 +716,9 @@ function PaymentForm({
         error.type === "card_error" ||
         error.type === "validation_error"
       ) {
-        setInlineErr(error.message ?? "Card declined — try a different card.");
+        setInlineErr(error.message ?? "Card declined. Try a different card.");
       } else {
-        onError(error.message ?? "Payment failed — please try again.");
+        onError(error.message ?? "Payment failed. Please try again.");
       }
       setSubmitting(false);
       return;
