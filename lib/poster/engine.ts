@@ -942,9 +942,13 @@ export async function renderEventPoster({
       qrModules = qrMatrix(link);
       const QUIET = 4; // modules of clear space the spec wants around the code
       const units = qrModules.length + QUIET * 2;
+      // The QR is ~15.5% of the width — but on the 'zine' flyer that goes on the
+      // printed menu cover it's bumped 50% bigger (founder 20 Nov 2026) so it's
+      // easy to scan off the menu. The A3 print keeps the standard size.
+      const qrWidthFactor = size === "zine" ? 0.155 * 1.5 : 0.155;
       // Whole-pixel modules only: a fractional module size gives soft edges and
       // soft edges are what stops a phone locking on.
-      qrModulePx = Math.max(1, Math.floor((W * 0.155) / units));
+      qrModulePx = Math.max(1, Math.floor((W * qrWidthFactor) / units));
       qrDrawn = qrModulePx * units;
     } catch {
       // Too long to encode — carry on without one rather than lose the poster.
