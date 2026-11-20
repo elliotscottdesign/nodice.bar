@@ -477,11 +477,101 @@ function TableBookingPageInner() {
                 disabledDaysOfWeek={closedDaysOfWeek}
                 disabledDates={hardBlockedIsoList}
               />
-              {closedNote && (
+              {closedNote && !largeGroup && (
                 <p className="mt-2 text-xs text-plonkPink">{closedNote}</p>
               )}
             </FormSection>
 
+            {/* Party size (founder 2026-11-20): pick group size up front,
+                1–12, in one booking. Rendered ABOVE the date-dependent UI and
+                OUTSIDE the closed/blocked gates, so an over-12 group always
+                gets the email-the-office path — even when today is closed or
+                the date is blocked. Re-adds a picker the founder removed on
+                2026-06-25; now wanted back. */}
+            <FormSection label="How many people?">
+              <BrandSelect
+                value={largeGroup ? LARGE_GROUP_VALUE : String(partySize)}
+                onChange={(v) => {
+                  if (v === LARGE_GROUP_VALUE) {
+                    setLargeGroup(true);
+                    return;
+                  }
+                  setLargeGroup(false);
+                  setPartySize(parseInt(v, 10) || 1);
+                }}
+                options={[
+                  ...Array.from({ length: PARTY_SIZE_MAX }, (_, i) => {
+                    const n = i + 1;
+                    return {
+                      value: String(n),
+                      label: n === 1 ? "1 person" : `${n} people`,
+                    };
+                  }),
+                  {
+                    value: LARGE_GROUP_VALUE,
+                    label: `More than ${PARTY_SIZE_MAX} people`,
+                  },
+                ]}
+                placeholder="Pick your group size"
+              />
+              {!largeGroup && (
+                <p className="mt-2 text-xs text-cream/55">
+                  Up to {PARTY_SIZE_MAX} people online. For a bigger group,
+                  pick &ldquo;More than {PARTY_SIZE_MAX} people&rdquo; and
+                  we&rsquo;ll arrange it with you.
+                </p>
+              )}
+            </FormSection>
+
+            {/* Over 12 can't book online (founder 2026-11-20): stop the
+                booking and hand them straight to the office, contact details
+                in view so they don't have to go hunting. Shown regardless of
+                date/cutoff — a 15-person group should always be told to email,
+                never "today's closed, pop in". */}
+            {largeGroup && (
+              <div className="rounded-2xl border border-plonkYellow/40 bg-plonkYellow/5 px-6 py-7 text-cream">
+                <div className="text-[11px] font-bold uppercase tracking-[0.28em] text-plonkYellow">
+                  Larger group
+                </div>
+                <h3 className="mt-2 font-display text-2xl uppercase tracking-wide sm:text-3xl">
+                  Let&rsquo;s sort it together
+                </h3>
+                <p className="mt-3 max-w-prose text-sm leading-relaxed text-cream/85">
+                  Groups of more than {PARTY_SIZE_MAX} are a bit too big to
+                  book online, but we&rsquo;d love to have you. Email the office
+                  with your date, rough time and numbers and we&rsquo;ll get
+                  you sorted, big tables or a private-hire area if you need it.
+                </p>
+                <div className="mt-5 flex flex-wrap gap-3">
+                  <a
+                    href={`mailto:${OFFICE_EMAIL}?subject=${encodeURIComponent(
+                      "Large group table enquiry",
+                    )}`}
+                    className="inline-block rounded-full bg-plonkPink px-6 py-3 text-xs font-bold uppercase tracking-widest text-white transition hover:bg-plonkPink/90"
+                  >
+                    Email {OFFICE_EMAIL}
+                  </a>
+                  <a
+                    href="https://instagram.com/nodice.bar"
+                    target="_blank"
+                    rel="noreferrer"
+                    className="inline-block rounded-full border border-cream/25 px-6 py-3 text-xs font-bold uppercase tracking-widest text-cream/85 transition hover:border-cream/50"
+                  >
+                    DM us on Instagram
+                  </a>
+                </div>
+                <p className="mt-4 text-xs text-cream/55">
+                  Booking for {PARTY_SIZE_MAX} or fewer? Just change the number
+                  above.
+                </p>
+              </div>
+            )}
+
+            {/* Everything date-dependent (blocks, slots, time, duration,
+                contact, submit) is for an actual online booking only — hidden
+                entirely for the over-12 email path. */}
+            {!largeGroup && (
+            <>
             {/* HARD-BLOCK panel — only when a blocking event has NO
                 start_time set (e.g. "Fixture TBC" matches). With no
                 kickoff time we can't compute a 2-hour cutoff, so the
@@ -745,92 +835,6 @@ function TableBookingPageInner() {
                 dates with a working cutoff keep the form open;
                 the slot grid is already filtered above. */}
             {!blockedFromBooking && !closed && (
-            <>
-            {/* Party size (founder 2026-11-20): customers pick their group
-                size up front, 1–12, in one booking — no more "book a 2 and
-                message to add people". The number flows straight through to
-                the reservation and the office; the server counts covers
-                toward the 60/day gate and records the bench tables needed
-                (ceil(size / 2)). Re-adds a picker the founder removed on
-                2026-06-25; now wanted back. */}
-            <FormSection label="How many people?">
-              <BrandSelect
-                value={largeGroup ? LARGE_GROUP_VALUE : String(partySize)}
-                onChange={(v) => {
-                  if (v === LARGE_GROUP_VALUE) {
-                    setLargeGroup(true);
-                    return;
-                  }
-                  setLargeGroup(false);
-                  setPartySize(parseInt(v, 10) || 1);
-                }}
-                options={[
-                  ...Array.from({ length: PARTY_SIZE_MAX }, (_, i) => {
-                    const n = i + 1;
-                    return {
-                      value: String(n),
-                      label: n === 1 ? "1 person" : `${n} people`,
-                    };
-                  }),
-                  {
-                    value: LARGE_GROUP_VALUE,
-                    label: `More than ${PARTY_SIZE_MAX} people`,
-                  },
-                ]}
-                placeholder="Pick your group size"
-              />
-              {!largeGroup && (
-                <p className="mt-2 text-xs text-cream/55">
-                  Up to {PARTY_SIZE_MAX} people online. For a bigger group,
-                  pick &ldquo;More than {PARTY_SIZE_MAX} people&rdquo; and
-                  we&rsquo;ll arrange it with you.
-                </p>
-              )}
-            </FormSection>
-
-            {/* Over 12 can't book online (founder 2026-11-20): stop the
-                booking and hand them straight to the office, contact details
-                in view so they don't have to go hunting. */}
-            {largeGroup && (
-              <div className="rounded-2xl border border-plonkYellow/40 bg-plonkYellow/5 px-6 py-7 text-cream">
-                <div className="text-[11px] font-bold uppercase tracking-[0.28em] text-plonkYellow">
-                  Larger group
-                </div>
-                <h3 className="mt-2 font-display text-2xl uppercase tracking-wide sm:text-3xl">
-                  Let&rsquo;s sort it together
-                </h3>
-                <p className="mt-3 max-w-prose text-sm leading-relaxed text-cream/85">
-                  Groups of more than {PARTY_SIZE_MAX} are a bit too big to
-                  book online, but we&rsquo;d love to have you. Email the office
-                  with your date, rough time and numbers and we&rsquo;ll get
-                  you sorted, big tables or a private-hire area if you need it.
-                </p>
-                <div className="mt-5 flex flex-wrap gap-3">
-                  <a
-                    href={`mailto:${OFFICE_EMAIL}?subject=${encodeURIComponent(
-                      "Large group table enquiry",
-                    )}`}
-                    className="inline-block rounded-full bg-plonkPink px-6 py-3 text-xs font-bold uppercase tracking-widest text-white transition hover:bg-plonkPink/90"
-                  >
-                    Email {OFFICE_EMAIL}
-                  </a>
-                  <a
-                    href="https://instagram.com/nodice.bar"
-                    target="_blank"
-                    rel="noreferrer"
-                    className="inline-block rounded-full border border-cream/25 px-6 py-3 text-xs font-bold uppercase tracking-widest text-cream/85 transition hover:border-cream/50"
-                  >
-                    DM us on Instagram
-                  </a>
-                </div>
-                <p className="mt-4 text-xs text-cream/55">
-                  Booking for {PARTY_SIZE_MAX} or fewer? Just change the number
-                  above.
-                </p>
-              </div>
-            )}
-
-            {!largeGroup && (
             <>
             <div className="grid gap-6 sm:grid-cols-2">
               <FormSection label="Name">
