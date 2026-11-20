@@ -10,7 +10,7 @@
 -- below when (re)applying. Applied live via the Management API query endpoint
 -- on project rntcujcpsozvuxvmlejv; kept here for repo history / reproducibility.
 --
--- Schedule: 0 21 * * *  = 21:00 UTC daily (≈ 9pm London in winter, 10pm BST).
+-- Schedule: 59 23 * * * = 23:59 UTC daily (end of day; ≈ 23:59 London in winter).
 -- ============================================================================
 
 select cron.unschedule('bingo-sales-digest-daily')
@@ -18,7 +18,7 @@ where exists (select 1 from cron.job where jobname = 'bingo-sales-digest-daily')
 
 select cron.schedule(
   'bingo-sales-digest-daily',
-  '0 21 * * *',
+  '59 23 * * *',
   $job$select net.http_post(
     url:='https://rntcujcpsozvuxvmlejv.supabase.co/functions/v1/bingo-sales-digest',
     headers:='{"Content-Type":"application/json"}'::jsonb,
