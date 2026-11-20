@@ -922,11 +922,14 @@ export async function renderEventPoster({
   // Scans through to the event on the calendar. Measured out BEFORE the
   // headline so the headline knows to stop short of it. A deal has no QR — the
   // price circle takes that corner instead.
-  // Founder 19 Oct 2026: the QR belongs ONLY on the A3 print-out (the thing
-  // that gets stuck on a wall and scanned) — the Instagram post and story don't
-  // need it, so it's suppressed on every size except 'a3'.
+  // Founder 20 Nov 2026: the QR belongs on the PRINT forms — the A3 print-out
+  // that gets stuck on a wall AND the 'zine' flyer that fills the printed menu
+  // cover (flyer_poster_url). Both get scanned off paper. The Instagram post and
+  // story ('ig'/'story') don't carry it. A deal has no QR either — the price
+  // circle takes that corner instead.
+  const isPrintShape = size === "a3" || size === "zine";
   const link =
-    dealLayout || size !== "a3"
+    dealLayout || !isPrintShape
       ? ""
       : qrUrl === undefined
         ? eventQrUrl(date)
@@ -1132,9 +1135,11 @@ export async function renderEventPoster({
         ? coverRect(im.width, im.height, iW, iH, ox, oy, zoom)
         : null;
     if (treatment === "natural")
-      // A3 is the print output — a 'natural' poster's photos print greyscale
-      // there (matching a B&W print), while the post/story keep their colour.
-      drawNatural(ctx, source, iX, iY, iW, iH, exp, src, size === "a3");
+      // On a PRINT render (negative = black ink on paper: the A3 and the 'zine'
+      // flyer) a 'natural' poster's photos print greyscale, matching a B&W
+      // print. The colour post/story (and a deal's colour online poster) keep
+      // their colour.
+      drawNatural(ctx, source, iX, iY, iW, iH, exp, src, mode === "negative");
     else if (treatment === "whites")
       drawWhitesToColour(ctx, source, iX, iY, iW, iH, C, exp, mode, src);
     else drawHalftone(ctx, source, iX, iY, iW, iH, dark, light, exp, src);
