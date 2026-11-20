@@ -65,14 +65,24 @@ const SUPABASE_ANON_KEY = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY ?? "";
 const RESERVATION_FN_URL = `${SUPABASE_URL}/functions/v1/create-table-reservation`;
 
 // Party-size dropdown range on THIS page (founder 2026-11-20): customers
-// pick 1–12 people in one booking. 12 sits inside the server/DB hard cap
-// (the `table` product's max_party_size and the create-table-reservation
-// edge function both still enforce 20), so there's no limit fighting —
-// groups of 13–20 only arrive via the hero widget's ?size= link or private
-// hire. Each bench table seats 2, so the office sees the table count as
+// pick 1–12 people in one booking. Over 12 CANNOT book online — they get a
+// "larger group, email the office" path instead (founder 2026-11-20). 12
+// sits inside the server/DB hard cap (the `table` product's max_party_size
+// and the create-table-reservation edge function both still enforce 20).
+// Each bench table seats 2, so the office sees the table count as
 // ceil(size / 2).
 const PARTY_SIZE_MAX = 12;
 const SEATS_PER_TABLE = 2;
+
+// Office contact email — SINGLE SOURCE OF TRUTH for this flow. Shown on the
+// "larger group" path when a party over 12 can't book online. Founder
+// confirmed info@nodice.bar (our domain is nodice.bar, NOT .com). Change it
+// here only if the office address ever moves.
+const OFFICE_EMAIL = "info@nodice.bar";
+
+// Sentinel dropdown value for "more than 12 people" — selecting it switches
+// the form to the email-the-office path instead of booking online.
+const LARGE_GROUP_VALUE = "over12";
 
 function todayIso(): string {
   const d = new Date();
@@ -100,8 +110,15 @@ function TableBookingPageInner() {
   // ----- Form state -----
   const [date, setDate] = useState(params.get("date") || todayIso());
   const [time, setTime] = useState("");
+  const seededSize = parseInt(params.get("size") || "2", 10) || 2;
   const [partySize, setPartySize] = useState<number>(
-    Math.max(1, Math.min(PARTY_SIZE_MAX, parseInt(params.get("size") || "2", 10) || 2)),
+    Math.max(1, Math.min(PARTY_SIZE_MAX, seededSize)),
+  );
+  // Over-12 groups can't book online (founder 2026-11-20) — they get the
+  // email-the-office path. Seeded true if the hero widget handed us a size
+  // bigger than we take online.
+  const [largeGroup, setLargeGroup] = useState<boolean>(
+    seededSize > PARTY_SIZE_MAX,
   );
   const [duration, setDuration] = useState<number>(90); // sensible default until cfg lands
   // "All night" (founder request 2026-09-08): keep the table from the
@@ -299,6 +316,12 @@ function TableBookingPageInner() {
 
   async function submit(e: React.FormEvent) {
     e.preventDefault();
+    if (largeGroup || partySize > PARTY_SIZE_MAX) {
+      setError(
+        `Groups over ${PARTY_SIZE_MAX} can't be booked online — email the office at ${OFFICE_EMAIL} and we'll sort it.`,
+      );
+      return;
+    }
     if (!time) {
       setError("Pick a time first.");
       return;
@@ -454,11 +477,101 @@ function TableBookingPageInner() {
                 disabledDaysOfWeek={closedDaysOfWeek}
                 disabledDates={hardBlockedIsoList}
               />
-              {closedNote && (
+              {closedNote && !largeGroup && (
                 <p className="mt-2 text-xs text-plonkPink">{closedNote}</p>
               )}
             </FormSection>
 
+            {/* Party size (founder 2026-11-20): pick group size up front,
+                1–12, in one booking. Rendered ABOVE the date-dependent UI and
+                OUTSIDE the closed/blocked gates, so an over-12 group always
+                gets the email-the-office path — even when today is closed or
+                the date is blocked. Re-adds a picker the founder removed on
+                2026-06-25; now wanted back. */}
+            <FormSection label="How many people?">
+              <BrandSelect
+                value={largeGroup ? LARGE_GROUP_VALUE : String(partySize)}
+                onChange={(v) => {
+                  if (v === LARGE_GROUP_VALUE) {
+                    setLargeGroup(true);
+                    return;
+                  }
+                  setLargeGroup(false);
+                  setPartySize(parseInt(v, 10) || 1);
+                }}
+                options={[
+                  ...Array.from({ length: PARTY_SIZE_MAX }, (_, i) => {
+                    const n = i + 1;
+                    return {
+                      value: String(n),
+                      label: n === 1 ? "1 person" : `${n} people`,
+                    };
+                  }),
+                  {
+                    value: LARGE_GROUP_VALUE,
+                    label: `More than ${PARTY_SIZE_MAX} people`,
+                  },
+                ]}
+                placeholder="Pick your group size"
+              />
+              {!largeGroup && (
+                <p className="mt-2 text-xs text-cream/55">
+                  Up to {PARTY_SIZE_MAX} people online. For a bigger group,
+                  pick &ldquo;More than {PARTY_SIZE_MAX} people&rdquo; and
+                  we&rsquo;ll arrange it with you.
+                </p>
+              )}
+            </FormSection>
+
+            {/* Over 12 can't book online (founder 2026-11-20): stop the
+                booking and hand them straight to the office, contact details
+                in view so they don't have to go hunting. Shown regardless of
+                date/cutoff — a 15-person group should always be told to email,
+                never "today's closed, pop in". */}
+            {largeGroup && (
+              <div className="rounded-2xl border border-plonkYellow/40 bg-plonkYellow/5 px-6 py-7 text-cream">
+                <div className="text-[11px] font-bold uppercase tracking-[0.28em] text-plonkYellow">
+                  Larger group
+                </div>
+                <h3 className="mt-2 font-display text-2xl uppercase tracking-wide sm:text-3xl">
+                  Let&rsquo;s sort it together
+                </h3>
+                <p className="mt-3 max-w-prose text-sm leading-relaxed text-cream/85">
+                  Groups of more than {PARTY_SIZE_MAX} are a bit too big to
+                  book online, but we&rsquo;d love to have you. Email the office
+                  with your date, rough time and numbers and we&rsquo;ll get
+                  you sorted, big tables or a private-hire area if you need it.
+                </p>
+                <div className="mt-5 flex flex-wrap gap-3">
+                  <a
+                    href={`mailto:${OFFICE_EMAIL}?subject=${encodeURIComponent(
+                      "Large group table enquiry",
+                    )}`}
+                    className="inline-block rounded-full bg-plonkPink px-6 py-3 text-xs font-bold uppercase tracking-widest text-white transition hover:bg-plonkPink/90"
+                  >
+                    Email {OFFICE_EMAIL}
+                  </a>
+                  <a
+                    href="https://instagram.com/nodice.bar"
+                    target="_blank"
+                    rel="noreferrer"
+                    className="inline-block rounded-full border border-cream/25 px-6 py-3 text-xs font-bold uppercase tracking-widest text-cream/85 transition hover:border-cream/50"
+                  >
+                    DM us on Instagram
+                  </a>
+                </div>
+                <p className="mt-4 text-xs text-cream/55">
+                  Booking for {PARTY_SIZE_MAX} or fewer? Just change the number
+                  above.
+                </p>
+              </div>
+            )}
+
+            {/* Everything date-dependent (blocks, slots, time, duration,
+                contact, submit) is for an actual online booking only — hidden
+                entirely for the over-12 email path. */}
+            {!largeGroup && (
+            <>
             {/* HARD-BLOCK panel — only when a blocking event has NO
                 start_time set (e.g. "Fixture TBC" matches). With no
                 kickoff time we can't compute a 2-hour cutoff, so the
@@ -723,40 +836,6 @@ function TableBookingPageInner() {
                 the slot grid is already filtered above. */}
             {!blockedFromBooking && !closed && (
             <>
-            {/* Party size (founder 2026-11-20): customers pick their group
-                size up front, 1–12, in one booking — no more "book a 2 and
-                message to add people". The number flows straight through to
-                the reservation and the office; the server counts covers
-                toward the 60/day gate and records the bench tables needed
-                (ceil(size / 2)). Re-adds a picker the founder removed on
-                2026-06-25; now wanted back. */}
-            <FormSection label="How many people?">
-              <BrandSelect
-                value={String(partySize)}
-                onChange={(v) => setPartySize(parseInt(v, 10) || 1)}
-                options={Array.from({ length: PARTY_SIZE_MAX }, (_, i) => {
-                  const n = i + 1;
-                  return {
-                    value: String(n),
-                    label: n === 1 ? "1 person" : `${n} people`,
-                  };
-                })}
-                placeholder="Pick your group size"
-              />
-              <p className="mt-2 text-xs text-cream/55">
-                Up to {PARTY_SIZE_MAX} online. Bigger group?{" "}
-                <a
-                  href="https://instagram.com/nodice.bar"
-                  target="_blank"
-                  rel="noreferrer"
-                  className="text-plonkPink underline-offset-4 hover:underline"
-                >
-                  DM us
-                </a>{" "}
-                about private hire.
-              </p>
-            </FormSection>
-
             <div className="grid gap-6 sm:grid-cols-2">
               <FormSection label="Name">
                 <input
@@ -837,6 +916,8 @@ function TableBookingPageInner() {
             <p className="text-center text-xs text-cream/55">
               Free to reserve. We'll email to confirm.
             </p>
+            </>
+            )}
             </>
             )}
           </form>

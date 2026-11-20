@@ -34,6 +34,13 @@ const ITEMS: { id: ItemId; label: string; description: string }[] = [
 // user's No Dice session intact.
 const GOLF_EXTERNAL_URL = "https://www.plonkgolf.co.uk/";
 
+// Max table party we take online, one number everywhere (founder 2026-11-20).
+// Mirrors PARTY_SIZE_MAX on /book/table and bookable_products.table.
+// max_party_size. Picking "More than 12" sends ?size=OVER_12_SIZE, which
+// /book/table reads (size > 12) to show its email-the-office panel.
+const TABLE_ONLINE_MAX = 12;
+const OVER_12_SIZE = TABLE_ONLINE_MAX + 1; // 13 — sentinel for the email path
+
 function todayIso(): string {
   return localIso(new Date());
 }
@@ -62,6 +69,10 @@ export default function HeroBookingWidget() {
   const [item, setItem] = useState<"" | ItemId>("");
   const [date, setDate] = useState<string>("");
   const [size, setSize] = useState<number>(0);
+  // Over-12 groups can't book a table online (founder 2026-11-20) — picking
+  // "More than 12" routes to /book/table's email-the-office panel instead of
+  // passing a party size. Table-only; pool/golf never show it.
+  const [largeGroup, setLargeGroup] = useState<boolean>(false);
 
   const [openField, setOpenField] = useState<null | "item" | "size">(null);
   const [calendarOpen, setCalendarOpen] = useState(false);
@@ -101,7 +112,14 @@ export default function HeroBookingWidget() {
     [cfg],
   );
 
-  const maxPartySize = cfg?.product.max_party_size ?? 12;
+  // Table is capped at TABLE_ONLINE_MAX (12) online — the "More than 12"
+  // option covers bigger groups. Clamp in code too so the cap holds even
+  // if the DB max_party_size hasn't been lowered yet. Pool keeps its own max.
+  const rawMaxPartySize = cfg?.product.max_party_size ?? 12;
+  const maxPartySize =
+    item === "table" || item === ""
+      ? Math.min(rawMaxPartySize, TABLE_ONLINE_MAX)
+      : rawMaxPartySize;
   const minPartySize = cfg?.product.min_party_size ?? 1;
 
   // If the customer picked a date BEFORE changing WHAT — and the new
@@ -151,6 +169,13 @@ export default function HeroBookingWidget() {
     // Build the query string — pool and table take date + party size.
     const params = new URLSearchParams();
     if (date) params.set("date", date);
+    if (largeGroup) {
+      // Over-12 is a table thing only — send them to /book/table with a
+      // size past the online max so it opens the email-the-office panel.
+      params.set("size", String(OVER_12_SIZE));
+      router.push(`/book/table?${params.toString()}`);
+      return;
+    }
     if (size > 0) params.set("size", String(size));
     const qs = params.toString();
 
@@ -185,6 +210,9 @@ export default function HeroBookingWidget() {
                 key={i.id}
                 onClick={() => {
                   setItem(i.id);
+                  // "More than 12" is table-only — drop it when switching to
+                  // pool/golf so it can't carry over.
+                  if (i.id !== "table") setLargeGroup(false);
                   setOpenField(null);
                 }}
                 className="block w-full rounded-md px-3 py-2.5 text-left hover:bg-cream/10"
@@ -213,8 +241,14 @@ export default function HeroBookingWidget() {
         <Field
           ref={sizeBtnRef}
           label="Who"
-          value={size > 0 ? `${size} ${size === 1 ? "guest" : "guests"}` : "Party size"}
-          placeholder={size === 0}
+          value={
+            largeGroup
+              ? "More than 12"
+              : size > 0
+                ? `${size} ${size === 1 ? "guest" : "guests"}`
+                : "Party size"
+          }
+          placeholder={size === 0 && !largeGroup}
           active={openField === "size"}
           onClick={() => setOpenField(openField === "size" ? null : "size")}
         />
@@ -229,6 +263,7 @@ export default function HeroBookingWidget() {
                 key={n}
                 onClick={() => {
                   setSize(n);
+                  setLargeGroup(false);
                   setOpenField(null);
                 }}
                 className="block w-full rounded-md px-3 py-2.5 text-left text-sm text-cream hover:bg-cream/10"
@@ -236,6 +271,20 @@ export default function HeroBookingWidget() {
                 {n} {n === 1 ? "guest" : "guests"}
               </button>
             ))}
+            {/* Over 12 — table-only (not pool/golf). Routes to /book/table's
+                email-the-office panel, same rule as the booking page. */}
+            {item !== "pool" && item !== "golf" && (
+              <button
+                onClick={() => {
+                  setLargeGroup(true);
+                  setSize(0);
+                  setOpenField(null);
+                }}
+                className="mt-1 block w-full rounded-md border-t border-cream/10 px-3 py-2.5 text-left text-sm text-cream hover:bg-cream/10"
+              >
+                More than 12 people
+              </button>
+            )}
           </DropdownPanel>
         )}
 

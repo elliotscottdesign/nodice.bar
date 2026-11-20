@@ -116,10 +116,13 @@ const TABLE_MIN_LEAD_MIN = 180; // 3 hours
 // Capacity gate (founder rule, 2026-10-13)
 // =============================================================
 // Two easy-to-change knobs:
-//   MAX_PARTY_SIZE  — biggest single table group we take online. The
-//                     widget dropdown and /book/table clamp to this, and
-//                     we enforce it here so a crafted request can't beat
-//                     it. Bigger groups go through private hire.
+//   MAX_PARTY_SIZE  — biggest single table group we take ONLINE (founder
+//                     2026-11-20: ONE number everywhere = 12). The hero
+//                     widget and /book/table both cap at this, and we
+//                     enforce it here so a crafted request can't beat it.
+//                     Groups over 12 are the email-the-office path, not an
+//                     online booking (mirrors PARTY_SIZE_MAX on /book/table
+//                     and bookable_products.table.max_party_size = 12).
 //   DAILY_CAPACITY  — how many covers (people) we'll auto-confirm across
 //                     ALL confirmed TABLE reservations on one date. Once
 //                     a new booking would push the day's confirmed covers
@@ -127,7 +130,7 @@ const TABLE_MIN_LEAD_MIN = 180; // 3 hours
 //                     the office to review (the customer still gets a warm
 //                     "we'll be in touch" message, never a rejection).
 //                     This is a PER-DAY total, not per time-slot.
-const MAX_PARTY_SIZE = 20;
+const MAX_PARTY_SIZE = 12;
 const DAILY_CAPACITY = 60;
 
 function timeToMin(t: string): number {
