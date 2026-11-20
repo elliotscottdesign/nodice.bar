@@ -64,11 +64,15 @@ const SUPABASE_URL =
 const SUPABASE_ANON_KEY = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY ?? "";
 const RESERVATION_FN_URL = `${SUPABASE_URL}/functions/v1/create-table-reservation`;
 
-// Biggest table group we take online (founder 2026-10-13). Matches the
-// `table` product's max_party_size in the DB and the create-table-
-// reservation edge function's MAX_PARTY_SIZE guard. Bigger groups go
-// through private hire. Seeded from the hero widget's ?size= param.
-const MAX_PARTY_SIZE = 20;
+// Party-size dropdown range on THIS page (founder 2026-11-20): customers
+// pick 1–12 people in one booking. 12 sits inside the server/DB hard cap
+// (the `table` product's max_party_size and the create-table-reservation
+// edge function both still enforce 20), so there's no limit fighting —
+// groups of 13–20 only arrive via the hero widget's ?size= link or private
+// hire. Each bench table seats 2, so the office sees the table count as
+// ceil(size / 2).
+const PARTY_SIZE_MAX = 12;
+const SEATS_PER_TABLE = 2;
 
 function todayIso(): string {
   const d = new Date();
@@ -97,7 +101,7 @@ function TableBookingPageInner() {
   const [date, setDate] = useState(params.get("date") || todayIso());
   const [time, setTime] = useState("");
   const [partySize, setPartySize] = useState<number>(
-    Math.max(1, Math.min(MAX_PARTY_SIZE, parseInt(params.get("size") || "2", 10) || 2)),
+    Math.max(1, Math.min(PARTY_SIZE_MAX, parseInt(params.get("size") || "2", 10) || 2)),
   );
   const [duration, setDuration] = useState<number>(90); // sensible default until cfg lands
   // "All night" (founder request 2026-09-08): keep the table from the
@@ -324,7 +328,11 @@ function TableBookingPageInner() {
           start_time: time,
           duration_minutes: effDuration,
           party_size: partySize,
-          resource_count: cfg?.product.default_resource_count ?? 1,
+          // Bench tables needed for the chosen party — 2 seats per table,
+          // so the office sees e.g. 6 tables for a 12-person booking. The
+          // server still runs the 60-cover/day gate on party_size, holding
+          // over-capacity days for office review (pending) as before.
+          resource_count: Math.max(1, Math.ceil(partySize / SEATS_PER_TABLE)),
           name: name.trim(),
           email: email.trim(),
           phone: phone.trim() || null,
@@ -715,12 +723,39 @@ function TableBookingPageInner() {
                 the slot grid is already filtered above. */}
             {!blockedFromBooking && !closed && (
             <>
-            {/* Party-size selector removed by founder rule (2026-06-22):
-                a table is just a table — bring whoever, no need to
-                guess numbers up front. partySize=2 is still sent
-                server-side to satisfy the column's NOT NULL contract
-                (table is "good for 2" by default; founder shuffles
-                seating on the day). */}
+            {/* Party size (founder 2026-11-20): customers pick their group
+                size up front, 1–12, in one booking — no more "book a 2 and
+                message to add people". The number flows straight through to
+                the reservation and the office; the server counts covers
+                toward the 60/day gate and records the bench tables needed
+                (ceil(size / 2)). Re-adds a picker the founder removed on
+                2026-06-25; now wanted back. */}
+            <FormSection label="How many people?">
+              <BrandSelect
+                value={String(partySize)}
+                onChange={(v) => setPartySize(parseInt(v, 10) || 1)}
+                options={Array.from({ length: PARTY_SIZE_MAX }, (_, i) => {
+                  const n = i + 1;
+                  return {
+                    value: String(n),
+                    label: n === 1 ? "1 person" : `${n} people`,
+                  };
+                })}
+                placeholder="Pick your group size"
+              />
+              <p className="mt-2 text-xs text-cream/55">
+                Up to {PARTY_SIZE_MAX} online. Bigger group?{" "}
+                <a
+                  href="https://instagram.com/nodice.bar"
+                  target="_blank"
+                  rel="noreferrer"
+                  className="text-plonkPink underline-offset-4 hover:underline"
+                >
+                  DM us
+                </a>{" "}
+                about private hire.
+              </p>
+            </FormSection>
 
             <div className="grid gap-6 sm:grid-cols-2">
               <FormSection label="Name">
@@ -827,38 +862,6 @@ function FormSection({
         {label}
       </label>
       {children}
-    </div>
-  );
-}
-
-function NumberPicker({
-  value,
-  min,
-  max,
-  onChange,
-}: {
-  value: number;
-  min: number;
-  max: number;
-  onChange: (v: number) => void;
-}) {
-  return (
-    <div className="flex items-center gap-3">
-      <button
-        type="button"
-        onClick={() => onChange(Math.max(min, value - 1))}
-        className="h-12 w-12 rounded-full border border-cream/15 bg-ink/40 text-xl text-cream hover:border-cream/40"
-      >
-        −
-      </button>
-      <span className="w-12 text-center font-display text-2xl">{value}</span>
-      <button
-        type="button"
-        onClick={() => onChange(Math.min(max, value + 1))}
-        className="h-12 w-12 rounded-full border border-cream/15 bg-ink/40 text-xl text-cream hover:border-cream/40"
-      >
-        +
-      </button>
     </div>
   );
 }
