@@ -122,10 +122,11 @@ export default function PosterDownloads({
         throw new Error(
           "The poster typeface didn't load, so the download would come out in the wrong font. Reload the page and try again.",
         );
-      // A3 prints black on coloured paper, except for an untouched photo,
-      // which can't print as black ink and goes out in full colour instead.
-      const mode =
-        size === "a3" && r.treatment !== "natural" ? "negative" : "colour";
+      // The A3 is the PRINT copy — always black ink on paper (negative). Even a
+      // 'natural' photo prints here: on the A3 it's desaturated to greyscale at
+      // draw time, so it comes out as a real B&W photo, not colour snapshots.
+      // The post / story stay in colour.
+      const mode = size === "a3" ? "negative" : "colour";
       const cv = await renderEventPoster({
         name,
         date,
@@ -146,15 +147,11 @@ export default function PosterDownloads({
         // default "NO DICE · date" and dropped the address.
         footer: r.footer || undefined,
         dayLabel: isDeal ? r.dayLabel : undefined,
-        // A3 QR: deals carry none. A non-deal shows it unless the saved recipe
-        // turned it off (older recipes have no flag and always carried one, so
-        // undefined reads as on). r.qr is the booking link baked in at save;
-        // undefined lets the engine fall back to the calendar day.
-        qrUrl: isDeal
-          ? r.qr || undefined
-          : r.showQr === false
-            ? ""
-            : r.qr || undefined,
+        // A3 QR: deals carry none (price circle owns that corner). Every other
+        // event ALWAYS gets one on the print (founder 20 Nov 2026). r.qr is the
+        // booking link baked in at save; undefined lets the engine fall back to
+        // the event's calendar day, so a QR is drawn either way.
+        qrUrl: r.qr || undefined,
         imgs: imgs.map((img, i) => ({
           img,
           exposure: list[i]?.exposure ?? 1,
@@ -255,9 +252,7 @@ export default function PosterDownloads({
           >
             {busy === "A3-print"
               ? "Building…"
-              : r.treatment === "natural"
-                ? "⬇ A3 print · full colour"
-                : "⬇ A3 print · black on coloured paper"}
+              : "⬇ A3 print · black on paper (with QR)"}
           </button>
           {!ready && (
             <p className="text-[10px] text-cream/40">Loading the picture…</p>

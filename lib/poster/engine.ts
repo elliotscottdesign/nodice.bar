@@ -699,6 +699,12 @@ function drawWhitesToColour(
 
 // Draw the photo "natural" (not rasterised): the real image, cover-fitted into
 // the frame, with exposure applied as brightness.
+//   grey — desaturate to black-and-white at draw time. Used on the A3 PRINT
+//   output so a 'natural' poster's photos print greyscale (a real B&W photo,
+//   not halftone dots) instead of as colour snapshots, while the Instagram
+//   post/story keep their colour. A touch of extra contrast keeps faces from
+//   muddying into a dark background once the colour is gone. Automatic for any
+//   event's photos — no per-poster setting.
 function drawNatural(
   ctx: CanvasRenderingContext2D,
   img: ImgLike,
@@ -708,11 +714,14 @@ function drawNatural(
   dh: number,
   exposure: number,
   src?: SrcRect | null,
+  grey?: boolean,
 ): void {
   const { sx, sy, sw, sh } = src || smartCrop(img, dw / dh);
   const prev = ctx.filter;
   try {
-    ctx.filter = `brightness(${exposure})`;
+    ctx.filter = grey
+      ? `grayscale(1) brightness(${exposure}) contrast(1.08)`
+      : `brightness(${exposure})`;
   } catch {
     /* older canvas: no filter */
   }
@@ -1123,7 +1132,9 @@ export async function renderEventPoster({
         ? coverRect(im.width, im.height, iW, iH, ox, oy, zoom)
         : null;
     if (treatment === "natural")
-      drawNatural(ctx, source, iX, iY, iW, iH, exp, src);
+      // A3 is the print output — a 'natural' poster's photos print greyscale
+      // there (matching a B&W print), while the post/story keep their colour.
+      drawNatural(ctx, source, iX, iY, iW, iH, exp, src, size === "a3");
     else if (treatment === "whites")
       drawWhitesToColour(ctx, source, iX, iY, iW, iH, C, exp, mode, src);
     else drawHalftone(ctx, source, iX, iY, iW, iH, dark, light, exp, src);
