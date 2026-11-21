@@ -1,6 +1,29 @@
 "use client";
 
 import { supabase } from "@/lib/supabase";
+import { SUPABASE_URL, SUPABASE_ANON_KEY } from "@/lib/stripe";
+
+// Email the invitation saved on a booking to its customer (or a given test
+// address). Calls the send-invitation edge function with the anon key as bearer
+// — same as the other admin table-reservation edge calls. The office confirms
+// the recipient first (styled dialog) before this runs.
+export async function sendBookingInvitation(
+  reservationId: string,
+  toEmail?: string,
+): Promise<{ ok: boolean; sent_to: string }> {
+  const res = await fetch(`${SUPABASE_URL}/functions/v1/send-invitation`, {
+    method: "POST",
+    headers: {
+      apikey: SUPABASE_ANON_KEY,
+      Authorization: `Bearer ${SUPABASE_ANON_KEY}`,
+      "Content-Type": "application/json",
+    },
+    body: JSON.stringify({ reservation_id: reservationId, to_email: toEmail }),
+  });
+  const data = (await res.json().catch(() => ({}))) as Record<string, unknown>;
+  if (!res.ok) throw new Error((data.error as string) || `Send failed (${res.status})`);
+  return data as { ok: boolean; sent_to: string };
+}
 
 // Public-side helper for the /book/pool and /book/table reservation
 // forms. Inserts a pending reservation; the admin confirms or

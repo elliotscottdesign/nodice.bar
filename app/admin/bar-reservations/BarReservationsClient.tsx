@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import { confirmDialog } from "@/lib/dialog";
+import { confirmDialog, alertDialog } from "@/lib/dialog";
 import { AdminCard } from "@/components/admin/AdminCard";
 import AddReservationForm from "@/components/admin/AddReservationForm";
 import TimeField from "@/components/admin/TimeField";
@@ -12,6 +12,7 @@ import {
   setUnifiedReservationStatus,
   setBarReservationPoster,
   clearBarReservationPoster,
+  sendBookingInvitation,
   type DbBarReservation,
   type UnifiedReservation,
 } from "@/lib/db/barReservations";
@@ -1126,6 +1127,41 @@ function InvitationMaker({
 
   const whenLine = invWhenLine(date, time);
 
+  const custEmail = (r.email || "").trim();
+  const hasCustEmail = looksLikeRealEmail(custEmail);
+
+  // Email the saved invitation to the booking's customer. Outward email →
+  // confirm the exact recipient first (styled dialog), never auto-send.
+  async function sendInvite() {
+    if (!hasCustEmail) {
+      await alertDialog(
+        "This booking has no customer email, so there's nothing to send to. Add an email on the booking first.",
+        { title: "No email on this booking" },
+      );
+      return;
+    }
+    if (
+      !(await confirmDialog(
+        `Email this invitation to the customer?\n\nIt will go to: ${custEmail}`,
+        { title: "Send invitation?", confirmLabel: "Send", danger: false },
+      ))
+    )
+      return;
+    setBusy(true);
+    setSaved("");
+    try {
+      const res = await sendBookingInvitation(r.id);
+      setSaved(`Invitation emailed to ${res.sent_to}.`);
+    } catch (e) {
+      await alertDialog(
+        e instanceof Error ? e.message : "Couldn't send the invitation.",
+        { title: "Send failed" },
+      );
+    } finally {
+      setBusy(false);
+    }
+  }
+
   async function removeInvite() {
     if (
       !(await confirmDialog(
@@ -1257,11 +1293,22 @@ function InvitationMaker({
             posterUrl={r.poster_url}
             recipe={recipe}
           />
+          {/* Email the invitation to the customer on this booking. Outward
+              email → confirms the recipient first; disabled with no email. */}
+          <button
+            type="button"
+            disabled={busy || !hasCustEmail}
+            onClick={sendInvite}
+            title={hasCustEmail ? `Email it to ${custEmail}` : "No customer email on this booking"}
+            className="mt-3 w-full rounded-full bg-plonkTeal px-4 py-2.5 text-[11px] font-bold uppercase tracking-wider text-ink transition hover:brightness-110 disabled:opacity-40"
+          >
+            {busy ? "Sending…" : hasCustEmail ? "📧 Send to customer" : "📧 No customer email"}
+          </button>
           <button
             type="button"
             disabled={busy}
             onClick={removeInvite}
-            className="mt-3 w-full rounded-full border border-cream/15 px-4 py-2 text-[11px] font-bold uppercase tracking-wider text-cream/60 transition hover:bg-cream/5 disabled:opacity-40"
+            className="mt-2 w-full rounded-full border border-cream/15 px-4 py-2 text-[11px] font-bold uppercase tracking-wider text-cream/60 transition hover:bg-cream/5 disabled:opacity-40"
           >
             Remove invitation
           </button>
