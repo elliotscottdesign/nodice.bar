@@ -72,6 +72,10 @@ type EntryRow = {
   player_count: number | null;
   status: string;
   paid_at: string | null;
+  captain_name: string | null;
+  captain_email: string | null;
+  captain_phone: string | null;
+  created_at: string | null;
 };
 
 Deno.serve(async (req) => {
@@ -119,7 +123,9 @@ Deno.serve(async (req) => {
   // Paid entries for those events.
   const { data: entries, error: enErr } = await db
     .from("tournament_entries")
-    .select("tournament_id, player_count, status, paid_at")
+    .select(
+      "tournament_id, player_count, status, paid_at, captain_name, captain_email, captain_phone, created_at",
+    )
     .in("tournament_id", ids)
     .eq("status", "paid");
   if (enErr)
@@ -132,13 +138,43 @@ Deno.serve(async (req) => {
       const fee = feeByEvent.get(ev.id) ?? 1000;
       let todayTickets = 0;
       let totalTickets = 0;
+      const bookings: {
+        name: string;
+        qty: number;
+        email: string;
+        phone: string;
+        when: string;
+        soldToday: boolean;
+        sortTs: number;
+      }[] = [];
       for (const row of (entries ?? []) as EntryRow[]) {
         if (row.tournament_id !== ev.id) continue;
         const qty = Math.max(1, Number(row.player_count) || 1);
         totalTickets += qty;
-        if (row.paid_at && londonDate(new Date(row.paid_at)) === today)
-          todayTickets += qty;
+        const soldToday =
+          !!row.paid_at && londonDate(new Date(row.paid_at)) === today;
+        if (soldToday) todayTickets += qty;
+        const ts = row.paid_at || row.created_at;
+        bookings.push({
+          name: row.captain_name || "—",
+          qty,
+          email: row.captain_email || "",
+          phone: row.captain_phone || "",
+          when: ts
+            ? new Date(ts).toLocaleString("en-GB", {
+                day: "numeric",
+                month: "short",
+                hour: "2-digit",
+                minute: "2-digit",
+                timeZone: "Europe/London",
+              })
+            : "",
+          soldToday,
+          sortTs: ts ? new Date(ts).getTime() : 0,
+        });
       }
+      // Newest booking first.
+      bookings.sort((a, b) => b.sortTs - a.sortTs);
       return {
         name: ev.name,
         date: ev.event_date ? prettyDate(ev.event_date) : "",
@@ -148,6 +184,7 @@ Deno.serve(async (req) => {
         todayPence: todayTickets * fee,
         totalTickets,
         totalPence: totalTickets * fee,
+        bookings,
       };
     })
     // Show the soonest/active nights first.
@@ -161,17 +198,52 @@ Deno.serve(async (req) => {
   const todayPretty = prettyDate(today);
 
   // ---- Email bodies ----
+  const esc = (s: string) =>
+    String(s)
+      .replace(/&/g, "&amp;")
+      .replace(/</g, "&lt;")
+      .replace(/>/g, "&gt;");
   const row = (label: string, value: string) =>
     `<tr><td style="padding:6px 16px 6px 0;font-size:13px;color:rgba(245,239,227,0.6);white-space:nowrap;">${label}</td><td style="padding:6px 0;font-size:15px;color:#f5efe3;font-weight:600;">${value}</td></tr>`;
+  // Full booking list for an event — every ticket holder + their details.
+  const bookingTable = (
+    bookings: (typeof perEvent)[number]["bookings"],
+  ) => {
+    if (bookings.length === 0)
+      return `<div style="margin-top:12px;font-size:13px;color:rgba(245,239,227,0.45);">No bookings yet.</div>`;
+    const head =
+      `<tr>` +
+      ["Name", "Tix", "Email", "Phone", "Booked"]
+        .map(
+          (h) =>
+            `<th align="left" style="padding:6px 10px 6px 0;font-size:10px;font-weight:700;letter-spacing:0.12em;text-transform:uppercase;color:rgba(245,239,227,0.45);border-bottom:1px solid rgba(245,239,227,0.12);">${h}</th>`,
+        )
+        .join("") +
+      `</tr>`;
+    const rows = bookings
+      .map(
+        (b) =>
+          `<tr style="${b.soldToday ? "background:rgba(214,81,57,0.07);" : ""}">` +
+          `<td style="padding:6px 10px 6px 0;font-size:13px;color:#f5efe3;border-bottom:1px solid rgba(245,239,227,0.06);">${esc(b.name)}${b.soldToday ? ' <span style="color:#D65139;font-size:10px;font-weight:700;">NEW</span>' : ""}</td>` +
+          `<td style="padding:6px 10px 6px 0;font-size:13px;color:#f5efe3;border-bottom:1px solid rgba(245,239,227,0.06);">${b.qty}</td>` +
+          `<td style="padding:6px 10px 6px 0;font-size:12px;color:rgba(245,239,227,0.8);border-bottom:1px solid rgba(245,239,227,0.06);">${esc(b.email)}</td>` +
+          `<td style="padding:6px 10px 6px 0;font-size:12px;color:rgba(245,239,227,0.8);border-bottom:1px solid rgba(245,239,227,0.06);white-space:nowrap;">${esc(b.phone)}</td>` +
+          `<td style="padding:6px 0;font-size:12px;color:rgba(245,239,227,0.6);border-bottom:1px solid rgba(245,239,227,0.06);white-space:nowrap;">${esc(b.when)}</td>` +
+          `</tr>`,
+      )
+      .join("");
+    return `<table style="margin-top:12px;border-collapse:collapse;width:100%;">${head}${rows}</table>`;
+  };
   const eventBlocks = perEvent
     .map(
       (e) => `
     <div style="margin:0 0 20px;padding:16px 18px;border:1px solid rgba(245,239,227,0.12);border-radius:12px;">
-      <div style="font-size:16px;font-weight:700;color:#f5efe3;">${e.name}${e.date ? ` · ${e.date}` : ""}</div>
+      <div style="font-size:16px;font-weight:700;color:#f5efe3;">${esc(e.name)}${e.date ? ` · ${e.date}` : ""}</div>
       <table style="margin-top:8px;border-collapse:collapse;">
         ${row("Sold today", `${e.todayTickets} ticket${e.todayTickets === 1 ? "" : "s"} · ${gbp(e.todayPence)}`)}
         ${row("Total sold", `${e.totalTickets} ticket${e.totalTickets === 1 ? "" : "s"} · ${gbp(e.totalPence)}  <span style="color:rgba(245,239,227,0.5);font-weight:400;">(of ${e.cap})</span>`)}
       </table>
+      ${bookingTable(e.bookings)}
     </div>`,
     )
     .join("");
@@ -203,6 +275,13 @@ Deno.serve(async (req) => {
       `${e.name}${e.date ? ` · ${e.date}` : ""}`,
       `  Sold today: ${e.todayTickets} ticket${e.todayTickets === 1 ? "" : "s"} · ${gbp(e.todayPence)}`,
       `  Total sold: ${e.totalTickets} ticket${e.totalTickets === 1 ? "" : "s"} · ${gbp(e.totalPence)} (of ${e.cap})`,
+      `  Bookings:`,
+      ...(e.bookings.length === 0
+        ? [`    (none yet)`]
+        : e.bookings.map(
+            (b) =>
+              `    ${b.soldToday ? "* " : "  "}${b.name} — ${b.qty} tix — ${b.email} — ${b.phone} — ${b.when}`,
+          )),
       "",
     ]),
     `TODAY — all nights: ${grandTodayTickets} · ${gbp(grandTodayPence)}`,
