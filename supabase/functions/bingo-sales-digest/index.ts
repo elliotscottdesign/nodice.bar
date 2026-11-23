@@ -195,6 +195,15 @@ Deno.serve(async (req) => {
   const grandTotalTickets = perEvent.reduce((n, e) => n + e.totalTickets, 0);
   const grandTotalPence = perEvent.reduce((n, e) => n + e.totalPence, 0);
 
+  // Flat list of TODAY's bookings only (across all nights) with full details —
+  // the "sale of the day with names and details" section.
+  const todaysBookings = perEvent.flatMap((e) =>
+    e.bookings
+      .filter((b) => b.soldToday)
+      .map((b) => ({ ...b, event: e.name, fee: e.fee })),
+  );
+  todaysBookings.sort((a, b) => b.sortTs - a.sortTs);
+
   const todayPretty = prettyDate(today);
 
   // ---- Email bodies ----
@@ -234,6 +243,40 @@ Deno.serve(async (req) => {
       .join("");
     return `<table style="margin-top:12px;border-collapse:collapse;width:100%;">${head}${rows}</table>`;
   };
+  // "Sold today" — just today's bookings, with names + details, across all nights.
+  const todayRows = todaysBookings
+    .map(
+      (b) =>
+        `<tr>` +
+        `<td style="padding:6px 10px 6px 0;font-size:13px;color:#f5efe3;border-bottom:1px solid rgba(245,239,227,0.06);">${esc(b.name)}</td>` +
+        `<td style="padding:6px 10px 6px 0;font-size:13px;color:#f5efe3;border-bottom:1px solid rgba(245,239,227,0.06);">${b.qty}</td>` +
+        `<td style="padding:6px 10px 6px 0;font-size:12px;color:rgba(245,239,227,0.8);border-bottom:1px solid rgba(245,239,227,0.06);">${esc(b.email)}</td>` +
+        `<td style="padding:6px 10px 6px 0;font-size:12px;color:rgba(245,239,227,0.8);border-bottom:1px solid rgba(245,239,227,0.06);white-space:nowrap;">${esc(b.phone)}</td>` +
+        `<td style="padding:6px 10px 6px 0;font-size:12px;color:rgba(245,239,227,0.6);border-bottom:1px solid rgba(245,239,227,0.06);">${esc(b.event)}</td>` +
+        `<td style="padding:6px 0;font-size:12px;color:rgba(245,239,227,0.6);border-bottom:1px solid rgba(245,239,227,0.06);white-space:nowrap;">${esc(b.when)}</td>` +
+        `</tr>`,
+    )
+    .join("");
+  const todayHead =
+    `<tr>` +
+    ["Name", "Tix", "Email", "Phone", "Night", "Booked"]
+      .map(
+        (h) =>
+          `<th align="left" style="padding:6px 10px 6px 0;font-size:10px;font-weight:700;letter-spacing:0.12em;text-transform:uppercase;color:rgba(245,239,227,0.45);border-bottom:1px solid rgba(245,239,227,0.12);">${h}</th>`,
+      )
+      .join("") +
+    `</tr>`;
+  const todayBlock = `
+    <div style="margin:0 0 22px;padding:16px 18px;border:1px solid #D65139;border-radius:12px;background:rgba(214,81,57,0.06);">
+      <div style="font-size:11px;font-weight:700;letter-spacing:0.2em;text-transform:uppercase;color:#D65139;">Sold today</div>
+      <div style="font-size:18px;font-weight:700;color:#f5efe3;margin-top:4px;">${grandTodayTickets} ticket${grandTodayTickets === 1 ? "" : "s"} · ${gbp(grandTodayPence)}</div>
+      ${
+        todaysBookings.length === 0
+          ? `<div style="margin-top:10px;font-size:13px;color:rgba(245,239,227,0.5);">No tickets sold today.</div>`
+          : `<table style="margin-top:12px;border-collapse:collapse;width:100%;">${todayHead}${todayRows}</table>`
+      }
+    </div>`;
+
   const eventBlocks = perEvent
     .map(
       (e) => `
@@ -256,7 +299,11 @@ Deno.serve(async (req) => {
     <div style="font-size:11px;font-weight:700;letter-spacing:0.3em;text-transform:uppercase;color:#D65139;">Comedy &amp; Bingo — ticket sales</div>
     <div style="font-size:13px;color:rgba(245,239,227,0.6);margin-top:4px;">${todayPretty}</div>
   </td></tr>
-  <tr><td style="padding:14px 28px 4px;">${eventBlocks}</td></tr>
+  <tr><td style="padding:14px 28px 0;">${todayBlock}</td></tr>
+  <tr><td style="padding:2px 28px 4px;">
+    <div style="font-size:11px;font-weight:700;letter-spacing:0.2em;text-transform:uppercase;color:rgba(245,239,227,0.45);margin-bottom:10px;">All nights — running totals &amp; every booking</div>
+    ${eventBlocks}
+  </td></tr>
   <tr><td style="padding:4px 28px 26px;">
     <div style="padding:16px 18px;border:1px solid #D65139;border-radius:12px;background:rgba(214,81,57,0.06);">
       <table style="border-collapse:collapse;">
@@ -270,6 +317,16 @@ Deno.serve(async (req) => {
   const text = [
     `COMEDY & BINGO — TICKET SALES`,
     todayPretty,
+    "",
+    `SOLD TODAY: ${grandTodayTickets} ticket${grandTodayTickets === 1 ? "" : "s"} · ${gbp(grandTodayPence)}`,
+    ...(todaysBookings.length === 0
+      ? [`  (no tickets sold today)`]
+      : todaysBookings.map(
+          (b) =>
+            `  ${b.name} — ${b.qty} tix — ${b.email} — ${b.phone} — ${b.event} — ${b.when}`,
+        )),
+    "",
+    `ALL NIGHTS — running totals & every booking`,
     "",
     ...perEvent.flatMap((e) => [
       `${e.name}${e.date ? ` · ${e.date}` : ""}`,
