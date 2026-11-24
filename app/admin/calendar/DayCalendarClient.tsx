@@ -9,6 +9,9 @@ import AddReservationForm from "@/components/admin/AddReservationForm";
 import AddTournamentEntryForm from "@/components/admin/AddTournamentEntryForm";
 import AddGolfBookingForm from "@/components/admin/AddGolfBookingForm";
 import BookingLockedTag from "@/components/admin/BookingLockedTag";
+import PayStatusChip from "@/components/admin/PayStatusChip";
+import EnquiryLink from "@/components/admin/EnquiryLink";
+import { loadEnquiryIdsByBookingIds } from "@/lib/db/enquiries";
 import { loadAllTournaments, type DbTournament } from "@/lib/db/tournaments";
 import {
   loadCalendarEventsInRange,
@@ -70,6 +73,10 @@ type CalendarBooking = {
   name: string;
   match_or_event: string | null; // optional label shown next to a booking
   status: string;
+  // Payment, for the PAID / UNPAID chip (founder 4 Nov 2026).
+  paid: boolean;
+  amount_pence: number | null;
+  comp: boolean;
 };
 
 type DayBucket = {
@@ -143,6 +150,8 @@ export default function DayCalendarClient() {
   });
   const [selected, setSelected] = useState<string | null>(ymd(new Date()));
   const [buckets, setBuckets] = useState<Record<string, DayBucket>>({});
+  // bookingId -> enquiryId for bookings that came from a CRM enquiry.
+  const [enquiryLinks, setEnquiryLinks] = useState<Record<string, string>>({});
   const [loading, setLoading] = useState(true);
   const [err, setErr] = useState("");
   // Bumped after an inline add so the grid + day panel refresh.
@@ -189,7 +198,7 @@ export default function DayCalendarClient() {
           sb
             .from("bar_reservations")
             .select(
-              "id,kind,reservation_date,start_time,duration_minutes,party_size,name,status",
+              "id,kind,reservation_date,start_time,duration_minutes,party_size,name,status,amount_pence,paid_at",
             )
             .neq("status", "cancelled"),
           loadBookings().catch(() => [] as DbBookingRow[]),
@@ -212,6 +221,8 @@ export default function DayCalendarClient() {
           party_size: number;
           name: string;
           status: string;
+          amount_pence: number | null;
+          paid_at: string | null;
         }>) {
           const b = ensure(r.reservation_date);
           b.bar_people += r.party_size;
@@ -224,6 +235,9 @@ export default function DayCalendarClient() {
             name: r.name,
             match_or_event: null,
             status: r.status,
+            paid: r.status === "paid" || !!r.paid_at,
+            amount_pence: r.amount_pence,
+            comp: false,
           });
         }
         // Golf bookings — legacy Plonk Golf table.
@@ -242,6 +256,9 @@ export default function DayCalendarClient() {
             name: g.customer_name,
             match_or_event: null,
             status: g.status,
+            paid: !!g.stripe_payment_intent_id,
+            amount_pence: g.total_pence,
+            comp: g.total_pence === 0,
           });
         }
         // Sort each day's bookings by start time.
@@ -251,6 +268,16 @@ export default function DayCalendarClient() {
           );
         }
         setBuckets(map);
+        // Reverse-lookup which bookings came from a CRM enquiry (non-fatal).
+        try {
+          const ids = Object.values(map).flatMap((d) =>
+            d.bookings.map((b) => b.id),
+          );
+          const links = await loadEnquiryIdsByBookingIds(ids);
+          if (!cancelled) setEnquiryLinks(links);
+        } catch {
+          if (!cancelled) setEnquiryLinks({});
+        }
       } catch (e) {
         setErr(e instanceof Error ? e.message : "Failed to load calendar");
       } finally {
@@ -695,6 +722,14 @@ export default function DayCalendarClient() {
                   )}
                   {b.match_or_event && (
                     <span className="text-cream/70">· {b.match_or_event}</span>
+                  )}
+                  <PayStatusChip
+                    paid={b.paid}
+                    amountPence={b.amount_pence}
+                    comp={b.comp}
+                  />
+                  {enquiryLinks[b.id] && (
+                    <EnquiryLink enquiryId={enquiryLinks[b.id]} />
                   )}
                   <span className="ml-auto text-cream/55">
                     {b.party_size} guest{b.party_size === 1 ? "" : "s"}

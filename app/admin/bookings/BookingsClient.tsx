@@ -9,6 +9,9 @@ import AddGolfBookingForm from "@/components/admin/AddGolfBookingForm";
 import DatePickerInput from "@/components/admin/DatePickerInput";
 import TimeField from "@/components/admin/TimeField";
 import BookingLockedTag from "@/components/admin/BookingLockedTag";
+import PayStatusChip from "@/components/admin/PayStatusChip";
+import EnquiryLink from "@/components/admin/EnquiryLink";
+import { loadEnquiryIdsByBookingIds } from "@/lib/db/enquiries";
 import { confirmDialog } from "@/lib/dialog";
 import { fmtMoney } from "@/lib/format";
 import {
@@ -42,6 +45,10 @@ function describe(err: unknown, fallback: string) {
 
 export default function BookingsClient() {
   const [bookings, setBookings] = useState<DbBookingRow[]>([]);
+  // bookingId -> enquiryId for golf bookings that came from a CRM enquiry.
+  // Golf bookings are rarely created from an enquiry (the CRM only makes bar
+  // kinds), so this is usually empty — the link only shows where one exists.
+  const [enquiryLinks, setEnquiryLinks] = useState<Record<string, string>>({});
   const [loading, setLoading] = useState(true);
   const [err, setErr] = useState("");
   const [statusFilter, setStatusFilter] = useState<BookingStatus | "all">("all");
@@ -85,6 +92,12 @@ export default function BookingsClient() {
     try {
       const b = await loadBookings();
       setBookings(b);
+      // Reverse-lookup any CRM enquiry these golf bookings came from (non-fatal).
+      try {
+        setEnquiryLinks(await loadEnquiryIdsByBookingIds(b.map((x) => x.id)));
+      } catch {
+        setEnquiryLinks({});
+      }
     } catch (e) {
       setErr(describe(e, "Failed to load bookings"));
     } finally {
@@ -403,11 +416,24 @@ export default function BookingsClient() {
                         <td className="px-5 py-3 text-cream/85">{b.party_size}</td>
                         <td className="px-5 py-3 font-medium">{fmtMoney(b.total_pence)}</td>
                         <td className="px-5 py-3">
-                          {b.status === "confirmed" ? (
-                            <BookingLockedTag name={b.customer_name} />
-                          ) : (
-                            <StatusPill status={b.status} />
-                          )}
+                          <div className="flex flex-col items-start gap-1.5">
+                            {b.status === "confirmed" ? (
+                              <BookingLockedTag name={b.customer_name} />
+                            ) : (
+                              <StatusPill status={b.status} />
+                            )}
+                            {/* Explicit paid/unpaid (founder 4 Nov 2026). Golf
+                                has no paid_at — a real Stripe payment is the
+                                "paid" signal; a £0 total is a comp (free). */}
+                            <PayStatusChip
+                              paid={!!b.stripe_payment_intent_id}
+                              amountPence={b.total_pence}
+                              comp={b.total_pence === 0}
+                            />
+                            {enquiryLinks[b.id] && (
+                              <EnquiryLink enquiryId={enquiryLinks[b.id]} />
+                            )}
+                          </div>
                         </td>
                         <td className="px-5 py-3">
                           <div className="flex flex-wrap items-center justify-end gap-2">

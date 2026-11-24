@@ -52,6 +52,7 @@ async function createEventFromEnquiry(e: Enquiry): Promise<string> {
 import {
   loadEnquiries,
   loadEnquiryActivity,
+  loadEnquiryById,
   archiveEnquiry,
   unarchiveEnquiry,
   saveEnquiryForLater,
@@ -377,6 +378,9 @@ export default function EnquiriesClient() {
   const [openId, setOpenId] = useState<string | null>(null);
   const [bucket, setBucket] = useState<LeadBucket>("venue");
   const [typeFilter, setTypeFilter] = useState<EnquiryType | "all">("all");
+  // Name / email search box (the only board that lacked one). Client-side,
+  // case-insensitive substring — matches the golf/table/pool pages.
+  const [search, setSearch] = useState("");
   const [aiOpen, setAiOpen] = useState(false);
   const [sigOpen, setSigOpen] = useState(false);
   const [linksOpen, setLinksOpen] = useState(false);
@@ -414,6 +418,44 @@ export default function EnquiriesClient() {
     reload();
   }, [reload]);
 
+  // Deep link: /admin/enquiries?open=<id> opens that enquiry's detail drawer
+  // (used by the "View enquiry" link on the booking pages). Read it once on
+  // mount, then strip it from the URL so closing the drawer / refreshing
+  // doesn't force it back open.
+  useEffect(() => {
+    if (typeof window === "undefined") return;
+    const params = new URLSearchParams(window.location.search);
+    const id = params.get("open");
+    if (!id) return;
+    setOpenId(id);
+    params.delete("open");
+    const qs = params.toString();
+    window.history.replaceState(
+      null,
+      "",
+      window.location.pathname + (qs ? `?${qs}` : ""),
+    );
+  }, []);
+
+  // If the deep-linked enquiry isn't in the current board list (e.g. it was
+  // archived), fetch that one row directly so the drawer can still open it.
+  const [extraOpen, setExtraOpen] = useState<Enquiry | null>(null);
+  useEffect(() => {
+    if (!openId || enquiries.some((e) => e.id === openId)) {
+      setExtraOpen(null);
+      return;
+    }
+    let cancelled = false;
+    loadEnquiryById(openId)
+      .then((e) => {
+        if (!cancelled) setExtraOpen(e);
+      })
+      .catch(() => {});
+    return () => {
+      cancelled = true;
+    };
+  }, [openId, enquiries]);
+
   // Reload when switching between active / archived / saved views.
   useEffect(() => {
     reload();
@@ -436,11 +478,17 @@ export default function EnquiriesClient() {
       confirmed: [],
       lost: [],
     };
+    const term = search.trim().toLowerCase();
     for (const e of enquiries) {
       if ((e.lead_bucket || "venue") !== bucket) continue;
       if (typeFilter !== "all" && (e.enquiry_type || "other") !== typeFilter)
         continue;
       if (onlyOwed && !flagsFor(e, activity[e.id], nowMs).owed) continue;
+      if (
+        term &&
+        !`${e.contact_name} ${e.contact_email}`.toLowerCase().includes(term)
+      )
+        continue;
       m[e.status].push(e);
     }
     // Newest-first by default; "Must respond" surfaces the longest-waiting first.
@@ -458,7 +506,7 @@ export default function EnquiriesClient() {
       }
     }
     return m;
-  }, [enquiries, bucket, typeFilter, onlyOwed, sortBy, activity, nowMs, shelf]);
+  }, [enquiries, bucket, typeFilter, onlyOwed, sortBy, activity, nowMs, shelf, search]);
 
   // How many open enquiries we owe a reply on, in this bucket (the badge count).
   const owedCount = useMemo(() => {
@@ -630,7 +678,9 @@ export default function EnquiriesClient() {
     }
   }
 
-  const open = enquiries.find((e) => e.id === openId) || null;
+  const open =
+    enquiries.find((e) => e.id === openId) ||
+    (extraOpen && extraOpen.id === openId ? extraOpen : null);
 
   return (
     <div className="space-y-5">
@@ -704,6 +754,17 @@ export default function EnquiriesClient() {
             <span className="ml-1 opacity-60">{count}</span>
           </button>
         ))}
+      </div>
+
+      {/* Search by name / email (client-side substring) */}
+      <div className="flex flex-wrap gap-3">
+        <input
+          type="search"
+          value={search}
+          onChange={(e) => setSearch(e.target.value)}
+          placeholder="Search name or email…"
+          className="min-w-[220px] flex-1 rounded-full border border-cream/15 bg-ink/40 px-4 py-1.5 text-xs text-cream placeholder:text-cream/40 focus:border-plonkPink focus:outline-none"
+        />
       </div>
 
       {/* Type filter — only the types present in this bucket */}

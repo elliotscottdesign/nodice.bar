@@ -16,9 +16,12 @@ import {
   type DbBarReservation,
   type UnifiedReservation,
 } from "@/lib/db/barReservations";
+import { loadEnquiryIdsByBookingIds } from "@/lib/db/enquiries";
 import { supabase } from "@/lib/supabase";
 import EventPosterStudio from "@/components/admin/EventPosterStudio";
 import PosterDownloads from "@/components/admin/PosterDownloads";
+import PayStatusChip from "@/components/admin/PayStatusChip";
+import EnquiryLink from "@/components/admin/EnquiryLink";
 import Notice from "@/components/Notice";
 
 const STRIPE_PAYMENT_URL = (pi: string) =>
@@ -128,6 +131,10 @@ export default function BarReservationsClient({
   kindFilter?: "pool" | "table" | "all";
 } = {}) {
   const [rows, setRows] = useState<UnifiedReservation[]>([]);
+  // bookingId -> enquiryId for rows that came from a CRM enquiry (so we can
+  // show a "View enquiry" link back to the comms thread). Batched reverse
+  // lookup per load; empty when a booking has no enquiry.
+  const [enquiryLinks, setEnquiryLinks] = useState<Record<string, string>>({});
   const [loading, setLoading] = useState(true);
   const [err, setErr] = useState("");
   const [busyId, setBusyId] = useState<string | null>(null);
@@ -197,7 +204,15 @@ export default function BarReservationsClient({
     try {
       // loadAllTableSurfaceReservations returns the bar_reservations
       // table + pool rows. The kindFilter below decides which subset to show.
-      setRows(await loadAllTableSurfaceReservations());
+      const data = await loadAllTableSurfaceReservations();
+      setRows(data);
+      // Which of these became a CRM enquiry? Non-fatal — a failure here just
+      // hides the "View enquiry" links, it never blocks the list.
+      try {
+        setEnquiryLinks(await loadEnquiryIdsByBookingIds(data.map((r) => r.id)));
+      } catch {
+        setEnquiryLinks({});
+      }
     } catch (e) {
       setErr(describe(e, "Failed to load reservations"));
     } finally {
@@ -828,10 +843,16 @@ export default function BarReservationsClient({
                     Refund in Stripe ↗
                   </a>
                 )}
-                {r.amount_pence !== null && r.amount_pence > 0 && (
-                  <span className="rounded-full bg-cream/5 px-3 py-1 text-[11px] font-bold uppercase tracking-wider text-cream/55">
-                    Paid £{(r.amount_pence / 100).toFixed(2)}
-                  </span>
+                {/* Explicit PAID / UNPAID chip (founder 4 Nov 2026). Paid =
+                    status 'paid' or a paid_at timestamp; the amount shows when
+                    known. A free table hold (no amount) shows nothing. */}
+                <PayStatusChip
+                  paid={r.status === "paid" || !!r.paid_at}
+                  amountPence={r.amount_pence}
+                />
+                {/* Link back to the CRM enquiry this booking came from. */}
+                {enquiryLinks[r.id] && (
+                  <EnquiryLink enquiryId={enquiryLinks[r.id]} />
                 )}
               </div>
 

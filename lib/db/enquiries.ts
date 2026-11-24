@@ -243,6 +243,50 @@ export async function loadEnquiries(
   return (data ?? []) as Enquiry[];
 }
 
+// Load a single enquiry by id (any shelf). Used when a deep link
+// (?open=<id> from a booking's "View enquiry" link) points at an enquiry
+// that isn't in the currently-loaded board list (e.g. it was archived).
+export async function loadEnquiryById(id: string): Promise<Enquiry | null> {
+  const { data, error } = await supabase()
+    .from("enquiries")
+    .select(SELECT)
+    .eq("id", id)
+    .maybeSingle();
+  if (error) throw error;
+  return (data as Enquiry) ?? null;
+}
+
+// Reverse lookup: given a set of booking ids (bar_reservations / golf
+// `bookings` row ids), find which ones became a CRM enquiry. The link lives
+// on the ENQUIRY side — enquiries.linked_kind='booking', linked_id=<booking
+// id> — so there's no back-reference on the booking; we query enquiries by
+// linked_id instead. Returns a map bookingId -> enquiryId for the ids that
+// have an enquiry (ids with none simply aren't in the map). Chunked to keep
+// each request's .in(...) list well under the PostgREST URL-length limit.
+export async function loadEnquiryIdsByBookingIds(
+  bookingIds: string[],
+): Promise<Record<string, string>> {
+  const ids = Array.from(new Set(bookingIds.filter(Boolean)));
+  const out: Record<string, string> = {};
+  if (ids.length === 0) return out;
+  const db = supabase();
+  const CHUNK = 100;
+  for (let i = 0; i < ids.length; i += CHUNK) {
+    const slice = ids.slice(i, i + CHUNK);
+    const { data, error } = await db
+      .from("enquiries")
+      .select("id, linked_id")
+      .eq("linked_kind", "booking")
+      .in("linked_id", slice);
+    if (error) throw error;
+    for (const r of (data ?? []) as { id: string; linked_id: string }[]) {
+      // First enquiry wins if (rarely) two point at the same booking.
+      if (r.linked_id && !out[r.linked_id]) out[r.linked_id] = r.id;
+    }
+  }
+  return out;
+}
+
 // Follow up = chase this customer on a date. Defaults to 7 days out when no
 // date is given. Clears the other shelves so it lands in the Follow up section.
 export async function setEnquiryFollowup(
