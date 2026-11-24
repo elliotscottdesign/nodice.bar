@@ -549,11 +549,28 @@ function PoolBookingPageInner() {
               </FormSection>
             )}
 
-            {/* Party-size selector removed by founder rule (2026-06-22):
-                a pool table is booked at a fixed per-table fee — bring
-                as many friends as you like, the price doesn't change.
-                We still send party_size=1 to the server to keep the
-                column's NOT NULL contract happy. */}
+            {/* Number of people — back by founder request (2026-11-24) so the
+                office knows how many to expect. A pool table is still a flat
+                per-table fee (2026-06-22 rule), so this does NOT change the
+                price; it's headcount only. Bound to the existing partySize
+                state, which is already sent to the server. */}
+            <FormSection label="Number of people">
+              <select
+                value={partySize}
+                onChange={(e) => setPartySize(parseInt(e.target.value, 10) || 1)}
+                className={inputCls}
+              >
+                {Array.from({ length: 8 }, (_, i) => i + 1).map((n) => (
+                  <option key={n} value={n}>
+                    {n} {n === 1 ? "person" : "people"}
+                  </option>
+                ))}
+              </select>
+              <p className="mt-2 text-sm text-cream/55">
+                Just so we know how many to expect — the table price is the same
+                whatever the size of your group.
+              </p>
+            </FormSection>
 
             <div className="grid gap-6 sm:grid-cols-2">
               <FormSection label="Name">
