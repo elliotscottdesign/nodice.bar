@@ -58,11 +58,47 @@ const SUPABASE_URL =
   "https://rntcujcpsozvuxvmlejv.supabase.co";
 const SUPABASE_ANON_KEY = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY ?? "";
 const CHECKOUT_FN_URL = `${SUPABASE_URL}/functions/v1/pool-checkout`;
+const AVAIL_FN_URL = `${SUPABASE_URL}/functions/v1/pool-availability`;
 
 let _stripePromise: Promise<StripeJs | null> | null = null;
 function getStripePromise(): Promise<StripeJs | null> {
   if (!_stripePromise) _stripePromise = loadStripe(PUBLISHABLE_KEY);
   return _stripePromise;
+}
+
+// Client-side mirror of pool-checkout's capacity guard. Lets the slot
+// grid grey out times that WOULD be rejected at payment (because the
+// table(s) are already booked), instead of only failing after the
+// customer has filled in the whole form. The server re-checks at
+// checkout, so this is purely a nicer up-front display.
+type PoolBooking = {
+  start_time: string;
+  duration_minutes: number;
+  resource_count: number;
+};
+function timeToMinutes(t: string): number {
+  const [h, m] = t.split(":").map((s) => parseInt(s, 10));
+  return (h || 0) * 60 + (m || 0);
+}
+function poolSlotIsFull(
+  startTime: string,
+  durationMin: number,
+  newResourceCount: number,
+  bookings: PoolBooking[],
+  capacity: number,
+): boolean {
+  const start = timeToMinutes(startTime);
+  const end = start + durationMin;
+  for (let m = start; m < end; m++) {
+    let concurrent = 0;
+    for (const b of bookings) {
+      const bStart = timeToMinutes(b.start_time);
+      const bEnd = bStart + (b.duration_minutes || 0);
+      if (m >= bStart && m < bEnd) concurrent += b.resource_count ?? 1;
+    }
+    if (concurrent + newResourceCount > capacity) return true;
+  }
+  return false;
 }
 
 // =============================================================
@@ -220,6 +256,71 @@ function PoolBookingPageInner() {
     () => (cfg ? availableSlotsForDate(cfg, date, duration) : []),
     [cfg, date, duration],
   );
+
+  // ----- Per-slot availability (privacy-safe booking counts) -----
+  // The public page can't read bar_reservations (anon has no SELECT),
+  // so pool-availability returns just the capacity + the day's booking
+  // windows. We use it to grey out times that are already full.
+  const [poolAvail, setPoolAvail] = useState<{
+    capacity: number;
+    bookings: PoolBooking[];
+  } | null>(null);
+  useEffect(() => {
+    let cancelled = false;
+    setPoolAvail(null);
+    if (!date) return;
+    fetch(`${AVAIL_FN_URL}?date=${date}`, {
+      headers: SUPABASE_ANON_KEY
+        ? {
+            apikey: SUPABASE_ANON_KEY,
+            Authorization: `Bearer ${SUPABASE_ANON_KEY}`,
+          }
+        : undefined,
+    })
+      .then((r) => (r.ok ? r.json() : null))
+      .then((d) => {
+        if (!cancelled && d && Array.isArray(d.bookings)) {
+          setPoolAvail({
+            capacity: Number(d.capacity) || 1,
+            bookings: d.bookings as PoolBooking[],
+          });
+        }
+      })
+      .catch(() => {
+        // Fail open — grid just won't pre-lock; checkout still guards.
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, [date]);
+
+  // Each online booking reserves this many tables (pool default = 1).
+  const newResourceCount = cfg?.product.default_resource_count ?? 1;
+  // Which of the current slots are already fully booked.
+  const fullSlots = useMemo(() => {
+    const set = new Set<string>();
+    if (!poolAvail) return set;
+    for (const s of slots) {
+      if (
+        poolSlotIsFull(
+          s,
+          duration,
+          newResourceCount,
+          poolAvail.bookings,
+          poolAvail.capacity,
+        )
+      ) {
+        set.add(s);
+      }
+    }
+    return set;
+  }, [slots, duration, newResourceCount, poolAvail]);
+
+  // If the time the customer had picked is now full (they changed
+  // duration, or availability just loaded), drop the selection.
+  useEffect(() => {
+    if (time && fullSlots.has(time)) setTime("");
+  }, [fullSlots, time]);
 
   // Same-day cutoff: online pool booking stops one hour before we open
   // (founder rule 9 Oct 2026). Past that, the day is closed online — walk in.
@@ -472,18 +573,26 @@ function PoolBookingPageInner() {
                     {DAY_NAMES[dayOfWeek(date)]}. Try a shorter duration.
                   </p>
                 ) : (
+                  <>
                   <div className="grid grid-cols-4 gap-2 sm:grid-cols-6">
                     {slots.map((s) => {
                       const active = time === s;
+                      const full = fullSlots.has(s);
                       return (
                         <button
                           key={s}
                           type="button"
-                          onClick={() => setTime(s)}
+                          disabled={full}
+                          onClick={() => {
+                            if (!full) setTime(s);
+                          }}
+                          title={full ? "Fully booked" : undefined}
                           className={`rounded-lg border px-2 py-3 text-sm transition ${
-                            active
-                              ? "border-plonkPink bg-plonkPink text-white"
-                              : "border-cream/15 bg-ink/40 text-cream hover:border-cream/40"
+                            full
+                              ? "cursor-not-allowed border-cream/10 bg-ink/20 text-cream/25 line-through"
+                              : active
+                                ? "border-plonkPink bg-plonkPink text-white"
+                                : "border-cream/15 bg-ink/40 text-cream hover:border-cream/40"
                           }`}
                         >
                           {s}
@@ -491,6 +600,13 @@ function PoolBookingPageInner() {
                       );
                     })}
                   </div>
+                  {fullSlots.size > 0 && (
+                    <p className="mt-3 text-xs text-cream/45">
+                      Greyed-out times are already booked — pick another slot,
+                      or walk in and grab a free table at the bar.
+                    </p>
+                  )}
+                  </>
                 )}
               </FormSection>
             )}
