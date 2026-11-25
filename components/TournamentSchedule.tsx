@@ -492,20 +492,37 @@ export default function TournamentSchedule() {
                             (founder, 25 Nov 2026): £5 a player at singles,
                             £10 a team at doubles, capped at £60. Stated as the
                             RULE, never a live count, because how full a night
-                            is stays private (founder, 1 Nov 2026). */}
-                        {(t.tournament_type === "doubles" ||
-                          t.tournament_type === "singles") && (
-                          <div className="mt-1.5 text-[11px] leading-snug text-cream/45">
-                            Prize pot{" "}
-                            <span className="text-cream/70">
-                              {t.tournament_type === "doubles"
-                                ? "£10 a team"
-                                : "£5 a player"}
-                            </span>
-                            , up to <span className="text-cream/70">£60</span>.
-                            The more who play, the bigger it gets.
-                          </div>
-                        )}
+                            is stays private (founder, 1 Nov 2026).
+
+                            The RATE is read off the ticket price, not the
+                            category: the fee is the one field that is always
+                            right (£6 singles, £12 doubles, founder 25 Nov
+                            2026), whereas `events.category` and the engine's
+                            `tournaments.tournament_type` can disagree, and did
+                            on every Wednesday from Dec 2026. A night with any
+                            other price just shows the ceiling. */}
+                        {(() => {
+                          const fee = t.entry_fee_pence;
+                          const rate =
+                            fee === 1200
+                              ? "£10 a team"
+                              : fee === 600
+                                ? "£5 a player"
+                                : null;
+                          if (!rate && fee !== 0) return null;
+                          return (
+                            <div className="mt-1.5 text-[11px] leading-snug text-cream/45">
+                              Prize pot{" "}
+                              {rate && (
+                                <>
+                                  <span className="text-cream/70">{rate}</span>,{" "}
+                                </>
+                              )}
+                              up to <span className="text-cream/70">£60</span>.
+                              The more who play, the bigger it gets.
+                            </div>
+                          );
+                        })()}
 
                         {/* Availability is shown as status only — never a
                             remaining count (founder 1 Nov 2026). "Sold out" /
