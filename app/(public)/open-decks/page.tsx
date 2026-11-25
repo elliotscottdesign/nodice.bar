@@ -126,7 +126,7 @@ export default function OpenDecksPage() {
         <p className="font-display text-plonkPink text-xl tracking-[0.18em]">NO DICE · LONDON FIELDS</p>
         <h1 className="font-display text-6xl leading-[0.9] mt-1 sm:text-7xl">WANNA PLAY<br />OPEN DECKS?</h1>
         <p className="mt-4 text-base leading-relaxed text-creamDim">
-          Free 1-hour slots on our open-decks nights. Pick a night and a time, bring a USB or your records, and come play. We&apos;ll email you back to lock it in.
+          Free 1-hour slots on our open-decks nights. Pick a night and a time to send a request — our team checks every night and emails you back to confirm before it&apos;s locked in.
         </p>
 
         {loadErr && <div className="mt-8 rounded-lg border border-plonkPink/40 bg-plonkPink/10 px-4 py-3 text-sm">{loadErr}</div>}
@@ -134,9 +134,9 @@ export default function OpenDecksPage() {
 
         {done ? (
           <div className="mt-10 rounded-2xl border border-plonkTeal/40 bg-plonkTeal/5 p-6">
-            <h2 className="font-display text-4xl text-plonkTeal">YOU&apos;RE IN 🎧</h2>
+            <h2 className="font-display text-4xl text-plonkTeal">REQUEST SENT 🎧</h2>
             <p className="mt-2 text-base text-cream">
-              Thanks, we&apos;ve got your open-decks slot for <strong>{fmtLong(date)}</strong> at <strong>{slotLabel}</strong>. We&apos;ll be in touch. See you on the decks.
+              Thanks — we&apos;ve got your request for <strong>{fmtLong(date)}</strong> at <strong>{slotLabel}</strong>. It&apos;s <strong>not confirmed yet</strong>: our team will check the night and email you to lock it in. Keep an eye on your inbox.
             </p>
             <button onClick={reset} className="mt-5 rounded-lg border border-cream/25 px-4 py-2.5 text-sm hover:border-cream/60">Sign up for another slot</button>
           </div>
@@ -286,7 +286,7 @@ export default function OpenDecksPage() {
 
                   <button onClick={submit} disabled={sending}
                     className="w-full rounded-xl bg-plonkPink py-4 font-display text-3xl tracking-wide text-cream transition hover:brightness-110 disabled:opacity-60">
-                    {sending ? "SENDING…" : "SIGN ME UP"}
+                    {sending ? "SENDING…" : "SEND MY REQUEST"}
                   </button>
                 </div>
               </section>
