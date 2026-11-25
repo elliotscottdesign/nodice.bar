@@ -885,7 +885,7 @@ export default function TournamentEntriesClient() {
                 {(
                   [
                     ["team", "Team"],
-                    ["captain", "Captain"],
+                    ["captain", "Booking name"],
                     ["event", "Event"],
                     ["signed", "Signed up"],
                     ["status", "Status"],
