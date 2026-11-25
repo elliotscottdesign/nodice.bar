@@ -1,7 +1,15 @@
 "use client";
 
-import { useEffect, useMemo, useRef, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { confirmDialog } from "@/lib/dialog";
+import {
+  adminGetPromoters,
+  adminAssignPromoter,
+  adminUnassignPromoter,
+  adminResendPromoter,
+  adminReplyPromoterNote,
+  type AdminEventPromoters,
+} from "@/lib/db/promoter";
 import { createPortal } from "react-dom";
 import MediaPicker from "@/components/admin/MediaPicker";
 import EventPosterStudio from "@/components/admin/EventPosterStudio";
@@ -2371,6 +2379,8 @@ function EditEventModal({
           </div>
         </div>
 
+        <PromoterPanel event={event} />
+
         {err && (
           <Notice variant="error" className="mx-6 mb-4">
             {err}
@@ -2417,6 +2427,269 @@ function EditEventModal({
       )}
     </div>,
     document.body,
+  );
+}
+
+// =============================================================
+// PromoterPanel — assign a promoter to this event (events builder)
+// =============================================================
+// Self-contained: its own load + save, so the modal's existing save() is left
+// untouched. Type the promoter's email / name / password and "Save & send
+// login" emails them their portal details right away (founder: "the moment I
+// save their details"). Also shows the promoter's notes thread so the office
+// can read + reply to their requests, and a resend-login / remove control.
+// Writes go through the `promoter` edge function (admin-authorised by the
+// signed-in staffer's Supabase session), never direct to the tables.
+function PromoterPanel({ event }: { event: DbEvent }) {
+  const [data, setData] = useState<AdminEventPromoters | null>(null);
+  const [open, setOpen] = useState(false);
+  const [email, setEmail] = useState("");
+  const [name, setName] = useState("");
+  const [password, setPassword] = useState("");
+  const [reply, setReply] = useState("");
+  const [busy, setBusy] = useState(false);
+  const [msg, setMsg] = useState<string | null>(null);
+  const [err, setErr] = useState<string | null>(null);
+
+  const refresh = useCallback(async () => {
+    try {
+      const r = await adminGetPromoters(event.id);
+      setData(r);
+      const first = r.promoters[0];
+      if (first) {
+        setEmail((e) => e || first.email);
+        setName((n) => n || first.name || "");
+      }
+    } catch (e) {
+      setErr(describe(e, "Couldn't load promoter info."));
+    }
+  }, [event.id]);
+
+  useEffect(() => {
+    if (open && data === null) refresh();
+  }, [open, data, refresh]);
+
+  const assigned = data?.promoters?.[0] ?? null;
+  const notes = data?.notes ?? [];
+
+  async function saveAndSend() {
+    setErr(null);
+    setMsg(null);
+    if (!email.trim()) {
+      setErr("Enter the promoter's email.");
+      return;
+    }
+    if (!assigned && !password.trim()) {
+      setErr("Set a password for the promoter (they'll use it to log in).");
+      return;
+    }
+    setBusy(true);
+    try {
+      const r = await adminAssignPromoter(event.id, email.trim(), name.trim(), password.trim());
+      setPassword("");
+      setMsg(
+        r.emailed
+          ? "Saved — login emailed to the promoter."
+          : `Saved, but the email didn't send (${r.emailError || "unknown"}). You can Resend.`,
+      );
+      await refresh();
+    } catch (e) {
+      setErr(describe(e, "Couldn't save the promoter."));
+    } finally {
+      setBusy(false);
+    }
+  }
+
+  async function resend() {
+    if (!assigned) return;
+    setErr(null);
+    setMsg(null);
+    setBusy(true);
+    try {
+      const r = await adminResendPromoter(assigned.email);
+      setMsg(r.ok ? "Login link re-sent." : `Couldn't send (${r.emailError || "unknown"}).`);
+    } catch (e) {
+      setErr(describe(e, "Couldn't resend."));
+    } finally {
+      setBusy(false);
+    }
+  }
+
+  async function remove() {
+    if (!assigned) return;
+    if (!(await confirmDialog(`Remove ${assigned.email} as promoter of this event?`))) return;
+    setBusy(true);
+    setErr(null);
+    setMsg(null);
+    try {
+      await adminUnassignPromoter(event.id, assigned.email);
+      setEmail("");
+      setName("");
+      await refresh();
+      setMsg("Promoter removed from this event.");
+    } catch (e) {
+      setErr(describe(e, "Couldn't remove the promoter."));
+    } finally {
+      setBusy(false);
+    }
+  }
+
+  async function sendReply() {
+    if (!reply.trim()) return;
+    setBusy(true);
+    setErr(null);
+    try {
+      await adminReplyPromoterNote(event.id, reply.trim());
+      setReply("");
+      await refresh();
+    } catch (e) {
+      setErr(describe(e, "Couldn't send reply."));
+    } finally {
+      setBusy(false);
+    }
+  }
+
+  const unreadFromPromoter = notes.filter((n) => n.author === "promoter" && !n.read_at).length;
+
+  return (
+    <div className="mx-6 mb-4 rounded-xl border border-cream/10 bg-ink/30">
+      <button
+        type="button"
+        onClick={() => setOpen((v) => !v)}
+        className="flex w-full items-center justify-between px-4 py-3 text-left"
+      >
+        <span className="text-xs font-bold uppercase tracking-wider text-cream/85">
+          🎫 Promoter
+          {assigned && <span className="ml-2 font-normal text-cream/50">· {assigned.email}</span>}
+          {unreadFromPromoter > 0 && (
+            <span className="ml-2 rounded-full bg-plonkPink px-2 py-0.5 text-[10px] text-white">
+              {unreadFromPromoter} new note{unreadFromPromoter === 1 ? "" : "s"}
+            </span>
+          )}
+        </span>
+        <span className="text-cream/40">{open ? "▲" : "▼"}</span>
+      </button>
+
+      {open && (
+        <div className="space-y-4 border-t border-cream/10 px-4 py-4">
+          <p className="text-[11px] leading-relaxed text-cream/45">
+            Give the promoter a login to watch their ticket sales live and grab their ticket link.
+            Saving emails them their details straight away.
+          </p>
+
+          <div className="grid gap-3 sm:grid-cols-3">
+            <div>
+              <label className={labelCls}>Promoter email</label>
+              <input
+                type="email"
+                value={email}
+                onChange={(e) => setEmail(e.target.value)}
+                placeholder="dj@email.com"
+                className={modalInputCls}
+              />
+            </div>
+            <div>
+              <label className={labelCls}>Name</label>
+              <input
+                type="text"
+                value={name}
+                onChange={(e) => setName(e.target.value)}
+                placeholder="Siclano"
+                className={modalInputCls}
+              />
+            </div>
+            <div>
+              <label className={labelCls}>
+                {assigned ? "New password (optional)" : "Password"}
+              </label>
+              <input
+                type="text"
+                value={password}
+                onChange={(e) => setPassword(e.target.value)}
+                placeholder={assigned ? "leave blank to keep" : "set a password"}
+                className={modalInputCls}
+              />
+            </div>
+          </div>
+
+          <div className="flex flex-wrap items-center gap-2">
+            <button
+              type="button"
+              onClick={saveAndSend}
+              disabled={busy}
+              className="rounded-full bg-plonkPink px-5 py-2 text-xs font-bold uppercase tracking-wider text-white hover:bg-plonkPink/90 disabled:opacity-50"
+            >
+              {busy ? "Working…" : assigned ? "Save & email login" : "Save & send login"}
+            </button>
+            {assigned && (
+              <>
+                <button
+                  type="button"
+                  onClick={resend}
+                  disabled={busy}
+                  className="rounded-full border border-cream/20 px-4 py-2 text-xs font-bold uppercase tracking-wider text-cream/80 hover:bg-cream/5 disabled:opacity-50"
+                >
+                  Resend login
+                </button>
+                <button
+                  type="button"
+                  onClick={remove}
+                  disabled={busy}
+                  className="rounded-full border border-red-400/30 px-4 py-2 text-xs font-bold uppercase tracking-wider text-red-400/80 hover:bg-red-400/5 disabled:opacity-50"
+                >
+                  Remove
+                </button>
+                <span className="text-[11px] text-cream/40">
+                  {assigned.welcome_sent_at
+                    ? `Login sent ${formatDate(assigned.welcome_sent_at.slice(0, 10))}`
+                    : "Login not yet sent"}
+                </span>
+              </>
+            )}
+          </div>
+
+          {msg && <p className="text-xs text-plonkTeal">{msg}</p>}
+          {err && <p className="text-xs text-red-400">{err}</p>}
+
+          {/* Notes thread from the promoter */}
+          {notes.length > 0 && (
+            <div className="space-y-2 border-t border-cream/10 pt-3">
+              <p className={labelCls}>Notes from this promoter</p>
+              {notes.map((n) => (
+                <div
+                  key={n.id}
+                  className={`rounded-lg px-3 py-2 text-xs ${
+                    n.author === "office" ? "bg-plonkPink/10 text-cream/85" : "bg-ink/50 text-cream/80"
+                  }`}
+                >
+                  <p className="mb-0.5 text-[10px] font-bold uppercase tracking-widest text-cream/40">
+                    {n.author === "office" ? "You" : "Promoter"} · {formatDate(n.created_at.slice(0, 10))}
+                  </p>
+                  <p className="whitespace-pre-wrap">{n.body}</p>
+                </div>
+              ))}
+              <div className="flex items-end gap-2">
+                <textarea
+                  value={reply}
+                  onChange={(e) => setReply(e.target.value)}
+                  rows={2}
+                  placeholder="Reply to the promoter…"
+                  className={`${modalInputCls} resize-none`}
+                />
+                <button
+                  type="button"
+                  onClick={sendReply}
+                  disabled={busy || !reply.trim()}
+                  className="shrink-0 rounded-full border border-cream/20 px-4 py-2 text-xs font-bold uppercase tracking-wider text-cream/80 hover:bg-cream/5 disabled:opacity-40"
+                >
+                  Reply
+                </button>
+              </div>
+            </div>
+          )}
+        </div>
+      )}
+    </div>
   );
 }
 

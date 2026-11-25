@@ -5,6 +5,14 @@ Supabase project (rntcujcpsozvuxvmlejv). Clear your claim when done.
 
 ## Active claims
 
+- **Promoter portal** — _promoter session_, 25 Nov 2026. New DDL (tables
+  `promoters`, `event_promoters`, `promoter_notes` — additive, RLS-locked, no
+  anon access; no change to `events`/`event_entries`) + new edge fn `promoter`
+  + new `app/(public)/promoter/page.tsx` + `lib/db/promoter.ts`. Touching
+  `app/admin/events/EventsAdminClient.tsx` to add a "Promoter" box to the event
+  editor (email/name/pass + notes) — additive section only, no change to
+  existing save logic. Clear when shipped.
+
 - **`app/(public)/events/page.tsx` + `app/(public)/deals/page.tsx`** (card link
   routing only) — _event-share-page session_, 12 Nov 2026. Back-fill: point
   every event/deal card at its `/event?o=<id>` page (additive link fallback;
