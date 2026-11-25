@@ -5,6 +5,7 @@ import PageHero from "@/components/PageHero";
 import RollerDeck from "@/components/RollerDeck";
 import PhotoLineup from "@/components/PhotoLineup";
 import BingoBooking from "@/components/BingoBooking";
+import EventWaitlist from "@/components/EventWaitlist";
 import { useContent } from "@/lib/content";
 import { useEditMode } from "@/lib/editMode";
 import { Editable } from "@/components/Editable";
@@ -48,11 +49,13 @@ const BINGO_HIDDEN = false;
 
 // Bar-sponsored prizes (founder, 11 Oct 2026) — free to play, bar puts up
 // the pot so it isn't gambling.
+// Four line-prizes in a 2×2 grid, then the full-width full-card prize below.
 const PRIZES: Array<{ label: string; amount: string }> = [
-  { label: "First vertical line", amount: "£20" },
-  { label: "First horizontal line", amount: "£20" },
-  { label: "First diagonal line", amount: "£20" },
-  { label: "Full house, BINGO!", amount: "£40" },
+  { label: "First vertical line", amount: "£15" },
+  { label: "First horizontal line", amount: "£15" },
+  { label: "First diagonal line", amount: "£15" },
+  { label: "1st to complete the edge", amount: "£15" },
+  { label: "1st full card", amount: "£40" },
 ];
 
 // The shape of the evening (founder, 18 Oct 2026): two comics, a round of
@@ -109,6 +112,11 @@ export default function BingoPage() {
     "£10 a ticket, one per person. Comedy + 5 bingo cards across the 2 games. Grab yours below.",
   );
   const ctaLabel = useContent("bingo.cta_label", "Book your ticket · £10");
+  // Wait-list switch (founder-controlled, page_content `bingo.waitlist` = "on"
+  // when the night is sold out). Keeps the booking form in the code — it just
+  // swaps to the wait-list form and relabels the CTAs while it's on.
+  const waitlistOn = useContent("bingo.waitlist", "off").trim().toLowerCase() === "on";
+  const waitlistCta = "Sold out · Sign up for wait list";
 
   const prizeTexts = [
     {
@@ -136,6 +144,13 @@ export default function BingoPage() {
       amount: useContent("bingo.prize4_amount", PRIZES[3].amount),
     },
   ];
+  // The headline prize — rendered full-width under the 2×2 grid.
+  const finalPrize = {
+    labelKey: "bingo.prize5_label",
+    label: useContent("bingo.prize5_label", PRIZES[4].label),
+    amountKey: "bingo.prize5_amount",
+    amount: useContent("bingo.prize5_amount", PRIZES[4].amount),
+  };
   const prizesTitle = useContent("bingo.prizes_title", "Prizes on the night");
   const prizesIntro = useContent(
     "bingo.prizes_intro",
@@ -242,6 +257,15 @@ export default function BingoPage() {
 
   const selected = upcoming.find((t) => t.id === expandedId) ?? null;
 
+  // Wait-list clicks in automatically once the next event is sold out
+  // (paid_entries_count ≥ max_teams — the same signal the site uses to show
+  // "SOLD OUT"), and the founder can also force it on with the bingo.waitlist
+  // flag. Either way it swaps the booking form for the wait list and relabels
+  // the CTAs. Copy comes from the event itself, so it reads right per event.
+  const nextEvent = upcoming[0] ?? null;
+  const nextSoldOut = !!nextEvent && nextEvent.max_teams > 0 && nextEvent.paid_entries_count >= nextEvent.max_teams;
+  const showWaitlist = waitlistOn || nextSoldOut;
+
   // Hidden pre-launch — render a blank placeholder while the redirect above
   // takes effect (keeps the full page below intact for an easy re-launch).
   if (BINGO_HIDDEN) {
@@ -334,7 +358,7 @@ export default function BingoPage() {
             disabled={!loading && upcoming.length === 0}
             className="mt-6 inline-block rounded-full bg-[#D65139] px-10 py-4 text-sm font-bold uppercase tracking-widest text-ink shadow-lg shadow-[#D65139]/30 transition hover:bg-[#D65139]/90 disabled:cursor-not-allowed disabled:opacity-50"
           >
-            <Editable k="bingo.cta_label">{ctaLabel}</Editable>
+            {showWaitlist ? waitlistCta : <Editable k="bingo.cta_label">{ctaLabel}</Editable>}
           </button>
           {!loading && !err && upcoming.length === 0 && (
             <p className="mt-4 text-sm text-cream/60">
@@ -352,7 +376,11 @@ export default function BingoPage() {
       {selected && (
         <section className="px-6 pb-8">
           <div ref={bookingRef} className="mx-auto max-w-2xl scroll-mt-24">
-            <BingoBooking night={selected} onClose={() => setExpandedId(null)} />
+            {showWaitlist ? (
+              <EventWaitlist eventId={selected.id} eventName={selected.name} onClose={() => setExpandedId(null)} />
+            ) : (
+              <BingoBooking night={selected} onClose={() => setExpandedId(null)} />
+            )}
           </div>
         </section>
       )}
@@ -454,6 +482,15 @@ export default function BingoPage() {
               </div>
             ))}
           </div>
+          {/* Headline prize — full array width */}
+          <div className="mx-auto mt-3 flex max-w-2xl items-center justify-between gap-4 rounded-2xl border border-[#D65139]/40 bg-[#D65139]/10 px-6 py-6">
+            <span className="text-base font-bold uppercase tracking-wider text-cream">
+              <Editable k={finalPrize.labelKey}>{finalPrize.label}</Editable>
+            </span>
+            <span className="font-display text-3xl text-[#D65139]">
+              <Editable k={finalPrize.amountKey}>{finalPrize.amount}</Editable>
+            </span>
+          </div>
         </div>
       </section>
 
@@ -476,7 +513,7 @@ export default function BingoPage() {
             onClick={openBooking}
             className="pointer-events-auto rounded-full bg-[#D65139] px-8 py-4 text-sm font-bold uppercase tracking-widest text-ink shadow-xl shadow-black/40 ring-1 ring-black/10 transition hover:bg-[#D65139]/90"
           >
-            {ctaLabel}
+            {showWaitlist ? waitlistCta : ctaLabel}
           </button>
         </div>
       )}
