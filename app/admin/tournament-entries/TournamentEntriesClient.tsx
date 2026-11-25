@@ -800,7 +800,7 @@ export default function TournamentEntriesClient() {
           type="search"
           value={search}
           onChange={(e) => setSearch(e.target.value)}
-          placeholder="Search team, email, captain…"
+          placeholder="Search team, email, booking name…"
           className="min-w-[220px] flex-1 rounded-full border border-cream/15 bg-ink/40 px-4 py-1.5 text-xs text-cream placeholder:text-cream/40 focus:border-plonkPink focus:outline-none"
         />
       </div>
