@@ -52,6 +52,31 @@ export async function loadBingoNights(): Promise<DbTournament[]> {
   if (evsErr) throw evsErr;
   if (ttsErr) throw ttsErr;
 
+  // Real tickets sold per event = SUM of player_count on paid entries. A bingo
+  // booking can hold several tickets in ONE row (quantity), so counting rows —
+  // or trusting events.paid_entries_count, whose trigger doesn't fire on the
+  // bingo-checkout path — under-counts and the page never sees "sold out". We
+  // sum the quantities here so `paid_entries_count` means "people in", matching
+  // the £ cap the checkout enforces. This is the BINGO loader only — it never
+  // touches the pool/ping-pong/special-event loaders or their counts.
+  const eventIds = ((evs ?? []) as Array<{ id: string }>).map((e) => e.id);
+  const ticketsByEvent = new Map<string, number>();
+  if (eventIds.length) {
+    const { data: ents, error: entsErr } = await sb
+      .from("tournament_entries")
+      .select("tournament_id, player_count")
+      .in("tournament_id", eventIds)
+      .eq("status", "paid")
+      .limit(2000);
+    if (entsErr) throw entsErr;
+    for (const r of (ents ?? []) as Array<{ tournament_id: string; player_count: number | null }>) {
+      ticketsByEvent.set(
+        r.tournament_id,
+        (ticketsByEvent.get(r.tournament_id) ?? 0) + Math.max(1, Number(r.player_count) || 1),
+      );
+    }
+  }
+
   // First active ticket per event by sort_order = the headline price.
   const firstTicket = new Map<string, number>();
   for (const t of (tts ?? []) as Array<{
@@ -81,7 +106,9 @@ export async function loadBingoNights(): Promise<DbTournament[]> {
     event_date: e.event_date,
     start_time: e.start_time,
     max_teams: e.max_attendees ?? 60,
-    paid_entries_count: e.paid_entries_count,
+    // Real people booked in (summed ticket quantities), not the stale
+    // events.paid_entries_count — so the page's "sold out" check is accurate.
+    paid_entries_count: ticketsByEvent.get(e.id) ?? 0,
     poster_url: null,          // bingo books inline, not via a poster link
     external_link: null,
     entry_fee_pence: firstTicket.get(e.id) ?? 0,
