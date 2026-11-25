@@ -153,7 +153,7 @@ export default function TournamentSchedule() {
   // for anyone deciding whether to enter.
   const prizeNote = useContent(
     "pool.tournaments.prizeNote",
-    "Every entry grows the prize pot: £5 a player at singles, £10 a team at doubles, up to £60 a night. It goes to the top three as a bar tab. Singles pays £25, £20 and £15; doubles pays £30, £20 and £10, split between the pair.",
+    "Every entry grows the prize pot: £10 of each £12 doubles entry, £5 of each £6 singles entry, up to £60 a night. It goes to the top three as a bar tab. Singles pays £25, £20 and £15; doubles pays £30, £20 and £10, split between the pair.",
   );
 
   useEffect(() => {
@@ -503,16 +503,18 @@ export default function TournamentSchedule() {
                             other price just shows the ceiling. */}
                         {(() => {
                           const fee = t.entry_fee_pence;
+                          // Stated as a share OF the entry, never as a bare
+                          // "£10 a team", which reads like the price.
                           const rate =
                             fee === 1200
-                              ? "£10 a team"
+                              ? "£10 of each £12 entry"
                               : fee === 600
-                                ? "£5 a player"
+                                ? "£5 of each £6 entry"
                                 : null;
                           if (!rate && fee !== 0) return null;
                           return (
                             <div className="mt-1.5 text-[11px] leading-snug text-cream/45">
-                              Prize pot{" "}
+                              Prize pot:{" "}
                               {rate && (
                                 <>
                                   <span className="text-cream/70">{rate}</span>,{" "}
