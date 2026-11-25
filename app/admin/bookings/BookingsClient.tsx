@@ -1,6 +1,6 @@
 "use client";
 
-import { Fragment, useEffect, useMemo, useState } from "react";
+import { Fragment, useEffect, useMemo, useRef, useState } from "react";
 import Link from "next/link";
 import AdminPageHeader from "@/components/admin/AdminPageHeader";
 import Notice from "@/components/Notice";
@@ -107,6 +107,37 @@ export default function BookingsClient() {
   useEffect(() => {
     reload();
   }, []);
+
+  // Deep link: /admin/bookings?edit=<id> opens that booking's inline editor
+  // (used by the "Edit" link on golf rows in the admin calendar). Widen the
+  // filters so the row is visible, remember the id, then strip the param.
+  const pendingEditId = useRef<string | null>(null);
+  useEffect(() => {
+    if (typeof window === "undefined") return;
+    const params = new URLSearchParams(window.location.search);
+    const id = params.get("edit");
+    if (!id) return;
+    pendingEditId.current = id;
+    setDateFilter("all");
+    setStatusFilter("all");
+    params.delete("edit");
+    const qs = params.toString();
+    window.history.replaceState(
+      null,
+      "",
+      window.location.pathname + (qs ? `?${qs}` : ""),
+    );
+  }, []);
+  // Once the bookings have loaded, open the pending deep-linked editor.
+  useEffect(() => {
+    const id = pendingEditId.current;
+    if (!id) return;
+    const b = bookings.find((x) => x.id === id);
+    if (b) {
+      startEdit(b);
+      pendingEditId.current = null;
+    }
+  }, [bookings]);
 
   // ─── Inline edit ───────────────────────────────────────────────────
   function startEdit(b: DbBookingRow) {

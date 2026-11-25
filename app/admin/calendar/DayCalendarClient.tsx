@@ -11,6 +11,7 @@ import AddGolfBookingForm from "@/components/admin/AddGolfBookingForm";
 import BookingLockedTag from "@/components/admin/BookingLockedTag";
 import PayStatusChip from "@/components/admin/PayStatusChip";
 import EnquiryLink from "@/components/admin/EnquiryLink";
+import BookingEditModal from "@/components/admin/BookingEditModal";
 import { loadEnquiryIdsByBookingIds } from "@/lib/db/enquiries";
 import { loadAllTournaments, type DbTournament } from "@/lib/db/tournaments";
 import {
@@ -159,6 +160,8 @@ export default function DayCalendarClient() {
   const [err, setErr] = useState("");
   // Bumped after an inline add so the grid + day panel refresh.
   const [refreshKey, setRefreshKey] = useState(0);
+  // Which bar reservation is open in the edit modal (null = none).
+  const [editId, setEditId] = useState<string | null>(null);
   // Which add form is open in the selected-day panel (null = none).
   const [addMode, setAddMode] = useState<
     "table" | "pool" | "golf" | "tournament" | null
@@ -702,48 +705,88 @@ export default function DayCalendarClient() {
             </p>
           ) : (
             <ul className="divide-y divide-cream/10">
-              {selectedBucket.bookings.map((b) => (
-                <li
-                  key={`${b.source}-${b.id}`}
-                  className="flex flex-wrap items-center gap-3 px-5 py-3 text-sm"
-                >
-                  <span className={sourcePill(b.source)}>
-                    {sourceLabel(b.source)}
-                  </span>
-                  <span className="min-w-[3.5rem] text-cream/85">
-                    {b.time ?? "TBC"}
-                  </span>
-                  {b.status === "confirmed" || b.status === "paid" ? (
-                    <BookingLockedTag name={b.name} />
-                  ) : (
-                    <span className="text-cream">{b.name}</span>
-                  )}
-                  {b.status === "pending" && (
-                    <span className="rounded-full bg-amber-400/15 px-2 py-0.5 text-[10px] font-bold uppercase tracking-[0.18em] text-amber-300">
-                      pending
+              {selectedBucket.bookings.map((b) => {
+                // The row's main content (pill · time · name · status). Clicking
+                // it edits the booking: bar rows (table/pool/private hire) open
+                // the shared edit modal in place; golf rows deep-link to the
+                // golf bookings page with that booking's editor open. Edit
+                // affordance (✏️) at the end makes it obvious it's clickable.
+                const inner = (
+                  <>
+                    <span className={sourcePill(b.source)}>
+                      {sourceLabel(b.source)}
                     </span>
-                  )}
-                  {b.match_or_event && (
-                    <span className="text-cream/70">· {b.match_or_event}</span>
-                  )}
-                  <PayStatusChip
-                    paid={b.paid}
-                    amountPence={b.amount_pence}
-                    comp={b.comp}
-                  />
-                  {enquiryLinks[b.id] && (
-                    <EnquiryLink enquiryId={enquiryLinks[b.id]} />
-                  )}
-                  <span className="ml-auto text-cream/55">
-                    {b.party_size} guest{b.party_size === 1 ? "" : "s"}
-                    {b.duration_minutes ? ` · ${b.duration_minutes} min` : ""}
-                  </span>
-                </li>
-              ))}
+                    <span className="min-w-[3.5rem] text-cream/85">
+                      {b.time ?? "TBC"}
+                    </span>
+                    {b.status === "confirmed" || b.status === "paid" ? (
+                      <BookingLockedTag name={b.name} />
+                    ) : (
+                      <span className="text-cream">{b.name}</span>
+                    )}
+                    {b.status === "pending" && (
+                      <span className="rounded-full bg-amber-400/15 px-2 py-0.5 text-[10px] font-bold uppercase tracking-[0.18em] text-amber-300">
+                        pending
+                      </span>
+                    )}
+                    {b.match_or_event && (
+                      <span className="text-cream/70">· {b.match_or_event}</span>
+                    )}
+                    <PayStatusChip
+                      paid={b.paid}
+                      amountPence={b.amount_pence}
+                      comp={b.comp}
+                    />
+                    <span className="ml-auto flex items-center gap-1 text-[10px] font-bold uppercase tracking-widest text-plonkPink opacity-0 transition group-hover:opacity-100">
+                      ✏️ Edit
+                    </span>
+                  </>
+                );
+                const rowCls =
+                  "group flex flex-1 flex-wrap items-center gap-3 rounded-lg px-2 py-1 text-left text-sm transition hover:bg-cream/5";
+                return (
+                  <li
+                    key={`${b.source}-${b.id}`}
+                    className="flex flex-wrap items-center gap-3 px-3 py-2 text-sm"
+                  >
+                    {b.source === "golf" ? (
+                      <a href={`/admin/bookings?edit=${b.id}`} className={rowCls}>
+                        {inner}
+                      </a>
+                    ) : (
+                      <button
+                        type="button"
+                        onClick={() => setEditId(b.id)}
+                        className={rowCls}
+                        title="Click to edit this booking"
+                      >
+                        {inner}
+                      </button>
+                    )}
+                    {enquiryLinks[b.id] && (
+                      <EnquiryLink enquiryId={enquiryLinks[b.id]} />
+                    )}
+                    <span className="text-cream/55">
+                      {b.party_size} guest{b.party_size === 1 ? "" : "s"}
+                      {b.duration_minutes ? ` · ${b.duration_minutes} min` : ""}
+                    </span>
+                  </li>
+                );
+              })}
             </ul>
           )}
         </AdminCard>
         </div>
+      )}
+
+      {/* Edit a bar reservation in place — saves through the shared write path
+          so the change shows on the table/pool reservations pages too. */}
+      {editId && (
+        <BookingEditModal
+          reservationId={editId}
+          onClose={() => setEditId(null)}
+          onSaved={() => setRefreshKey((k) => k + 1)}
+        />
       )}
     </div>
   );

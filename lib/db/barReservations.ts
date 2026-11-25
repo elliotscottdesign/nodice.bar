@@ -125,6 +125,60 @@ export async function loadBarReservations(): Promise<DbBarReservation[]> {
   return (data ?? []) as DbBarReservation[];
 }
 
+// Load one reservation by id (all fields). Used by the shared booking-edit
+// modal — the admin calendar opens a booking for editing by id without having
+// the full row to hand.
+export async function loadBarReservationById(
+  id: string,
+): Promise<DbBarReservation | null> {
+  const { data, error } = await supabase()
+    .from("bar_reservations")
+    .select("*")
+    .eq("id", id)
+    .maybeSingle();
+  if (error) throw error;
+  return (data as DbBarReservation) ?? null;
+}
+
+// The ONE write path for editing a bar reservation's core fields. Both the
+// reservations page (inline Edit) and the calendar (edit modal) call this, so
+// a save goes through the same update + validation and every view that
+// re-reads bar_reservations (table / pool reservations + calendar) shows it.
+export type BarReservationEdit = {
+  reservation_date: string;
+  start_time: string;        // "HH:MM" or "HH:MM:SS"
+  duration_minutes: number;
+  party_size: number;
+  name: string;
+  email: string;
+  phone: string;
+  notes: string;
+};
+
+export async function updateBarReservation(
+  id: string,
+  fields: BarReservationEdit,
+): Promise<void> {
+  const duration = Math.max(30, Math.min(300, fields.duration_minutes || 60));
+  const party = Math.max(1, Math.min(80, fields.party_size || 2));
+  const start =
+    fields.start_time.length === 5 ? `${fields.start_time}:00` : fields.start_time;
+  const { error } = await supabase()
+    .from("bar_reservations")
+    .update({
+      reservation_date: fields.reservation_date,
+      start_time: start,
+      duration_minutes: duration,
+      party_size: party,
+      name: fields.name.trim(),
+      email: fields.email.trim(),
+      phone: fields.phone.trim() || null,
+      notes: fields.notes.trim() || null,
+    })
+    .eq("id", id);
+  if (error) throw error;
+}
+
 export async function setBarReservationStatus(
   id: string,
   status: DbBarReservation["status"],

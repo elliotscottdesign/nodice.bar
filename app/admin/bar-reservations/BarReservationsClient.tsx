@@ -13,6 +13,7 @@ import {
   setBarReservationPoster,
   clearBarReservationPoster,
   sendBookingInvitation,
+  updateBarReservation,
   type DbBarReservation,
   type UnifiedReservation,
 } from "@/lib/db/barReservations";
@@ -454,28 +455,18 @@ export default function BarReservationsClient({
     setBusyId(r.id);
     setErr("");
     try {
-      const duration = Math.max(
-        30,
-        Math.min(300, parseInt(editForm.duration_minutes, 10) || 60),
-      );
-      const party = Math.max(
-        1,
-        Math.min(80, parseInt(editForm.party_size, 10) || 2),
-      );
-      const { error } = await supabase()
-        .from("bar_reservations")
-        .update({
-          reservation_date: editForm.reservation_date,
-          start_time: editForm.start_time + ":00",
-          duration_minutes: duration,
-          party_size: party,
-          name: editForm.name.trim(),
-          email: editForm.email.trim(),
-          phone: editForm.phone.trim() || null,
-          notes: editForm.notes.trim() || null,
-        })
-        .eq("id", r.id);
-      if (error) throw error;
+      // Shared write path — the calendar's edit modal saves through the same
+      // helper, so a change made anywhere shows across all views on reload.
+      await updateBarReservation(r.id, {
+        reservation_date: editForm.reservation_date,
+        start_time: editForm.start_time,
+        duration_minutes: parseInt(editForm.duration_minutes, 10) || 60,
+        party_size: parseInt(editForm.party_size, 10) || 2,
+        name: editForm.name,
+        email: editForm.email,
+        phone: editForm.phone,
+        notes: editForm.notes,
+      });
       cancelEdit();
       await reload();
     } catch (e) {
