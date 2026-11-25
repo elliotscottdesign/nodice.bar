@@ -148,6 +148,13 @@ export default function TournamentSchedule() {
     "pool.tournaments.tagline",
     "Doubles, singles and special events, every open night, in date order.",
   );
+  // How the prizes work, in one line. The pot is earned by turnout (founder,
+  // 25 Nov 2026) and capped at the old ladders, so this is the honest headline
+  // for anyone deciding whether to enter.
+  const prizeNote = useContent(
+    "pool.tournaments.prizeNote",
+    "Every entry grows the prize pot: £5 a player at singles, £10 a team at doubles, up to £60 a night. It goes to the top three as a bar tab. Singles pays £25, £20 and £15; doubles pays £30, £20 and £10, split between the pair.",
+  );
 
   useEffect(() => {
     let cancelled = false;
@@ -249,9 +256,14 @@ export default function TournamentSchedule() {
         </div>
 
         {view === "events" && (
-          <p className="mx-auto mt-4 max-w-md text-center text-xs uppercase tracking-widest text-cream/55">
-            <Editable k="pool.tournaments.tagline">{tagline}</Editable>
-          </p>
+          <>
+            <p className="mx-auto mt-4 max-w-md text-center text-xs uppercase tracking-widest text-cream/55">
+              <Editable k="pool.tournaments.tagline">{tagline}</Editable>
+            </p>
+            <p className="mx-auto mt-3 max-w-xl text-center text-[13px] leading-relaxed text-cream/60">
+              <Editable k="pool.tournaments.prizeNote">{prizeNote}</Editable>
+            </p>
+          </>
         )}
 
         {/* House-rules panel. Shown by the RULES tab, mirrored from the team
@@ -475,6 +487,25 @@ export default function TournamentSchedule() {
                             ? "Free"
                             : formatFee(t.entry_fee_pence)}
                         </div>
+
+                        {/* What's on the table. The pot is EARNED BY TURNOUT
+                            (founder, 25 Nov 2026): £5 a player at singles,
+                            £10 a team at doubles, capped at £60. Stated as the
+                            RULE, never a live count, because how full a night
+                            is stays private (founder, 1 Nov 2026). */}
+                        {(t.tournament_type === "doubles" ||
+                          t.tournament_type === "singles") && (
+                          <div className="mt-1.5 text-[11px] leading-snug text-cream/45">
+                            Prize pot{" "}
+                            <span className="text-cream/70">
+                              {t.tournament_type === "doubles"
+                                ? "£10 a team"
+                                : "£5 a player"}
+                            </span>
+                            , up to <span className="text-cream/70">£60</span>.
+                            The more who play, the bigger it gets.
+                          </div>
+                        )}
 
                         {/* Availability is shown as status only — never a
                             remaining count (founder 1 Nov 2026). "Sold out" /
