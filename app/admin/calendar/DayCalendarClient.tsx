@@ -54,11 +54,14 @@ const CHIP_STYLE: Record<
   EventChip,
   { pill: string; dot: string; emoji: string }
 > = {
-  POOL: { pill: "bg-purple-500/15 text-purple-300", dot: "bg-purple-400", emoji: "🎱" },
-  FOOD: { pill: "bg-orange-500/15 text-orange-300", dot: "bg-orange-400", emoji: "🍔" },
-  SPECIALS: { pill: "bg-plonkPink/15 text-plonkPink", dot: "bg-plonkPink", emoji: "✨" },
+  // Unified event-tag colours (founder 2026-11-25): POOL=teal, FOOD=green,
+  // SPECIALS=orange, DJ=blue, DEAL=purple. Keep in step with the public
+  // events page's CATEGORY_COLOURS.
+  POOL: { pill: "bg-teal-500/15 text-teal-300", dot: "bg-teal-400", emoji: "🎱" },
+  FOOD: { pill: "bg-green-500/15 text-green-300", dot: "bg-green-400", emoji: "🍔" },
+  SPECIALS: { pill: "bg-orange-500/15 text-orange-300", dot: "bg-orange-400", emoji: "✨" },
   DJ: { pill: "bg-sky-500/15 text-sky-300", dot: "bg-sky-400", emoji: "🎧" },
-  DEAL: { pill: "bg-plonkYellow/15 text-plonkYellow", dot: "bg-plonkYellow", emoji: "💸" },
+  DEAL: { pill: "bg-purple-500/15 text-purple-300", dot: "bg-purple-400", emoji: "💸" },
 };
 
 // ─── Types ─────────────────────────────────────────────────────

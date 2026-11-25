@@ -65,35 +65,38 @@ const CATEGORY_COLOURS: Record<
   string,
   { stripe: string; pill: string; dot: string; hoverBorder: string }
 > = {
+  // The five event-tag colours, unified across the whole platform (founder
+  // 2026-11-25): POOL=teal, FOOD=green, SPECIALS=orange, DJ=blue, DEAL=purple.
+  // Keep in step with the admin calendar's GROUP map (DayCalendarClient).
   DJ: {
-    stripe: "bg-plonkPink",
-    pill: "bg-plonkPink/90 text-white",
-    dot: "bg-plonkPink",
-    hoverBorder: "group-hover/card:border-plonkPink",
+    stripe: "bg-sky-400",
+    pill: "bg-sky-500/90 text-white",
+    dot: "bg-sky-400",
+    hoverBorder: "group-hover/card:border-sky-400",
   },
   POOL: {
+    stripe: "bg-teal-400",
+    pill: "bg-teal-500/90 text-white",
+    dot: "bg-teal-400",
+    hoverBorder: "group-hover/card:border-teal-400",
+  },
+  FOOD: {
+    stripe: "bg-green-400",
+    pill: "bg-green-500/90 text-white",
+    dot: "bg-green-400",
+    hoverBorder: "group-hover/card:border-green-400",
+  },
+  DEAL: {
     stripe: "bg-purple-400",
     pill: "bg-purple-500/90 text-white",
     dot: "bg-purple-400",
     hoverBorder: "group-hover/card:border-purple-400",
   },
-  FOOD: {
+  SPECIALS: {
     stripe: "bg-orange-400",
     pill: "bg-orange-500/90 text-white",
     dot: "bg-orange-400",
     hoverBorder: "group-hover/card:border-orange-400",
-  },
-  DEAL: {
-    stripe: "bg-plonkYellow",
-    pill: "bg-plonkYellow/90 text-ink",
-    dot: "bg-plonkYellow",
-    hoverBorder: "group-hover/card:border-plonkYellow",
-  },
-  SPECIALS: {
-    stripe: "bg-sky-400",
-    pill: "bg-sky-500/90 text-white",
-    dot: "bg-sky-400",
-    hoverBorder: "group-hover/card:border-sky-400",
   },
 };
 const CATEGORY_FALLBACK = {
