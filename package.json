@@ -6,6 +6,7 @@
     "dev": "next dev",
     "prebuild": "node scripts/generate-media-manifest.mjs",
     "build": "next build",
+    "postbuild": "node scripts/event-short-links.mjs",
     "start": "next start",
     "lint": "next lint",
     "media:manifest": "node scripts/generate-media-manifest.mjs"
