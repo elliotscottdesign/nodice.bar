@@ -235,7 +235,11 @@ export default function DealsAdminClient() {
                 key={d.id}
                 type="button"
                 onClick={() => setEditing(d)}
-                className="flex gap-3 rounded-xl border border-cream/12 bg-ink/40 p-3 text-left transition hover:border-plonkPink/40"
+                className={`flex gap-3 rounded-xl border p-3 text-left transition hover:border-plonkPink/40 ${
+                  d.paused
+                    ? "border-plonkYellow/30 bg-plonkYellow/[0.04]"
+                    : "border-cream/12 bg-ink/40"
+                }`}
               >
                 <div className="h-20 w-16 shrink-0 overflow-hidden rounded border border-cream/15 bg-ink">
                   {d.poster_url ? (
@@ -243,12 +247,21 @@ export default function DealsAdminClient() {
                     <img
                       src={d.poster_url}
                       alt=""
-                      className="h-full w-full object-contain"
+                      className={`h-full w-full object-contain ${
+                        d.paused ? "opacity-50 grayscale" : ""
+                      }`}
                     />
                   ) : null}
                 </div>
                 <div className="min-w-0">
-                  <p className="truncate font-display text-base">{d.name}</p>
+                  <p className="flex items-center gap-1.5 truncate font-display text-base">
+                    <span className="truncate">{d.name}</span>
+                    {d.paused && (
+                      <span className="shrink-0 rounded-full border border-plonkYellow/60 bg-plonkYellow/15 px-1.5 py-0.5 text-[9px] font-bold uppercase tracking-widest text-plonkYellow">
+                        ⏸ Paused
+                      </span>
+                    )}
+                  </p>
                   <p className="text-[11px] uppercase tracking-wider text-cream/45">
                     {d.poster_day_label || "—"}
                     {d.ticket_price != null ? ` · £${d.ticket_price}` : ""}
@@ -528,6 +541,39 @@ function DealForm({
     }
   }
 
+  const isPaused = !!deal?.paused;
+
+  // Pause / resume the WHOLE deal (every dated row). Pausing keeps all the rows
+  // and dates — it just flips `paused` so every public surface skips them
+  // (/events calendar, /deals page, the /bar menu, the homepage scrollers).
+  // Resuming flips it back and the deal returns exactly as it was.
+  async function togglePause() {
+    if (!deal) return;
+    const pausing = !isPaused;
+    const n = seriesIds.length;
+    const ok = await confirmDialog(
+      pausing
+        ? `Pause “${deal.name}”${n > 1 ? ` across all ${n} dates` : ""}?\n\nIt stays saved with all its dates, but comes OFF the website — the events calendar, the Deals page and the bar menu — until you resume it. Nothing is deleted.`
+        : `Resume “${deal.name}”${n > 1 ? ` across all ${n} dates` : ""}?\n\nIt goes back on the website exactly as it was.`,
+    );
+    if (!ok) return;
+    setBusy(true);
+    setErr("");
+    try {
+      for (const id of seriesIds) await updateEvent(id, { paused: pausing });
+      onDone();
+    } catch (e) {
+      setErr(
+        e instanceof Error
+          ? e.message
+          : pausing
+            ? "Couldn't pause the deal."
+            : "Couldn't resume the deal.",
+      );
+      setBusy(false);
+    }
+  }
+
   async function remove() {
     if (!deal) return;
     if (
@@ -552,8 +598,13 @@ function DealForm({
   return (
     <div className="space-y-5">
       <div className="flex items-center justify-between gap-3">
-        <h3 className="font-display text-xl">
+        <h3 className="flex flex-wrap items-center gap-2 font-display text-xl">
           {editing ? `Edit deal — ${deal!.name}` : "Add deal"}
+          {isPaused && (
+            <span className="rounded-full border border-plonkYellow/60 bg-plonkYellow/15 px-2.5 py-0.5 text-[10px] font-bold uppercase tracking-widest text-plonkYellow">
+              ⏸ Paused
+            </span>
+          )}
         </h3>
         <button
           type="button"
@@ -563,6 +614,15 @@ function DealForm({
           ← Back to deals
         </button>
       </div>
+
+      {isPaused && (
+        <div className="rounded-xl border border-plonkYellow/40 bg-plonkYellow/10 p-3 text-sm text-plonkYellow/90">
+          This deal is <strong>paused</strong> — it&apos;s hidden from the website
+          (events calendar, Deals page and bar menu) but all{" "}
+          {seriesIds.length > 1 ? `${seriesIds.length} dates are` : "its data is"}{" "}
+          still here. Press <strong>Resume deal</strong> below to put it back on.
+        </div>
+      )}
 
       {err && <Notice variant="error">{err}</Notice>}
       {posterWarn && <Notice variant="warning">{posterWarn}</Notice>}
@@ -794,6 +854,26 @@ function DealForm({
         >
           Cancel
         </button>
+        {editing &&
+          (isPaused ? (
+            <button
+              type="button"
+              disabled={busy}
+              onClick={togglePause}
+              className="rounded-full bg-plonkTeal px-5 py-2.5 text-xs font-bold uppercase tracking-wider text-ink transition hover:brightness-110 disabled:opacity-40"
+            >
+              ▶ Resume deal
+            </button>
+          ) : (
+            <button
+              type="button"
+              disabled={busy}
+              onClick={togglePause}
+              className="rounded-full border border-plonkYellow/60 px-5 py-2.5 text-xs font-bold uppercase tracking-wider text-plonkYellow transition hover:bg-plonkYellow/10 disabled:opacity-40"
+            >
+              ⏸ Pause deal
+            </button>
+          ))}
         {editing && (
           <button
             type="button"

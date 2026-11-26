@@ -68,6 +68,11 @@ export type DbEvent = {
   show_on_pool_schedule: boolean;
   show_on_events_calendar: boolean;
   show_on_bar_page: boolean;
+  /** Temporarily switched OFF. A paused event keeps all its rows but is hidden
+   *  from every PUBLIC surface (calendar, /deals, /bar, scrollers). The admin
+   *  lists still show it so it can be resumed. Used by the deals admin's
+   *  Pause / Resume control (migration 20261126000002_events-paused.sql). */
+  paused?: boolean;
   requires_ticket: boolean;
   /** Public face chosen in the builder: 'popup' (default) = the compact
    *  /event?o=<id> share card; 'page' = the full long-form layout. Deals are
@@ -184,6 +189,7 @@ export async function loadOpenEvents(): Promise<DbEvent[]> {
   const { data, error } = await supabase()
     .from("events")
     .select("*")
+    .eq("paused", false)
     .order("event_date", { ascending: true });
   if (error) throw error;
   return (data ?? []) as DbEvent[];
@@ -195,6 +201,7 @@ export async function loadEventsForPoolSchedule(): Promise<DbEvent[]> {
     .from("events")
     .select("*")
     .eq("show_on_pool_schedule", true)
+    .eq("paused", false)
     .gte("event_date", today)
     .order("event_date", { ascending: true });
   if (error) throw error;
@@ -212,6 +219,7 @@ export async function loadUpcomingEventsByCategory(
     .from("events")
     .select("*")
     .eq("category", category)
+    .eq("paused", false)
     .gte("event_date", today)
     .order("event_date", { ascending: true })
     .order("start_time", { ascending: true });
@@ -227,6 +235,7 @@ export async function loadEventsForCalendar(
     .from("events")
     .select("*")
     .eq("show_on_events_calendar", true)
+    .eq("paused", false)
     .gte("event_date", fromIso)
     .lte("event_date", toIso)
     .order("event_date", { ascending: true });
@@ -365,6 +374,7 @@ export const CASCADE_FIELDS = [
   "show_on_pool_schedule",
   "show_on_events_calendar",
   "show_on_bar_page",
+  "paused",
   "requires_ticket",
   "page_style",
   "bookable",
