@@ -4,6 +4,11 @@ on:
   push:
     branches: [main]
   workflow_dispatch:
+  # Nightly rebuild (5am UTC) so every new event gets its own short-link page
+  # (nodice.bar/<nameofevent>) with the right link preview — see
+  # scripts/event-short-links.mjs. New events work before this via the 404 page.
+  schedule:
+    - cron: "0 5 * * *"
 
 permissions:
   contents: read

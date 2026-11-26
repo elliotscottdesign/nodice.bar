@@ -1,6 +1,7 @@
 "use client";
 
 import { supabase } from "@/lib/supabase";
+import { eventSlug } from "@/lib/eventSlug";
 
 // =============================================================
 // Share-event read — public read for /event?o=<id>
@@ -108,4 +109,33 @@ export async function loadShareEvent(id: string): Promise<ShareEvent | null> {
     max_attendees: (ev.max_attendees as number | null) ?? null,
     paidCount,
   };
+}
+
+// -------------------------------------------------------------
+// Short links — nodice.bar/<nameofevent> (see lib/eventSlug.ts)
+// -------------------------------------------------------------
+// Finds the event a short link means: the NEXT one on or after today with
+// that name, else the most recent past one (so an old link still lands on
+// the right page). Events are a small table (a few hundred rows), so one
+// windowed read is fine.
+export async function findEventIdBySlug(slug: string): Promise<string | null> {
+  const want = eventSlug(slug);
+  if (!want) return null;
+  const today = new Date();
+  const ymd = (d: Date) =>
+    `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}`;
+  const from = new Date(today);
+  from.setDate(from.getDate() - 120);
+  const { data, error } = await supabase()
+    .from("events")
+    .select("id, name, event_date")
+    .gte("event_date", ymd(from))
+    .order("event_date", { ascending: true })
+    .limit(1000);
+  if (error) throw error;
+  const hits = (data ?? []).filter((e) => eventSlug(e.name as string) === want);
+  if (!hits.length) return null;
+  const t = ymd(today);
+  const next = hits.find((e) => (e.event_date as string) >= t);
+  return ((next ?? hits[hits.length - 1]).id as string) ?? null;
 }

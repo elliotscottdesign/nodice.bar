@@ -17,6 +17,7 @@ import PosterDownloads from "@/components/admin/PosterDownloads";
 import DatePickerInput from "@/components/admin/DatePickerInput";
 import Notice from "@/components/Notice";
 import { isDealEvent } from "@/lib/db/calendarEvents";
+import { shortPathFor } from "@/lib/eventSlug";
 import {
   rebuildPosterFromRecipe,
   recipeIsRebuildable,
@@ -758,6 +759,13 @@ export default function EventsAdminClient() {
                 onChange={(e) => setExternalLink(e.target.value)}
                 className={inputCls}
               />
+              <p className="mt-1.5 text-xs leading-snug text-cream">
+                Leave this BLANK to sell tickets or take sign-ups on our own
+                event page. Only fill it in if tickets are sold somewhere else
+                (Eventbrite, RA, the organiser&apos;s site), because the
+                &ldquo;Get tickets&rdquo; button will send people there instead.
+                To credit a host, put their Instagram in the description.
+              </p>
             </Field>
 
             <Field label="Poster / artwork (image or GIF)">
@@ -1037,6 +1045,7 @@ export default function EventsAdminClient() {
               value={pageStyle}
               onChange={setPageStyle}
               isDeal={isDealEvent(category, subcategory)}
+              eventName={name}
             />
           </Section>
 
@@ -1965,7 +1974,9 @@ function EditEventModal({
           {/* Optional link out — Eventbrite, Resident Advisor, Ticket
               Tailor, an organiser's own page, anything. When set, the
               /events card's button sends people here instead of the
-              inline booking form. */}
+              inline booking form — so it must stay BLANK for our own
+              ticketing (Paper Christmas, 26 Nov 2026, pointed at Instagram
+              and nobody could buy). */}
           <ModalField label="Ticket / external link (optional)">
             <input
               type="url"
@@ -1974,6 +1985,13 @@ function EditEventModal({
               onChange={(ev) => setExternalLink(ev.target.value)}
               className={modalInputCls}
             />
+            <p className="mt-1.5 text-xs leading-snug text-cream">
+              Leave this BLANK to sell tickets or take sign-ups on our own
+              event page. Only fill it in if tickets are sold somewhere else
+              (Eventbrite, RA, the organiser&apos;s site), because the
+              &ldquo;Get tickets&rdquo; button will send people there instead.
+              To credit a host, put their Instagram in the description.
+            </p>
           </ModalField>
 
           {/* Poster artwork — parity with the create form so the
@@ -2278,6 +2296,7 @@ function EditEventModal({
             value={pageStyle}
             onChange={setPageStyle}
             isDeal={isDealEvent(category, subcategory)}
+            eventName={name}
           />
         </div>
 
@@ -2818,12 +2837,18 @@ function PageStyleSelector({
   value,
   onChange,
   isDeal,
+  eventName,
 }: {
   value: "popup" | "page";
   onChange: (v: "popup" | "page") => void;
   isDeal: boolean;
+  eventName?: string;
 }) {
   const effective = isDeal ? "popup" : value;
+  // Short share link — nodice.bar/<nameofevent> (lib/eventSlug.ts).
+  const short = shortPathFor(eventName);
+  const shortUrl = short ? `nodice.bar${short.replace(/\/$/, "")}` : "";
+  const [copied, setCopied] = useState(false);
   const opt = (
     key: "popup" | "page",
     title: string,
@@ -2856,8 +2881,49 @@ function PageStyleSelector({
       <p className="mt-2 text-xs text-cream/45">
         {isDeal
           ? "Deals always show as a pop-up."
-          : "Both open at the same shareable link (/event?o=…)."}
+          : "Both open at the same shareable link."}
       </p>
+      {eventName !== undefined && (
+        <div className="mt-3 rounded-xl border border-cream/15 bg-ink/40 p-3">
+          <div className="text-[10px] font-bold uppercase tracking-widest text-cream/50">
+            Share link
+          </div>
+          {shortUrl ? (
+            <>
+              <div className="mt-1 flex items-center gap-2">
+                <span className="truncate text-sm font-bold text-cream">
+                  {shortUrl}
+                </span>
+                <button
+                  type="button"
+                  onClick={() => {
+                    navigator.clipboard
+                      ?.writeText(`https://${shortUrl}`)
+                      .then(() => {
+                        setCopied(true);
+                        setTimeout(() => setCopied(false), 1500);
+                      })
+                      .catch(() => {});
+                  }}
+                  className="shrink-0 rounded-full border border-cream/25 px-3 py-1 text-[11px] font-bold uppercase tracking-widest text-cream hover:border-cream/50"
+                >
+                  {copied ? "Copied ✓" : "Copy"}
+                </button>
+              </div>
+              <p className="mt-1 text-xs text-cream/45">
+                Made from the event name. A repeating event&apos;s link always
+                opens its next date. New events work straight away.
+              </p>
+            </>
+          ) : (
+            <p className="mt-1 text-xs text-cream/45">
+              {eventName?.trim()
+                ? "This name is already a page on the site, so the event keeps its long link. Change the name slightly to get a short one."
+                : "Type the event name to get its short link."}
+            </p>
+          )}
+        </div>
+      )}
     </div>
   );
 }
