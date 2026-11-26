@@ -21,8 +21,14 @@ import {
   promoterLogin,
   promoterLoad,
   promoterAddNote,
+  promoterMenuGet,
+  promoterMenuSave,
+  promoterMenuSubmit,
   type PromoterSession,
   type PromoterEvent,
+  type MenuDish,
+  type MenuDoc,
+  type MenuState,
 } from "@/lib/db/promoter";
 
 const TOKEN_KEY = "nd_promoter_token";
@@ -395,6 +401,9 @@ function EventCard({ ev, token, onRefresh }: { ev: PromoterEvent; token: string;
           )}
         </div>
 
+        {/* Chef pop-up menu builder — food events only */}
+        {ev.category === "food_event" && <FoodMenuBuilder ev={ev} token={token} />}
+
         {/* Notes to the venue */}
         <div>
           <p className="mb-1.5 text-[11px] font-bold uppercase tracking-widest text-cream/45">Notes to No Dice</p>
@@ -437,6 +446,256 @@ function EventCard({ ev, token, onRefresh }: { ev: PromoterEvent; token: string;
         </div>
       </div>
     </section>
+  );
+}
+
+// ── Chef pop-up menu builder (food events) ───────────────────────────────────
+// The 15 allergens the On A Roll kitchen tracks, and the states a chef can set.
+const ALLERGENS: { key: string; label: string }[] = [
+  { key: "gluten", label: "Gluten" }, { key: "crustaceans", label: "Crustaceans" },
+  { key: "eggs", label: "Eggs" }, { key: "fish", label: "Fish" },
+  { key: "peanuts", label: "Peanuts" }, { key: "soya", label: "Soya" },
+  { key: "milk", label: "Milk" }, { key: "nuts", label: "Tree nuts" },
+  { key: "celery", label: "Celery" }, { key: "mustard", label: "Mustard" },
+  { key: "sesame", label: "Sesame" }, { key: "sulphites", label: "Sulphites" },
+  { key: "lupin", label: "Lupin" }, { key: "molluscs", label: "Molluscs" },
+  { key: "mushroom", label: "Mushroom" },
+];
+// none → contains → trace → pending → none
+const ALLERGEN_CYCLE: Record<string, string | undefined> = {
+  "": "contains", contains: "trace", trace: "pending", pending: "",
+};
+const ALLERGEN_STYLE: Record<string, { bg: string; label: string }> = {
+  contains: { bg: "bg-plonkPink text-white", label: "has" },
+  trace: { bg: "bg-amber-500/80 text-black", label: "may" },
+  pending: { bg: "bg-sky-500/80 text-white", label: "?" },
+};
+
+const poundsFromPence = (p: number) => (p ? (p / 100).toFixed(2) : "");
+const penceFromPounds = (s: string) => {
+  const n = Math.round(parseFloat(s) * 100);
+  return Number.isFinite(n) && n >= 0 ? n : 0;
+};
+const blankDish = (): MenuDish => ({
+  id: `d_${Math.random().toString(36).slice(2, 10)}`,
+  name: "", desc: "", sell_pence: 0, cost_pence: 0, qty: 0, allergens: {},
+});
+
+function FoodMenuBuilder({ ev, token }: { ev: PromoterEvent; token: string }) {
+  const [open, setOpen] = useState(false);
+  const [state, setState] = useState<MenuState | null>(null);
+  const [dishes, setDishes] = useState<MenuDish[]>([]);
+  const [note, setNote] = useState("");
+  const [busy, setBusy] = useState(false);
+  const [msg, setMsg] = useState<string | null>(null);
+  const [err, setErr] = useState<string | null>(null);
+  const [loaded, setLoaded] = useState(false);
+
+  useEffect(() => {
+    if (!open || loaded) return;
+    promoterMenuGet(token, ev.id)
+      .then((s) => {
+        setState(s);
+        setDishes(s.doc?.dishes?.length ? s.doc.dishes : []);
+        setNote(s.doc?.note || "");
+      })
+      .catch((e) => setErr(e instanceof Error ? e.message : "Couldn't load your menu."))
+      .finally(() => setLoaded(true));
+  }, [open, loaded, token, ev.id]);
+
+  const patchDish = (i: number, p: Partial<MenuDish>) =>
+    setDishes((ds) => ds.map((d, j) => (j === i ? { ...d, ...p } : d)));
+  const moveDish = (i: number, dir: -1 | 1) =>
+    setDishes((ds) => {
+      const j = i + dir;
+      if (j < 0 || j >= ds.length) return ds;
+      const next = [...ds];
+      [next[i], next[j]] = [next[j], next[i]];
+      return next;
+    });
+  const removeDish = (i: number) => setDishes((ds) => ds.filter((_, j) => j !== i));
+  const cycleAllergen = (i: number, key: string) =>
+    setDishes((ds) =>
+      ds.map((d, j) => {
+        if (j !== i) return d;
+        const cur = d.allergens[key] || "";
+        const nextState = ALLERGEN_CYCLE[cur];
+        const allergens = { ...d.allergens };
+        if (nextState) allergens[key] = nextState;
+        else delete allergens[key];
+        return { ...d, allergens };
+      }),
+    );
+
+  const docOut = (): MenuDoc => ({ dishes, note });
+  async function persist(submit: boolean) {
+    setBusy(true);
+    setErr(null);
+    setMsg(null);
+    try {
+      if (submit) await promoterMenuSubmit(token, ev.id, docOut());
+      else await promoterMenuSave(token, ev.id, docOut());
+      setMsg(submit ? "Sent to No Dice — they'll put it live for your night." : "Saved.");
+      const s = await promoterMenuGet(token, ev.id);
+      setState(s);
+    } catch (e) {
+      setErr(e instanceof Error ? e.message : "Couldn't save your menu.");
+    } finally {
+      setBusy(false);
+    }
+  }
+
+  const statusLabel =
+    state?.status === "published" ? "Live on On A Roll" :
+    state?.status === "submitted" ? "Submitted — with No Dice" : "Draft";
+
+  return (
+    <div className="rounded-xl border border-cream/15 bg-ink/40">
+      <button
+        onClick={() => setOpen((v) => !v)}
+        className="flex w-full items-center justify-between px-4 py-3 text-left"
+      >
+        <span className="text-[11px] font-bold uppercase tracking-widest text-cream/70">
+          🍔 Your pop-up menu
+          {state && (
+            <span className={`ml-2 rounded-full px-2 py-0.5 text-[10px] ${state.status === "draft" ? "bg-cream/10 text-cream/55" : "bg-plonkPink text-white"}`}>
+              {statusLabel}
+            </span>
+          )}
+        </span>
+        <span className="text-cream/40">{open ? "▲" : "▼"}</span>
+      </button>
+
+      {open && (
+        <div className="space-y-4 border-t border-cream/10 px-4 py-4">
+          <p className="text-[11px] leading-relaxed text-cream/45">
+            Build the menu you&apos;re serving on the night — dishes, prices and allergens. Submit it and
+            No Dice puts it live on the On A Roll ordering + print menu for your event.
+          </p>
+
+          {!loaded ? (
+            <p className="text-sm text-cream/40">Loading…</p>
+          ) : (
+            <>
+              {dishes.map((d, i) => (
+                <div key={d.id} className="rounded-lg border border-cream/15 bg-ink/50 p-3">
+                  <div className="flex items-start gap-2">
+                    <div className="flex flex-col gap-1 pt-1">
+                      <button onClick={() => moveDish(i, -1)} disabled={i === 0} className="text-cream/40 disabled:opacity-20" aria-label="Move up">▲</button>
+                      <button onClick={() => moveDish(i, 1)} disabled={i === dishes.length - 1} className="text-cream/40 disabled:opacity-20" aria-label="Move down">▼</button>
+                    </div>
+                    <div className="min-w-0 flex-1 space-y-2">
+                      <input
+                        value={d.name}
+                        onChange={(e) => patchDish(i, { name: e.target.value })}
+                        placeholder="Dish name"
+                        className="w-full rounded-md border border-cream/15 bg-ink/60 px-3 py-2 text-base text-cream outline-none focus:border-plonkPink"
+                      />
+                      <textarea
+                        value={d.desc}
+                        onChange={(e) => patchDish(i, { desc: e.target.value })}
+                        rows={2}
+                        placeholder="Short description (optional)"
+                        className="w-full resize-none rounded-md border border-cream/15 bg-ink/60 px-3 py-2 text-base text-cream outline-none focus:border-plonkPink"
+                      />
+                      <div className="flex flex-wrap gap-2">
+                        <label className="flex items-center gap-1 text-xs text-cream/50">
+                          Price £
+                          <input
+                            inputMode="decimal"
+                            defaultValue={poundsFromPence(d.sell_pence)}
+                            onBlur={(e) => patchDish(i, { sell_pence: penceFromPounds(e.target.value) })}
+                            className="w-20 rounded-md border border-cream/15 bg-ink/60 px-2 py-1.5 text-base text-cream outline-none focus:border-plonkPink"
+                          />
+                        </label>
+                        <label className="flex items-center gap-1 text-xs text-cream/50">
+                          Food cost £
+                          <input
+                            inputMode="decimal"
+                            defaultValue={poundsFromPence(d.cost_pence)}
+                            onBlur={(e) => patchDish(i, { cost_pence: penceFromPounds(e.target.value) })}
+                            className="w-20 rounded-md border border-cream/15 bg-ink/60 px-2 py-1.5 text-base text-cream outline-none focus:border-plonkPink"
+                          />
+                        </label>
+                        <label className="flex items-center gap-1 text-xs text-cream/50">
+                          Make
+                          <input
+                            inputMode="numeric"
+                            defaultValue={d.qty || ""}
+                            onBlur={(e) => patchDish(i, { qty: Math.max(0, parseInt(e.target.value) || 0) })}
+                            placeholder="0"
+                            className="w-16 rounded-md border border-cream/15 bg-ink/60 px-2 py-1.5 text-base text-cream outline-none focus:border-plonkPink"
+                          />
+                        </label>
+                      </div>
+                      <div>
+                        <p className="mb-1 text-[10px] font-bold uppercase tracking-widest text-cream/35">Allergens — tap to set</p>
+                        <div className="flex flex-wrap gap-1">
+                          {ALLERGENS.map(({ key, label }) => {
+                            const st = d.allergens[key] || "";
+                            const style = st ? ALLERGEN_STYLE[st] : null;
+                            return (
+                              <button
+                                key={key}
+                                onClick={() => cycleAllergen(i, key)}
+                                className={`rounded-full px-2 py-1 text-[11px] ${style ? style.bg : "bg-cream/5 text-cream/50"}`}
+                              >
+                                {label}{style ? ` · ${style.label}` : ""}
+                              </button>
+                            );
+                          })}
+                        </div>
+                      </div>
+                      <button onClick={() => removeDish(i)} className="text-[11px] font-bold uppercase tracking-wider text-plonkPink/80">
+                        Remove dish
+                      </button>
+                    </div>
+                  </div>
+                </div>
+              ))}
+
+              <button
+                onClick={() => setDishes((ds) => [...ds, blankDish()])}
+                className="w-full rounded-lg border border-dashed border-cream/25 py-2.5 text-xs font-bold uppercase tracking-widest text-cream/70 hover:border-cream/50"
+              >
+                + Add dish
+              </button>
+
+              <div>
+                <p className="mb-1 text-[10px] font-bold uppercase tracking-widest text-cream/35">Note to the kitchen (optional)</p>
+                <textarea
+                  value={note}
+                  onChange={(e) => setNote(e.target.value)}
+                  rows={2}
+                  placeholder="Prep notes, timings, anything the kitchen should know…"
+                  className="w-full resize-none rounded-md border border-cream/15 bg-ink/60 px-3 py-2 text-base text-cream outline-none focus:border-plonkPink"
+                />
+              </div>
+
+              {msg && <p className="text-xs text-teal-400">{msg}</p>}
+              {err && <p className="text-xs text-plonkPink">{err}</p>}
+
+              <div className="flex flex-wrap gap-2">
+                <button
+                  onClick={() => persist(false)}
+                  disabled={busy}
+                  className="rounded-full border border-cream/25 px-5 py-2 text-[11px] font-bold uppercase tracking-widest text-cream/80 hover:border-cream/50 disabled:opacity-40"
+                >
+                  {busy ? "Saving…" : "Save draft"}
+                </button>
+                <button
+                  onClick={() => persist(true)}
+                  disabled={busy || dishes.length === 0}
+                  className="rounded-full bg-plonkPink px-5 py-2 text-[11px] font-bold uppercase tracking-widest text-white hover:bg-plonkPink/90 disabled:opacity-40"
+                >
+                  Submit to No Dice
+                </button>
+              </div>
+            </>
+          )}
+        </div>
+      )}
+    </div>
   );
 }
 

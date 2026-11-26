@@ -76,6 +76,33 @@ export function promoterAddNote(token: string, eventId: string, body: string): P
   return call({ action: "addNote", token, event_id: eventId, body });
 }
 
+// ── Chef pop-up menu (food events) ──────────────────────────────────────────
+export type MenuDish = {
+  id: string;
+  name: string;
+  desc: string;
+  sell_pence: number;
+  cost_pence: number;
+  qty: number;
+  allergens: Record<string, string>; // key -> 'contains' | 'trace' | 'pending'
+};
+export type MenuDoc = { dishes: MenuDish[]; note?: string; logo?: string };
+export type MenuState = {
+  doc: MenuDoc;
+  status: "draft" | "submitted" | "published";
+  submitted_at: string | null;
+  published_at: string | null;
+};
+export function promoterMenuGet(token: string, eventId: string): Promise<MenuState> {
+  return call({ action: "menuGet", token, event_id: eventId });
+}
+export function promoterMenuSave(token: string, eventId: string, doc: MenuDoc): Promise<{ ok: true }> {
+  return call({ action: "menuSave", token, event_id: eventId, doc });
+}
+export function promoterMenuSubmit(token: string, eventId: string, doc: MenuDoc): Promise<{ ok: true }> {
+  return call({ action: "menuSubmit", token, event_id: eventId, doc });
+}
+
 // ── Admin-facing (events builder) ───────────────────────────────────────────
 // Pull the signed-in staffer's Supabase access token so the edge function can
 // confirm an authorised caller. Null (not signed in) makes the admin calls 401.

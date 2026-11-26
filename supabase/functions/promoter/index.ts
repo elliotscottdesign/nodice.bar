@@ -98,6 +98,45 @@ async function verifyPassword(pw: string, stored: string | null): Promise<boolea
   return diff === 0;
 }
 
+// The 15 allergen keys the On A Roll menu uses (14 FSA + mushroom), and the
+// three "has it" states. Keep in sync with the kitchen 🍔 Menu editor.
+const ALLERGEN_KEYS = new Set([
+  "celery", "gluten", "crustaceans", "eggs", "fish", "lupin", "milk", "molluscs",
+  "mustard", "nuts", "peanuts", "sesame", "soya", "sulphites", "mushroom",
+]);
+const ALLERGEN_STATES = new Set(["contains", "trace", "pending"]);
+const clampStr = (v: unknown, n: number) => String(v ?? "").slice(0, n);
+const pence = (v: unknown) => {
+  const n = Math.round(Number(v));
+  return Number.isFinite(n) && n >= 0 && n <= 10_000_00 ? n : 0;
+};
+
+// Normalise an incoming chef menu doc to the shape we store — never trust the
+// client. Caps the number of dishes and the field sizes, keeps only valid
+// allergen keys/states, coerces prices to whole pence.
+function sanitizeMenuDoc(raw: unknown): { dishes: unknown[]; note: string; logo: string } {
+  const d = (raw && typeof raw === "object" ? raw : {}) as Record<string, unknown>;
+  const dishesIn = Array.isArray(d.dishes) ? d.dishes.slice(0, 80) : [];
+  const dishes = dishesIn.map((row) => {
+    const r = (row && typeof row === "object" ? row : {}) as Record<string, unknown>;
+    const allerIn = (r.allergens && typeof r.allergens === "object" ? r.allergens : {}) as Record<string, unknown>;
+    const allergens: Record<string, string> = {};
+    for (const [k, v] of Object.entries(allerIn)) {
+      if (ALLERGEN_KEYS.has(k) && ALLERGEN_STATES.has(String(v))) allergens[k] = String(v);
+    }
+    return {
+      id: clampStr(r.id, 40) || `d_${crypto.randomUUID().slice(0, 8)}`,
+      name: clampStr(r.name, 120),
+      desc: clampStr(r.desc, 500),
+      sell_pence: pence(r.sell_pence),
+      cost_pence: pence(r.cost_pence),
+      qty: Math.max(0, Math.min(9999, Math.round(Number(r.qty) || 0))),
+      allergens,
+    };
+  });
+  return { dishes, note: clampStr(d.note, 2000), logo: clampStr(d.logo, 500000) };
+}
+
 // Validate the signed-in staffer behind /admin. Returns their email or null.
 async function adminEmail(accessToken: unknown): Promise<string | null> {
   const t = String(accessToken ?? "");
@@ -343,6 +382,44 @@ Deno.serve(async (req) => {
         author_email: p.email,
         body: text,
       });
+      return json({ ok: true });
+    }
+
+    // ── PROMOTER: chef pop-up menu (draft builder) ──────────────────────────
+    // A food-event promoter builds their menu here. It is a DRAFT — it never
+    // touches the live On A Roll menu; the office publishes it separately.
+    if (action === "menuGet" || action === "menuSave" || action === "menuSubmit") {
+      const token = String(body.token ?? "");
+      const eventId = String(body.event_id ?? "");
+      if (!token) return json({ error: "No token" }, { status: 400 });
+      if (!UUID_RE.test(eventId)) return json({ error: "Bad event" }, { status: 400 });
+      const { data: p } = await db.from("promoters").select("email").eq("token", token).maybeSingle();
+      if (!p) return json({ error: "Session expired — please sign in again." }, { status: 401 });
+      const { data: link } = await db
+        .from("event_promoters").select("event_id")
+        .eq("promoter_email", p.email).eq("event_id", eventId).maybeSingle();
+      if (!link) return json({ error: "Not your event." }, { status: 403 });
+
+      if (action === "menuGet") {
+        const { data: m } = await db
+          .from("promoter_menus")
+          .select("doc, status, submitted_at, published_at")
+          .eq("event_id", eventId).maybeSingle();
+        return json(m ?? { doc: { dishes: [] }, status: "draft", submitted_at: null, published_at: null });
+      }
+
+      // Save / submit both persist the doc; submit also flips the status.
+      const doc = sanitizeMenuDoc(body.doc);
+      const patch: Record<string, unknown> = { event_id: eventId, doc, updated_at: new Date().toISOString() };
+      if (action === "menuSubmit") { patch.status = "submitted"; patch.submitted_at = new Date().toISOString(); }
+      await db.from("promoter_menus").upsert(patch, { onConflict: "event_id" });
+      if (action === "menuSubmit") {
+        // Let the office know, in the same notes thread they already watch.
+        await db.from("promoter_notes").insert({
+          event_id: eventId, author: "promoter", author_email: p.email,
+          body: "📋 Submitted the pop-up menu for you to review & put live on On A Roll.",
+        });
+      }
       return json({ ok: true });
     }
 
