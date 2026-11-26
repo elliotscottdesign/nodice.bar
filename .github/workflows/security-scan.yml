@@ -1,0 +1,109 @@
+name: Security scan (warn-only)
+
+# Owned by the `security` lane (team hub docs/security/**). Runs on every push to
+# main and WARNS only — it never fails the job and never blocks the deploy (that's
+# a separate workflow). It scans only what THIS push changed, so accepted values
+# never nag. It speaks up (GitHub ⚠️ annotations + a run summary) only on a real hit.
+#
+# What it looks for in the pushed diff:
+#   1. A committed Supabase service_role key   (CRITICAL — would hand out full DB access)
+#   2. A committed Stripe secret / webhook key (sk_live / sk_test / rk_ / whsec_)
+#   3. A GitHub token (ghp_ / github_pat_)
+#   4. A NEW RLS policy that grants the public `anon` role write access, or USING(true)
+#   5. gitleaks broad secret scan over the pushed commits (best-effort)
+#
+# Standing findings for the whole system live in the team hub: docs/security/AUDIT.md
+
+on:
+  push:
+    branches: [main]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  scan:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout (with history for diffing the push)
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Work out what this push changed
+        id: range
+        run: |
+          BEFORE="${{ github.event.before }}"
+          AFTER="${{ github.sha }}"
+          if [ -z "$BEFORE" ] || [ "$BEFORE" = "0000000000000000000000000000000000000000" ] || ! git cat-file -e "$BEFORE^{commit}" 2>/dev/null; then
+            BEFORE="$(git rev-parse "$AFTER~1" 2>/dev/null || echo "$AFTER")"
+          fi
+          echo "before=$BEFORE" >> "$GITHUB_OUTPUT"
+          echo "after=$AFTER" >> "$GITHUB_OUTPUT"
+          echo "Diffing $BEFORE..$AFTER"
+
+      - name: Rules (service_role / payment keys / tokens / anon-write RLS)
+        env:
+          BASE: ${{ steps.range.outputs.before }}
+          HEAD: ${{ steps.range.outputs.after }}
+        run: |
+          set +e
+          HITS=0
+          note() { echo "::warning file=$1::$2"; echo "- ⚠️ \`$1\` — $2" >> "$GITHUB_STEP_SUMMARY"; HITS=$((HITS+1)); }
+
+          echo "## 🔒 Security scan" >> "$GITHUB_STEP_SUMMARY"
+          echo "Range: \`$BASE..$HEAD\`" >> "$GITHUB_STEP_SUMMARY"
+
+          DIFF="$(git diff --unified=0 "$BASE" "$HEAD" 2>/dev/null)"
+
+          CUR=""
+          while IFS= read -r line; do
+            case "$line" in
+              "+++ b/"*) CUR="${line#+++ b/}" ;;
+              "+"*)
+                body="${line#+}"
+                echo "$body" | grep -qE 'sk_(live|test)_[A-Za-z0-9]{8,}|rk_(live|test)_[A-Za-z0-9]{8,}|whsec_[A-Za-z0-9]{8,}' \
+                  && note "$CUR" "Looks like a Stripe secret / webhook key was committed — move it to an env secret and rotate it."
+                echo "$body" | grep -qE 'ghp_[A-Za-z0-9]{20,}|github_pat_[A-Za-z0-9_]{20,}' \
+                  && note "$CUR" "Looks like a GitHub token was committed — revoke it and move it to a secret."
+                case "$CUR" in
+                  *.sql)
+                    low="$(echo "$body" | tr 'A-Z' 'a-z')"
+                    echo "$low" | grep -qE 'create policy' && echo "$low" | grep -qE 'to anon' && echo "$low" | grep -qE 'insert|update|delete|using \(true\)|using\(true\)' \
+                      && note "$CUR" "New RLS policy grants the public 'anon' role write/open access — confirm this table holds no customer PII or money (see the team hub docs/security/AUDIT.md C1)."
+                    ;;
+                esac
+                ;;
+            esac
+          done <<< "$DIFF"
+
+          echo "$DIFF" | grep -E '^\+' | grep -oE 'eyJ[A-Za-z0-9_-]+\.[A-Za-z0-9_-]+\.[A-Za-z0-9_-]+' | sort -u | while read -r j; do
+            p="$(echo "$j" | cut -d. -f2 | tr '_-' '/+')"; pad=$(( (4 - ${#p} % 4) % 4 )); p="$p$(printf '=%.0s' $(seq 1 $pad))"
+            role="$(echo "$p" | base64 -d 2>/dev/null | grep -oE '"role"[: ]*"[a-z_]+"' | grep -oE '[a-z_]+"$' | tr -d '"')"
+            if [ "$role" = "service_role" ]; then
+              echo "::error::A Supabase SERVICE_ROLE key was committed in this push — it grants full database access. Rotate it in Supabase immediately and remove it from git."
+              echo "- 🔴 **A Supabase service_role key was committed** — rotate it now (Supabase → Settings → API) and remove it." >> "$GITHUB_STEP_SUMMARY"
+            fi
+          done
+
+          if [ "$HITS" = "0" ]; then echo "- ✅ No new secrets or risky policies in this push." >> "$GITHUB_STEP_SUMMARY"; fi
+          exit 0
+
+      - name: gitleaks (broad secret scan, best-effort)
+        continue-on-error: true
+        env:
+          BASE: ${{ steps.range.outputs.before }}
+          HEAD: ${{ steps.range.outputs.after }}
+        run: |
+          set +e
+          VER="8.21.2"
+          URL="https://github.com/gitleaks/gitleaks/releases/download/v${VER}/gitleaks_${VER}_linux_x64.tar.gz"
+          curl -sSfL "$URL" -o /tmp/gl.tgz && tar -xzf /tmp/gl.tgz -C /tmp gitleaks || { echo "gitleaks download skipped (network) — rules step above already ran"; exit 0; }
+          /tmp/gitleaks detect --source . --config .gitleaks.toml --redact --no-banner \
+            --log-opts="${BASE}..${HEAD}" --report-path /tmp/gl.json
+          if [ -s /tmp/gl.json ] && [ "$(cat /tmp/gl.json)" != "[]" ]; then
+            echo "::warning::gitleaks flagged a possible secret in this push — review the step log (values redacted)."
+            echo "- ⚠️ gitleaks flagged a possible secret in this push (values redacted in the log). Review before it spreads." >> "$GITHUB_STEP_SUMMARY"
+          fi
+          exit 0

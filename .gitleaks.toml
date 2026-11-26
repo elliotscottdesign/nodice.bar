@@ -1,0 +1,17 @@
+# gitleaks config for the nodice.bar customer site — used by .github/workflows/security-scan.yml
+# Extends the default rules, then allowlists values that are PUBLIC BY DESIGN (anon key +
+# Stripe PUBLISHABLE key, both meant to ship in the browser) so the scan stays quiet and
+# only fires on genuinely new secrets.
+[extend]
+useDefault = true
+
+[allowlist]
+description = "Known public-by-design values (safe to ship in the browser bundle)"
+regexes = [
+  '''rntcujcpsozvuxvmlejv''',                 # live Supabase project ref (anon key is public)
+  '''bieikfwhzkdekojerdqs''',                 # stale/decommissioned project ref, anon-key fallback
+  '''pk_live_51TVsTZEpRnfAMZgtrvncT1YGkRAg4pGvgyutMpWrlcNdcyJFUL7PhbN9wUb0wzBrx3652OBS5rPRNoBfgpkhbtjk00MZFqkfax''', # Stripe PUBLISHABLE key (public by design)
+]
+paths = [
+  '''\.gitleaks\.toml''',
+]
