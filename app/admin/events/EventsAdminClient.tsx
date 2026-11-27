@@ -8,7 +8,10 @@ import {
   adminUnassignPromoter,
   adminResendPromoter,
   adminReplyPromoterNote,
+  adminGetPromoterMenu,
+  adminPublishPromoterMenu,
   type AdminEventPromoters,
+  type MenuState,
 } from "@/lib/db/promoter";
 import { createPortal } from "react-dom";
 import MediaPicker from "@/components/admin/MediaPicker";
@@ -2469,6 +2472,11 @@ function PromoterPanel({ event }: { event: DbEvent }) {
   const [busy, setBusy] = useState(false);
   const [msg, setMsg] = useState<string | null>(null);
   const [err, setErr] = useState<string | null>(null);
+  // Chef pop-up menu (food events only) — the submitted menu + publish control.
+  const [menu, setMenu] = useState<MenuState | null>(null);
+  const [pubBusy, setPubBusy] = useState(false);
+  const [pubMsg, setPubMsg] = useState<string | null>(null);
+  const isFood = event.category === "food_event";
 
   const refresh = useCallback(async () => {
     try {
@@ -2479,10 +2487,30 @@ function PromoterPanel({ event }: { event: DbEvent }) {
         setEmail((e) => e || first.email);
         setName((n) => n || first.name || "");
       }
+      if (event.category === "food_event") {
+        try { setMenu(await adminGetPromoterMenu(event.id)); } catch { /* no menu yet */ }
+      }
     } catch (e) {
       setErr(describe(e, "Couldn't load promoter info."));
     }
-  }, [event.id]);
+  }, [event.id, event.category]);
+
+  async function publishMenu() {
+    setPubBusy(true);
+    setPubMsg(null);
+    setErr(null);
+    try {
+      const r = await adminPublishPromoterMenu(event.id);
+      setPubMsg(
+        `Published to On A Roll as a parked pop-up (${r.sectionId}). Flip it live in 🍔 Menu / Hours on the day.`,
+      );
+      try { setMenu(await adminGetPromoterMenu(event.id)); } catch { /* ignore */ }
+    } catch (e) {
+      setErr(describe(e, "Couldn't publish the menu."));
+    } finally {
+      setPubBusy(false);
+    }
+  }
 
   useEffect(() => {
     if (open && data === null) refresh();
@@ -2669,6 +2697,54 @@ function PromoterPanel({ event }: { event: DbEvent }) {
 
           {msg && <p className="text-xs text-plonkTeal">{msg}</p>}
           {err && <p className="text-xs text-red-400">{err}</p>}
+
+          {/* Chef pop-up menu — review + publish to On A Roll (food events) */}
+          {isFood && (
+            <div className="space-y-2 border-t border-cream/10 pt-3">
+              <div className="flex items-center justify-between">
+                <p className={labelCls}>🍔 Pop-up menu</p>
+                {menu && (
+                  <span className="text-[10px] font-bold uppercase tracking-widest text-cream/45">
+                    {menu.status === "published" ? "Published" : menu.status === "submitted" ? "Submitted" : "Draft"}
+                  </span>
+                )}
+              </div>
+              {!menu || menu.doc.dishes.length === 0 ? (
+                <p className="text-xs text-cream/45">The chef hasn&apos;t built a menu yet — it&apos;ll show here when they submit one.</p>
+              ) : (
+                <>
+                  <div className="space-y-1">
+                    {menu.doc.dishes.map((d) => (
+                      <div key={d.id} className="flex items-baseline justify-between gap-3 rounded-md bg-ink/50 px-3 py-1.5 text-xs">
+                        <span className="min-w-0 flex-1 truncate text-cream/90">
+                          {d.name || "—"}
+                          {Object.keys(d.allergens || {}).length > 0 && (
+                            <span className="ml-2 text-[10px] text-amber-400/80">
+                              {Object.keys(d.allergens).join(", ")}
+                            </span>
+                          )}
+                        </span>
+                        {d.qty ? <span className="shrink-0 text-cream/40">×{d.qty}</span> : null}
+                        <span className="shrink-0 text-cream/70">{d.sell_pence ? formatPence(d.sell_pence) : "—"}</span>
+                      </div>
+                    ))}
+                  </div>
+                  <button
+                    type="button"
+                    onClick={publishMenu}
+                    disabled={pubBusy}
+                    className="rounded-full bg-plonkTeal px-5 py-2 text-xs font-bold uppercase tracking-wider text-ink hover:brightness-110 disabled:opacity-50"
+                  >
+                    {pubBusy ? "Publishing…" : menu.status === "published" ? "Re-publish to On A Roll" : "Publish to On A Roll"}
+                  </button>
+                  {pubMsg && <p className="text-xs text-plonkTeal">{pubMsg}</p>}
+                  <p className="text-[10px] leading-relaxed text-cream/35">
+                    Adds a parked pop-up group to the On A Roll menu. Turn it on for the night in 🍔 Menu or the Hours tab; park it after.
+                  </p>
+                </>
+              )}
+            </div>
+          )}
 
           {/* Notes thread from the promoter */}
           {notes.length > 0 && (

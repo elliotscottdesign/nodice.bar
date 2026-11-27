@@ -149,3 +149,11 @@ export async function adminResendPromoter(email: string): Promise<{ ok: boolean;
 export async function adminReplyPromoterNote(eventId: string, body: string): Promise<{ ok: true }> {
   return call({ action: "adminNote", event_id: eventId, body, accessToken: await accessToken() });
 }
+export async function adminGetPromoterMenu(eventId: string): Promise<MenuState> {
+  return call({ action: "adminMenuGet", event_id: eventId, accessToken: await accessToken() });
+}
+export async function adminPublishPromoterMenu(
+  eventId: string,
+): Promise<{ ok: true; sectionId: string; parked: boolean }> {
+  return call({ action: "adminPublishMenu", event_id: eventId, accessToken: await accessToken() });
+}

@@ -50,8 +50,22 @@ const SUPABASE_URL = Deno.env.get("SUPABASE_URL") ?? "";
 const SERVICE_KEY = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY") ?? "";
 const ANON_KEY = Deno.env.get("SUPABASE_ANON_KEY") ?? "";
 const RESEND_API_KEY = Deno.env.get("RESEND_API_KEY") ?? "";
+// Shared admin secret for the kitchen's `menu` edge fn (publish a pop-up menu
+// into the live On A Roll menu goes through THAT fn's saveMenu, never a direct
+// menu_catalog write — so the kitchen's own print/stock derivation still runs).
+const SEND_SECRET = Deno.env.get("SEND_SECRET") ?? "";
+const MENU_FN_URL = `${SUPABASE_URL}/functions/v1/menu`;
 const FROM_EMAIL = "info@nodice.bar";
 const SITE = "https://nodice.bar";
+
+async function menuFn(payload: Record<string, unknown>): Promise<any> {
+  const res = await fetch(MENU_FN_URL, {
+    method: "POST",
+    headers: { "content-type": "application/json" },
+    body: JSON.stringify(payload),
+  });
+  return await res.json().catch(() => ({}));
+}
 
 const db = createClient(SUPABASE_URL, SERVICE_KEY, { auth: { persistSession: false } });
 
@@ -502,6 +516,90 @@ Deno.serve(async (req) => {
         .eq("event_id", eventId)
         .order("created_at", { ascending: true });
       return json({ promoters, notes: notes || [] });
+    }
+
+    // ── ADMIN: read a food promoter's submitted pop-up menu (builder review) ─
+    if (action === "adminMenuGet") {
+      const who = await adminEmail(body.accessToken);
+      if (!who) return json({ error: "Not authorised." }, { status: 401 });
+      const eventId = String(body.event_id ?? "");
+      if (!UUID_RE.test(eventId)) return json({ error: "Bad event id." }, { status: 400 });
+      const { data: m } = await db
+        .from("promoter_menus")
+        .select("doc, status, submitted_at, published_at")
+        .eq("event_id", eventId).maybeSingle();
+      return json(m ?? { doc: { dishes: [] }, status: "draft", submitted_at: null, published_at: null });
+    }
+
+    // ── ADMIN: publish a submitted menu into On A Roll (hidden pop-up) ───────
+    // Writes a parked pop-up SECTION into menu_catalog via the kitchen's own
+    // `menu` saveMenu (so print/stock derivation runs). The office then flips it
+    // live on the day with the existing 🍔 Menu / Hours controls. Re-publishing
+    // replaces the same section (deterministic id), never duplicates.
+    if (action === "adminPublishMenu") {
+      const who = await adminEmail(body.accessToken);
+      if (!who) return json({ error: "Not authorised." }, { status: 401 });
+      if (!SEND_SECRET) return json({ error: "Publishing isn't configured (no menu secret)." }, { status: 500 });
+      const eventId = String(body.event_id ?? "");
+      if (!UUID_RE.test(eventId)) return json({ error: "Bad event id." }, { status: 400 });
+
+      const { data: m } = await db.from("promoter_menus").select("doc").eq("event_id", eventId).maybeSingle();
+      const dishes = Array.isArray((m?.doc as any)?.dishes) ? (m!.doc as any).dishes : [];
+      if (!dishes.length) return json({ error: "No menu to publish yet." }, { status: 400 });
+
+      const { data: ev } = await db.from("events").select("name, event_date").eq("id", eventId).maybeSingle();
+      const niceDate = (() => {
+        try {
+          return new Date(`${ev?.event_date}T00:00:00`).toLocaleDateString("en-GB", { day: "numeric", month: "short" });
+        } catch { return ""; }
+      })();
+
+      // Deterministic pop-up section id for this event → re-publish replaces it.
+      const sectionId = `popup_ev_${eventId.replace(/-/g, "").slice(0, 10)}`;
+      // Map each chef dish → a menu_catalog item. Section is parked (archived),
+      // but items are NOT (so flipping the section live shows them — setLiveService
+      // toggles the section only).
+      const items = dishes.map((d: any) => ({
+        id: String(d.id || `d_${crypto.randomUUID().slice(0, 8)}`),
+        name: String(d.name || "Dish"),
+        star: false,
+        archived: false,
+        sell_pence: Number(d.sell_pence) || 0,
+        cost_pence: Number(d.cost_pence) || 0,
+        img: "",
+        desc: String(d.desc || ""),
+        addons: [],
+        allergens: d.allergens && typeof d.allergens === "object" ? d.allergens : {},
+        stock: [],
+      }));
+      const section = {
+        id: sectionId,
+        name: `${ev?.name || "Pop-up"}${niceDate ? ` · ${niceDate}` : ""}`,
+        archived: true, // parked until the office flips it live on the day
+        items,
+      };
+
+      const cur = await menuFn({ action: "getMenu" });
+      if (!cur?.ok) return json({ error: "Couldn't read the On A Roll menu." }, { status: 502 });
+      const existing = Array.isArray(cur.sections) ? cur.sections : [];
+      const without = existing.filter((s: any) => String(s?.id) !== sectionId);
+      const sections = [...without, section];
+
+      const saved = await menuFn({
+        action: "saveMenu",
+        secret: SEND_SECRET,
+        sections,
+        bundles: cur.bundles || [],
+        vat_registered: !!cur.vat_registered,
+        by: `promoter publish (${who})`,
+      });
+      if (!saved?.ok) return json({ error: `On A Roll save failed: ${saved?.error || "unknown"}` }, { status: 502 });
+
+      await db.from("promoter_menus").upsert(
+        { event_id: eventId, status: "published", published_at: new Date().toISOString(), updated_at: new Date().toISOString() },
+        { onConflict: "event_id" },
+      );
+      return json({ ok: true, sectionId, parked: true });
     }
 
     // ── ADMIN: resend the login (magic link; password not stored) ───────────
