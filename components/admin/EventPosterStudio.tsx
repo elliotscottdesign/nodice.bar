@@ -413,15 +413,25 @@ export default function EventPosterStudio({
   // The headline font has to be loaded before anything is measured, or every
   // line lays out against a fallback face and the whole poster is wrong. If it
   // never loads, exporting is blocked rather than silently producing junk.
+  const [retryingFont, setRetryingFont] = useState(false);
+  const tryFont = useCallback(async () => {
+    setRetryingFont(true);
+    const ok = await ensureFont();
+    // Loaded AND actually usable for measuring — a face that loaded but isn't
+    // registered yet would still lay the poster out at the wrong sizes.
+    setFontOk(ok && fontReady());
+    setRetryingFont(false);
+    bump();
+  }, []);
+
   useEffect(() => {
     let alive = true;
-    ensureFont().then((ok) => {
+    (async () => {
+      const ok = await ensureFont();
       if (!alive) return;
-      // Loaded AND actually usable for measuring — a face that loaded but isn't
-      // registered yet would still lay the poster out at the wrong sizes.
       setFontOk(ok && fontReady());
       bump();
-    });
+    })();
     return () => {
       alive = false;
     };
@@ -857,8 +867,20 @@ export default function EventPosterStudio({
 
       {fontOk === false && (
         <Notice variant="warning">
-          The poster typeface didn&apos;t load, so the poster would come out in
-          the wrong font. Reload this page and try again.
+          <div className="flex flex-wrap items-center justify-between gap-2">
+            <span>
+              The poster typeface didn&apos;t load, so the poster would come out
+              in the wrong font.
+            </span>
+            <button
+              type="button"
+              onClick={tryFont}
+              disabled={retryingFont}
+              className="shrink-0 rounded-full border border-plonkYellow/50 px-3 py-1 text-[11px] font-bold uppercase tracking-wider text-plonkYellow transition hover:bg-plonkYellow/10 disabled:opacity-50"
+            >
+              {retryingFont ? "Trying…" : "↻ Try again"}
+            </button>
+          </div>
         </Notice>
       )}
       {err && <Notice variant="error">{err}</Notice>}

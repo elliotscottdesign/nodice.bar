@@ -45,6 +45,9 @@ export async function loadCalendarDeals(): Promise<{
     .from("events")
     .select("id, name, description, poster_url, event_date")
     .eq("category", "drink_special")
+    // Skip paused deals — switched off from the deals admin, so they drop off
+    // the public /deals page and the /bar menu while keeping all their dates.
+    .eq("paused", false)
     .gte("event_date", today)
     .order("event_date", { ascending: true })
     .limit(200);

@@ -182,6 +182,10 @@ export async function loadCalendarEventsInRange(
     .from("events")
     .select(SELECT)
     .eq("show_on_events_calendar", true)
+    // Paused events (a deal switched off from the deals admin) keep their rows
+    // but drop off every public calendar surface — /events, the homepage
+    // scroller and UpcomingEvents all read through here.
+    .eq("paused", false)
     .gte("event_date", fromIso)
     .lte("event_date", toIso)
     .order("event_date", { ascending: true });
@@ -194,6 +198,9 @@ export async function loadAllCalendarEvents(): Promise<DbCalendarEvent[]> {
     .from("events")
     .select(SELECT)
     .eq("show_on_events_calendar", true)
+    // A paused deal is switched off — hidden from the calendar views too. It
+    // stays fully visible + resumable in the deals admin (loadAllEvents).
+    .eq("paused", false)
     .order("event_date", { ascending: true });
   if (error) throw error;
   return ((data ?? []) as EventsRow[]).map(toCalendar);

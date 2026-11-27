@@ -47,23 +47,43 @@ function fontUrl(): string {
 
 let _fontPromise: Promise<boolean> | null = null;
 
-// Load the embedded headline font once (admin-only surface). Resolves FALSE if
-// the font could not be loaded — callers must warn rather than export a poster
-// set in a fallback face, which silently ruins every scale on the page.
-export function ensureFont(): Promise<boolean> {
-  if (_fontPromise) return _fontPromise;
+// One load attempt: fetch the face and register it. Resolves true on success,
+// false on any failure (404, network blip, CSP). Never throws.
+async function loadFontOnce(): Promise<boolean> {
   try {
     const f = new FontFace(FONT_FAMILY, `url(${fontUrl()})`);
-    _fontPromise = f
-      .load()
-      .then((ff) => {
-        (document as unknown as { fonts: FontFaceSet }).fonts.add(ff);
-        return true;
-      })
-      .catch(() => false);
+    const ff = await f.load();
+    (document as unknown as { fonts: FontFaceSet }).fonts.add(ff);
+    return true;
   } catch {
-    _fontPromise = Promise.resolve(false);
+    return false;
   }
+}
+
+// Load the embedded headline font (admin-only surface). Resolves FALSE if the
+// font could not be loaded — callers must warn rather than export a poster set
+// in a fallback face, which silently ruins every scale on the page.
+//
+// A SUCCESSFUL load is cached for the life of the page; a FAILED one is NOT —
+// a single transient blip at page open (slow network, a backgrounded tab) must
+// not poison the whole session so the only cure is a full reload (which also
+// loses any in-progress poster). So on failure the cache is cleared and the
+// next call — an automatic retry, the "Try again" button, or the next export —
+// attempts afresh. Each attempt itself retries a few times with a short back-off
+// to ride out a momentary fetch failure without the caller noticing.
+export function ensureFont(): Promise<boolean> {
+  if (_fontPromise) return _fontPromise;
+  const attempt = (async () => {
+    for (let i = 0; i < 3; i++) {
+      if (await loadFontOnce()) return true;
+      if (i < 2) await new Promise((r) => setTimeout(r, 300 * (i + 1)));
+    }
+    return false;
+  })();
+  _fontPromise = attempt.then((ok) => {
+    if (!ok) _fontPromise = null; // don't remember a failure — allow a retry
+    return ok;
+  });
   return _fontPromise;
 }
 
