@@ -1,7 +1,7 @@
 import AdminPageHeader from "@/components/admin/AdminPageHeader";
 import EventsAdminHub from "./EventsAdminHub";
 
-export const metadata = { title: "Events — No Dice Admin" };
+export const metadata = { title: "Events & Deals — No Dice Admin" };
 
 // Note: server-side `searchParams` can't be used in a static export
 // (Next.js bails out of prerender). The hub reads ?tab=posters from
@@ -10,7 +10,7 @@ export default function EventsAdminPage() {
   return (
     <>
       <AdminPageHeader
-        title="Events"
+        title="Events & Deals"
         description="Two tabs: ticketed events (customers book/pay) and calendar posters (artwork on /events). Everything event-shaped in one place."
         action={
           <a

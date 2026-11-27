@@ -21,7 +21,7 @@ const NAV: { label: string; href: string; group?: string }[] = [
   { label: "Pool reservations", href: "/admin/pool-reservations", group: "Bookings" },
   { label: "Special events & tournaments", href: "/admin/tournament-entries", group: "Bookings" },
 
-  { label: "Events", href: "/admin/events", group: "Events" },
+  { label: "Events & Deals", href: "/admin/events", group: "Events" },
   { label: "Event Priority", href: "/admin/event-priority", group: "Events" },
   { label: "Site Content", href: "/admin/content", group: "Events" },
   { label: "Header", href: "/admin/content/global/header", group: "Events" },
